@@ -168,7 +168,7 @@ Talking to a DB.
 
 The documentation is best viewed at https://metacpan.org/pod/MCE.
 MCE options are described at https://metacpan.org/pod/MCE::Core.
-Also, see https://metacpan.org/pod/MCE::Examples.
+Also see https://metacpan.org/pod/MCE::Examples.
 
 ### Copyright and Licensing
 
