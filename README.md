@@ -116,54 +116,6 @@ Parsing a huge log file.
 
     print join('', @result);
 
-Talking to a DB.
-
-    use DBI;
-    use MCE;
-
-    # Define user functions for MCE.
-
-    sub myBegin {
-        my ($mce) = @_;
-        $mce->{db} = DBI->connect(
-           "dbi:Oracle:<SERVER_NAME>", "<USERID>", "<PASSWORD>"
-        ) || die($DBI::errstr . "\n");
-        return;
-    }
-    sub myFunc {
-        my ($mce, $chunk_ref, $chunk_id) = @_;
-        my $db  = $mce->{db};
-        my $row = $chunk_ref->[0];
-    }
-    sub myEnd {
-        my ($mce) = @_;
-        $mce->{db}->disconnect;
-    }
-
-    # Do some work with the database in order to fill up
-    # the @array variable.
-
-    my (@array, $db);
-
-    $db = DBI->connect(
-       "dbi:Oracle:<SERVER_NAME>", "<USERID>", "<PASSWORD>"
-    ) || die($DBI::errstr . "\n");
-
-    $db->disconnect;
-
-    # Process the array one row at a time.
-
-    my $mce = MCE->new(
-       chunk_size => 1,
-       max_workers => 4,
-       input_data => \@array,
-       user_begin => \&myBegin,
-       user_func => \&myFunc,
-       user_end => \&myEnd
-    );
-
-    $mce->run;
-
 ### Documentation
 
 The documentation is best viewed at https://metacpan.org/pod/MCE.
