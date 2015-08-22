@@ -1,4 +1,4 @@
-## Many-Core Engine (MCE) for Perl
+## Many-Core Engine for Perl
 
 This document describes MCE version 1.699.
 
@@ -167,7 +167,8 @@ Talking to a DB.
 ### Documentation
 
 The documentation is best viewed at https://metacpan.org/pod/MCE.
-MCE options are described at https://metacpan.org/pod/MCE::Core.
+MCE options are described in https://metacpan.org/pod/MCE::Core.
+
 Also see https://metacpan.org/pod/MCE::Examples.
 
 ### Copyright and Licensing
