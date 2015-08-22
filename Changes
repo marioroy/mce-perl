@@ -1,0 +1,1252 @@
+
+Revision history for Perl module MCE.
+
+1.699 Wed Aug 12 01:30:00 EST 2015
+
+  [ TODO: before releasing MCE 1.700 ]
+
+    Document ->enq, ->enqp, and ->await methods in MCE::Step.
+    Complete MCE::Shared documentation.
+    Complete MCE::OrdHash documentation
+    Update MCE::Mutex documentation.
+    Write MCE::Cookbook.pod.
+
+    Thank you for your patience. Almost there.
+
+  [BUG FIXES]
+
+  * Fixed race condition on Windows for non-threaded workers.
+
+  * Updated MCE Models to not fail when running inside an eval statement.
+    This addresses RT#105557 and RT#105559. Thank you, Benjamin McKeown.
+
+  [ENHANCEMENTS]
+
+  * Added code in MCE::Grep's documentation for parsing huge files.
+  * Added option posix_exit => 1 to avoid END and destructor processing.
+  * Faster startup time including job submission for Cygwin and Windows.
+  * Optimized locking in Mutex and Queue for the MSWin32 platform.
+  * Optimized signal handling with improved support for Windows.
+  * Resolved the slow locking performance for Cygwin.
+
+  * Seeds the Math::Random generator automatically when present for non-threads
+    to avoid child processes sharing the same seed value as the parent and
+    each other. The new seed is computed using the current seed. Thus, okay
+    to set the seed at the application level for predictable results.
+
+  * The MCE::Flow and MCE::Step Models can take an anonymous array for
+    specifying use_threads uniquely for each sub-task. Mixing threads and
+    processes is allowed across the board with this release. MCE on Cygwin
+    has finally reached 100% parity with MCE on a UNIX OS.
+
+  [NEW FEATURES]
+
+  * MCE::Mutex now supports locking via flock and channel (pipe/socket).
+    Added MCE option: mutex_type => 'auto', 'channel', or 'flock'.
+
+    Specifying 'channel' for mutex_type allows process and threads, spawned
+    by MCE workers, to call on any MCE method; e.g. MCE->do, MCE->gather,
+    MCE->print, MCE->printf, MCE->say, MCE->sendto, including MCE::Queue
+    methods.
+
+  * Added MCE::Shared, MCE::Shared::Client, and MCE::Shared::Server.
+    These provide sharing capabilities for MCE including support for threads
+    and non-threads on all popular environments.
+
+  * Added MCE::Number, a share capable number class supporting threads
+    and processes.
+
+  * Added MCE::OrdHash, providing ordered hash capabilities for MCE::Shared.
+    It includes 100% compatibility with Tie::IxHash plus enhancements.
+
+  * Added examples/asynchrony demonstrating parallel concurrency, asynchrony,
+    and shared data; dnslookup_ae.pl, dnslookup_ioa.pl, echoserver_ae.pl,
+    echoserver_ioa.pl, echoserver_mojo.pl, and echoserver_poe.pl.
+
+  * Replaced netping.pl with fastping_ae.pl supporting IPv4 and IPv6.
+  * Added examples: shared_mce.pl, shared_thr.pl, and step_mon.pl.
+
+  * Added ->enq, ->enqp, and ->await methods to MCE::Step.
+  * Added ->await method to MCE::Queue.
+
+1.608 Fri Apr 10 03:00:00 EST 2015
+
+  * Correction for $prog_name (-e) to (perl) in MCE::Signal.
+
+1.607 Fri Apr 10 01:00:00 EST 2015
+
+  [BUG FIXES]
+
+  * Updated t/01_load_signal_arg.t to address false-positive from bug fix
+    in 1.606. This was missed in the 1.606 release. Thank you Nigel Horne.
+
+  [ENHANCEMENTS]
+
+  * Replaced (-e) with (perl) for the $prog_name value in MCE::Signal;
+    e.g. from running perl -e 'command'.
+
+1.606 Wed Apr 08 18:00:00 EST 2015
+
+  [BUG FIXES]
+
+  * Added -d and -w tests to ensure $ENV{TEMP} exists and writeable in
+    MCE::Signal. Otherwise /tmp is used as usual.
+
+  [ENHANCEMENTS]
+
+  * Determine running state in MCE->exit. Call stop_and_exit if not
+    already running to not hang the script.
+
+1.605 Mon Apr 06 00:30:00 EST 2015
+
+  [BUG FIXES]
+
+  * Improved fix for the die handler in MCE::Signal and MCE::Core::Worker.
+  * Improved support for threads in MCE::Signal's stop_and_exit function.
+
+1.604 Sat Mar 21 21:00:00 EST 2015
+
+  [BUG FIXES]
+
+  * All bugs found during testing of the upcoming 1.7 release have been
+    backported to the 1.6 branch.
+
+  [NEW FEATURES]
+
+  * Added out_iter_array and out_iter_fh to MCE::Candy. These preserve output
+    order and cover the two general use cases.
+
+1.603 Tue Mar 17 21:00:00 EST 2015
+
+  [ENHANCEMENTS]
+
+  * A safer solution by Dmitry Karasik for the die handler in MCE::Signal
+    and MCE::Core::Worker.
+
+  * Moved ->forchunk, ->foreach, and ->forseq sugar methods to MCE::Candy.
+    Stubs exist in MCE. Thus, no breakage to existing apps.
+
+  * Removed the link to MCE::Shared on the main page. I decided to backport
+    all the fixes into 1.6. The MCE::Shared link was missed and requires
+    the upcoming 1.7 release.
+
+1.602 Mon Mar 16 20:00:00 EST 2015
+
+  [BUG FIXES]
+
+  * Updated die handler in MCE::Core::Worker and MCE::Signal (RT#102802)
+    Bug reported by Dmitry Karasik.
+
+  [ENHANCEMENTS]
+
+  * MCE child processes call CORE::exit during exiting; previously CORE::kill.
+  * Improved IPC stability on Windows and Cygwin.
+
+  * Multiple calls to mutex->lock by the same process or thread is now safe.
+    The mutex will remain locked until mutex->unlock is called.
+
+1.601 Sun Mar 15 21:00:00 EST 2015
+
+  This release is attributed to the many use cases sent by George Bouras.
+
+  [BUG FIXES]
+
+  * Updated Makefile.PL allowing installation of bin/mce_grep (RT#102040).
+    Running (MCE_INSTALL_TOOLS=1 perl Makefile.PL) installs bin/mce_grep.
+
+  * Ensure MCE instances spawned by workers have shutdown before leaving.
+  * An exiting forked non-MCE process will not cause the worker to exit.
+
+  * Fixed sockets not closing immediately in Cygwin and Windows.
+  * Fixed a pod error in MCE::Mutex.
+
+  * Fixed a rare condition where socket handles for MCE::Mutex and
+    MCE::Queue were closing pre-maturely when using threads.
+
+  * Fixed an undefined variable inside croak statements in MCE Models'
+    import subroutine.
+
+  * Fixed automatic shutdown due to loading threads and specifying
+    use_threads => 0 with workers persisting before exiting the script.
+
+  [ENHANCEMENTS]
+
+  * Moved relay methods, introduced in 1.600, from MCE to MCE::Relay.
+    The MCE init_relay option loads and enables MCE::Relay automatically.
+
+  * Captured metrics from Linux (previously OS X) for forchunk.pl,
+    foreach.pl, and forseq.pl. Updated Examples.pod.
+
+  * Default to 'auto' for max_workers in bin/mce_grep, examples/egrep.pl,
+    forchunk.pl, foreach.pl, forseq.pl, iterator.pl, and wc.pl.
+
+  * Moved _create_socket_pair from MCE to MCE::Util as _make_socket_pair.
+    Added _destroy_sockets. Updated MCE, Mutex, and Queue to use MCE::Util.
+
+  * Added a CARP_NOT line to MCE Models.
+  * Added support for ->next and ->last from any sub-tasks in MCE::Step.
+  * Reverted a small change applied in 1.600 to ->do and ->gather.
+  * The 'synchronize' method in Mutex is wantarray aware.
+  * Updated POD header lines for method names; from =item to =head2.
+  * Workers now set STDERR and STDOUT to flush automatically.
+
+  [NEW FEATURES]
+
+  * Added ->pid method to MCE.
+
+1.600 Sat Jan 31 20:00:00 EST 2015
+
+  [BUG FIXES]
+
+  * Die handlers (in MCE::Signal and MCE::Core::Worker) are finally 100%.
+    Furthermore, eval { die ... } statements behave correctly while running
+    MCE itself inside an eval block. Thus, MCE on iPerl on top of iPython
+    is possible via Devel::IPerl.
+
+  * Fixed queues stalling from running (MCE::Queue fast => 1) on Linux.
+
+  * MCE Models now set $MCE::FREEZE, $MCE::THAW, and $MCE::TMP_DIR when
+    overriding freeze, thaw, and tmp_dir respectively at load time.
+
+  * Pressing CTRL-D now ends STDIN the first time.
+
+  [ENHANCEMENTS]
+
+  * Added seven names to CREDITS; David Farrell, Demian Riccardi,
+    Hisham Eldai, Joel Berger, Oleksandr Kharchenko, Wei Shen, and
+    Zakariyya Mughal.
+
+  * Refactored ->print, ->printf, and ->say. Optimized ->print some more.
+  * Shorten $_queue to $_Q in Queue. ID is always sent first during IPC.
+  * The init method in MCE Models can now take an array of options.
+
+  * Optimized memory consumption in Handle.pm, Iterator.pm, and Request.pm.
+  * Optimized memory consumption for ->sendto, ->do, and ->gather.
+  * Optimized memory consumption for overall IPC in general.
+  * Refreshed the MCE->new method.
+
+  [NEW FEATURES]
+
+  * Added a new module; MCE::Mutex providing simple semaphore.
+
+  * Added ->relay_recv, ->relay, and ->relay_final methods to the Core API.
+    Refreshed cat.pl and findnull.pl examples to relay the number of lines
+    read. Workers output exclusively and orderly to STDOUT in cat.pl.
+
+  * Added several examples; biofasta (folder), mutex.pl, and relay.pl.
+    The FASTA examples process by records "\n>", not by lines.
+
+  * MCE applies additional logic when RS begins with a newline character;
+    e.g. RS => "\n>". It trims away characters after the newline and
+    prepends them to the next record. This happens automatically when not
+    slurping. Otherwise, the logic is applied to the first and last records
+    only. This is illustrated in the Core API documentation.
+
+  * Updated the Core API documentation (RS, added relay methods).
+
+1.522 Thu Dec 25 16:00:00 EST 2014
+
+  [BUG FIXES]
+
+  * Applied fix to MCE->shutdown so that MCE Models do not err when
+    receiving signal to terminate.
+
+  * Optimization for MCE->print, MCE->printf, MCE->say and MCE->sendto.
+    This was calling fileno unnecessarily. MCE->print('STDERR', ...)
+    is not supported. This works; MCE->print(\*STDERR, ...)
+
+  [ENHANCEMENTS]
+
+  * Inserts the actual lib-path at the head of @INC in example files.
+  * Massive documentation updates throughout the entire distribution.
+  * Renamed barrier_sync.pl to sync.pl; scaling_pings.pl to ping.pl.
+  * Updated requires in META.yml, Makefile.PL and perl-MCE.spec.
+  * Updated comment in MCE::Queue test scripts.
+  * Updated the README file.
+
+  [NEW FEATURES]
+
+  * Added sampledb examples demonstrating DBI and SQLite with MCE.
+  * Added step_demo.pl to examples.
+
+1.521 Thu Dec 11 16:00:00 EST 2014
+
+  [BUG FIXES]
+
+  * Fixed broken MCE::Queue ->insert and ->peek methods. FIFO and LIFO
+    are fully supported with this release.
+
+  * Support running in taint mode.
+
+  [ENHANCEMENTS]
+
+  * Added support for negative index in MCE::Queue ->insert and ->peek.
+    Updated the documentation.
+
+  * CBOR::XS serialization is mentioned in documentation along with
+    JSON::XS and Sereal.
+
+  * Completed code refactoring for the 1.5 branch.
+  * Optimized argument parsing in import routines.
+  * Removed the MCE spawn_delay option from test scripts.
+
+  [NEW FEATURES]
+
+  * Added 15 new test scripts for testing user_args, MCE::Queue and the
+    MCE Models.
+
+  * An upper-limit of 8 is set when specifying max_workers => 'auto'.
+    Several folks have requested this. More info at MCE::Util::get_ncpu
+    for increasing or decreasing the limit.
+
+1.520 Wed Nov 05 03:00:00 EST 2014
+
+  [ENHANCEMENTS]
+
+  * MCE::Step and MCE::Stream can take the 'fast' option when including
+    the module. The 'fast' option was introduced in 1.518.
+
+  * Removed the type declaration for self (feedback from Sri).
+  * Removed -s from files_flow.pl (was left behind).
+  * Added support for GNU Hurd OS in get_ncpu.
+
+1.519 Mon Oct 27 19:00:00 EST 2014
+
+  [ENHANCEMENTS]
+
+  * Unset the need for channel locking if only worker riding the channel.
+    There are 8 data channels in MCE. Basically, a worker will obtain a
+    lock only when sharing the data channel with another worker.
+
+  * Updated files_flow.pl, files_mce.pl and files_thr.pl to allow for
+    many workers for the first task. Updated the synopsis in MCE::Queue.
+    Synced example listing in Examples.pod with the examples folder.
+
+  * Remove period from summary line.
+
+1.518 Mon Oct 27 10:00:00 EST 2014
+
+  [BUG FIXES]
+
+  * Corrected MCE::Queue's synopsis due to missing List::MoreUtils line.
+    Changed the synopsis to use 1 worker for the 'dir' task in the event
+    one were to copy/patse the code and use threads. The glob() function
+    is not thread-safe in Perl 5.16.x; fixed in 5.18.2, okay in 5.8 - 14.
+
+  * Use portable syntax for setpgrp in MCE::Signal. This closes issue 1
+    at https://code.google.com/p/many-core-engine-perl.
+
+  [NEW FEATURES]
+
+  * New 'fast' option for MCE::Queue. The 'fast' option speeds up ->dequeue
+    ops and not enabled by default. It is beneficial for queues not needing
+    ->clear or ->dequeue_nb and not altering the optional count value
+    while running; e.g. ->dequeue( [ $count ] ).
+
+  * Added three examples: files_flow.pl, files_mce.pl, and files_thr.pl.
+  * Benchmarked on several OSes and appended results to MCE::Queue synopsis.
+
+1.517 Thu Oct 23 10:00:00 EST 2014
+
+  [BUG FIXES]
+
+  * Correction applied to MCE::Util::get_ncpu for Tru64 UNIX. This method
+    will emit a warning (not croak) whenever the OS is unknown.
+
+  * Changed ${^CHILD_ERROR_NATIVE} to $? in examples/pipe2.pl. This was
+    missed in the previous release.
+
+  [ENHANCEMENTS]
+
+  * Added support for DragonFly BSD, SCO OpenServer 5, SCO OpenServer 6 and
+    SCO UnixWare 7 to MCE::Util::get_ncpu.
+
+  * Also, validated MCE on FreeBSD, NetBSD, OpenBSD, PC-BSD and JabirOS.
+    No further changes to MCE::Util::get_ncpu.
+
+1.516 Fri Oct 03 02:00:00 EST 2014
+
+  [BUG FIXES]
+
+  * Updated IPC for better stability across multiple environments. The fix
+    addresses an issue on Windows where sockets fail to respond after a
+    period of inactivity; i.e. 4 minutes. Added George Bouras to CREDITS
+    for reporting the issue.
+
+  * Tip for folks developing on Windows:
+    Open an explorer window and go to C:\Users\<user>\AppData\Local\Temp.
+    Right-click on the 'mce' folder and create a shortcut on the desktop.
+    Although MCE removes its temp files automatically, it is possible for
+    files to remain from a failing app. Go inside the 'mce' folder and
+    press ctrl-a to select all files. Then press shift-delete;
+    (macbook[pro] folks: fn-shift-delete).
+
+  [ENHANCEMENTS]
+
+  * Corrections to documentation.
+
+1.515 Thu Jul 24 23:30:00 EST 2014
+
+  [BUG FIXES]
+
+  * bin/mce_grep: ${^CHILD_ERROR_NATIVE} is not defined in Perl 5.8.x.
+    Changed to $?.
+
+  [ENHANCEMENTS]
+
+  * Tweaked bin/mce_grep. Compute chunk_level => 'auto' to use 'file' when
+    reading STDIN. Set chunk_size to 8M when not specified (4M previously).
+
+  * Added the following names to CREDITS.
+
+       Stephan Kulow       ; for making the OpenSUSE MCE package
+       Henry Lu            ; for listening while I chatted away about MCE
+       Jillian Rowe        ; for reporting IO::File failing as input_data
+       Sylvia Roy          ; for driving while I worked in the passenger seat
+       Tom Sasser          ; for reporting bin/mce_grep failing with Perl 5.8.x
+       Florian Schlichting ; for making the Debian MCE package
+
+  [NEW FEATURES]
+
+  * Added support for IO::File handles as valid input_data including
+    IO:Uncompress:Gunzip.
+
+    Modified SYNTAX section for INPUT_DATA in MCE::Core.pod.
+
+       input_data => $fh,   ## new IO::File "file", "r"
+       input_data => $fh,   ## new IO::Uncompress::Gunzip "file.gz"
+
+1.514 Thu Jun 05 09:00:00 EST 2014
+
+  [BUG FIXES]
+
+  * Fixed typo in MCE::Step POD (RT#95250) (Florian Schlichting).
+  * Updated MCE::Util's get_ncpu function for AIX (Dana Jacobsen).
+  * Do not send a KILL signal after receiving a SIGPIPE.
+  * Fixed issue with Makefile.PL on defining the minimum Perl version.
+
+  * Use Scalar::Util (looks_like_number) for validation logic. The regex
+    previously were insufficient for large numbers containing scientific
+    notation. This impacted the sequence option in MCE.
+
+  [ENHANCEMENTS]
+
+  * The mce-sandbox demo has been released on Github demonstrating
+    Perl + MCE + Inline::C. The theme is Prime Numbers. This journey
+    which began 2 years ago has been completed. There is also the
+    mce-sort exercise demonstrating Perl + MCE + External C.
+
+       https://github.com/marioroy/mce-sandbox (is thread-safe)
+       https://github.com/marioroy/mce-sort (not thread-safe)
+
+  * A hard decision had to made for MCE, particularly Perl under Windows
+    excluding Cygwin. MCE will now load the 'threads' module automatically
+    for Windows only. Folks may specify use_threads => 0 if threads is
+    not desired.
+
+    The reason for this is from seeing Math::Prime::Util crashing once
+    workers exit. The same is true without MCE and forking a child process.
+    Threads does not exhibit this behavior. It is a hard problem to solve.
+    Why not default to threads for Windows since forking is emulated.
+
+1.513 Sat Apr 19 20:30:00 EST 2014
+
+  [BUG FIXES]
+
+  * Added fix for bug RT#94869 -- crash when restarting workers with 9+
+    workers. Updated the perldoc for restart_worker in MCE::Core.pod.
+
+  [ENHANCEMENTS]
+
+  * Replaced $self with $mce in MCE::/Core.pod to be consistent with
+    examples described in MCE::Examples.pod.
+
+1.512 Fri Apr 18 21:00:00 EST 2014
+
+  [BUG FIXES]
+
+  * Signal-handling update for MCE::Signal. Passing the -setpgrp option is not
+    necessary, even with Daemon::Control. Piping data into and out is better
+    supported with this release (\*STDIN). This resolves bug RT#94706.
+
+       cat infile | mce_script | head
+       mce_script < infile | head
+
+    Added Shawn Halpenny to the CREDITS file.
+
+  * The utf8.pl example now runs under the BSD 9.0 environment. This was
+    failing due to $^H{charnames} is not defined error. Removed the constant
+    from the list of unicode characters inside the script.
+
+  [ENHANCEMENTS]
+
+  * Added examples/pipe1.pl and pipe2.pl. These process STDIN or FILE in
+    parallel. Processing is via Perl for pipe1.pl, whereas an external
+    command for pipe2.pl.
+
+1.511 Fri Apr 04 22:30:00 EST 2014
+
+  [BUG FIXES]
+
+  * Added "use bytes;" in several files to have length() return physical
+    bytes, not logical characters. MCE is now UTF-8 safe when passing scalar
+    data between workers and the manager process.
+
+    Added Marcus Smith to the CREDITS file for reporting this bug.
+
+  [ENHANCEMENTS]
+
+  * Added examples/utf8.pl
+
+1.510 Thu Mar 27 10:00:00 EST 2014
+
+  [ENHANCEMENTS]
+
+  * The user_begin and user_end functions now receive 3 arguments.
+    my ($mce, $task_id, $task_name) = @_;
+
+  * Pass the chunk_size value when calling the iterator function. Added a
+    DBI example under "SYNTAX for INPUT_DATA" in MCE::Core.pod.
+
+  * Store the last scalar reference to not have workers re-spawn
+    unnecessarily when input_data => \$same_scalar_ref.
+
+  [NEW FEATURES]
+
+  * New parallel_io option to further enhance slurp IO when specifying
+    use_slurpio => 1 and chunk_size is greater than 8192. Try with
+    chunk_size => '300k' or chunk_size => '2m'.
+
+    The parallel_io option is beneficial when reading from fast storage.
+    However, possibly not recommended if running MCE on many compute nodes
+    and having workers read various input_data from shared storage.
+
+    Enable parallel_io only if it makes sence and without impacting the
+    environment such as nfsd. Because use_slurpio => 1, parallel_io => 1,
+    and chunk_size => '2560k' is truly parallel.
+
+1.509 Sat Feb 03 05:30:00 EST 2014
+
+  [BUG FIXES]
+
+  * Fixed an issue with all the models (Flow, Grep, Loop, Map, Step, and
+    Stream) ending immediately on subsequent runs when input_data is
+    specified through the init method.
+
+  * Things have finally settled down with all the models.
+
+  [ENHANCEMENTS]
+
+  * Refactored the fix applied in 1.508 for addressing bug #92627.
+
+  * MCE, for the most part, has been completed. This release touches up on
+    many examples under the 'examples' directory.
+
+  * Brought the MCE::Examples Perl documentation up to date.
+    Inlined  MCE::Loop snippets under the chunking sections.
+    Added a new section GLOBALLY SCOPED VARIABLES AND MCE MODELS.
+    Added a new section MONTE CARLO SIMULATION.
+
+1.508 Sat Feb 01 04:00:00 EST 2014
+
+  [BUG FIXES]
+
+  * Applied fix for bug #92627 submitted by Philip Mabon. MCE scripts may
+    exit with a non zero error code due to leaving workers up thereby
+    having MCE performing the shut down in its END block.
+
+    For folks running on an older release, the workaround is to shut down
+    workers prior to exiting.
+
+1.507 Fri Jan 30 23:00:00 EST 2014
+
+  [ENHANCEMENTS]
+
+   * Added clarity around preserving output order for several Models;
+     MCE::Flow, MCE::Loop, and MCE::Step.
+
+   * Inlined comments in the code for overriding MCE options when using
+     an anonymous hash for the first argument; MCE::Flow, MCE::Step, and
+     MCE::Stream.
+
+   * Removed unnecessary code due to one not able to pass MCE options other
+     than through the init method for MCE::Loop, MCE::Grep, and MCE::Map.
+
+   * Added to doc a use-case example searching a large file with mce_grep_f.
+     The emphasis is comparing the memory consumption against the native
+     grep function as well as time to complete.
+
+1.506 Fri Jan 30 03:00:00 EST 2014
+
+  [BUG FIXES]
+
+  * Fixed issue with all 5 models croaking for an internal '_file' option.
+    This has been broken since the 1.502 release. Methods impacted were:
+       mce_flow_f, mce_grep_f, mce_loop_f, mce_map_f, and mce_stream_f
+
+  * Specifying a different value for gather on subsequent runs is now taking
+    effect for when workers persist after running. The models impacted are
+    MCE::Flow and MCE::Loop.
+
+  * Updated _parse_chunk_size in MCE::Util to compute chunk_size correctly
+    for new edge cases. One may call either mce_grep or mce_grep_f for a
+    GLOB or scalar reference as input data. The same also applies for the
+    other models; mce_flow, mce_loop, mce_map and mce_stream.
+
+  [ENHANCEMENTS]
+
+  * Updates to MCE::Grep and MCE::Map. The logic is now aware of wantarray
+    for faster processing when storing to a scalar value. In addition, the
+    use_slurpio option is enabled for efficient IO when processing large
+    files.
+
+  * The task_end option can now be specified for MCE::Stream, although being
+    used internally.
+
+  * The interval option can take a decimal number. Previously, this
+    wanted a hash reference with up to 3 key/value pairs. Most often, all
+    one needed was delay and not max_nodes or node_id.
+
+       interval => { delay => 0.05 }   ## Choose either format for specifying
+       interval => 0.05                ## delay in 1.506 and above. MCE will
+                                       ## translate 0.05 to { delay => 0.05 }
+                                       ## automatically.
+
+  * Slight optimization to get_ncpu (public method) in MCE::Util.
+
+  * Tweak to _parse_chunk_size (private method) in MCE::Util.
+
+  [NEW FEATURES]
+
+  * Added a new model MCE::Step for transparent use of MCE::Queue when passing
+    data among sub-tasks. MCE::Step is basically a spin off from MCE::Flow
+    with a touch of MCE::Stream.
+
+    This new model is crazy :)
+
+1.505 Thu Jan 21 01:30:00 EST 2014
+
+  [BUG FIXES]
+
+  * Delete $self->{input_data} inside the worker immediately during spawning
+    (if input_data is an ARRAY, GLOB, or Iterator reference).
+
+  * Reverted the logic for the RS (record separator) option from the 1.4x
+    code base. This is now working as expected.
+
+  * Specifying chunk_size => 'auto' via the 'init' method (all 5 models)
+    causes MCE validation to croak due to 'auto' being carried over to the
+    core API. Note that only the 5 models are allowed 'auto' for chunk_size
+    as of this time.
+
+  * Update to the MCE->do method. Previously, an undef sent back from the
+    callback function ended up as a blank value "". Both "" and undef are
+    now properly captured and sent back to the worker process.
+
+  * Added an if statement inside the 'abort' method.
+  * Removed an old unlink _store.db statement (old code left behind).
+  * Removed an unused _next variable inside Request.pm.
+
+  [ENHANCEMENTS]
+
+  * Enhanced egrep.pl to handle additional options including recursion.
+    This script now supports many egrep options [ceHhiLlmnqRrsv].
+
+  * IO performance for examples/cat.pl was improved. The real focus here is
+    demonstrating output order.
+
+  * The chunk_size option can take a suffix; K (Kilobytes) or M (Megabytes).
+
+  * The following examples except --max-workers=NUM --chunk-size=NUM options.
+    cat.pl, egrep.pl, findnull.pl, scaling_pings.pl, and wc.pl
+
+  [NEW FEATURES]
+
+  * The input_data option can now receive an iterator reference. Added a
+    new example iterator.pl for demonstraton. In addition, there are
+    several examples listed under a new section "SYNTAX for INPUT_DATA"
+    under MCE::Core.pod.
+
+  * Added a new demo script; bin/mce_grep. This is a wrapper script for the
+    grep binary. This script supports agrep, grep, egrep, fgrep, & tre-agrep.
+    Simply create a link to mce_grep or make a copy. Both Windows and Cygwin
+    are supported as well. Recursion works for all binaries including agrep
+    (-R, -r options).
+
+      ln mce_grep mce_agrep
+      ln mce_grep mce_egrep
+      ln mce_grep mce_fgrep
+      ln mce_grep mce_tre-agrep
+
+    Try with the --lang=C option for faster execution time (-i runs faster).
+    Try mce_agrep or mce_tre-agrep against very large files. The speedup is
+    linear and makes good utilization of all available cores on the box.
+
+    One may specify the chunking level via the --chunk-level option. For large
+    files, specify 'file' (chunks file). For many small files, use 'list'.
+
+    I have tested against the following GnuWin32 packages found at this URL.
+    http://gnuwin32.sourceforge.net/packages.html
+
+      tre-0.7.5-bin.zip         ## Contains agrep.exe (also runs under Cygwin)
+      grep-2.5.4-bin.zip        ## Contains egrep.exe, fgrep.exe, grep.exe
+      libiconv-1.9.2-1-bin.zip  ## These are required for the GnuWin32 binaries.
+      libintl-0.14.4-bin.zip
+      pcre-7.0-bin.zip
+      regex-2.7-bin.zip
+
+    Btw, bin/mce_grep is optional and therefore not installed by default
+    when running make install for the MCE module. Simply copy mce_grep as
+    mce_agrep.pl for Windows. The '.pl' suffix is optional for other
+    environments.
+
+1.504 Tue Oct 29 16:00:00 EST 2013
+
+  [BUG FIXES]
+
+  * MCE::Grep, MCE::Map, and MCE::Stream were failing for mce_grep_s,
+    mce_map_s, and mce_stream_s when specifying chunk_size => 1.
+
+  [ENHANCEMENTS]
+
+  * Calibrated 'auto' slightly in MCE::Util::_parse_chunk_size.
+
+1.503 Mon Oct 28 17:00:00 EST 2013
+
+  [BUG FIXES]
+
+  * The previous release introduced a bug by removing the line closing
+    STDERR and STDOUT prior to workers exiting. The proper fix intended
+    is to flush (not close) the handles. Closing them was not the thing
+    to do in the first place due to possibly needed by the END block or
+    WARN/DIE handlers initiated from inside the END block.
+
+  [ENHANCEMENTS]
+
+  * Updated README under examples/tbray and examples/matmult.
+  * Changed 0.499 to 0.5 inside the yield method.
+  * Small cosmetic changes otherwise.
+
+1.502 Mon Oct 21 16:00:00 EST 2013
+
+  [BUG FIXES]
+
+  * The END block for all models will return immediately when called by a
+    worker thread or process. Removed the line closing STDERR and STDOUT
+    prior to workers exiting. It turns out that workers were calling
+    shutdown which is not allowed. This impacted MCE::Flow, MCE::Grep,
+    MCE::Loop, MCE::Map, and MCE::Stream.
+
+  * An update was applied to DESTROY in MCE::Queue to address an edge
+    case during additional testing across several environments.
+
+  * Added documentation describing the core methods in MCE. I had moved the
+    missing sections to another file some time back and totally forgotten
+    about them when finalizing on MCE::Core.pod for the 1.5 release.
+
+  [ENHANCEMENTS]
+
+  * All models will croak when specifying an invalid MCE option.
+
+  [NEW FEATURES]
+
+  * One can specify a hash reference for the gather option. Updated
+    documentation describing the gather option and the gather method.
+
+1.501 Wed Oct 16 01:20:00 EST 2013
+
+  [BUG FIXES]
+
+  * Addressed an issue with the worker signal "die" handler (#89538). Eval'd
+    code should not raise an exception causing the app to die. This is working
+    as expected for workers spawned as children.
+
+    For threads, a die called explicitly inside an eval block will cause the
+    worker to exit (same as previously). However, an eval 'use MissingModule'
+    will no longer cause the thread to die.
+
+  [ENHANCEMENTS]
+
+  * Changelog section uses a new format beginning with this release.
+
+  [NEW FEATURES]
+
+  * Added examples/flow_model.pl for demonstrating MCE::Flow, MCE::Queue, and
+    MCE->gather.
+
+1.500 Thu Oct 10 01:00:00 EST 2013
+
+  * MCE 1.5 is backwards compatible with 1.4 and below.
+
+  * The documentation, previously MCE.pod, moved to MCE::Core.pod with the
+    examples section placed in MCE::Examples.pod. The MCE.pod file serves
+    as an index page for the various documentation.
+
+  * IPC has been enhanced with 8 data channels. Many operations run 3x when
+    compared with MCE 1.4.
+
+  * Five models: MCE::Flow, MCE::Grep, MCE::Loop, MCE::Map, and MCE::Stream.
+
+  * Hybrid queues via MCE::Queue allowing for normal and priority queues.
+
+  * MCE::Subs for exporting functions prefixed with mce_; e.g. mce_wid.
+
+  * All public methods can be called directly using the package name
+    and method e.g. MCE->wid, MCE->run.
+
+       MCE->new(
+          max_workers => 'auto',
+          user_func => sub {
+             my $wid = MCE->wid;
+             MCE->sendto("STDOUT", "Hello from $wid\n");
+          }
+       );
+
+       MCE->run;
+
+  * Localize the input scalar $_ prior to calling user_func. Folks can
+    use $_ for input_data and sequence of numbers. Added section to docs
+    explaining DEFAULT INPUT SCALAR.
+
+  * New options (bounds_only, gather, interval, task_name).
+
+    The task_end option can now be specified at the top level.
+    See docs for use case.
+
+    Input_data can be specified inside the first task instead of having
+    to specify this at the top level. Input_data is ignored when specified
+    for tasks other than the first task.
+
+       user_tasks => [{
+          input_data => \@list,
+          ...
+       },{
+          ...
+       }
+
+  * New public methods
+    chunk_id, gather, freeze, thaw, yield, task_name, print, printf, say
+
+  * New example (interval.pl).
+
+  * Optimized the egrep.pl and wc.pl examples. These run much faster.
+    Try these out against large log files. Both examples fly.
+
+  * Barrier synchronization update. Two sockets are utilized instead of
+    2 lock files. This, now works wonderfully under the Cygwin environment.
+    For threading, the removal of 2 lock files increases the number of
+    threads allowed from about 1/3rd previously to under 1/2 of ulimit,
+    e.g. int(ulimit -n / 2 - 20).
+
+  * Removed the logic for determining MAX_OPEN_FILES and MAX_USER_PROCS.
+    MCE no longer has a constraint on max_workers allowed.
+
+  * Code re-factor work. Added a private method _validate_runstate called
+    by various methods. Organized the code slightly such as placement of
+    methods.
+
+1.415 Mon Jun 17 15:00:00 EST 2013
+
+  * Code-refactor in preparation for the upcoming 1.5 release.
+    This completes the 1.4x branch for a very solid and stable release.
+
+  * IPC optimization. Localize $\ and $/ only as needed. Small tweak to
+    logic when specifying RS (record separator) for input data.
+
+    Foreach is very communication intensive. Forseq is less so. Chunking
+    was made faster by increasing chunk size from 500 to 2500. I've reached
+    my goal for forseq by reaching 60,000+. A while back, foreach could
+    barely reach 18,000.
+
+       Before and after results with IPC optimization.
+
+                             (Before)      (After)
+       Parallel::Loops          600          600
+       $mce->foreach         20,000       21,500  (+  1,500)
+       $mce->forseq          55,000       64,000  (+  9,000)
+       $mce->forchunk       395,000      450,000  (+ 55,000)
+
+  * Updated the process method. Allows sequence to be specified as an
+    option. Also allow the hash to be specified as the 1st or 2nd
+    argument.
+
+       $mce->process( \@input_array, { options } );
+       $mce->process( { options }, [ 1..1000 ] );
+       $mce->process( { sequence => [ 20, 40, 2 ] } );
+
+  * The forseq method will now honor chunk_size greater than 1. Updated
+    docs with use case.
+
+  * Added CONST short for EXPORT_CONST, e.g. use MCE CONST => 1;
+
+1.414 Sun Jun 16 13:00:00 EST 2013
+
+  * Upstream bug fixes. Mainly chunk_size was not honored when specifying
+    user_tasks and sequence/chunk_size for the first task. Bug is with
+    not setting abort_msg correctly.
+
+1.413 Mon Jun 10 02:00:00 EST 2013
+
+  * Fixed typo: Changed local @_ to local $@ inside _parse_max_workers
+    before evaling.
+
+1.412 Sun Jun 09 14:00:00 EST 2013
+
+  * Updated the main README file and CHANGES under 1.411 below.
+
+  * Added support for multiplication and division as well as
+    case insentivity to the private _parse_max_workers method.
+
+       max_workers => 'auto',      ## = MCE::Util::get_ncpu()
+       max_workers => 'Auto-1',    ## = MCE::Util::get_ncpu() - 1
+       max_workers => 'AUTO + 3',  ## = MCE::Util::get_ncpu() + 3
+       max_workers => 'AUTO * 1.5',
+       max_workers => 'auto / 1.333',
+
+1.411 Sun Jun 09 02:00:00 EST 2013
+
+  * Reverted the change made in MCE-1.410. That degraded slurp IO on
+    large files. This restores slurp IO performance in MCE.
+
+  * Corrected an if statement towards the end of the shutdown method.
+    The delay was occurring always when it was meant only if MCE was
+    launched from inside a non-main thread.
+
+  * Addressed a race condition with barrier synchronization under the
+    Cygwin environment. Was not able to reproduce this with other OS's.
+    This takes barrier synchronization work to 100%. Delay statements
+    for Cygwin were removed around barrier synchronization.
+
+  * Optimized writes to sockets. Arguments passed to print statements
+    are concatenated as one big string. Removed local $/ = $LF when
+    reading from the queue socket. It's not required there since using
+    read and known size. The foreach.pl example (very communication
+    intensive) can now do 20000 in 1 second on my Macbook Pro. Updated
+    benchmark results inside foreach.pl, forchunk.pl, and forseq.pl.
+
+  * MAX_WORKERS, CHUNK_SIZE, TMP_DIR, FREEZE and THAW can be specified
+    when loading the module. FREEZE and THAW allows one to choose an
+    alternative serialization module if preferred for your project.
+
+       use Sereal qw(encode_sereal decode_sereal);
+       use MCE FREEZE => \&encode_sereal, THAW => \&decode_sereal;
+
+  * Passing EXPORT_CONST => 1 will export 3 constants: SELF, CHUNK, CID
+    The "my ($self, $chunk_ref, $chunk_id) = @_" line is not necessary.
+    $_[SELF], $_[CHUNK], $_[CID] refers to $_[0], $_[1], $_[2].
+
+  * The MCE::Util module was created. It contains the get_ncpu function.
+    This is largely borrowed from Test::Smoke::Util.pm. MCE supports
+    'auto' when specifying max_workers. Read doc for other use case.
+
+       max_workers => 'auto';  ## Same as MCE::Util::get_ncpu()
+
+  * Re-factored code in preparation for the upcoming 1.5 release. The
+    1.5 release will use just 3 socket pairs versus 4. I did not want
+    to include that change in this release. Therefore, I decided to
+    take the upstream bug fixes and apply them to the 1.4 base.
+
+    Re-factored documentation by making use of the full 78 character
+    width per line.
+
+  * Updated the main README file under the top level dir.
+
+1.410 Tue May 28 23:30:00 EST 2013
+
+  * Use threads under MSWin32 for 02* and 03* test scripts.
+  * Removed sysopen/sysseek/sysread to simplify logic due to negligible
+    performance gains over open/seek/read.
+  * Minor updates to documentation.
+
+1.409 Sun May 12 22:45:00 EST 2013
+
+  * Croak if user_func is not defined and input_data/sequence is specified.
+  * Fix barrier synchronization when running multiple tasks via user_tasks.
+  * Updated Perl documentation for easier reading through cpan/metapan.
+  * Renamed private method _worker_sequence to _worker_sequence_queue.
+
+1.408 Tue Mar 19 22:00:00 EST 2013
+
+  * Minor tweaks here and there to further increase reliability.
+  * Updated the barrier synchronization logic to not stall. Updated the
+    perl docs on mixing "sync" with "do" or "sendto" methods.
+  * Added new "status" method for the manager process.
+  * Added new arguments for MCE::Signal: -no_kill9, -no_sigmsg
+
+1.407 Thu Mar 14 21:00:00 EST 2013
+
+  * This marks a tremendous effort in achieving parity across the board
+    from Cygwin to Windows and obviously UNIX. MCE now works beautifully
+    under the Cygwin environment including Perl for Windows.
+  * Up'ed the maximum workers allowed for both Cygwin and Windows to
+    56 (forking) and 80 (threading).
+  * Barrier synchronization requires an extra semaphore file, therefore
+    the maximum workers allowed under the UNIX environment for threading
+    decreased. It shouldn't be a problem as there are many threads already.
+  * Addressed an issue with barrier synchronization under Cygwin.
+  * Addressed an issue with the die handler for the main worker method
+    when threading.
+  * Thank you for hanging in there. It took quite some time to get there.
+    This is the most stable release thus far for MCE across the board.
+
+1.406 Tue Mar 12 19:00:00 EST 2013
+
+  * Added support for barrier synchronization (via new sync method).
+    Added barrier_sync.pl example.
+  * Addressed rounding errors with the sequence generator.
+    The sequence option now follows a bank-teller queuing model when
+    generating numbers. This applies to task 0 only. Other tasks can
+    still specify sequence where numbers will be distributed equally
+    among workers like before.
+  * Optimized the _worker_request_chunk private method.
+  * A take 2 on the matrix multiplication examples. This is better
+    organized with updated README file to include the script running
+    time in the results.
+
+1.405 Mon Mar 04 19:00:00 EST 2013
+
+  * Added strassen_pdl_t.pl in the event folks cannot make use of /dev/shm
+    used by the strassen_pdl_s.pl example.
+  * Optimized the 'send' method -- workers process immediately after receiving
+    data. Updated run times in README for the strassen examples.
+  * MCE no longer calls setpgrp by default as of MCE 1.405. There is only
+    one reason to call setpgrp, but many reasons not to. The sole reason
+    was for MCE to run correctly with Daemon::Control. If needed, one can
+    pass the option to MCE::Signal qw(-setpgrp).
+  * Return void in the shutdown method (previously was returning $self).
+  * Tidy code inside sequence generator.
+
+1.404 Sun Feb 24 13:00:00 EST 2013
+
+  * Added sess_dir method
+  * Completed work with matmult/* examples
+    Added matmult_pdl_q.pl, removed strassen_pdl_h.pl
+    Added strassen_pdl_o/p/q/r/s.pl 
+    Added benchmark results from a 32-way box at the end of the readme
+  * Removed lines setting max limit for files/procs
+
+1.403 Sun Feb 17 15:00:00 EST 2013
+
+  * Wrap sub PDL::CLONE_SKIP into a no warnings 'redefine' block
+    MCE now works with PDL::Parallel::threads without any warnings
+  * Added missing examples/matmult/matmult_pdl_n.pl to MANIFEST
+  * Refactored strassen examples, memory consumption reduced by > than 50%
+  * Added matmult_pdl_o.pl -- uses PDL::Parallel::threads to share matrices
+  * Added matmult_pdl_p.pl -- matrix b is read from shared memory, not mmap
+  * Added strassen_pdl_n.pl -- additional improvements to memory reduction
+  * Added strassen_pdl_h.pl -- shown running with 4 workers (half and half)
+  * Re-ran matrix multiplication examples and updated results in README file
+  * Added -no_setpgrp option to MCE::Signal.pm
+    Ctrl-C does not respond when running /usr/bin/time mce_script.pl
+  * Added undef $buffer in a couple of places within MCE.pm
+  * Added David Mertens and Adam Sjøgren to CREDITS
+  * The 'send' method now checks if sending > total workers after spawning
+    not before
+
+1.402 Thu Feb 14 07:30:00 EST 2013
+
+  * Updated matrix multiplication examples including README
+  * Added examples/matmult/matmult_pdl_n.pl
+
+1.401 Tue Feb 12 19:00:00 EST 2013
+
+  * Added sub PDL::CLONE_SKIP { 1 } to MCE.pm. Running PDL + MCE threads no
+    longer crashes during exiting.
+  * Updated matrix multiplication examples. All examples now work under the
+    Windows environment no matter if threading or forking. Unix is stable as
+    well if wanting to use PDL + MCE and use_threads => 1 or 0.
+  * Added benchmark results for 2048x2048, 4096x4096, and 8192x8192 to the
+    README file under examples/matmult/
+  * Updated documentation
+
+1.400 Mon Feb 11 07:00:00 EST 2013
+
+  * Slight optimization in the _do_callback method
+  * Added 2 new options: user_args and RS (record separator)
+  * Added new send method for sending data to workers after spawning and
+    prior to running
+  * The sequence option can now take an ARRAY reference
+  * Updated documentation on new features
+  * Added matrix multiplication examples
+
+1.306 Sat Jan 05 18:00:00 EST 2013
+
+  * Added if statement around setpgrp(0,0). That function is not supported
+    under Windows.
+  * Updated logic for removing any remaining MCE session directories inside
+    MCE::Signal.
+
+1.305 Sat Jan 05 16:00:00 EST 2013
+
+  * Added check for $^S to the DIE handler inside the _worker_main method
+  * Added setpgrp(0,0) to MCE::Signal's BEGIN block
+  * MCE::Signal points to a _mce_sess_dir hash in the event of a signal,
+    will remove the sess_dir(s) as well. This is needed when tmp_dir is
+    specified during instantiation and pointing to another location than
+    MCE::Signal::tmp_dir.
+
+1.304 Wed Jan 02 22:00:00 EST 2013
+
+  * Added Oliver Gorwits to CREDITS for identifying 2 issues
+  * Direct die to CORE::die inside handler if executing an eval
+  * Undef $mce_spawned_ref if signal was caught (stop_and_exit)
+  * Changed INIT to sub import in MCE.pm
+
+1.303 Tue Jan 01 20:00:00 EST 2013
+
+  * Bump version -- MCE.pm VERSION now matches with META.yml
+  * Sorted forchunk, foreach, forseq methods inside MCE.pm
+  * Modified if statement in run method
+  * Task ID is never undef, therefore removed check inside
+    restart_worker and worker_do methods
+  * Added 2 package variables to MCE::Signal
+    $display_die_with_localtime and $display_warn_with_localtime
+  * Completed updates to documentation
+  * Update to forseq.pl and seq_demo.pl examples
+
+1.302 Tue Jan 01 07:30:00 EST 2013
+
+  * Fixed validation logic for sequence
+  * Updated the sequence generator -- now supports chunking
+  * Updated seq_demo.pl example to demo user_tasks, sequence, and
+    chunk_size applied together
+  * Documentation updates
+
+1.301 Mon Dec 31 15:00:00 EST 2012
+
+  * Emphasis on documentation -- better flow plus additional clarity
+  * Minor updates to sequence option validation
+  * Minor updates to included examples
+
+1.300 Mon Dec 31 06:00:00 EST 2012
+
+  * New methods...: chunk_size, restart_worker, task_id, task_wid, tmp_dir
+  * New options...: on_post_exit, on_post_run, sequence
+  * New examples..: forseq.pl, seq_demo.pl
+  * Overhaul to exit method
+    Workers can exit or die without impacting the manager process
+  * Enabled executable bit for test files
+  * Removed localtime output in die and warn handlers
+  * All 3 delay options are consistent whether user_tasks is specified
+  * Removed logic around total_ended count -- replaced with new exit logic
+  * Code refactoring plus documentation updates
+  * Added LICENSE file
+
+1.201 Fri Dec 21 00:00:00 EST 2012
+
+  * Added MCE.pod -- moved documentation from MCE.pm to pod file
+  * Added missing use strict/warnings to test scripts
+  * Default to 1 for chunk_size and max_workers if not specified
+  * Test::More is not a requirement to run MCE, only for building
+  * Changed the format for the change log file
+
+1.200 Thu Dec 20 00:00:00 EST 2012
+
+  * Added new user_tasks option
+  * Added space between method name and left-paren for header lines in POD
+  * Remove not-needed BSD::Resource and forks inside BEGIN/INIT blocks
+
+1.106 Wed Dec 19 05:00:00 EST 2012
+
+  * Added t/pod-coverage.t
+  * Big overhaul of the MCE documentation -- all methods are documented
+  * Croak if method suited for a MCE worker is called by the main MCE process
+  * Croak if method suited for the main MCE process is called by a MCE worker
+  * Updated Makefile.PL to declare the minimum Perl version
+
+1.105 Sun Dec 16 23:00:00 EST 2012
+
+  * Completed code re-factoring
+  * Added t/pod.t
+
+1.104 Sun Nov 25 17:00:00 EST 2012
+
+  * Added 1 new example to MCE's Perl documentation
+  * Use module::method name versus constant symbol when calling _croak
+  * Croak if session directory is not writeable inside MCE::spawn
+  * Renamed _mce_id to _mce_sid (meant to be spawn id actually)
+  * Re-calibrated maximum workers allowed
+
+1.103 Fri Nov 23 13:00:00 EST 2012
+
+  * Added writeable check on /dev/shm
+  * Croak if tmp dir is not writeable inside MCE::Signal::import
+
+1.102 Thu Nov 22 13:00:00 EST 2012
+
+  * Woohoot !!! MCE now passes with Perl 5.17.x
+  * Added Copying file -- same as in Perl
+
+1.101 Wed Nov 21 16:00:00 EST 2012
+
+  * Shifted white space to the left for code blocks inside documentation
+
+1.100 Wed Nov 21 10:00:00 EST 2012
+
+  * Completed optimization and shakeout for MCE's existing API
+  * File handles are cached when calling sendto and appending to a file
+  * The sendto method now supports multiple arguments -- see perldoc
+  * Added new option: flush_file
+
+1.008 Sat Nov 17 23:00:00 EST 2012
+
+  * Updates to __DIE__ and __WARN__ handling in MCE. These address the 
+    unreferenced scalars seen in packaging logs at activestate.com for
+    Perl under Windows: http://code.activestate.com/ppm/MCE/
+  * Update t/01_load_signal_arg.t -- added check for $ENV{TEMP}
+    This fixes issue seen under Cygwin
+
+1.007 Thu Nov 15 21:30:00 EST 2012
+
+  * At last, the "Voila" release :)
+  * Small change to __DIE__ and __WARN__ signal handling for spawn method
+
+1.006 Thu Nov 15 03:30:00 EST 2012
+
+  * Added description section to MCE::Signal's Perl doc
+  * Do not set trap on __DIE__ and __WARN__ inside MCE::Signal
+  * Localized __DIE__ and __WARN__ handlers inside MCE instead
+  * Clarify the use of threads in documentation
+
+1.005 Tue Nov 13 06:11:00 EST 2012
+
+  * Removed underscore from package globals in MCE::Signal
+  * Optimized _worker_read_handle method in MCE
+  * Updated files under examples/tbray/
+
+1.004 Mon Nov 12 01:50:00 EST 2012
+
+  * Updated examples/mce_usage.readme
+  * Updated examples/wide_finder.pl
+  * Added examples/tbray/README
+  * Added examples/tbray/tbray_baseline1.pl
+  * Added examples/tbray/tbray_baseline2.pl
+  * Added examples/tbray/wf_mce1.pl
+  * Added examples/tbray/wf_mce2.pl
+  * Added examples/tbray/wf_mce3.pl (../wide_finder.pl moved here)
+  * Added examples/tbray/wf_mmap.pl
+
+1.003 Sat Nov 10 12:55:00 EST 2012
+
+  * Updated README
+  * Updated images/06_Shared_Sockets.gif
+  * Updated images/10_Scaling_Pings.gif
+  * Added   images/11_SNMP_Collection.gif
+  * Minor updates to MCE::Signal
+
+1.002 Thu Nov 08 01:13:10 EST 2012
+
+  * Renamed continue method to next
+
+1.001 Wed Nov 07 23:58:20 EST 2012
+
+  * Added perl-MCE.spec to trunk
+    http://code.google.com/p/many-core-engine-perl/source/browse/trunk/
+  * Added CREDITS
+  * Added 3 new methods to MCE.pm: continue, last, and exit
+  * Both foreach & forchunk now call run(1, {...}) to auto-shutdown workers
+
+1.000 Mon Nov 05 10:00:00 EST 2012
+
+  * First release
+

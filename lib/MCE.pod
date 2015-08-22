@@ -1,0 +1,155 @@
+
+=head1 NAME
+
+MCE - Many-Core Engine for Perl providing parallel processing capabilities
+
+=head1 VERSION
+
+This document describes MCE version 1.699
+
+=head1 DESCRIPTION
+
+Many-Core Engine (MCE) for Perl helps enable a new level of performance by
+maximizing all available cores. MCE spawns a pool of workers and therefore
+does not fork a new process per each element of data. Instead, MCE follows
+a bank queuing model. Imagine the line being the data and bank-tellers the
+parallel workers. MCE enhances that model by adding the ability to chunk
+the next n elements from the input stream to the next available worker.
+
+Input data is optional in MCE. Thus, input data is not required to run MCE.
+
+=head1 CORE MODULES
+
+Three modules make up the core engine for MCE.
+
+=over 3
+
+=item L<MCE::Core|MCE::Core>
+
+Provides the Core API for Many-Core Engine.
+
+=item L<MCE::Signal|MCE::Signal>
+
+Temporary directory creation/cleanup and signal handling.
+
+=item L<MCE::Util|MCE::Util>
+
+Utility functions for Many-Core Engine.
+
+=back
+
+=head1 MCE EXTRAS
+
+There are 4 add-on modules.
+
+=over 3
+
+=item L<MCE::Mutex|MCE::Mutex>
+
+Provides a simple semaphore implementation supporting threads and processes.
+
+=item L<MCE::Queue|MCE::Queue>
+
+Provides a hybrid queuing implementation for MCE supporting normal queues and
+priority queues from a single module. MCE::Queue exchanges data via the core
+engine to enable queueing to work for both children (spawned from fork) and
+threads.
+
+=item L<MCE::Relay|MCE::Relay>
+
+Enables workers to receive and pass on information orderly with zero
+involvement by the manager process while running.
+
+=item L<MCE::Shared|MCE::Shared>
+
+MCE extension for sharing data structures supporting threads and processes.
+
+=back
+
+=head1 MCE MODELS
+
+The models take Many-Core Engine to a new level for ease of use. Two options
+(chunk_size and max_workers) are configured automatically as well as spawning
+and shutdown.
+
+=over 3
+
+=item L<MCE::Loop|MCE::Loop>
+
+Provides a parallel loop utilizing MCE for building creative loops.
+
+=item L<MCE::Flow|MCE::Flow>
+
+A parallel flow model for building creative applications. This makes use of
+user_tasks in MCE. The author has full control when utilizing this model.
+MCE::Flow is similar to MCE::Loop, but allows for multiple code blocks to
+run in parallel with a slight change to syntax.
+
+=item L<MCE::Grep|MCE::Grep>
+
+Provides a parallel grep implementation similar to the native grep function.
+
+=item L<MCE::Map|MCE::Map>
+
+Provides a parallel map model similar to the native map function.
+
+=item L<MCE::Step|MCE::Step>
+
+Provides a parallel step implementation utilizing MCE::Queue between user
+tasks. MCE::Step is a spin off from MCE::Flow with a touch of MCE::Stream.
+This model, introduced in 1.506, allows one to pass data from one sub-task
+into the next transparently.
+
+=item L<MCE::Stream|MCE::Stream>
+
+Provides an efficient parallel implementation for chaining multiple maps
+and greps together through user_tasks and MCE::Queue. Like with MCE::Flow,
+MCE::Stream can run multiple code blocks in parallel with a slight change
+to syntax from MCE::Map and MCE::Grep.
+
+=back
+
+=head1 MISCELLANEOUS
+
+Miscellaneous additions included with the distribution.
+
+=over 3
+
+=item L<MCE::Candy|MCE::Candy>
+
+Provides a collection of sugar methods and output iterators for preserving
+output order.
+
+=item L<MCE::Examples|MCE::Examples>
+
+Describes various demonstrations for MCE including a Monte Carlo simulation.
+
+=item L<MCE::Subs|MCE::Subs>
+
+Exports functions mapped directly to MCE methods; e.g. mce_wid. The module
+allows 3 options; :manager, :worker, and :getter.
+
+=back
+
+=head1 REQUIREMENTS
+
+Perl 5.8.0 or later. PDL::IO::Storable is required in scripts running PDL.
+
+=head1 SOURCE
+
+The source is hosted at L<http://code.google.com/p/many-core-engine-perl/>
+
+=head1 AUTHOR
+
+Mario E. Roy, S<E<lt>marioeroy AT gmail DOT comE<gt>>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2012-2015 by Mario E. Roy
+
+MCE is released under the same license as Perl.
+
+See L<http://dev.perl.org/licenses/> for more information.
+
+=cut
+

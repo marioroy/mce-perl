@@ -1,0 +1,236 @@
+
+All the people reporting problems and fixes or solutions. More specifically in
+alphabetical order by last name.
+
+###############################################################################
+#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
+###############################################################################
+
+Berger, Joel
+
+  The inspiration for the sixth model (MCE::Step) came from reading a blog
+  by Joel, "Writing Non-Blocking Applications with Mojolicious: Part 3":
+
+  http://blogs.perl.org/users/joel_berger/2014/01/
+         writing-non-blocking-applications-with-mojolicious-part-3.html
+
+Bouras, George
+
+  For reporting sockets failing under the Windows environment due to a
+  period of inactivity. An example is when workers execute an external
+  command taking beyond 4 minutes to complete. On returning, the sockets
+  have gone stale with a CPU core going 100% at that point.
+
+  The MCE 1.601 release is attributed to the many use cases I received
+  from George.
+
+Cantrell, David (DrHyde on perlmonks.org)
+
+  For reporting on MCE hanging with cpan -t MCE under his environment. Also,
+  thank you for providing me a guest account via ssh. I was able to reproduce
+  the issue. Thus, added writeable check and croak if tmp dir is not writeable.
+  One cannot assume that /dev/shm is writeable by everyone. :)
+
+Collet, Eric
+
+  For the inspiration to the tre-agrep binary.
+
+  I first learned of tre-agrep from Eric. He emailed me running times for a
+  couple scenarios utilizing a single core. Thus increasing the need to have
+  a MCE-driven wrapper to run tre-agrep in parallel.
+
+  The bin/mce_grep script was created to show folks how one may go about
+  chunking data between Perl and an external C binary efficiently without
+  invoking the shell. The script supports grep, egrep, fgrep, agrep and
+  tre-agrep.
+
+###############################################################################
+#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
+###############################################################################
+
+Eldai, Hisham
+
+  While working on the biofasta examples, Hisham introduced me to hg19.fa.
+  A couple records inside hg19 (driven by $/ = "\n>") are 250 MiB in size.
+  Memory optimizations in v1.600 came about by running against hg19.fa
+  hundreds of times.
+
+Farrell, David
+
+  David wrote a nice article about MCE (love the picture). What stood out was
+  his example. I never thought about using mce_grep { ... } <$fileHandle>
+  without the _f (mce_grep_f). At the time, updated MCE::Grep and MCE::Map
+  to be fully aware of wantarray.
+
+  The blog "Make your code run faster with Perl's secret turbo module" is
+  located at:
+
+  http://perltricks.com/article/61/2014/1/21/
+         Make-your-code-run-faster-with-Perl-s-secret-turbo-module
+
+Gorwits, Oliver
+
+  For reporting on a couple issues with MCE along with a solution for each.
+
+  Pointed me in the right direction for improving the logic for the die
+  handler. Basically, eval { die 'this should not cause MCE to die' };
+  This has reached 100% (all cases, threads and processes) in MCE 1.600.
+
+Halpenny, Shawn
+
+  For reporting an issue (bug RT#94706) with signal handling in MCE::Signal.
+  Also, thank you for tip on getpgrp.
+
+Hedden, Jerry
+
+  From reading threads::shared. In particular the make_shared function.
+  That was helpful in getting MCE::Shared working.
+
+###############################################################################
+#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
+###############################################################################
+
+Jacobsen, Dana
+
+  For reporting an issue with get_ncpu on AIX. In addition, suggesting
+  various solutions.
+
+Karasik, Dmitry
+
+  For bug (RT#102802) and elegant solution for the die handler inside
+  MCE::Core::Worker and MCE::Signal.
+
+Kharchenko, Oleksandr
+
+  Someone once asked Oleksandr why not use MCE. Oleksandr created 2 modules
+  on CPAN, Parallel::DataPipe and Parallel::parallel_map. I used his example
+  heavily in comparing IPC between pipe-driven and socket-driven. Not pleased
+  with MCE's performance with chunk_size => 1, although 2 was as fast if not
+  faster, I tried various things to include IO::Select. Finally, realized
+  increasing the number of data channels was all that was needed (v1.500).
+
+Kulow, Stephan
+
+  For making the OpenSUSE package for MCE.
+  https://build.opensuse.org/package/show/devel:languages:perl:CPAN-M/perl-MCE
+
+Lu, Henry
+
+  For listening during our walks on numerous occasions while I talked about
+  how ridiculously hard to provide support for the Windows environment.
+  For encouraging me to hang in there when I wanted to give up.
+
+Mabon, Philip
+
+  For reporting on a couple issues with MCE in particular bug RT#92627.
+
+Mertens, David
+
+  I am thankful for the tip on making PDL + MCE a possibility. Workers were
+  crashing during exiting. Adding "sub PDL::CLONE_SKIP { 1 }" inside MCE.pm
+  solved this issue entirely. Also, for tips on effectively using PDL in
+  his example at https://gist.github.com/run4flat/4942132.
+
+  Barrier synchronization in MCE came from reading parallel_sync in David's
+  Perl module; PDL::Parallel::threads::SIMD.
+
+###############################################################################
+#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
+###############################################################################
+
+Mughal, Zakariyya
+
+  First, Demian Riccardi introduced me to Devel::IPerl by Zakariyya. The die
+  handlers in MCE brake the user experience. It seems that looking at $^S
+  (for Perl state) is not enough. MCE v1.600 fixes this once and for all.
+  The answer is in perl-5.20.1/cpan/CGI/lib/CGI/Carp.pm (Carp::longmess).
+
+Ogulin, Joseph
+
+  For providing the initial perl-MCE.spec file.
+  For the cool remarks at work about MCE being really big :)
+
+Riccardi, Demian
+
+  I received a message from Demian asking for mce_map. His message requested
+  ( my @a = mce_map { ... } 1..100 ). Five models were introduced in v1.500;
+  MCE::Flow, MCE::Grep, MCE::Loop, MCE::Map, and MCE::Stream.
+
+Rowe, Jillian
+
+  For reporting on IO::File handles not working with MCE. Fixed in 1.515.
+  For believing in possibilities beyond text-book thinking.
+
+Roy, Sylvia
+
+  For driving on long trips while I worked in the passenger seat further
+  developing MCE. Not to forget, locally around town as well. Gosh, a lot
+  of MCE was developed on the road not to forget Panera Bread as well.
+
+Šabata, Petr
+
+  For initial package submission at Red Hat.
+  https://bugzilla.redhat.com/show_bug.cgi?id=1162531
+
+Sasser, Tom
+
+  For reporting on bin/mce_grep failing with Perl 5.8.x.
+
+Schlichting, Florian
+
+  For making a Debian package for MCE: http://pkgs.org/search/libmce-perl.
+
+###############################################################################
+#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
+###############################################################################
+
+Shen, Wei
+
+  For the BioUtil CPAN module. BioUtil::Seq::FastaReader inspired me to
+  create parallel examples (biofasta folder) in MCE 1.600. We tried to
+  make FastaReader in BioUtil::Seq even faster.
+
+Sjøgren, Adam
+
+  For reporting on running /usr/bin/time mce_script.pl and pressing Ctrl-C
+  failing. The default behavior in MCE::Signal is to call setpgrp. MCE 1.403
+  adds a new option to MCE::Signal to not call setpgrp. This also gives the
+  developer finer control as to where setpgrp should be called, if ever
+  needed, such as in the child process and not the manager process.
+  
+    use MCE::Signal qw(-no_setpgrp);
+    use MCE;
+
+Smith, Marcus
+
+  For reporting a problem with MCE including a sample script demonstrating
+  MCE not 100% UTF-8 safe. All this time, totally overlooked the fact that
+  the length function deals in logical characters, not physical bytes. :)
+
+Timmermans, Leon
+
+  The inspiration for not having to backslash variables for MCE::Shared came
+  from reading Const::Fast: e.g. mce_share my @array => ( list );
+
+Thalhammer, Jeffrey Ryan
+
+  For submitting a feature request for lazy arrays support.
+
+  Although a lazy array cannot be used directly for input_data, support for
+  iterator objects was added to MCE 1.505; e.g. input_data => $iterator_ref;
+  This enabled support for lazy arrays using closures.
+
+  I am thankful for the small code snippet highlighting a use-case of MCE.
+  I would have failed initially without it. Your example was placed under
+  the "SYNTAX for INPUT_DATA" section in MCE::Core for others to see on
+  how to process output from Path::Iterator::Rule in parallel.
+
+###############################################################################
+#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
+###############################################################################
+
+Thank you.
+
+Warm regards,
+Mario
+
