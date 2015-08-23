@@ -13,7 +13,7 @@ no warnings 'threads';
 no warnings 'recursion';
 no warnings 'uninitialized';
 
-our $VERSION = '1.699';
+our $VERSION = '1.699_001';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -668,7 +668,7 @@ MCE::Stream - Parallel stream model for chaining multiple maps and greps
 
 =head1 VERSION
 
-This document describes MCE::Stream version 1.699
+This document describes MCE::Stream version 1.699_001
 
 =head1 SYNOPSIS
 

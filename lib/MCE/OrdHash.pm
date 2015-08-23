@@ -14,7 +14,7 @@ no warnings 'recursion';
 no warnings 'uninitialized';
 no warnings 'numeric';
 
-our $VERSION = '1.699';
+our $VERSION = '1.699_001';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -816,7 +816,7 @@ MCE::OrdHash - A shareable pure-Perl ordered hash class
 
 =head1 VERSION
 
-This document describes MCE::OrdHash version 1.699
+This document describes MCE::OrdHash version 1.699_001
 
 =head1 SYNOPSIS
 

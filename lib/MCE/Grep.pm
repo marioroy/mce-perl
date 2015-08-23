@@ -13,7 +13,7 @@ no warnings 'threads';
 no warnings 'recursion';
 no warnings 'uninitialized';
 
-our $VERSION = '1.699';
+our $VERSION = '1.699_001';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -452,7 +452,7 @@ MCE::Grep - Parallel grep model similar to the native grep function
 
 =head1 VERSION
 
-This document describes MCE::Grep version 1.699
+This document describes MCE::Grep version 1.699_001
 
 =head1 SYNOPSIS
 

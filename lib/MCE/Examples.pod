@@ -5,7 +5,7 @@ MCE::Examples - Various examples demonstrating Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Examples version 1.699
+This document describes MCE::Examples version 1.699_001
 
 =head1 INCLUDED WITH THE DISTRIBUTION
 

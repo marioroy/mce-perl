@@ -13,7 +13,7 @@ no warnings 'threads';
 no warnings 'recursion';
 no warnings 'uninitialized';
 
-our $VERSION = '1.699';
+our $VERSION = '1.699_001';
 
 our @CARP_NOT = qw( MCE::Shared MCE );
 
@@ -125,7 +125,7 @@ MCE::Mutex - Locking for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Mutex version 1.699
+This document describes MCE::Mutex version 1.699_001
 
 =head1 SYNOPSIS
 

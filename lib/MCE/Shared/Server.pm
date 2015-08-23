@@ -14,7 +14,7 @@ no warnings 'recursion';
 no warnings 'uninitialized';
 no warnings 'once';
 
-our $VERSION = '1.699';
+our $VERSION = '1.699_001';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 

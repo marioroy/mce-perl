@@ -9,7 +9,7 @@ package MCE::Number;
 use strict;
 use warnings;
 
-our $VERSION = '1.699';
+our $VERSION = '1.699_001';
 
 sub new {
     my ($class, $self) = (shift, shift || 0);
@@ -46,7 +46,7 @@ MCE::Number - An auto-shareable pure-Perl number class
 
 =head1 VERSION
 
-This document describes MCE::Number version 1.699
+This document describes MCE::Number version 1.699_001
 
 =head1 SYNOPSIS
 

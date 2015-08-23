@@ -13,7 +13,7 @@ no warnings 'threads';
 no warnings 'recursion';
 no warnings 'uninitialized';
 
-our $VERSION = '1.699';
+our $VERSION = '1.699_001';
 
 use base 'MCE::Mutex';
 use MCE::Util qw( $LF );

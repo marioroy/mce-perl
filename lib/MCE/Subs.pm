@@ -13,7 +13,7 @@ no warnings 'threads';
 no warnings 'recursion';
 no warnings 'uninitialized';
 
-our $VERSION = '1.699';
+our $VERSION = '1.699_001';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -206,7 +206,7 @@ MCE::Subs - Exports functions mapped directly to MCE methods
 
 =head1 VERSION
 
-This document describes MCE::Subs version 1.699
+This document describes MCE::Subs version 1.699_001
 
 =head1 SYNOPSIS
 
