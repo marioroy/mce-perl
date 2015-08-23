@@ -53,18 +53,8 @@ Revision history for Perl module MCE.
     These provide sharing capabilities for MCE including support for threads
     and non-threads on all popular environments.
 
-  * Added MCE::Number, a share capable number class supporting threads
-    and processes.
-
+  * Added MCE::Number, a shareable number class for threads and processes.
   * Added MCE::OrdHash, providing ordered hash capabilities for MCE::Shared.
-    It includes 100% compatibility with Tie::IxHash plus enhancements.
-
-  * Added examples/asynchrony demonstrating parallel concurrency, asynchrony,
-    and shared data; dnslookup_ae.pl, dnslookup_ioa.pl, echoserver_ae.pl,
-    echoserver_ioa.pl, echoserver_mojo.pl, and echoserver_poe.pl.
-
-  * Replaced netping.pl with fastping_ae.pl supporting IPv4 and IPv6.
-  * Added examples: shared_mce.pl, shared_thr.pl, and step_mon.pl.
 
   * Added ->enq, ->enqp, and ->await methods to MCE::Step.
   * Added ->await method to MCE::Queue.
