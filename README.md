@@ -116,6 +116,44 @@ Parsing a huge log file.
 
     print join('', @result);
 
+Looping through a sequence of numbers.
+
+    use feature 'say';
+
+    use MCE::Flow;
+    use MCE::Number;
+    use MCE::Shared;
+
+    # Auto-shareable number when MCE::Shared is present
+
+    my $g_count = MCE::Number->new(0);
+
+    # PI calculation
+
+    sub mcpi_3 {
+       my ( $begin_seq, $end_seq ) = @_;
+       my ( $count, $n, $m ) = ( 0 );
+
+       foreach my $i ( $begin_seq .. $end_seq ){
+          ( $n, $m ) = ( rand, rand );
+          $count++ if (( $n * $n + $m * $m ) > 1 );
+       }
+
+       $g_count->Add( $count );
+    }
+
+    # Compute bounds only; workers receive $_ = [ begin, end ] values
+
+    MCE::Flow::init { bounds_only => 1 };
+
+    # Compute PI
+
+    my $runs = shift || 1e6;
+
+    mce_flow_s sub { mcpi_3( $_->[0], $_->[1] ) }, 1, $runs;
+
+    say 4 * ( 1 - $g_count->Val / $runs );
+
 ### Documentation
 
 The documentation is best viewed at https://metacpan.org/pod/MCE.
