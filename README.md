@@ -30,7 +30,7 @@ you include threads support prior to loading MCE.
 
 Threads is loaded by default on Windows excluding Cygwin.
 
-    use threads;                use forks;
+    use threads;                use forks;                child processes
     use threads::shared;  (or)  use forks::shared;  (or)
     use MCE;                    use MCE;                  use MCE;
 
@@ -53,106 +53,106 @@ MCE utilizes the following modules:
 
 This is a simplistic use case of MCE running with 5 workers.
 
-    # Construction using the Core API
+```perl
+ # Construction using the Core API
 
-    use MCE;
+ use MCE;
 
-    my $mce = MCE->new(
-       max_workers => 5,
-       user_func => sub {
-          my ($mce) = @_;
-          $mce->say("Hello from " . $mce->wid);
-       }
-    );
-
-    $mce->run;
-
-    # Construction using a MCE model
-
-    use MCE::Flow max_workers => 5;
-
-    mce_flow sub {
+ my $mce = MCE->new(
+    max_workers => 5,
+    user_func => sub {
        my ($mce) = @_;
-       MCE->say("Hello from " . MCE->wid);
-    };
+       $mce->say("Hello from " . $mce->wid);
+    }
+ );
 
-    -- Output
+ $mce->run;
 
-    Hello from 2
-    Hello from 4
-    Hello from 5
-    Hello from 1
-    Hello from 3
+ # Construction using a MCE model
+
+ use MCE::Flow max_workers => 5;
+
+ mce_flow sub {
+    my ($mce) = @_;
+    MCE->say("Hello from " . MCE->wid);
+ };
+```
 
 Parsing a huge log file.
 
-    use MCE::Loop;
+```perl
+ use MCE::Loop;
 
-    MCE::Loop::init {
-       max_workers => 8, use_slurpio => 1
-    };
+ MCE::Loop::init {
+    max_workers => 8, use_slurpio => 1
+ };
 
-    my $pattern  = 'karl';
-    my $hugefile = 'very_huge.file';
+ my $pattern  = 'karl';
+ my $hugefile = 'very_huge.file';
 
-    my @result = mce_loop_f {
-       my ($mce, $slurp_ref, $chunk_id) = @_;
+ my @result = mce_loop_f {
+    my ($mce, $slurp_ref, $chunk_id) = @_;
 
-       # Quickly determine if a match is found.
-       # Process slurped chunk only if true.
+    # Quickly determine if a match is found.
+    # Process slurped chunk only if true.
 
-       if ($$slurp_ref =~ /$pattern/m) {
-          my @matches;
+    if ($$slurp_ref =~ /$pattern/m) {
+       my @matches;
 
-          open my $MEM_FH, '<', $slurp_ref;
-          binmode $MEM_FH, ':raw';
-          while (<$MEM_FH>) { push @matches, $_ if (/$pattern/); }
-          close   $MEM_FH;
+       open my $MEM_FH, '<', $slurp_ref;
+       binmode $MEM_FH, ':raw';
+       while (<$MEM_FH>) { push @matches, $_ if (/$pattern/); }
+       close   $MEM_FH;
 
-          MCE->gather(@matches);
-       }
+       MCE->gather(@matches);
+    }
 
-    } $hugefile;
+ } $hugefile;
 
-    print join('', @result);
+ print join('', @result);
+```
 
 Looping through a sequence of numbers.
 
-    use feature 'say';
+```perl
 
-    use MCE::Flow;
-    use MCE::Number;
-    use MCE::Shared;
+ use feature 'say';
 
-    # Auto-shareable number when MCE::Shared is present
+ use MCE::Flow;
+ use MCE::Number;
+ use MCE::Shared;
 
-    my $g_count = MCE::Number->new(0);
+ # Auto-shareable number when MCE::Shared is present
 
-    # PI calculation
+ my $g_count = MCE::Number->new(0);
 
-    sub mcpi_3 {
-       my ( $begin_seq, $end_seq ) = @_;
-       my ( $count, $n, $m ) = ( 0 );
+ # PI calculation
 
-       foreach my $i ( $begin_seq .. $end_seq ){
-          ( $n, $m ) = ( rand, rand );
-          $count++ if (( $n * $n + $m * $m ) > 1 );
-       }
+ sub mcpi_3 {
+    my ( $begin_seq, $end_seq ) = @_;
+    my ( $count, $n, $m ) = ( 0 );
 
-       $g_count->Add( $count );
+    foreach my $i ( $begin_seq .. $end_seq ){
+       ( $n, $m ) = ( rand, rand );
+       $count++ if (( $n * $n + $m * $m ) > 1 );
     }
 
-    # Compute bounds only; workers receive $_ = [ begin, end ] values
+    $g_count->Add( $count );
+ }
 
-    MCE::Flow::init { bounds_only => 1 };
+ # Compute bounds only; workers receive [ begin, end ] values
 
-    # Compute PI
+ MCE::Flow::init { bounds_only => 1 };
 
-    my $runs = shift || 1e6;
+ # Compute PI
 
-    mce_flow_s sub { mcpi_3( $_->[0], $_->[1] ) }, 1, $runs;
+ my $runs = shift || 1e6;
 
-    say 4 * ( 1 - $g_count->Val / $runs );
+ mce_flow_s sub { mcpi_3( $_->[0], $_->[1] ) }, 1, $runs;
+
+ say 4 * ( 1 - $g_count->Val / $runs );
+
+```
 
 ### Documentation
 
