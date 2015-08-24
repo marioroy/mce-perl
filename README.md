@@ -88,9 +88,7 @@ Parsing a huge log file.
 ```perl
  use MCE::Loop;
 
- MCE::Loop::init {
-    max_workers => 8, use_slurpio => 1
- };
+ MCE::Loop::init { max_workers => 8, use_slurpio => 1 };
 
  my $pattern  = 'karl';
  my $hugefile = 'very_huge.file';
@@ -166,8 +164,10 @@ The MCE documentation is best viewed at https://metacpan.org/pod/MCE.
 MCE options are described in https://metacpan.org/pod/MCE::Core.
 
 Also see https://metacpan.org/pod/MCE::Examples and
+https://github.com/marioroy/mce-cookbook for other recipes.
 
-https://github.com/marioroy/mce-cookbook.
+The sandboxing with Perl + MCE + Inline::C can be found here:
+https://github.com/marioroy/mce-sandbox.
 
 ### Copyright and Licensing
 
