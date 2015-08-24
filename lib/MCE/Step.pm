@@ -725,7 +725,8 @@ This document describes MCE::Step version 1.699_001
 
 MCE::Step is similar to L<MCE::Flow|MCE::Flow> for writing custom apps.
 The main difference comes from the transparent use of queues between
-sub-tasks.
+sub-tasks. MCE 1.7 adds mce_enq, mce_enqp, and mce_await methods described
+under QUEUE-LIKE FEATURES below.
 
 It is trivial to parallelize with mce_stream shown below.
 
@@ -742,31 +743,14 @@ It is trivial to parallelize with mce_stream shown below.
 
 However, let's have MCE::Step compute the same in parallel. Unlike the example
 in L<MCE::Flow|MCE::Flow>, the use of MCE::Queue is totally transparent.
+This calls for preserving output order provided by MCE::Candy.
 
    use MCE::Step;
-
-This calls for preserving output order.
-
-   sub preserve_order {
-      my %tmp; my $order_id = 1; my $gather_ref = $_[0];
-      @{ $gather_ref } = ();  ## clear the array (optional)
-
-      return sub {
-         my ($data_ref, $chunk_id) = @_;
-         $tmp{$chunk_id} = $data_ref;
-
-         while (1) {
-            last unless exists $tmp{$order_id};
-            push @{ $gather_ref }, @{ delete $tmp{$order_id++} };
-         }
-
-         return;
-      };
-   }
+   use MCE::Candy;
 
 Next are the 3 sub-tasks. Compare these 3 sub-tasks with the same as described
 in L<MCE::Flow|MCE::Flow>. The call to MCE->step simplifies the passing of data
-into the next sub-task.
+to subsequent sub-task.
 
    sub task_a {
       my @ans; my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -783,18 +767,20 @@ into the next sub-task.
    sub task_c {
       my @ans; my ($mce, $chunk_ref, $chunk_id) = @_;
       push @ans, map { $_ * 4 } @{ $chunk_ref };
-      MCE->gather(\@ans, $chunk_id);
+      MCE->gather($chunk_id, \@ans);
    }
 
 In summary, MCE::Step builds out a MCE instance behind the scene and starts
 running. The task_name (shown), max_workers, and use_threads options can take
 an anonymous array for specifying the values uniquely per each sub-task.
 
+The task_name option is required to use ->enq, ->enqp, and ->await.
+
    my @a;
 
    mce_step {
       task_name => [ 'a', 'b', 'c' ],
-      gather => preserve_order(\@a)
+      gather => MCE::Candy::out_iter_array(\@a)
 
    }, \&task_a, \&task_b, \&task_c, 1..10000;
 
@@ -1217,6 +1203,183 @@ Time was measured using 1 worker to emphasize the difference.
    6250001 ..  7500000
    7500001 ..  8750000
    8750001 .. 10000000
+
+=head1 QUEUE-LIKE FEATURES
+
+=over 3
+
+=item MCE->step ( item )
+
+=item MCE->step ( arg1, arg2, argN )
+
+The ->step method is the simplest form for passing elements into the next
+sub-task.
+
+   use MCE::Step;
+
+   sub provider {
+      MCE->step( $_, rand ) for 10 .. 19;
+   }
+
+   sub consumer {
+      my ( $mce, @args ) = @_;
+      MCE->printf( "%d: %d, %03.06f\n", MCE->wid, $args[0], $args[1] );
+   }
+
+   MCE::Step::init {
+      task_name   => [ 'p', 'c' ],
+      max_workers => [  1 ,  4  ]
+   };
+
+   mce_step \&provider, \&consumer;
+
+   -- Output
+
+   2: 10, 0.583551
+   4: 11, 0.175319
+   3: 12, 0.843662
+   4: 15, 0.748302
+   2: 14, 0.591752
+   3: 16, 0.357858
+   5: 13, 0.953528
+   4: 17, 0.698907
+   2: 18, 0.985448
+   3: 19, 0.146548
+
+=back
+
+=over 3
+
+=item MCE->enq ( task_name, item )
+
+=item MCE->enq ( task_name, [ arg1, arg2, argN ] )
+
+=item MCE->enq ( task_name, [ arg1, arg2 ], [ arg1, arg2 ] )
+
+=item MCE->enqp ( task_name, priority, item )
+
+=item MCE->enqp ( task_name, priority, [ arg1, arg2, argN ] )
+
+=item MCE->enqp ( task_name, priority, [ arg1, arg2 ], [ arg1, arg2 ] )
+
+The MCE 1.7 release enables finer control. Unlike ->step, which take multiple
+arguments, the ->enq and ->enqp methods push items at the end of the array
+internally. Passing multiple arguments is possible by enclosing the arguments
+inside an anonymous array.
+
+The direction of flow is forward only. Thus, stepping to itself or backwards
+will cause an error.
+
+   use MCE::Step;
+
+   sub provider {
+      if ( MCE->wid % 2 == 0 ) {
+         MCE->enq( 'c', [ $_, rand ] ) for 10 .. 19;
+      } else {
+         MCE->enq( 'd', [ $_, rand ] ) for 20 .. 29;
+      }
+   }
+
+   sub consumer_c {
+      my ( $mce, $args ) = @_;
+      MCE->printf( "C%d: %d, %03.06f\n", MCE->wid, $args->[0], $args->[1] );
+   }
+
+   sub consumer_d {
+      my ( $mce, $args ) = @_;
+      MCE->printf( "D%d: %d, %03.06f\n", MCE->wid, $args->[0], $args->[1] );
+   }
+
+   MCE::Step::init {
+      task_name   => [ 'p', 'c', 'd' ],
+      max_workers => [  2 ,  3 ,  3  ]
+   };
+
+   mce_step \&provider, \&consumer_c, \&consumer_d;
+
+   -- Output
+
+   C4: 10, 0.527531
+   D6: 20, 0.420108
+   C5: 11, 0.839770
+   D8: 21, 0.386414
+   C3: 12, 0.834645
+   C4: 13, 0.191014
+   D6: 23, 0.924027
+   C5: 14, 0.899357
+   D8: 24, 0.706186
+   C4: 15, 0.083823
+   D7: 22, 0.479708
+   D6: 25, 0.073882
+   C3: 16, 0.207446
+   D8: 26, 0.560755
+   C5: 17, 0.198157
+   D7: 27, 0.324909
+   C4: 18, 0.147505
+   C5: 19, 0.318371
+   D6: 28, 0.220465
+   D8: 29, 0.630111
+
+=back
+
+=over 3
+
+=item MCE->await ( task_name, pending_threshold )
+
+Providers may sometime run faster than consumers. Thus, increasing memory
+consumption. MCE 1.7 adds the ->await method for pausing momentarily until
+the receiving sub-task reaches the minimum threshold for the number of
+items pending in its queue.
+
+   use MCE::Step;
+   use Time::HiRes 'sleep';
+
+   sub provider {
+      for ( 10 .. 29 ) {
+         # wait until 10 or less items pending
+         MCE->await( 'c', 10 );
+         # forward item to a later sub-task ( 'c' comes after 'p' )
+         MCE->enq( 'c', [ $_, rand ] );
+      }
+   }
+
+   sub consumer {
+      my ($mce, $args) = @_;
+      MCE->printf( "%d: %d, %03.06f\n", MCE->wid, $args->[0], $args->[1] );
+      sleep 0.05;
+   }
+
+   MCE::Step::init {
+      task_name   => [ 'p', 'c' ],
+      max_workers => [  1 ,  4  ]
+   };
+
+   mce_step \&provider, \&consumer;
+
+   -- Output
+
+   3: 10, 0.527307
+   2: 11, 0.036193
+   5: 12, 0.987168
+   4: 13, 0.998140
+   5: 14, 0.219526
+   4: 15, 0.061609
+   2: 16, 0.557664
+   3: 17, 0.658684
+   4: 18, 0.240932
+   3: 19, 0.241042
+   5: 20, 0.884830
+   2: 21, 0.902223
+   4: 22, 0.699223
+   3: 23, 0.208270
+   5: 24, 0.438919
+   2: 25, 0.268854
+   4: 26, 0.596425
+   5: 27, 0.979818
+   2: 28, 0.918173
+   3: 29, 0.358266
+
+=back
 
 =head1 GATHERING DATA
 

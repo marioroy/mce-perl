@@ -5,13 +5,9 @@ Revision history for Perl module MCE.
 
   [ TODO: before releasing MCE 1.700 ]
 
-    Document ->enq, ->enqp, and ->await methods in MCE::Step.
-    Complete MCE::Shared documentation.
+    Complete MCE::Shared  documentation
     Complete MCE::OrdHash documentation
-    Update MCE::Mutex documentation.
-    Write MCE::Cookbook.pod.
-
-    Thank you for your patience. Almost there.
+    Update   MCE::Mutex   documentation
 
   [BUG FIXES]
 
