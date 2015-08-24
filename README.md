@@ -3,11 +3,23 @@
 This document describes MCE version 1.699.
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
-maximizing all available cores. MCE spawns a pool of workers and therefore
-does not fork a new process per each element of data. Instead, MCE follows
-a bank queuing model. Imagine the line being the data and bank-tellers the
-arallel workers. MCE enhances that model by adding the ability to chunk
-the next n elements from the input stream to the next available worker.
+maximizing all available cores.
+
+<div align="left">
+  ![MCE](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/MCE.gif)
+</div>
+
+### Description
+
+MCE spawns a pool of workers and therefore does not fork a new process per
+each element of data. Instead, MCE follows a bank queuing model. Imagine the
+line being the data and bank-tellers the arallel workers. MCE enhances that
+model by adding the ability to chunk the next n elements from the input
+stream to the next available worker.
+
+<div align="left">
+  ![Bank Queuing Model](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Bank_Queuing_Model.gif)
+</div>
 
 ### Installation
 
@@ -23,16 +35,17 @@ To install this module type the following:
 
 ### Dependencies
 
-This module requires Perl 5.8.0 or later to run. MCE spawns child processes
-by default, not threads. However, MCE supports threads via 2 threading
-libraries when threads is desired. The use of threads in MCE requires that
-you include threads support prior to loading MCE.
+This module requires Perl 5.8.0 or later to run. By default, MCE spawns threads
+on Windows and child processes otherwise for Cygwin and Unix platforms. The use
+of threads requires that you include threads support prior to loading MCE.
 
-Threads is loaded by default on Windows excluding Cygwin.
+    child processes          use threads;                  use forks;
+                      (or)   use threads::shared;   (or)   use forks::shared;
+    use MCE;                 use MCE;                      use MCE;
 
-    use threads;                use forks;                child processes
-    use threads::shared;  (or)  use forks::shared;  (or)
-    use MCE;                    use MCE;                  use MCE;
+<div align="left">
+  ![Supported OS](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Supported_OS.gif)
+</div>
 
 MCE utilizes the following modules:
 
