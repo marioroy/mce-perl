@@ -166,7 +166,7 @@ MCE options are described in https://metacpan.org/pod/MCE::Core.
 Also see https://metacpan.org/pod/MCE::Examples and
 https://github.com/marioroy/mce-cookbook for other recipes.
 
-The sandboxing with Perl + MCE + Inline::C can be found here:
+For C, Sandboxing with Perl + MCE + Inline::C at
 https://github.com/marioroy/mce-sandbox.
 
 ### Copyright and Licensing
