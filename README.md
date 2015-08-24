@@ -17,7 +17,7 @@ stream to the next available worker.
 
 ![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Bank_Queuing_Model.gif)
 
-### Installation
+### Installation and Dependencies
 
 To install this module type the following:
 
@@ -28,8 +28,6 @@ To install this module type the following:
     make
     make test
     make install
-
-### Dependencies
 
 This module requires Perl 5.8.0 or later to run. By default, MCE spawns threads
 on Windows and child processes otherwise for Cygwin and Unix platforms. The use
@@ -161,12 +159,13 @@ Looping through a sequence of numbers.
 
 ```
 
-### Documentation
+### Further Reading
 
-The documentation is best viewed at https://metacpan.org/pod/MCE.
+The MCE documentation is best viewed at https://metacpan.org/pod/MCE.
 MCE options are described in https://metacpan.org/pod/MCE::Core.
 
-Also see https://metacpan.org/pod/MCE::Examples.
+Also see https://metacpan.org/pod/MCE::Examples and
+https://github.com/marioroy/mce-cookbook.
 
 ### Copyright and Licensing
 
