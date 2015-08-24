@@ -17,6 +17,7 @@ Icon
 _Inline
 *.bak
 *.old
+*.swp
 *.tmp
 
 /MCE-*
