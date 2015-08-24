@@ -159,7 +159,7 @@ Looping through a sequence of numbers.
 
 ### Further Reading
 
-The MCE documentation is best viewed at https://metacpan.org/pod/MCE.
+The Perl MCE documentation is best viewed at https://metacpan.org/pod/MCE.
 
 MCE options are described in https://metacpan.org/pod/MCE::Core.
 
