@@ -39,7 +39,7 @@ of threads requires that you include threads support prior to loading MCE.
 
 ![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Supported_OS.gif)
 
-MCE utilizes the following modules, which are included with Perl on many platforms:
+MCE utilizes the following modules, which are included with Perl normally:
 
     bytes
     constant
