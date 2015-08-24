@@ -163,12 +163,8 @@ The MCE documentation is best viewed at https://metacpan.org/pod/MCE.
 
 MCE options are described in https://metacpan.org/pod/MCE::Core.
 
-The Sandboxing with Perl + MCE + Inline::C at
-https://github.com/marioroy/mce-sandbox demonstrates algorithm3 for
-generating prime numbers.
-
 See https://metacpan.org/pod/MCE::Examples and
-https://github.com/marioroy/mce-cookbook for additional recipes.
+https://github.com/marioroy/mce-cookbook for other recipes.
 
 ### Copyright and Licensing
 
