@@ -7,8 +7,6 @@ MCE - Many-Core Engine for Perl providing parallel processing capabilities
 
 This document describes MCE version 1.700
 
-=head1 DESCRIPTION
-
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
 
@@ -17,6 +15,8 @@ maximizing all available cores.
 <p><img src="https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/MCE.gif" width="613" height="440" alt="MCE" /></p>
 
 =end html
+
+=head1 DESCRIPTION
 
 MCE spawns a pool of workers and therefore does not fork a new process per
 each element of data. Instead, MCE follows a bank queuing model. Imagine the
