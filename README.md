@@ -163,8 +163,9 @@ The Perl MCE documentation is best viewed at https://metacpan.org/pod/MCE.
 
 MCE options are described in https://metacpan.org/pod/MCE::Core.
 
-See https://metacpan.org/pod/MCE::Examples and
-https://github.com/marioroy/mce-cookbook for other recipes.
+See [MCE::Examples](https://metacpan.org/pod/MCE::Examples)
+and [MCE Cookbook](https://github.com/marioroy/mce-cookbook)
+for more recipes.
 
 ### Copyright and Licensing
 
