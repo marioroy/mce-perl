@@ -1,13 +1,11 @@
 
 Revision history for Perl module MCE.
 
-1.699 Sun Aug 23 13:30:00 EST 2015
+1.699 Tue Aug 25 13:30:00 EST 2015
 
-  [ TODO: before releasing MCE 1.700 ]
+  [ TODO before releasing MCE 1.700 ]
 
-    Complete MCE::Shared  documentation
-    Complete MCE::OrdHash documentation
-    Update   MCE::Mutex   documentation
+  * MCE::OrdHash and MCE::Shared documentation
 
   [BUG FIXES]
 

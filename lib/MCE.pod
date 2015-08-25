@@ -5,18 +5,125 @@ MCE - Many-Core Engine for Perl providing parallel processing capabilities
 
 =head1 VERSION
 
-This document describes MCE version 1.699_001
+This document describes MCE version 1.700
 
 =head1 DESCRIPTION
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
-maximizing all available cores. MCE spawns a pool of workers and therefore
-does not fork a new process per each element of data. Instead, MCE follows
-a bank queuing model. Imagine the line being the data and bank-tellers the
-parallel workers. MCE enhances that model by adding the ability to chunk
-the next n elements from the input stream to the next available worker.
+maximizing all available cores.
 
-Input data is optional in MCE. Thus, input data is not required to run MCE.
+=begin html
+
+<p><img src="https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/MCE.gif" width="613" height="440" alt="MCE" /></p>
+
+=end html
+
+MCE spawns a pool of workers and therefore does not fork a new process per
+each element of data. Instead, MCE follows a bank queuing model. Imagine the
+line being the data and bank-tellers the parallel workers. MCE enhances that
+model by adding the ability to chunk the next n elements from the input
+stream to the next available worker.
+
+=begin html
+
+<p><img src="https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Bank_Queuing_Model.gif" width="684" height="445" alt="Bank Queuing Model" /></p>
+
+=end html
+
+=head1 SYNOPSIS
+
+This is a simplistic use case of MCE running with 5 workers.
+
+   # Construction using the Core API
+
+   use MCE;
+
+   my $mce = MCE->new(
+      max_workers => 5,
+      user_func => sub {
+         my ($mce) = @_;
+         $mce->say("Hello from " . $mce->wid);
+      }
+   );
+
+   $mce->run;
+
+   # Construction using a MCE model
+
+   use MCE::Flow max_workers => 5;
+
+   mce_flow sub {
+      my ($mce) = @_;
+      MCE->say("Hello from " . MCE->wid);
+   };
+
+Parsing a huge log file.
+
+   use MCE::Loop;
+
+   MCE::Loop::init { max_workers => 8, use_slurpio => 1 };
+
+   my $pattern  = 'karl';
+   my $hugefile = 'very_huge.file';
+
+   my @result = mce_loop_f {
+      my ($mce, $slurp_ref, $chunk_id) = @_;
+
+      # Quickly determine if a match is found.
+      # Process slurped chunk only if true.
+
+      if ($$slurp_ref =~ /$pattern/m) {
+         my @matches;
+
+         open my $MEM_FH, '<', $slurp_ref;
+         binmode $MEM_FH, ':raw';
+         while (<$MEM_FH>) { push @matches, $_ if (/$pattern/); }
+         close   $MEM_FH;
+
+         MCE->gather(@matches);
+      }
+
+   } $hugefile;
+
+   print join('', @result);
+
+Looping through a sequence of numbers.
+
+   use feature 'say';
+
+   use MCE::Flow;
+   use MCE::Number;
+   use MCE::Shared;
+
+   # Auto-shareable number when MCE::Shared is present
+
+   my $g_count = MCE::Number->new(0);
+
+   # PI calculation
+
+   sub mcpi_3 {
+      my ( $begin_seq, $end_seq ) = @_;
+      my ( $count, $n, $m ) = ( 0 );
+
+      foreach my $i ( $begin_seq .. $end_seq ){
+         ( $n, $m ) = ( rand, rand );
+         $count++ if (( $n * $n + $m * $m ) > 1 );
+      }
+
+      $g_count->Add( $count );
+   }
+
+   # Compute bounds only; workers receive [ begin, end ] values
+
+   MCE::Flow::init { bounds_only => 1 };
+
+   # Compute PI
+
+   my $runs = shift || 1_000_000;
+
+   mce_flow_s sub { mcpi_3( $_->[0], $_->[1] ) }, 1, $runs;
+
+   say 4 * ( 1 - $g_count->Val / $runs );
 
 =head1 CORE MODULES
 
@@ -40,9 +147,14 @@ Utility functions for Many-Core Engine.
 
 =head1 MCE EXTRAS
 
-There are 4 add-on modules.
+There are 7 add-on modules for use with MCE.
 
 =over 3
+
+=item L<MCE::Candy|MCE::Candy>
+
+Provides a collection of sugar methods and output iterators for preserving
+output order.
 
 =item L<MCE::Mutex|MCE::Mutex>
 
@@ -62,7 +174,15 @@ involvement by the manager process while running.
 
 =item L<MCE::Shared|MCE::Shared>
 
-MCE extension for sharing data structures supporting threads and processes.
+An extension for sharing data or objects supporting threads and processes.
+
+=item L<MCE::Number|MCE::Number>
+
+An auto-shareable pure-Perl number class for use with MCE::Shared.
+
+=item L<MCE::OrdHash|MCE::OrdHash>
+
+A shareable pure-Perl ordered hash class, also for use with MCE::Shared.
 
 =back
 
@@ -115,11 +235,6 @@ Miscellaneous additions included with the distribution.
 
 =over 3
 
-=item L<MCE::Candy|MCE::Candy>
-
-Provides a collection of sugar methods and output iterators for preserving
-output order.
-
 =item L<MCE::Examples|MCE::Examples>
 
 Describes various demonstrations for MCE including a Monte Carlo simulation.
@@ -135,9 +250,15 @@ allows 3 options; :manager, :worker, and :getter.
 
 Perl 5.8.0 or later. PDL::IO::Storable is required in scripts running PDL.
 
-=head1 SOURCE
+=head1 SOURCE AND FURTHER READING
 
-The source is hosted at L<http://code.google.com/p/many-core-engine-perl/>
+The source, examples, and cookbook are hosted at GitHub.
+
+L<https://github.com/marioroy/mce-perl>
+
+L<https://github.com/marioroy/mce-examples>
+
+L<https://github.com/marioroy/mce-cookbook>
 
 =head1 AUTHOR
 

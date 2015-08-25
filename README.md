@@ -1,13 +1,13 @@
 ## Many-Core Engine for Perl
 
-This document describes MCE version 1.699.
+This document describes MCE version 1.700.
+
+### Description
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
 
 ![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/MCE.gif)
-
-### Description
 
 MCE spawns a pool of workers and therefore does not fork a new process per
 each element of data. Instead, MCE follows a bank queuing model. Imagine the
@@ -16,43 +16,6 @@ model by adding the ability to chunk the next n elements from the input
 stream to the next available worker.
 
 ![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Bank_Queuing_Model.gif)
-
-### Installation and Dependencies
-
-To install this module type the following:
-
-    MCE_INSTALL_TOOLS=1 perl Makefile.PL   (e.g. bin/mce_grep)
-
-    (or) perl Makefile.PL
-
-    make
-    make test
-    make install
-
-This module requires Perl 5.8.0 or later to run. By default, MCE spawns threads
-on Windows and child processes otherwise for Cygwin and Unix platforms. The use
-of threads requires that you include threads support prior to loading MCE.
-
-    child processes          use threads;                  use forks;
-                      (or)   use threads::shared;   (or)   use forks::shared;
-    use MCE;                 use MCE;                      use MCE;
-
-![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Supported_OS.gif)
-
-MCE utilizes the following modules, which are included with Perl normally:
-
-    bytes
-    constant
-    Carp
-    Fcntl
-    File::Path
-    IO::Handle
-    Scalar::Util
-    Socket
-    Storable 2.04+
-    Symbol
-    Test::More 0.45+ (for make test only)
-    Time::HiRes
 
 ### Synopsis
 
@@ -118,7 +81,6 @@ Parsing a huge log file.
 Looping through a sequence of numbers.
 
 ```perl
-
  use feature 'say';
 
  use MCE::Flow;
@@ -149,23 +111,56 @@ Looping through a sequence of numbers.
 
  # Compute PI
 
- my $runs = shift || 1e6;
+ my $runs = shift || 1_000_000;
 
  mce_flow_s sub { mcpi_3( $_->[0], $_->[1] ) }, 1, $runs;
 
  say 4 * ( 1 - $g_count->Val / $runs );
-
 ```
+
+### Installation and Dependencies
+
+To install this module type the following:
+
+    MCE_INSTALL_TOOLS=1 perl Makefile.PL   (for bin/mce_grep)
+
+    (or) perl Makefile.PL
+
+    make
+    make test
+    make install
+
+This module requires Perl 5.8.0 or later to run. By default, MCE spawns threads
+on Windows and child processes otherwise for Cygwin and Unix platforms. The use
+of threads requires that you include threads support prior to loading MCE.
+
+    processes          use threads;                  use forks;
+                (or)   use threads::shared;   (or)   use forks::shared;
+    use MCE;           use MCE;                      use MCE;
+
+![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Supported_OS.gif)
+
+MCE utilizes the following modules, which are packaged with Perl normally:
+
+    bytes
+    constant
+    Carp
+    Fcntl
+    File::Path
+    IO::Handle
+    Scalar::Util
+    Socket
+    Storable 2.04+
+    Symbol
+    Test::More 0.45+ (for make test only)
+    Time::HiRes
 
 ### Further Reading
 
-The Perl MCE documentation is best viewed at https://metacpan.org/pod/MCE.
-
-MCE options are described in https://metacpan.org/pod/MCE::Core.
+The Perl MCE module is described at https://metacpan.org/pod/MCE.
 
 See [MCE::Examples](https://metacpan.org/pod/MCE::Examples)
-and [MCE Cookbook](https://github.com/marioroy/mce-cookbook)
-for more recipes.
+and [MCE Cookbook](https://github.com/marioroy/mce-cookbook) for recipes.
 
 ### Copyright and Licensing
 

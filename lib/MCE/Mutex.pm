@@ -165,9 +165,14 @@ The inspiration for this module came from reading Mutex for Ruby.
 
 =head1 API DOCUMENTATION
 
-=head2 MCE::Mutex->new ( void )
+=head2 MCE::Mutex->new ( type => 'flock' | 'channel' )
 
-Creates a new mutex.
+Creates a new mutex. The default type is 'channel' when not specified.
+Channel locking is through a pipe or socket depending on the platform.
+
+The advantage of channel locking is not having to re-establish handles inside
+new processes or threads. Selecting 'flock' reverts to 'channel' automatically
+on Cygwin as file locking is slow there.
 
 =head2 $m->lock ( void )
 
