@@ -172,7 +172,7 @@ for more recipes.
 Copyright (C) 2012-2015 by Mario E. Roy <marioeroy AT gmail DOT com>
 
 This program is free software; you can redistribute it and/or modify
-it under the terms of either:
+it under the same terms as Perl itself:
 
         a) the GNU General Public License as published by the Free
         Software Foundation; either version 1, or (at your option) any
