@@ -1512,7 +1512,7 @@ sub do {
 
       $_func = "main::$_func" if (index($_func, ':') < 0);
 
-      return _do_callback($self, $_func, \@_);
+      return _do_callback($self, $_func, [ @_ ]);
    }
 }
 
@@ -1525,7 +1525,7 @@ sub gather {
    _croak('MCE::gather: method cannot be called by the manager process')
       unless ($self->{_wid});
 
-   return _do_gather($self, \@_);
+   return _do_gather($self, [ @_ ]);
 }
 
 ## Sendto method.

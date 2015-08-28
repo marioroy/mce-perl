@@ -139,7 +139,7 @@ my $_send_ary = sub {
    my ($_buf, $_tmp);
 
    if (scalar @_ > 1 || ref $_[0] || !defined $_[0]) {
-      $_tmp = freeze(\@_);
+      $_tmp = freeze([ @_ ]);
       $_buf = $_id.$LF . (length($_tmp)+1).$LF . $_tmp.'1';
    } else {
       $_buf = $_id.$LF . (length($_[0])+1).$LF . $_[0].'0';
@@ -187,7 +187,7 @@ my $_recv_ary = sub {
    my ($_buf, $_tmp);
 
    if (scalar @_) {
-      $_tmp = freeze(\@_);
+      $_tmp = freeze([ @_ ]);
       $_buf = $_id.$LF . length($_tmp).$LF . $_tmp;
    } else {
       $_buf = $_id.$LF . '0'.$LF;
@@ -364,7 +364,7 @@ sub AUTOLOAD {                                    ## Object Request
 
       my $_tmp  = (@_)
          ? (@_ > 1 || !defined($_[0]) || ref($_[0]))
-              ? freeze(\@_).'1' : $_[0].'0'
+              ? freeze([ @_ ]).'1' : $_[0].'0'
          : '';
 
       local $\ = undef if (defined $\);
@@ -640,7 +640,7 @@ sub SPLICE {                                      ## Array SPLICE
    $_wa = !defined wantarray ? WA_UNDEF : wantarray ? WA_ARRAY : WA_SCALAR;
    local $\ = undef if (defined $\);
 
-   my $_tmp = freeze(\@_);
+   my $_tmp = freeze([ @_ ]);
    my $_buf = $_id . $LF . $_wa . $LF . length($_tmp) . $LF . $_tmp;
 
    $_dat_ex->() if $_lock_chn;
@@ -705,7 +705,7 @@ sub Export {
    my $_id = ${ reftype($_[0]) eq 'ARRAY' ? tied @{ (shift) } : shift };
 
    MCE::Shared::Server::_send({
-      id => $_id, tag => SHR_M_EXP, type => 'ARRAY', keys => \@_
+      id => $_id, tag => SHR_M_EXP, type => 'ARRAY', keys => [ @_ ]
    });
 }
 
@@ -1030,7 +1030,7 @@ sub Export {
    my $_id = ${ reftype($_[0]) eq 'HASH' ? tied %{ (shift) } : shift };
 
    MCE::Shared::Server::_send({
-      id => $_id, tag => SHR_M_EXP, type => 'HASH', keys => \@_
+      id => $_id, tag => SHR_M_EXP, type => 'HASH', keys => [ @_ ]
    });
 }
 
@@ -1207,7 +1207,7 @@ sub Export {
    my $_id = ${ tied ${ $_[0] } || $_[0] }; shift;
 
    MCE::Shared::Server::_send({
-      id => $_id, tag => SHR_M_EXP, type => 'SCALAR', keys => \@_
+      id => $_id, tag => SHR_M_EXP, type => 'SCALAR', keys => [ @_ ]
    });
 }
 

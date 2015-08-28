@@ -1447,7 +1447,7 @@ sub _mce_m_insertp {
 
       if (scalar @_ > 1 || !defined $_[0]) {
          $_tag = OUTPUT_A_QUE;
-         $_tmp = $_MCE->{freeze}(\@_);
+         $_tmp = $_MCE->{freeze}([ @_ ]);
          $_buf = $_Q->{_id} . $LF . length($_tmp) . $LF . $_tmp;
       }
       elsif (ref $_[0]) {
@@ -1482,7 +1482,7 @@ sub _mce_m_insertp {
 
       if (scalar @_ > 1 || !defined $_[0]) {
          $_tag = OUTPUT_A_QUP;
-         $_tmp = $_MCE->{freeze}(\@_);
+         $_tmp = $_MCE->{freeze}([ @_ ]);
          $_buf = $_Q->{_id} . $LF . $_p . $LF . length($_tmp) . $LF . $_tmp;
       }
       elsif (ref $_[0]) {
@@ -1624,7 +1624,7 @@ sub _mce_m_insertp {
       return unless (scalar @_);
 
       if (scalar @_ > 1 || ref $_[0] || !defined $_[0]) {
-         $_tmp = $_MCE->{freeze}(\@_);
+         $_tmp = $_MCE->{freeze}([ @_ ]);
          $_buf = $_Q->{_id} . $LF . $_i . $LF .
             (length($_tmp) + 1) . $LF . $_tmp . '1';
       } else {
@@ -1655,7 +1655,7 @@ sub _mce_m_insertp {
       return unless (scalar @_);
 
       if (scalar @_ > 1 || ref $_[0] || !defined $_[0]) {
-         $_tmp = $_MCE->{freeze}(\@_);
+         $_tmp = $_MCE->{freeze}([ @_ ]);
          $_buf = $_Q->{_id} . $LF . $_p . $LF . $_i . $LF .
             (length($_tmp) + 1) . $LF . $_tmp . '1';
       } else {

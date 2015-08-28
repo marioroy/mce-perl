@@ -337,8 +337,8 @@ sub _send {
    $_DAT_LOCK->lock();
    print {$_DAT_W_SOCK} $_tag . $LF . $_chn . $LF;
 
-   $_buf = freeze(shift); print {$_DAU_W_SOCK} length($_buf) . $LF . $_buf;
-   $_buf = freeze( \@_ ); print {$_DAU_W_SOCK} length($_buf) . $LF . $_buf;
+   $_buf = freeze(shift);  print {$_DAU_W_SOCK} length($_buf) . $LF . $_buf;
+   $_buf = freeze([ @_ ]); print {$_DAU_W_SOCK} length($_buf) . $LF . $_buf;
    undef $_buf;
 
    chomp($_id  = <$_DAU_W_SOCK>);
