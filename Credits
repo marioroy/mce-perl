@@ -256,7 +256,7 @@ BrowserUK, toolic
 
 GrandFather
 
-  Thank you for better method names, PushNew and UnshiftNew, in MCE::Shared.
+  Thank you for better method names, PushNew and UnshiftNew, in MCE::OrdHash.
   http://www.perlmonks.org/?node_id=1139048
 
 karlgoethebier
