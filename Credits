@@ -44,16 +44,16 @@ Collet, Eric
   invoking the shell. The script supports grep, egrep, fgrep, agrep and
   tre-agrep.
 
-###############################################################################
-#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
-###############################################################################
-
 Eldai, Hisham
 
   While working on the biofasta examples, Hisham introduced me to hg19.fa.
   A couple records inside hg19 (driven by $/ = "\n>") are 250 MiB in size.
   Memory optimizations in v1.600 came about by running against hg19.fa
   hundreds of times.
+
+###############################################################################
+#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
+###############################################################################
 
 Farrell, David
 
@@ -67,6 +67,12 @@ Farrell, David
 
   http://perltricks.com/article/61/2014/1/21/
          Make-your-code-run-faster-with-Perl-s-secret-turbo-module
+
+Golden, David
+
+  David enlighten us that fast is possible for an ordered hash implementation.
+  My original intention was to support Hash::Ordered exclusively, but also
+  realized beauty in other implementations. Thus, created MCE::OrdHash.
 
 Gorwits, Oliver
 
@@ -86,6 +92,11 @@ Hedden, Jerry
   From reading threads::shared. In particular the make_shared function.
   That was helpful in getting MCE::Shared working.
 
+Hluchan, Yary
+
+  For providing a benchmark script which I used to compare IPC performance
+  between 1.6 and 1.7.
+
 ###############################################################################
 #  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
 ###############################################################################
@@ -93,7 +104,8 @@ Hedden, Jerry
 Jacobsen, Dana
 
   For reporting an issue with get_ncpu on AIX. In addition, suggesting
-  various solutions.
+  various solutions. Also, thank you for your time with Sandboxing with
+  Perl + MCE + Inline::C at https://github.com/marioroy/mce-sandbox/.
 
 Karasik, Dmitry
 
@@ -231,7 +243,35 @@ Thalhammer, Jeffrey Ryan
 #  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
 ###############################################################################
 
-Thank you.
+PerlMonks Contribution:
+
+BrowserUK, toolic
+
+  Thank you for your suggestions on improving the documentation.
+  http://www.perlmonks.org/?node_id=1133234
+
+  I decided to not merge MCE::Loop and MCE::Flow into MCE::Simple to not break
+  backwards compatibility. However, I added a synopsis section to the main
+  README file and MCE.pod for viewing on CPAN.
+
+GrandFather
+
+  Thank you for better method names, PushNew and UnshiftNew, in MCE::Shared.
+  http://www.perlmonks.org/?node_id=1139048
+
+karlgoethebier
+
+  Thank you for the "Threads From Hell" series.
+  Threads From Hell #1: http://www.perlmonks.org/?node_id=1126584
+  Threads From Hell #2: http://www.perlmonks.org/?node_id=1127540
+  Threads From Hell #3: http://www.perlmonks.org/?node_id=1128332
+
+Laurent_R
+
+  Thank you for your time on the AIX box. This made me realize to try an
+  alternative strategy for a future release.
+  http://www.perlmonks.org/?node_id=1139112
+
 
 Warm regards,
 Mario
