@@ -434,6 +434,8 @@ sub Register {                                    ## Object Register
 
 package MCE::Shared::Object::_fetch;
 
+sub _id { ${ $_[0] } }
+
 sub TIESCALAR { bless \$_[1] => $_[0] }
 sub DESTROY {}
 sub STORE {}
@@ -491,7 +493,6 @@ use constant {
 use overload
    q("")     => $_strify_a,
    q(0+)     => $_numify,
-   q(bool)   => sub { scalar( &Keys($_[0]) ) ? 1 : '' },
    fallback  => 1;
 
 sub _id { ${ $_[0] } }
@@ -788,7 +789,6 @@ use constant {
 use overload
    q("")     => $_strify_h,
    q(0+)     => $_numify,
-   q(bool)   => sub { scalar( &Keys($_[0]) ) ? 1 : '' },
    fallback  => 1;
 
 sub _id { ${ $_[0] } }

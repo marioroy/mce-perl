@@ -253,12 +253,15 @@ sub _share_r {                                    ## Share reference
       scalar _share_h($_[0], {}, $_[1]->Pairs);
    }
    elsif ($_rtype eq 'HASH') {
+      return $_[1] if tied(%{ $_[1] });
       scalar _share_h($_[0], $_[1]);
    }
    elsif ($_rtype eq 'ARRAY') {
+      return $_[1] if tied(@{ $_[1] });
       scalar _share_a($_[0], $_[1]);
    }
    elsif ($_rtype eq 'SCALAR' || $_rtype eq 'REF') {
+      return $_[1] if tied(${ $_[1] });
       scalar _share_s($_[0], $_[1]);
    }
    else {
