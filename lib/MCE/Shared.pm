@@ -79,23 +79,24 @@ sub share {
    $_params->{'type'}  = $_rtype;
    $_params->{'tag'}   = 'M~TIE';
 
-   return $_[0]
-      if $_params->{'class'} =~ /^MCE::Shared::(?:Object|Array|Hash|Scalar)$/;
-
    ## Make share.
    if ($_params->{'class'} eq 'MCE::OrdHash') {
+      return $_[0] if (tied(@{ $_[0] }) && tied(@{ $_[0] })->can('_id'));
       $_params->{'type'} = 'HASH';
       $_item = MCE::Shared::Server::_send($_params, {}, $_[0]->Pairs);
    }
    elsif ($_rtype eq 'HASH') {
+      return $_[0] if (tied(%{ $_[0] }) && tied(%{ $_[0] })->can('_id'));
       Carp::carp('Odd number of elements in hash assignment')
          if (!$_params->{'class'} && scalar @_ > 1 && (scalar @_ - 1) % 2);
       $_item = MCE::Shared::Server::_send($_params, @_);
    }
    elsif ($_rtype eq 'ARRAY') {
+      return $_[0] if (tied(@{ $_[0] }) && tied(@{ $_[0] })->can('_id'));
       $_item = MCE::Shared::Server::_send($_params, @_);
    }
    elsif ($_rtype eq 'SCALAR') {
+      return $_[0] if (tied(${ $_[0] }) && tied(${ $_[0] })->can('_id'));
       _croak('Too many arguments in scalar assignment') if (scalar @_ > 2);
       $_item = MCE::Shared::Server::_send($_params, @_);
    }

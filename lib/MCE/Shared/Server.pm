@@ -245,23 +245,21 @@ sub _share_r {                                    ## Share reference
 
    $_[0]->{'class'} = blessed($_[1]);
 
-   return $_[1]
-      if $_[0]->{'class'} =~ /^MCE::Shared::(?:Object|Array|Hash|Scalar)$/;
-
    if ($_is_oh{ $_[0]->{'class'} }) {
+      return $_[1] if (tied(@{ $_[1] }) && tied(@{ $_[1] })->can('_id'));
       $_[0]->{'type'} = 'HASH';
       scalar _share_h($_[0], {}, $_[1]->Pairs);
    }
    elsif ($_rtype eq 'HASH') {
-      return $_[1] if tied(%{ $_[1] });
+      return $_[1] if (tied(%{ $_[1] }) && tied(%{ $_[1] })->can('_id'));
       scalar _share_h($_[0], $_[1]);
    }
    elsif ($_rtype eq 'ARRAY') {
-      return $_[1] if tied(@{ $_[1] });
+      return $_[1] if (tied(@{ $_[1] }) && tied(@{ $_[1] })->can('_id'));
       scalar _share_a($_[0], $_[1]);
    }
    elsif ($_rtype eq 'SCALAR' || $_rtype eq 'REF') {
-      return $_[1] if tied(${ $_[1] });
+      return $_[1] if (tied(${ $_[1] }) && tied(${ $_[1] })->can('_id'));
       scalar _share_s($_[0], $_[1]);
    }
    else {
