@@ -1644,7 +1644,7 @@ sub say {
       $_glob = shift;
    }
 
-   $_data = (scalar @_) ? join("\n", @_) . "\n" : $_ . "\n";
+   $_data = (scalar @_) ? join('', @_) . "\n" : $_ . "\n";
 
    return _do_send_glob($self, $_glob, $_fd, \$_data) if $_fd;
    return _do_send($self, SENDTO_STDOUT, undef, \$_data) if $self->{_wid};
