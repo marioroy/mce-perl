@@ -446,7 +446,7 @@ sub new {
    $self{_last_sref} = (ref $self{input_data} eq 'SCALAR')
       ? refaddr($self{input_data}) : 0;
 
-   my $_data_channels = ($INC{'MCE/Shared.pm'}) ? 4 : DATA_CHANNELS;
+   my $_data_channels = ($INC{'MCE/Shared.pm'}) ? 2 : DATA_CHANNELS;
    my $_total_workers = 0;
 
    if (defined $self{user_tasks}) {
