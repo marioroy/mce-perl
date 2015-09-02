@@ -68,9 +68,6 @@ BEGIN {
 use overload
     q("")    => $_strify,
     q(0+)    => $_numify,
-    q(bool)  => sub {
-        ( @{ $_[0]->[_KEYS] } - $_[0]->[_GCNT] ) ? 1 : '';
-    },
     q(%{})   => sub {
         $_[0]->[_HREF] || do {
             my %h; tie %h, 'MCE::OrdHash::_href', $_[0];

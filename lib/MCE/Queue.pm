@@ -48,7 +48,6 @@ BEGIN {
 use overload
     q{""}    => $_strify,
     q{0+}    => $_numify,
-    q{bool}  => sub { $_[0]->pending ? 1 : '' },
     fallback => 1;
 
 ###############################################################################
@@ -1826,13 +1825,8 @@ This document describes MCE::Queue version 1.699_001
 
    my $item = $q->dequeue;
 
-   if ( $q ) {
-      # via bool overload, added in MCE 1.609
-      # has data
-   }
-
    if ( $q->pending ) {
-      # faster
+      ;
    }
 
 =head1 DESCRIPTION

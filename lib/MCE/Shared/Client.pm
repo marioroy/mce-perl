@@ -328,11 +328,6 @@ use constant {
 use overload
    q("")     => $_strify_s,
    q(0+)     => $_numify,
-   q(bool)   => sub {
-      my ($_id, $_code) = ( tied ${ $_[0] } ? ${ tied ${ $_[0] } } : undef );
-      exists $_obj_r->{ $_id } && ( $_code = $_obj_r->{ $_id }->{__bool} )
-         ? $_code->(@_) : $_[0];
-   },
    fallback  => 1;
 
 sub DESTROY {}
@@ -400,7 +395,7 @@ sub AUTOLOAD {                                    ## Object Request
 ## ----------------------------------------------------------------------------
 ## Object public methods and fetch support.
 
-sub Destroy {                                     ## Object Destroy/Export
+sub Destroy {                                     ## Object Destroy
    my $_id = ${ tied ${ $_[0] } || $_[0] };
    my ($_data, $_wa);  ($_cache, $_flk) = ({}, {});
 
@@ -414,7 +409,7 @@ sub Destroy {                                     ## Object Destroy/Export
    return $_wa ? $_data : ();
 }
 
-sub Export {
+sub Export {                                      ## Object Export
    my $_id = ${ tied ${ $_[0] } || $_[0] };
 
    MCE::Shared::Server::_send({
@@ -701,7 +696,6 @@ sub Destroy {                                     ## Array Destroy/Export
 
    return $_wa ? $_data : ();
 }
-
 sub Export {
    my $_id = ${ reftype($_[0]) eq 'ARRAY' ? tied @{ (shift) } : shift };
 
@@ -716,14 +710,12 @@ sub Keys {                                        ## Array Keys/Values/Pairs
       ? $_recv_ary->(SHR_A_KEY, $_id, @_)
       : $_recv_sca->(SHR_A_FSZ, $_id);
 }
-
 sub Values {
    my $_id = ${ reftype($_[0]) eq 'ARRAY' ? tied @{ (shift) } : shift };
    wantarray
       ? $_recv_ary->(SHR_A_VAL, $_id, @_)
       : $_recv_sca->(SHR_A_FSZ, $_id);
 }
-
 sub Pairs {
    my $_id = ${ reftype($_[0]) eq 'ARRAY' ? tied @{ (shift) } : shift };
    wantarray
@@ -1025,7 +1017,6 @@ sub Destroy {                                     ## Hash Destroy/Export
 
    return $_wa ? $_data : ();
 }
-
 sub Export {
    my $_id = ${ reftype($_[0]) eq 'HASH' ? tied %{ (shift) } : shift };
 
@@ -1040,14 +1031,12 @@ sub Keys {                                        ## Hash Keys/Values/Pairs
       ? $_recv_ary->(SHR_H_KEY, $_id, @_)
       : $_recv_sca->(SHR_H_SCA, $_id);
 }
-
 sub Values {
    my $_id = ${ reftype($_[0]) eq 'HASH' ? tied %{ (shift) } : shift };
    wantarray
       ? $_recv_ary->(SHR_H_VAL, $_id, @_)
       : $_recv_sca->(SHR_H_SCA, $_id);
 }
-
 sub Pairs {
    my $_id = ${ reftype($_[0]) eq 'HASH' ? tied %{ (shift) } : shift };
    wantarray
@@ -1202,7 +1191,6 @@ sub Destroy {                                     ## Scalar Destroy/Export
 
    return $_wa ? $_data : ();
 }
-
 sub Export {
    my $_id = ${ tied ${ $_[0] } || $_[0] }; shift;
 
