@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Number -- An auto-shareable pure-Perl number class.
+## MCE::Number -- An auto-shareable number class.
 ##
 ###############################################################################
 
@@ -42,7 +42,7 @@ __END__
 
 =head1 NAME
 
-MCE::Number - An auto-shareable pure-Perl number class
+MCE::Number - An auto-shareable number class
 
 =head1 VERSION
 

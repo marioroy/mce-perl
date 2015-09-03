@@ -68,12 +68,6 @@ Farrell, David
   http://perltricks.com/article/61/2014/1/21/
          Make-your-code-run-faster-with-Perl-s-secret-turbo-module
 
-Golden, David
-
-  David enlighten us that fast is possible for an ordered hash implementation.
-  My original intention was to support Hash::Ordered exclusively, but also
-  realized beauty in other implementations. Thus, created MCE::OrdHash.
-
 Gorwits, Oliver
 
   For reporting on a couple issues with MCE along with a solution for each.
@@ -97,15 +91,15 @@ Hluchan, Yary
   For providing a benchmark script which I used to compare IPC performance
   between 1.6 and 1.7.
 
-###############################################################################
-#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
-###############################################################################
-
 Jacobsen, Dana
 
   For reporting an issue with get_ncpu on AIX. In addition, suggesting
   various solutions. Also, thank you for your time with Sandboxing with
   Perl + MCE + Inline::C at https://github.com/marioroy/mce-sandbox/.
+
+###############################################################################
+#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
+###############################################################################
 
 Karasik, Dmitry
 
@@ -146,16 +140,16 @@ Mertens, David
   Barrier synchronization in MCE came from reading parallel_sync in David's
   Perl module; PDL::Parallel::threads::SIMD.
 
-###############################################################################
-#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
-###############################################################################
-
 Mughal, Zakariyya
 
   First, Demian Riccardi introduced me to Devel::IPerl by Zakariyya. The die
   handlers in MCE brake the user experience. It seems that looking at $^S
   (for Perl state) is not enough. MCE v1.600 fixes this once and for all.
   The answer is in perl-5.20.1/cpan/CGI/lib/CGI/Carp.pm (Carp::longmess).
+
+###############################################################################
+#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
+###############################################################################
 
 Ogulin, Joseph
 
@@ -194,15 +188,15 @@ Schlichting, Florian
 
   For making a Debian package for MCE: http://pkgs.org/search/libmce-perl.
 
-###############################################################################
-#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
-###############################################################################
-
 Shen, Wei
 
   For the BioUtil CPAN module. BioUtil::Seq::FastaReader inspired me to
   create parallel examples (biofasta folder) in MCE 1.600. We tried to
   make FastaReader in BioUtil::Seq even faster.
+
+###############################################################################
+#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
+###############################################################################
 
 Sjøgren, Adam
 
@@ -244,20 +238,6 @@ Thalhammer, Jeffrey Ryan
 ###############################################################################
 
 PerlMonks Contribution:
-
-BrowserUK, toolic
-
-  Thank you for your suggestions on improving the documentation.
-  http://www.perlmonks.org/?node_id=1133234
-
-  I decided to not merge MCE::Loop and MCE::Flow into MCE::Simple to not break
-  backwards compatibility. However, I added a synopsis section to the main
-  README file and MCE.pod for viewing on CPAN.
-
-GrandFather
-
-  Thank you for better method names, PushNew and UnshiftNew, in MCE::OrdHash.
-  http://www.perlmonks.org/?node_id=1139048
 
 karlgoethebier
 

@@ -1,11 +1,11 @@
 
 Revision history for Perl module MCE.
 
-1.699 Tue Aug 25 13:30:00 EST 2015
+1.699 Wed Sep 02 23:00:00 EST 2015
 
   [ TODO before releasing MCE 1.700 ]
 
-  * MCE::OrdHash and MCE::Shared documentation
+  * Complete MCE::Shared documentation
 
   [BUG FIXES]
 
@@ -21,7 +21,7 @@ Revision history for Perl module MCE.
   * Faster startup time including job submission for Cygwin and Windows.
   * Optimized locking in Mutex and Queue for the MSWin32 platform.
   * Optimized signal handling with improved support for Windows.
-  * Resolved the slow locking performance for Cygwin.
+  * Resolved slow locking performance in Cygwin.
 
   * Seeds the Math::Random generator automatically when present for non-threads
     to avoid child processes sharing the same seed value as the parent and
@@ -29,13 +29,11 @@ Revision history for Perl module MCE.
     to set the seed at the application level for predictable results.
 
   * The MCE::Flow and MCE::Step Models can take an anonymous array for
-    specifying use_threads uniquely for each sub-task. Mixing threads and
-    processes is allowed across the board with this release. MCE on Cygwin
-    has finally reached 100% parity with MCE on a UNIX OS.
+    specifying use_threads uniquely for each sub-task.
 
   [NEW FEATURES]
 
-  * MCE::Mutex now supports locking via flock and channel (pipe/socket).
+  * MCE::Mutex supports locking via flock and channel (pipe/socket).
     Added MCE option: mutex_type => 'auto', 'channel', or 'flock'.
 
     Specifying 'channel' for mutex_type allows process and threads, spawned
@@ -45,10 +43,9 @@ Revision history for Perl module MCE.
 
   * Added MCE::Shared, MCE::Shared::Client, and MCE::Shared::Server.
     These provide sharing capabilities for MCE including support for threads
-    and non-threads on all popular environments.
+    and non-threads on popular platforms.
 
   * Added MCE::Number, a shareable number class for threads and processes.
-  * Added MCE::OrdHash, providing ordered hash capabilities for MCE::Shared.
 
   * Added ->enq, ->enqp, and ->await methods to MCE::Step.
   * Added ->await method to MCE::Queue.

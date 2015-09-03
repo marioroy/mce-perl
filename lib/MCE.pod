@@ -147,7 +147,7 @@ Utility functions for Many-Core Engine.
 
 =head1 MCE EXTRAS
 
-There are 7 add-on modules for use with MCE.
+There are 6 add-on modules for use with MCE.
 
 =over 3
 
@@ -159,6 +159,10 @@ output order.
 =item L<MCE::Mutex|MCE::Mutex>
 
 Provides a simple semaphore implementation supporting threads and processes.
+
+=item L<MCE::Number|MCE::Number>
+
+An auto-shareable pure-Perl number class for use with MCE::Shared.
 
 =item L<MCE::Queue|MCE::Queue>
 
@@ -175,14 +179,6 @@ involvement by the manager process while running.
 =item L<MCE::Shared|MCE::Shared>
 
 An extension for sharing data or objects supporting threads and processes.
-
-=item L<MCE::Number|MCE::Number>
-
-An auto-shareable pure-Perl number class for use with MCE::Shared.
-
-=item L<MCE::OrdHash|MCE::OrdHash>
-
-A shareable pure-Perl ordered hash class, also for use with MCE::Shared.
 
 =back
 

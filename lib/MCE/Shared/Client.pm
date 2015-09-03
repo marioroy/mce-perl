@@ -39,10 +39,10 @@ my ($_cache, $_flk, $_obj_r) = ({}, {}, {});
 
 ## Init function called by MCE::Shared::Server.
 
-my ($_SVR, $_all, $_oh, $_obj, $_untie);
+my ($_SVR, $_all, $_obj, $_untie);
 
 sub _import_init {
-   ($_SVR, $_all, $_oh, $_obj, $_untie) = @_;
+   ($_SVR, $_all, $_obj, $_untie) = @_;
 
    $_chn        = $INC{'MCE.pm'} ? $_SVR->{_data_channels} + 1 : 1;
    $_DAT_LOCK   = $_SVR->{'_mutex_'.$_chn};
@@ -74,7 +74,7 @@ sub init {
    $_DAU_W_SOCK = $_SVR->{_dat_w_sock}->[$_chn];
    $_lock_chn   = 1;
 
-   ($_all, $_oh, $_obj, $_cache, $_flk) = ({},{},{},{},{});
+   ($_all, $_obj, $_cache, $_flk) = ({},{},{},{});
 
    return;
 }
@@ -337,13 +337,10 @@ sub DESTROY {}
 
 sub AUTOLOAD {                                    ## Object Request
 
-   ## MCE::Shared::Hash::Method    # hard-coded offset 19, to not rindex
-   ## MCE::Shared::Object::Method  # hard-coded offset 21, ditto
+   ## MCE::Shared::Object::Method  # hard-coded offset 21, to not rindex
 
-   my ($_id, $_fn) = (reftype $_[0] eq 'HASH')
-      ? ( ${ tied %{ $_[0] } }, substr($MCE::Shared::Object::AUTOLOAD, 19) )
-      : ( ${ tied ${ $_[0] } }, substr($MCE::Shared::Object::AUTOLOAD, 21) );
-
+   my $_id = ${ tied ${ $_[0] } };
+   my $_fn = substr($MCE::Shared::Object::AUTOLOAD, 21);
    my $_wa = !defined wantarray ? WA_UNDEF : wantarray ? WA_ARRAY : WA_SCALAR;
 
    if (exists $_obj_r->{ $_id } && exists $_obj_r->{ $_id }->{ $_fn }) {
@@ -401,9 +398,7 @@ sub Destroy {                                     ## Object Destroy
 
    delete $_obj_r->{ $_id };
 
-   if ($_wa = (defined wantarray)) {
-      $_data = Export(@_);
-   }
+   $_data = Export(@_) if ($_wa = (defined wantarray));
    MCE::Shared::Server::_destroy($_id);
 
    return $_wa ? $_data : ();
@@ -479,7 +474,6 @@ use constant {
    SHR_A_SPL => 'A~SPL',   ## Array SPLICE
    SHR_A_KEY => 'A~KEY',   ## Array Keys
    SHR_A_VAL => 'A~VAL',   ## Array Values
-   SHR_A_PAI => 'A~PAI',   ## Array Pairs
    WA_UNDEF  => 0,         ## Wants nothing
    WA_ARRAY  => 1,         ## Wants list
    WA_SCALAR => 2,         ## Wants scalar
@@ -704,7 +698,7 @@ sub Export {
    });
 }
 
-sub Keys {                                        ## Array Keys/Values/Pairs
+sub Keys {                                        ## Array Keys/Values
    my $_id = ${ reftype($_[0]) eq 'ARRAY' ? tied @{ (shift) } : shift };
    wantarray
       ? $_recv_ary->(SHR_A_KEY, $_id, @_)
@@ -715,12 +709,6 @@ sub Values {
    wantarray
       ? $_recv_ary->(SHR_A_VAL, $_id, @_)
       : $_recv_sca->(SHR_A_FSZ, $_id);
-}
-sub Pairs {
-   my $_id = ${ reftype($_[0]) eq 'ARRAY' ? tied @{ (shift) } : shift };
-   wantarray
-      ? $_recv_ary->(SHR_A_PAI, $_id, @_)
-      : $_recv_sca->(SHR_A_FSZ, $_id) * 2;
 }
 
 {                                                 ## Array Aliases
@@ -754,8 +742,6 @@ no warnings 'threads';
 no warnings 'recursion';
 no warnings 'uninitialized';
 
-use base 'MCE::Shared::Object';
-
 use Scalar::Util qw( reftype );
 use Storable qw( freeze thaw );
 use bytes;
@@ -773,7 +759,6 @@ use constant {
    SHR_H_SCA => 'H~SCA',   ## Hash SCALAR
    SHR_H_KEY => 'H~KEY',   ## Hash Keys
    SHR_H_VAL => 'H~VAL',   ## Hash Values
-   SHR_H_PAI => 'H~PAI',   ## Hash Pairs
    WA_UNDEF  => 0,         ## Wants nothing
    WA_SCALAR => 2,         ## Wants scalar
 };
@@ -803,19 +788,10 @@ sub UNTIE {                                       ## Hash UNTIE
       if ($INC{'MCE.pm'} && MCE->wid);
 
    if (exists $_all->{ $_id }) {
-      if (exists $_oh->{ $_id }) {
-         my $_tobj = tied(%{ $_all->{ $_id } });
-         for my $_k ($_tobj->Keys()) {
-            MCE::Shared::Server::_untie($_tobj->FETCH($_k));
-         }
-         $_tobj->CLEAR();
+      for my $_k (keys %{ $_all->{ $_id } }) {
+         MCE::Shared::Server::_untie($_all->{ $_id }->{ $_k });
       }
-      else {
-         for my $_k (keys %{ $_all->{ $_id } }) {
-            MCE::Shared::Server::_untie($_all->{ $_id }->{ $_k });
-         }
-         %{ $_all->{ $_id } } = ();
-      }
+      %{ $_all->{ $_id } } = ();
    }
 
    MCE::Shared::Server::_destroy($_id);
@@ -860,11 +836,7 @@ sub FETCH {                                       ## Hash FETCH
       $_do_fetch->(SHR_H_FCH, $_id.$LF.length($_[1]).$LF.$_[1]);
    }
    else {
-      if (exists $_oh->{ $_id }) {
-         tied(%{ $_all->{ $_id } })->FETCH($_[1]);
-      } else {
-         $_all->{ $_id }->{ $_[1] };
-      }
+      $_all->{ $_id }->{ $_[1] };
    }
 }
 
@@ -914,12 +886,8 @@ sub FIRSTKEY {                                    ## Hash FIRSTKEY
       shift @{ $_cache->{ $_id } };
    }
    else {
-      if (exists $_oh->{ $_id }) {
-         tied(%{ $_all->{ $_id } })->FIRSTKEY();
-      } else {
-         my $_a = keys %{ $_all->{ $_id } };
-         each %{ $_all->{ $_id } };
-      }
+      my $_a = keys %{ $_all->{ $_id } };
+      each %{ $_all->{ $_id } };
    }
 }
 
@@ -932,11 +900,7 @@ sub NEXTKEY {                                     ## Hash NEXTKEY
       $_ret;
    }
    else {
-      if (exists $_oh->{ $_id }) {
-         tied(%{ $_all->{ $_id } })->NEXTKEY();
-      } else {
-         each %{ $_all->{ $_id } };
-      }
+      each %{ $_all->{ $_id } };
    }
 }
 
@@ -976,28 +940,13 @@ sub _export {
 
    return $_exported->{ $_id } if (exists $_exported->{ $_id });
 
-   if (exists $_oh->{ $_id }) {
-      my $_tobj = tied(%{ $_all->{ $_id } });
+   $_exported->{ $_id } = $_copy = {};
+   @_keys = keys %{ $_all->{ $_id } } unless @_keys;
 
-      $_exported->{ $_id } = $_copy = MCE::OrdHash->new();
-      @_keys = $_tobj->Keys() unless @_keys;
-
-      for my $_k (@_keys) {
-         $_copy->STORE($_k, (reftype($_tobj->FETCH($_k)))
-            ? MCE::Shared::Server::_export($_exported, $_tobj->FETCH($_k))
-            : $_tobj->FETCH($_k)
-         );
-      }
-   }
-   else {
-      $_exported->{ $_id } = $_copy = {};
-      @_keys = keys %{ $_all->{ $_id } } unless @_keys;
-
-      for my $_k (@_keys) {
-         $_copy->{ $_k } = (reftype($_all->{ $_id }->{ $_k }))
-            ? MCE::Shared::Server::_export($_exported, $_all->{ $_id }->{ $_k })
-            : $_all->{ $_id }->{ $_k };
-      }
+   for my $_k (@_keys) {
+      $_copy->{ $_k } = (reftype($_all->{ $_id }->{ $_k }))
+         ? MCE::Shared::Server::_export($_exported, $_all->{ $_id }->{ $_k })
+         : $_all->{ $_id }->{ $_k };
    }
 
    return $_copy;
@@ -1025,7 +974,7 @@ sub Export {
    });
 }
 
-sub Keys {                                        ## Hash Keys/Values/Pairs
+sub Keys {                                        ## Hash Keys/Values
    my $_id = ${ reftype($_[0]) eq 'HASH' ? tied %{ (shift) } : shift };
    wantarray
       ? $_recv_ary->(SHR_H_KEY, $_id, @_)
@@ -1036,12 +985,6 @@ sub Values {
    wantarray
       ? $_recv_ary->(SHR_H_VAL, $_id, @_)
       : $_recv_sca->(SHR_H_SCA, $_id);
-}
-sub Pairs {
-   my $_id = ${ reftype($_[0]) eq 'HASH' ? tied %{ (shift) } : shift };
-   wantarray
-      ? $_recv_ary->(SHR_H_PAI, $_id, @_)
-      : $_recv_sca->(SHR_H_SCA, $_id) * 2;
 }
 
 {                                                 ## Hash Aliases

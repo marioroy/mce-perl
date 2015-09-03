@@ -140,10 +140,6 @@ WriteMakefile(
                'file'    => 'lib/MCE/Number.pm',
                'version' => '1.699_001'
             },
-            'MCE::OrdHash' => {
-               'file'    => 'lib/MCE/OrdHash.pm',
-               'version' => '1.699_001'
-            },
             'MCE::Queue' => {
                'file'    => 'lib/MCE/Queue.pm',
                'version' => '1.699_001'

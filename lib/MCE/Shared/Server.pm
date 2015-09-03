@@ -55,7 +55,6 @@ use constant {
    SHR_A_SPL => 'A~SPL',   ## Array SPLICE
    SHR_A_KEY => 'A~KEY',   ## Array Keys
    SHR_A_VAL => 'A~VAL',   ## Array Values
-   SHR_A_PAI => 'A~PAI',   ## Array Pairs
 
    SHR_H_STO => 'H~STO',   ## Hash STORE
    SHR_H_FCH => 'H~FCH',   ## Hash FETCH
@@ -66,7 +65,6 @@ use constant {
    SHR_H_SCA => 'H~SCA',   ## Hash SCALAR
    SHR_H_KEY => 'H~KEY',   ## Hash Keys
    SHR_H_VAL => 'H~VAL',   ## Hash Values
-   SHR_H_PAI => 'H~PAI',   ## Hash Pairs
 
    SHR_S_STO => 'S~STO',   ## Scalar STORE
    SHR_S_FCH => 'S~FCH',   ## Scalar FETCH
@@ -79,11 +77,10 @@ use constant {
 ##
 ###############################################################################
 
-my ($_all, $_oh, $_obj, $_untie, $_cache) = ({},{},{},{},{});
+my ($_all, $_obj, $_untie, $_cache) = ({},{},{},{});
 my ($_next_id, $_thr_cloned, $_is_client) = (0,0,1);
 my ($_SVR, $_init_pid, $_svr_pid);
 
-my %_is_oh = ( 'MCE::OrdHash' => 1 );
 my $_is_older_perl = ($] lt '5.016000') ? 1 : 0;
 
 END { _shutdown() if $_init_pid && $_init_pid eq "$$.$_thr_cloned" }
@@ -137,38 +134,16 @@ sub _share_h {                                    ## Share hash
    return $_item if (exists $_cloned->{ refaddr($_item) });
 
    my ($_id, $_class, $_copy) = (++$_next_id, delete $_cloned->{'class'});
-
-   if ($_class && !$_cloned->{'compat'} && !$_is_oh{ $_class }) {
-      return _share_o($_class, $_id, $_item);
-   }
+   return _share_o($_class, $_id, $_item) if ($_class && !$_cloned->{'compat'});
 
    $_cloned->{ refaddr($_item) } = $_item;
    $_cloned->{'is_obj'} = $_class ? 1 : 0;
    $_all->{ $_id } = $_copy = {};
 
-   if ($_class && $_is_oh{ $_class }) {
-      tie %{ $_all->{ $_id } }, $_class;
-      $_oh->{ $_id } = $_class;
-      $_class = undef;
-   }
-   elsif (!$_cloned->{'is_obj'}) {
-      if ($INC{'MCE/OrdHash.pm'}) {
-         tie %{ $_all->{ $_id } }, 'MCE::OrdHash';
-         $_oh->{ $_id } = 'MCE::OrdHash';
-      }
-   }
-
    if (scalar @_) {
       my $_k;
-      if (exists $_oh->{ $_id }) {
-         my $_tobj = tied(%{ $_copy });
-         while (scalar @_) {
-            $_k = shift; $_tobj->STORE($_k, _copy($_cloned, shift));
-         }
-      } else {
-         while (scalar @_) {
-            $_k = shift; $_copy->{ $_k } = _copy($_cloned, shift);
-         }
+      while (scalar @_) {
+         $_k = shift; $_copy->{ $_k } = _copy($_cloned, shift);
       }
    }
    else {
@@ -245,12 +220,7 @@ sub _share_r {                                    ## Share reference
 
    $_[0]->{'class'} = blessed($_[1]);
 
-   if ($_is_oh{ $_[0]->{'class'} }) {
-      return $_[1] if (tied(@{ $_[1] }) && tied(@{ $_[1] })->can('_id'));
-      $_[0]->{'type'} = 'HASH';
-      scalar _share_h($_[0], {}, $_[1]->Pairs);
-   }
-   elsif ($_rtype eq 'HASH') {
+   if ($_rtype eq 'HASH') {
       return $_[1] if (tied(%{ $_[1] }) && tied(%{ $_[1] })->can('_id'));
       scalar _share_h($_[0], $_[1]);
    }
@@ -370,7 +340,7 @@ sub _spawn {
    setsockopt($_SVR->{_dat_r_sock}->[0], SOL_SOCKET, SO_RCVBUF, 4096)
       if ($^O ne 'aix' && $^O ne 'linux');
 
-   MCE::Shared::Client::_import_init($_SVR, $_all, $_oh, $_obj, $_untie);
+   MCE::Shared::Client::_import_init($_SVR, $_all, $_obj, $_untie);
 
    if ($INC{'threads.pm'} || $^O eq 'MSWin32') {
       require threads unless exists $INC{'threads.pm'};
@@ -414,7 +384,6 @@ sub _delete {
 
    delete $_cache->{ $_id };
    delete $_obj->{ $_id };
-   delete $_oh->{ $_id };
    delete $_all->{ $_id };
 
    return;
@@ -486,9 +455,6 @@ sub _loop {
 
    my ($_DAT_R_SOCK, $_DAU_R_SOCK); my ($_client_id, $_done) = (0, 0);
    my ($_id, $_fn, $_wa, $_oid, $_key, $_len, $_ret, $_rtype);
-
-   my %_oh_list1 = map { $_ => 1 } qw( Push PushNew Unshift UnshiftNew Splice );
-   my %_oh_list2 = map { $_ => 1 } qw( Pop Shift Pairs pairs );
 
    my $_cb_ary = sub {
       chomp($_id  = <$_DAU_R_SOCK>);
@@ -584,19 +550,10 @@ sub _loop {
             @{ $_all->{ $_id } } = ();
          }
          elsif ($_type eq 'HASH') {
-            if (exists $_oh->{ $_id }) {
-               my $_tobj = tied(%{ $_all->{ $_id } });
-               for my $_k ($_tobj->Keys()) {
-                  _untie($_tobj->FETCH($_k));
-               }
-               $_tobj->CLEAR();
+            for my $_k (keys %{ $_all->{ $_id } }) {
+               _untie($_all->{ $_id }->{ $_k });
             }
-            else {
-               for my $_k (keys %{ $_all->{ $_id } }) {
-                  _untie($_all->{ $_id }->{ $_k });
-               }
-               %{ $_all->{ $_id } } = ();
-            }
+            %{ $_all->{ $_id } } = ();
          }
          elsif ($_type eq 'SCALAR') {
             _untie(${ $_all->{ $_id } });
@@ -686,19 +643,9 @@ sub _loop {
             push @_, chop $_buf ? @{ thaw($_buf) } : $_buf;
          }
 
-         ## Request for Perl Object via compat => 0 or Ordered Hash class
+         ## Request for Perl Object via compat => 0
          if (exists $_obj->{ $_id }) {
             $_var = $_obj->{ $_id };
-         }
-         elsif (exists $_oh->{ $_id }) {
-            $_var = tied(%{ $_all->{ $_id } });
-            if (@_ && exists $_oh_list1{ $_fn }) {
-               my ($_k, $_cloned) = (1, {});
-               for ( 1 .. int(@_ / 2) ) {
-                  $_[ $_k ] = _share_r($_cloned, $_[ $_k ]) if reftype($_[ $_k ]);
-                  $_k += 2;
-               }
-            }
          }
          else {
             _croak(
@@ -711,17 +658,6 @@ sub _loop {
          if (my $_code = $_var->can( $_fn )) {
             if ($_wa == WA_ARRAY) {
                my @_ret = $_code->($_var, @_);
-               if (@_ret && exists $_oh->{ $_id }) {
-                  if (exists $_oh_list2{ $_fn }) {
-                     my $_k = 1;
-                     for ( 1 .. int(@_ret / 2) ) {
-                        if (reftype($_ret[ $_k ])) {
-                           $_ret[ $_k ] = $_ret[ $_k ]->Destroy();
-                        }
-                        $_k += 2;
-                     }
-                  }
-               }
                $_buf = freeze(\@_ret) . '1';
                print {$_DAU_R_SOCK} length($_buf) . $LF, $_buf;
             }
@@ -743,9 +679,7 @@ sub _loop {
 
          ## Not found
          else {
-            my $_pkg = (exists $_oh->{ $_id })
-               ? $_oh->{ $_id } : blessed($_obj->{ $_id });
-
+            my $_pkg = blessed($_obj->{ $_id });
             _croak("Can't locate object method \"$_fn\" via package \"$_pkg\"");
          }
 
@@ -967,17 +901,6 @@ sub _loop {
          });
       },
 
-      SHR_A_PAI.$LF => sub {                      ## Array Pairs
-         $_cb_ary->( sub {
-            read($_DAU_R_SOCK, (my $_buf), $_len) if $_len;
-            my $_var = $_all->{ $_id };
-            $_ = freeze([ $_len
-               ? map { $_ => $_var->[ $_ ] } @{ thaw($_buf) }
-               : map { $_ => $_var->[ $_ ] } 0 .. @{ $_var } - 1
-            ]);
-         });
-      },
-
       ## ----------------------------------------------------------------------
 
       SHR_H_STO.$LF => sub {                      ## Hash STORE
@@ -987,35 +910,18 @@ sub _loop {
          read $_DAU_R_SOCK, $_key, $_len;
          chomp($_len = <$_DAU_R_SOCK>);
 
-         if (exists $_oh->{ $_id }) {
-            if ($_len > 0) {
-               read $_DAU_R_SOCK, (my $_buf), $_len;
-               if (chop $_buf) {
-                  my $_this_id;  $_this_id = $_next_id + 1 if $_is_older_perl;
-                  tied(%{ $_all->{$_id} })->STORE($_key, _share_r({}, thaw($_buf)));
-                  print {$_DAU_R_SOCK} $_this_id . $LF if $_this_id;
-               } else {
-                  tied(%{ $_all->{ $_id } })->STORE($_key, $_buf);
-               }
-            }
-            else {
-               tied(%{ $_all->{ $_id } })->STORE($_key, undef);
+         if ($_len > 0) {
+            read $_DAU_R_SOCK, (my $_buf), $_len;
+            if (chop $_buf) {
+               my $_this_id;  $_this_id = $_next_id + 1 if $_is_older_perl;
+               $_all->{ $_id }->{ $_key } = _share_r({}, thaw($_buf));
+               print {$_DAU_R_SOCK} $_this_id . $LF if $_this_id;
+            } else {
+               $_all->{ $_id }->{ $_key } = $_buf;
             }
          }
          else {
-            if ($_len > 0) {
-               read $_DAU_R_SOCK, (my $_buf), $_len;
-               if (chop $_buf) {
-                  my $_this_id;  $_this_id = $_next_id + 1 if $_is_older_perl;
-                  $_all->{ $_id }->{ $_key } = _share_r({}, thaw($_buf));
-                  print {$_DAU_R_SOCK} $_this_id . $LF if $_this_id;
-               } else {
-                  $_all->{ $_id }->{ $_key } = $_buf;
-               }
-            }
-            else {
-               $_all->{ $_id }->{ $_key } = undef;
-            }
+            $_all->{ $_id }->{ $_key } = undef;
          }
 
          return;
@@ -1026,10 +932,7 @@ sub _loop {
          chomp($_len = <$_DAU_R_SOCK>);
 
          read $_DAU_R_SOCK, $_key, $_len;
-
-         (exists $_oh->{ $_id })
-            ? $_cb_fetch->(tied(%{ $_all->{ $_id } })->FETCH($_key))
-            : $_cb_fetch->($_all->{ $_id }->{ $_key });
+         $_cb_fetch->($_all->{ $_id }->{ $_key });
 
          return;
       },
@@ -1039,18 +942,11 @@ sub _loop {
          chomp($_wa  = <$_DAU_R_SOCK>);
          chomp($_len = <$_DAU_R_SOCK>);
 
-         my $_buf; read $_DAU_R_SOCK, $_key, $_len;
+         read $_DAU_R_SOCK, $_key, $_len;
 
-         if (exists $_oh->{ $_id }) {
-            $_buf = (reftype(tied(%{ $_all->{ $_id } })->FETCH($_key)))
-               ? tied(%{ $_all->{ $_id } })->DELETE($_key)->Destroy()
-               : tied(%{ $_all->{ $_id } })->DELETE($_key);
-         }
-         else {
-            $_buf = (reftype($_all->{ $_id }->{ $_key }))
-               ? (delete $_all->{ $_id }->{ $_key })->Destroy()
-               :  delete $_all->{ $_id }->{ $_key };
-         }
+         my $_buf = (reftype($_all->{ $_id }->{ $_key }))
+            ? (delete $_all->{ $_id }->{ $_key })->Destroy()
+            :  delete $_all->{ $_id }->{ $_key };
 
          $_cb_ret->($_buf) if $_wa;
 
@@ -1060,9 +956,7 @@ sub _loop {
       SHR_H_FST.$LF => sub {                      ## Hash FIRSTKEY / NEXTKEY
          chomp($_id = <$_DAU_R_SOCK>);
 
-         my @_a = (exists $_oh->{ $_id })
-            ? tied(%{ $_all->{ $_id } })->Keys()
-            : keys %{ $_all->{ $_id } };
+         my @_a = keys %{ $_all->{ $_id } };
 
          if (scalar @_a) {
             my $_buf = freeze(\@_a);
@@ -1080,10 +974,7 @@ sub _loop {
 
          read $_DAU_R_SOCK, $_key, $_len;
 
-         $_ret = ( (exists $_oh->{ $_id })
-            ? tied(%{ $_all->{ $_id } })->EXISTS($_key)
-            : exists $_all->{ $_id }->{ $_key } ) ? 1 : 0;
-
+         $_ret = ( exists $_all->{ $_id }->{ $_key } ) ? 1 : 0;
          print {$_DAU_R_SOCK} $_ret . $LF;
 
          return;
@@ -1092,20 +983,11 @@ sub _loop {
       SHR_H_CLR.$LF => sub {                      ## Hash CLEAR
          my $_id; chomp($_id = <$_DAU_R_SOCK>);
 
-         if (exists $_oh->{ $_id }) {
-            my $_tobj = tied(%{ $_all->{ $_id } });
-            for my $_k ($_tobj->Keys()) {
-               _untie($_tobj->FETCH($_k));
-            }
-            $_tobj->CLEAR();
-         }
-         else {
-            for my $_k (keys %{ $_all->{ $_id } }) {
-               _untie($_all->{ $_id }->{ $_k });
-            }
-            %{ $_all->{ $_id } } = ();
+         for my $_k (keys %{ $_all->{ $_id } }) {
+            _untie($_all->{ $_id }->{ $_k });
          }
 
+         %{ $_all->{ $_id } } = ();
          %{ $_untie } = ();
 
          return;
@@ -1114,10 +996,7 @@ sub _loop {
       SHR_H_SCA.$LF => sub {                      ## Hash SCALAR
          chomp($_id = <$_DAU_R_SOCK>);
 
-         $_ret = (exists $_oh->{ $_id })
-            ? tied(%{ $_all->{ $_id } })->Keys()
-            : keys %{ $_all->{ $_id } };
-
+         $_ret = keys %{ $_all->{ $_id } };
          print {$_DAU_R_SOCK} $_ret . $LF;
 
          return;
@@ -1126,54 +1005,22 @@ sub _loop {
       SHR_H_KEY.$LF => sub {                      ## Hash Keys
          $_cb_ary->( sub {
             read($_DAU_R_SOCK, (my $_buf), $_len) if $_len;
-            if (exists $_oh->{ $_id }) {
-               $_ = freeze([ $_len
-                  ? tied(%{ $_all->{ $_id } })->Keys(@{ thaw($_buf) })
-                  : tied(%{ $_all->{ $_id } })->Keys()
-               ]);
-            } else {
-               my $_var = $_all->{ $_id };
-               $_ = freeze([ $_len
-                  ? map { exists $_var->{ $_ } ? $_ : () } @{ thaw($_buf) }
-                  : keys %{ $_var }
-               ]);
-            }
+            my $_var = $_all->{ $_id };
+            $_ = freeze([ $_len
+               ? map { exists $_var->{ $_ } ? $_ : () } @{ thaw($_buf) }
+               : keys %{ $_var }
+            ]);
          });
       },
 
       SHR_H_VAL.$LF => sub {                      ## Hash Values
          $_cb_ary->( sub {
             read($_DAU_R_SOCK, (my $_buf), $_len) if $_len;
-            if (exists $_oh->{ $_id }) {
-               $_ = freeze([ $_len
-                  ? tied(%{ $_all->{ $_id } })->Values(@{ thaw($_buf) })
-                  : tied(%{ $_all->{ $_id } })->Values()
-               ]);
-            } else {
-               my $_var = $_all->{ $_id };
-               $_ = freeze([ $_len
-                  ? map { $_var->{ $_ } } @{ thaw($_buf) }
-                  : values %{ $_var }
-               ]);
-            }
-         });
-      },
-
-      SHR_H_PAI.$LF => sub {                      ## Hash Pairs
-         $_cb_ary->( sub {
-            read($_DAU_R_SOCK, (my $_buf), $_len) if $_len;
-            if (exists $_oh->{ $_id }) {
-               $_ = freeze([ $_len
-                  ? tied(%{ $_all->{ $_id } })->Pairs(@{ thaw($_buf) })
-                  : tied(%{ $_all->{ $_id } })->Pairs()
-               ]);
-            } else {
-               my $_var = $_all->{ $_id };
-               $_ = freeze([ $_len
-                  ? map { $_ => $_var->{ $_ } } @{ thaw($_buf) }
-                  : %{ $_var }
-               ]);
-            }
+            my $_var = $_all->{ $_id };
+            $_ = freeze([ $_len
+               ? map { $_var->{ $_ } } @{ thaw($_buf) }
+               : values %{ $_var }
+            ]);
          });
       },
 

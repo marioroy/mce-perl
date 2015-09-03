@@ -28,7 +28,6 @@ lib/MCE/Mutex.pm
 lib/MCE/Mutex/Channel.pm
 lib/MCE/Mutex/Flock.pm
 lib/MCE/Number.pm
-lib/MCE/OrdHash.pm
 lib/MCE/Queue.pm
 lib/MCE/Relay.pm
 lib/MCE/Shared.pm
@@ -66,6 +65,4 @@ t/06_nodata_step.t
 t/07_shared_array.t
 t/07_shared_hash.t
 t/07_shared_scalar.t
-t/08_ordhash_ixhash.t
-t/08_ordhash_shared.t
 META.yml
