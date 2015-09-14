@@ -30,7 +30,7 @@ use MCE::Mutex;
 our @CARP_NOT = qw( MCE::Shared MCE );
 
 use constant {
-   DATA_CHANNELS => 6,     ## Max data channels
+   DATA_CHANNELS => 8,     ## Max data channels
    WA_ARRAY      => 1,     ## Wants list
 
    SHR_M_TIE => 'M~TIE',   ## TIE request
