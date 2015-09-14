@@ -5,7 +5,7 @@ This document describes MCE version 1.700.
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
 
-![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/MCE.gif)
+![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/MCE.png)
 
 ### Description
 
@@ -15,7 +15,7 @@ line being the data and bank-tellers the arallel workers. MCE enhances that
 model by adding the ability to chunk the next n elements from the input
 stream to the next available worker.
 
-![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Bank_Queuing_Model.gif)
+![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Bank_Queuing_Model.png)
 
 ### Synopsis
 
@@ -138,7 +138,7 @@ of threads requires that you include threads support prior to loading MCE.
                 (or)   use threads::shared;   (or)   use forks::shared;
     use MCE;           use MCE;                      use MCE;
 
-![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Supported_OS.gif)
+![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Supported_OS.png)
 
 MCE utilizes the following modules, which are packaged with Perl normally:
 
