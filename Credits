@@ -68,6 +68,13 @@ Farrell, David
   http://perltricks.com/article/61/2014/1/21/
          Make-your-code-run-faster-with-Perl-s-secret-turbo-module
 
+Goethebier, Karl
+
+  Thank you for the "Threads From Hell" series.
+  Threads From Hell #1: http://www.perlmonks.org/?node_id=1126584
+  Threads From Hell #2: http://www.perlmonks.org/?node_id=1127540
+  Threads From Hell #3: http://www.perlmonks.org/?node_id=1128332
+
 Gorwits, Oliver
 
   For reporting on a couple issues with MCE along with a solution for each.
@@ -91,15 +98,15 @@ Hluchan, Yary
   For providing a benchmark script which I used to compare IPC performance
   between 1.6 and 1.7.
 
+###############################################################################
+#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
+###############################################################################
+
 Jacobsen, Dana
 
   For reporting an issue with get_ncpu on AIX. In addition, suggesting
   various solutions. Also, thank you for your time with Sandboxing with
   Perl + MCE + Inline::C at https://github.com/marioroy/mce-sandbox/.
-
-###############################################################################
-#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
-###############################################################################
 
 Karasik, Dmitry
 
@@ -119,12 +126,6 @@ Kulow, Stephan
 
   For making the OpenSUSE package for MCE.
   https://build.opensuse.org/package/show/devel:languages:perl:CPAN-M/perl-MCE
-
-Lu, Henry
-
-  For listening during our walks on numerous occasions while I talked about
-  how ridiculously hard to provide support for the Windows environment.
-  For encouraging me to hang in there when I wanted to give up.
 
 Mabon, Philip
 
@@ -169,11 +170,9 @@ Rowe, Jillian
   For reporting on IO::File handles not working with MCE. Fixed in 1.515.
   For believing in possibilities beyond text-book thinking.
 
-Roy, Sylvia
+Roy, Sylvia (spouse)
 
-  For driving on long trips while I worked in the passenger seat further
-  developing MCE. Not to forget, locally around town as well. Gosh, a lot
-  of MCE was developed on the road not to forget Panera Bread as well.
+  For supporting me from v1.000, especially during later 1.6 revisions and 1.7.
 
 Šabata, Petr
 
@@ -232,26 +231,6 @@ Thalhammer, Jeffrey Ryan
   I would have failed initially without it. Your example was placed under
   the "SYNTAX for INPUT_DATA" section in MCE::Core for others to see on
   how to process output from Path::Iterator::Rule in parallel.
-
-###############################################################################
-#  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
-###############################################################################
-
-PerlMonks Contribution:
-
-karlgoethebier
-
-  Thank you for the "Threads From Hell" series.
-  Threads From Hell #1: http://www.perlmonks.org/?node_id=1126584
-  Threads From Hell #2: http://www.perlmonks.org/?node_id=1127540
-  Threads From Hell #3: http://www.perlmonks.org/?node_id=1128332
-
-Laurent_R
-
-  Thank you for your time on the AIX box. This made me realize to try an
-  alternative strategy for a future release.
-  http://www.perlmonks.org/?node_id=1139112
-
 
 Warm regards,
 Mario
