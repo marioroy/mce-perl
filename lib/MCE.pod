@@ -12,7 +12,7 @@ maximizing all available cores.
 
 =begin html
 
-<p><img src="https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/MCE.png" width="620" height="484" alt="MCE" /></p>
+<p><img src="https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/MCE.png" width="612" height="484" alt="MCE" /></p>
 
 =end html
 
