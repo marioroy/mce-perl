@@ -11,24 +11,36 @@ use warnings;
 
 our $VERSION = '1.699_001';
 
-sub new {
-    my ($class, $self) = (shift, shift || 0);
+my $has_thrs;
 
-    $INC{'MCE/Shared.pm'}
-        ? MCE::Shared::share( bless \$self, $class )
-        : bless \$self, $class;
+BEGIN {
+   $has_thrs = ($INC{'threads/shared.pm'} && !$INC{'forks.pm'}) ? 1 : 0;
 }
 
-sub Set  {   ${ $_[0] }    = $_[1] }
-sub Val  {   ${ $_[0] }            }
-sub Decr { --${ $_[0] }            }
-sub Incr { ++${ $_[0] }            }
-sub Next {   ${ $_[0] }++          }
-sub Prev {   ${ $_[0] }--          }
-sub Add  {   ${ $_[0] }   += $_[1] }
-sub Sub  {   ${ $_[0] }   -= $_[1] }
-sub Mul  {   ${ $_[0] }   *= $_[1] }
-sub Div  {   ${ $_[0] }   /= $_[1] }
+sub new {
+   my ($class, $self) = (shift, shift || 0);
+
+   if ($has_thrs) {
+      threads::shared::shared_clone( bless \$self, $class );
+   }
+   elsif ($INC{'MCE/Shared.pm'}) {
+      MCE::Shared::share( bless \$self, $class );
+   }
+   else {
+      bless \$self, $class;
+   }
+}
+
+sub Set  { lock $_[0] if $has_thrs;   ${ $_[0] }    = $_[1] }
+sub Val  { lock $_[0] if $has_thrs;   ${ $_[0] }            }
+sub Decr { lock $_[0] if $has_thrs; --${ $_[0] }            }
+sub Incr { lock $_[0] if $has_thrs; ++${ $_[0] }            }
+sub Next { lock $_[0] if $has_thrs;   ${ $_[0] }++          }
+sub Prev { lock $_[0] if $has_thrs;   ${ $_[0] }--          }
+sub Add  { lock $_[0] if $has_thrs;   ${ $_[0] }   += $_[1] }
+sub Sub  { lock $_[0] if $has_thrs;   ${ $_[0] }   -= $_[1] }
+sub Mul  { lock $_[0] if $has_thrs;   ${ $_[0] }   *= $_[1] }
+sub Div  { lock $_[0] if $has_thrs;   ${ $_[0] }   /= $_[1] }
 
 1;
 
@@ -50,9 +62,18 @@ This document describes MCE::Number version 1.699_001
 
 =head1 SYNOPSIS
 
-   use MCE::Shared;
-   use MCE::Number;   # auto-shares when MCE::Shared is present
+   # including threads is optional
+
+   use threads;
+   use threads::shared;
+
    use MCE::Flow;
+   use MCE::Shared;
+
+   # auto-shares number via threads::shared or MCE::Shared
+   # otherwise, not shared
+
+   use MCE::Number;
 
    my $n = MCE::Number->new(100);   # default 0
 
@@ -69,7 +90,8 @@ This document describes MCE::Number version 1.699_001
 =head1 DESCRIPTION
 
 This module provides an auto-shareable number class supporting threads and
-processes. The object is shared when MCE::Shared is present.
+processes. The number object is shared via threads::shared if present,
+otherwise through MCE::Shared.
 
 =head1 API DOCUMENTATION
 

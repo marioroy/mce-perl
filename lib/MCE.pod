@@ -162,7 +162,7 @@ Provides a simple semaphore implementation supporting threads and processes.
 
 =item L<MCE::Number|MCE::Number>
 
-An auto-shareable pure-Perl number class for use with MCE::Shared.
+An auto-shareable pure-Perl number class for threads::shared or MCE::Shared.
 
 =item L<MCE::Queue|MCE::Queue>
 
