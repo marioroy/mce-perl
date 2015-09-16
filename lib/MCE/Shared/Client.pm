@@ -373,9 +373,7 @@ sub AUTOLOAD {                                    ## Object Request
          $_dat_un->() if $_lock_chn;
 
          my $_rc = chop $_buf;
-         if ($_fn eq 'Destroy' || $_fn eq 'Export') {
-            (length $_buf) ? thaw($_buf) : ();
-         } elsif ($_wa == WA_ARRAY) {
+         if ($_wa == WA_ARRAY) {
             @{ thaw($_buf) };
          } elsif ($_rc == 2) {
             ();
