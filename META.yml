@@ -76,12 +76,6 @@ provides:
     MCE::Mutex:
         file:     lib/MCE/Mutex.pm
         version:  1.699_001
-    MCE::Mutex::Channel:
-        file:     lib/MCE/Mutex/Channel.pm
-        version:  1.699_001
-    MCE::Mutex::Flock:
-        file:     lib/MCE/Mutex/Flock.pm
-        version:  1.699_001
     MCE::Number:
         file:     lib/MCE/Number.pm
         version:  1.699_001

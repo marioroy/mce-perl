@@ -9,13 +9,9 @@ package MCE::Candy;
 use strict;
 use warnings;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized );
 
 our $VERSION = '1.699_001';
-
-use bytes;
 
 our @CARP_NOT = qw( MCE );
 

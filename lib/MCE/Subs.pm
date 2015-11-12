@@ -9,9 +9,7 @@ package MCE::Subs;
 use strict;
 use warnings;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized );
 
 our $VERSION = '1.699_001';
 
@@ -103,6 +101,7 @@ sub mce_thaw        (@) { return $MCE::MCE->{thaw}(@_); }
 
 sub mce_chunk_id    ( ) { return $MCE::MCE->chunk_id(); }
 sub mce_chunk_size  ( ) { return $MCE::MCE->chunk_size(); }
+sub mce_max_retries ( ) { return $MCE::MCE->max_retries(); }
 sub mce_max_workers ( ) { return $MCE::MCE->max_workers(); }
 sub mce_pid         ( ) { return $MCE::MCE->pid(); }
 sub mce_sess_dir    ( ) { return $MCE::MCE->sess_dir(); }
@@ -176,6 +175,7 @@ sub _export_subs {
    if ($_g_flg) {
       *{ $_package . '::mce_chunk_id'    } = \&mce_chunk_id;
       *{ $_package . '::mce_chunk_size'  } = \&mce_chunk_size;
+      *{ $_package . '::mce_max_retries' } = \&mce_max_retries;
       *{ $_package . '::mce_max_workers' } = \&mce_max_workers;
       *{ $_package . '::mce_pid'         } = \&mce_pid;
       *{ $_package . '::mce_sess_dir'    } = \&mce_sess_dir;
@@ -364,6 +364,8 @@ MCE methods are described in L<MCE::Core|MCE::Core>.
 =item mce_chunk_id
 
 =item mce_chunk_size
+
+=item mce_max_retries
 
 =item mce_max_workers
 

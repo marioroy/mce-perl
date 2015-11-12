@@ -9,9 +9,7 @@ package MCE::Signal;
 use strict;
 use warnings;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized );
 
 our $VERSION = '1.699_001';
 
@@ -42,7 +40,7 @@ BEGIN {
 
 use File::Path ();
 use Time::HiRes qw( sleep time );
-use Fcntl qw( :flock O_RDONLY );
+use Fcntl qw( :flock );
 use base qw( Exporter );
 
 our @EXPORT_OK = qw( $tmp_dir sys_cmd stop_and_exit );
@@ -115,7 +113,7 @@ sub import {
    }
 
    _croak("Error: MCE::Signal: ($_tmp_dir_base) is not writeable")
-      unless (-w $_tmp_dir_base);
+      if (! exists $ENV{'MOBASTARTUPDIR'} && ! -w $_tmp_dir_base);
 
    ## Remove tainted'ness from $tmp_dir.
    ($tmp_dir) = "$_tmp_dir_base/$prog_name.$$.$_count" =~ /(.*)/;

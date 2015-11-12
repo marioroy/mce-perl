@@ -50,7 +50,7 @@ Below, a new instance is configured with all available options.
 
    my $mce = MCE->new(
 
-      max_workers => 8,                   ## Default $MCE::MAX_WORKERS
+      max_workers => 8,                   ## Default 1
 
          # Number of workers to spawn. This can be set automatically
          # with MCE 1.412 and later releases.
@@ -64,7 +64,7 @@ Below, a new instance is configured with all available options.
 
          # max_workers => MCE::Util::get_ncpu, # run on all lcores
 
-      chunk_size => 2000,                 ## Default $MCE::CHUNK_SIZE
+      chunk_size => 2000,                 ## Default 1
 
          # Can also take a suffix; K (Kilobytes) or M (Megabytes).
          # The default is 1 when using the Core API and 'auto' for
@@ -82,14 +82,14 @@ Below, a new instance is configured with all available options.
          # chunk_size => '16K',           ## Approximate 16 kilobytes
          # chunk_size => '20M',           ## Approximate 20 megabytes
 
-      tmp_dir => $tmp_dir,                ## Default $MCE::TMP_DIR
+      tmp_dir => $tmp_dir,                ## Default $MCE::Signal::tmp_dir
 
          # Default is $MCE::Signal::tmp_dir which points to
          # $ENV{TEMP} if defined. Otherwise, tmp_dir points
          # to a location under /tmp.
 
-      freeze => \&encode_sereal,          ## Default $MCE::FREEZE
-      thaw   => \&decode_sereal,          ## Default $MCE::THAW
+      freeze => \&encode_sereal,          ## Default \&Storable::freeze
+      thaw   => \&decode_sereal,          ## Default \&Storable::thaw
 
          # Release 1.412 allows freeze and thaw to be overridden.
          # Simply include a serialization module prior to loading
@@ -148,25 +148,11 @@ Below, a new instance is configured with all available options.
          #    Record 3:  seq3  ... \n>          >seq3 ... \n
          #    Last Rec:  seqN  ... \n           >seqN ... \n
 
-      mutex_type  => 'channel',           ## Default 'auto'
-      mutex_type  => 'flock',
+      max_retries => 2,                   ## Default 0
 
-         # MCE 1.6 and below performed IPC locking via Fcntl flock.
-         # The thing about file locking is that it requires one file
-         # handle per each data channel times the number of workers.
-         # Channel locking in 1.7 resolves this. Thus, allows more
-         # threads when running with threads. Note: choosing 'flock'
-         # has no effect on Cygwin.
-
-         # Auto disables locking when the number of workers is lesser
-         # or equal to the number of data channels. Otherwise, MCE
-         # enables channel locking for data channels shared by 2 or
-         # more workers. The behavior is similar as in MCE 1.6.
-
-         # Specify 'channel' to allow processes and threads, spawned
-         # by MCE workers, to call any MCE method without additional
-         # synchronization at the application level. This enforces
-         # locking regardless on how many MCE workers.
+         # This option, added in 1.7, causes MCE to retry a failed
+         # chunk from a worker dying while processing input data or
+         # sequence of numbers.
 
       parallel_io => 1,                   ## Default 0
       posix_exit  => 1,                   ## Default 0
@@ -210,13 +196,13 @@ Below, a new instance is configured with all available options.
          # Specify job_delay when wanting to stagger
          # workers connecting to a database.
 
-      on_post_exit => \&on_post_exit,     ## Default undef
-      on_post_run => \&on_post_run,       ## Default undef
+      on_post_exit  => \&on_post_exit,    ## Default undef
+      on_post_run   => \&on_post_run,     ## Default undef
 
-         # Execute code block after a worker exits.
-         # exit, MCE->exit, or die
+         # Execute code block after a worker exits or dies.
+         # MCE->exit, exit, or die
 
-         # Execute code block after running a job.
+         # Execute code block after running.
          # MCE->process or MCE->run
 
       user_args => { env => 'test' },     ## Default undef
@@ -358,7 +344,7 @@ MCE 1.5 allows all public method to be called directly.
 
 =head2 OVERRIDING DEFAULTS
 
-The following list 5 options which may be overridden when loading the module.
+The following list options which may be overridden when loading the module.
 
    use Sereal qw( encode_sereal decode_sereal );
    use CBOR::XS qw( encode_cbor decode_cbor );
@@ -374,9 +360,8 @@ The following list 5 options which may be overridden when loading the module.
 
    my $mce = MCE->new( ... );
 
-There is a simpler way to enable Sereal with MCE 1.5. The following will
-attempt to use Sereal if available, otherwise defaults to Storable for
-serialization.
+There is a simpler way to enable Sereal. The following will attempt to use
+Sereal if available, otherwise defaults to Storable for serialization.
 
    use MCE Sereal => 1;
 
@@ -898,6 +883,68 @@ Time was measured using 1 worker to emphasize the difference.
    6250001 ..  7500000
    7500001 ..  8750000
    8750001 .. 10000000
+
+=head2 SYNTAX for MAX_RETRIES
+
+The max_retries option, added in 1.7, causes MCE to retry a failed chunk from
+a worker dying while processing input data or sequence of numbers.
+
+MCE configures the on_post_exit option with the following code in the absence
+of on_post_exit. Otherwise, simply tailor this into your on_post_exit code.
+
+   ## What is done behind the scene when max_retries is specified and
+   ## omitting the on_post_exit option in MCE.
+
+   sub on_post_exit {
+      my ($mce, $e, $retry_cnt) = @_;
+      my ($cnt, $msg) = ($retry_cnt + 1, "Error: Chunk $e->{id} failed");
+
+      ($retry_cnt < $mce->max_retries)
+         ? print {*STDERR} "$msg, retrying chunk attempt #${cnt}\n"
+         : print {*STDERR} "$msg\n";
+
+      $mce->restart_worker;
+   }
+
+   ## Running MCE with max_retries.
+
+   use strict;
+   use warnings;
+
+   use MCE;
+
+   sub user_func {
+      my ($mce, $chunk_ref, $chunk_id) = @_;
+      die "Died : chunk_id == 3" if $chunk_id == 3;
+      print "$mce->{_wid}: $chunk_id\n";
+   }
+
+   my $mce = MCE->new(
+      max_workers => 1, user_func => \&user_func,
+      max_retries => 2,
+   )->spawn;
+
+   my @input_data; push @input_data, qw( 0 1 2 3 4 5 6 7 );
+
+   $mce->process( { chunk_size => 1 }, \@input_data );
+
+   $mce->shutdown;
+
+   -- Output
+
+   1: 1
+   1: 2
+   Died : chunk_id == 3 at script.pl line 8, <__ANONIO__> line 6.
+   Error: Chunk 3 failed, retrying chunk attempt #1
+   Died : chunk_id == 3 at script.pl line 8, <__ANONIO__> line 7.
+   Error: Chunk 3 failed, retrying chunk attempt #2
+   Died : chunk_id == 3 at script.pl line 8, <__ANONIO__> line 14.
+   Error: Chunk 3 failed
+   1: 4
+   1: 5
+   1: 6
+   1: 7
+   1: 8
 
 =head2 SYNTAX for USER_BEGIN and USER_END
 

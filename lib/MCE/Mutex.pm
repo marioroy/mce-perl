@@ -9,42 +9,34 @@ package MCE::Mutex;
 use strict;
 use warnings;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized );
 
 our $VERSION = '1.699_001';
 
+use MCE::Util qw( $LF );
+
 our @CARP_NOT = qw( MCE::Shared MCE );
 
-my ($_default, $_loaded) = ('channel', 0);
+my $_tid = $INC{'threads.pm'} ? threads->tid() : 0;
 
-sub import {
-   my $_class = shift; return if ($_loaded++);
-
-   while (my $_argument = shift) {
-      my $_arg = lc $_argument;
-
-      if ( $_arg eq 'type' ) {
-         $_default = shift || 'channel';
-         if ($_default !~ /^(?:flock|channel|pipe|socket)$/) {
-            _croak("Error: (type => '$_default') is not valid");
-         }
-         next;
-      }
-
-      _croak("Error: ($_argument) invalid module option");
-   }
-
+sub CLONE {
+   $_tid = threads->tid();
    return;
 }
 
-sub _croak {
-   unless (defined $MCE::VERSION) {
-      $\ = undef; require Carp; goto &Carp::croak;
-   } else {
-      goto &MCE::_croak;
+sub DESTROY {
+   my ($_obj, $_arg) = @_;
+   my $_pid = $INC{'threads.pm'} ? $$ .'.'. $_tid : $$;
+
+   $_obj->unlock() if ($_obj->{ $_pid });
+
+   if ($_arg eq 'shutdown' || $_obj->{'init_pid'} eq $_pid) {
+      ($_obj->{'pipe'} || $^O eq 'MSWin32')
+         ? MCE::Util::_destroy_pipes($_obj, qw(_w_sock _r_sock))
+         : MCE::Util::_destroy_sockets($_obj, qw(_w_sock _r_sock));
    }
+
+   return;
 }
 
 ###############################################################################
@@ -54,40 +46,42 @@ sub _croak {
 ###############################################################################
 
 sub new {
-   my ($_class, %_argv) = @_; my $_obj;
-   my $_type = $_argv{'type'} || $ENV{'PERL_MCE_MUTEX_TYPE'} || $_default;
+   my ($_class, %_argv) = @_; my $_obj = {};
 
-   ## adjust accordingly
+   $_obj->{'init_pid'} = $INC{'threads.pm'} ? $$ .'.'. $_tid : $$;
+   $_obj->{'pipe'}     = ($^O =~ /^(?:cygwin|solaris)$/) ? 0 : 1;
 
-   if ($_type eq 'flock') {
-      $_type = 'channel' if ($^O eq 'cygwin');
-   }
-   elsif ($_type eq 'pipe') {
-      $_type = 'channel'; $_argv{'pipe'} = 1;
-   }
-   elsif ($_type eq 'socket') {
-      $_type = 'channel'; $_argv{'pipe'} = 0;
-   }
+   ($_obj->{'pipe'} || $^O eq 'MSWin32')
+      ? MCE::Util::_pipe_pair($_obj, qw(_r_sock _w_sock))
+      : MCE::Util::_socket_pair($_obj, qw(_r_sock _w_sock));
 
-   $_argv{'pipe'} = 1 if ($_type eq 'channel' && not exists $_argv{'pipe'});
-   $_argv{'pipe'} = 0 if ($_argv{'pipe'} && $^O =~ /^(?:cygwin|solaris)$/);
+   syswrite($_obj->{_w_sock}, '0');
 
-   ## return lock object
+   return bless($_obj, $_class);
+}
 
-   if ($_type eq 'channel') {
-      delete $_argv{'type'};
-      require MCE::Mutex::Channel unless $INC{'MCE/Mutex/Channel.pm'};
-      $_obj = MCE::Mutex::Channel->new(%_argv);
-   }
-   elsif ($_type eq 'flock') {
-      require MCE::Mutex::Flock unless $INC{'MCE/Mutex/Flock.pm'};
-      $_obj = MCE::Mutex::Flock->new(%_argv);
-   }
-   else {
-      _croak("MCE::Mutex: type ($_type) is not valid");
+sub lock {
+   my $_obj = shift;
+   my $_pid = $INC{'threads.pm'} ? $$ .'.'. $_tid : $$;
+
+   unless ($_obj->{ $_pid }) {
+      sysread($_obj->{_r_sock}, my $_b, 1);
+      $_obj->{ $_pid } = 1;
    }
 
-   return $_obj;
+   return;
+}
+
+sub unlock {
+   my $_obj = shift;
+   my $_pid = $INC{'threads.pm'} ? $$ .'.'. $_tid : $$;
+
+   if ($_obj->{ $_pid }) {
+      syswrite($_obj->{_w_sock}, '0');
+      $_obj->{ $_pid } = 0;
+   }
+
+   return;
 }
 
 sub synchronize {
@@ -165,14 +159,9 @@ The inspiration for this module came from reading Mutex for Ruby.
 
 =head1 API DOCUMENTATION
 
-=head2 MCE::Mutex->new ( type => 'flock' | 'channel' )
+=head2 MCE::Mutex->new ( void )
 
-Creates a new mutex. The default type is 'channel' when not specified.
-Channel locking is through a pipe or socket depending on the platform.
-
-The advantage of channel locking is not having to re-establish handles inside
-new processes or threads. Selecting 'flock' reverts to 'channel' automatically
-on Cygwin as file locking is slow there.
+Creates a new mutex lock via a pipe or socket depending on platform.
 
 =head2 $m->lock ( void )
 

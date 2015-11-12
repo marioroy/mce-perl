@@ -1,9 +1,9 @@
 
 Revision history for Perl module MCE.
 
-1.699 Wed Sep 02 23:00:00 EST 2015
+1.699 Tue Nov 10 18:00:00 EST 2015
 
-  [ TODO before releasing MCE 1.700 ]
+  [ TODO before releasing MCE 1.700 final ]
 
   * Complete MCE::Shared documentation
 
@@ -17,11 +17,20 @@ Revision history for Perl module MCE.
   [ENHANCEMENTS]
 
   * Added code in MCE::Grep's documentation for parsing huge files.
-  * Added option posix_exit => 1 to avoid END and destructor processing.
-  * Faster startup time including job submission for Cygwin and Windows.
+  * Added support for running MCE with Perl under MobaXterm on Windows.
+
+  * Reduced startup time including job submission for Windows and Cygwin.
+
+  * MCE/examples and MCE/images are no longer included with the distribution.
+    These are maintained separately at https://github.com/marioroy/mce-examples
+    and https://github.com/marioroy/mce-assets respectively.
+
+  * MCE::Mutex performs channel locking via a pipe or socket depending on
+    platform. Previously, locking was through file locking using flock.
+    This resolves the slow locking performance in Cygwin.
+
   * Optimized locking in Mutex and Queue for the MSWin32 platform.
   * Optimized signal handling with improved support for Windows.
-  * Resolved slow locking performance in Cygwin.
 
   * Seeds the Math::Random generator automatically when present for non-threads
     to avoid child processes sharing the same seed value as the parent and
@@ -33,22 +42,21 @@ Revision history for Perl module MCE.
 
   [NEW FEATURES]
 
-  * MCE::Mutex supports locking via flock and channel (pipe/socket).
-    Added MCE option: mutex_type => 'auto', 'channel', or 'flock'.
-
-    Specifying 'channel' for mutex_type allows process and threads, spawned
-    by MCE workers, to call on any MCE method; e.g. MCE->do, MCE->gather,
-    MCE->print, MCE->printf, MCE->say, MCE->sendto, including MCE::Queue
-    methods.
-
   * Added MCE::Shared, MCE::Shared::Client, and MCE::Shared::Server.
     These provide sharing capabilities for MCE including support for threads
     and non-threads on popular platforms.
 
   * Added MCE::Number, a shareable number class for threads and processes.
 
-  * Added ->enq, ->enqp, and ->await methods to MCE::Step.
-  * Added ->await method to MCE::Queue.
+  * Added option max_retries => N for retrying a failed chunk from a worker
+    dying while processing input data or sequence of numbers.
+
+  * Added option posix_exit => 1 to avoid END and destructor processing.
+    This is necessary for running with Tk and child processes or with
+    use_threads => 0.
+
+  * Added methods ->enq, ->enqp, and ->await to MCE::Step.
+  * Added method ->await to MCE::Queue.
 
 1.608 Fri Apr 10 03:00:00 EST 2015
 

@@ -22,9 +22,7 @@ our $VERSION = '1.699_001';
 
 package MCE;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized );
 
 use bytes;
 
@@ -74,8 +72,8 @@ sub _output_loop {
    @_ = ();
 
    my (
-      $_aborted, $_eof_flag, $_syn_flag, %_sendto_fhs, $_wa,
-      $_cb, $_chunk_id, $_chunk_size, $_fd, $_file, $_flush_file,
+      $_aborted, $_eof_flag, $_max_retries, $_syn_flag, %_sendto_fhs,
+      $_cb, $_chunk_id, $_chunk_size, $_fd, $_file, $_flush_file, $_wa,
       @_is_c_ref, @_is_h_ref, @_is_q_ref, $_on_post_exit, $_on_post_run,
       $_has_user_tasks, $_sess_dir, $_task_id, $_user_error, $_user_output,
       $_input_size, $_offset_pos, $_single_dim, @_gather, $_cs_one_flag,
@@ -191,7 +189,7 @@ sub _output_loop {
             }
          }
 
-         my $_exit_msg = '';
+         my ($_exit_msg, $_retry_buf) = ('', '');
 
          chomp($_exit_wid    = <$_DAU_R_SOCK>);
          chomp($_exit_pid    = <$_DAU_R_SOCK>);
@@ -200,6 +198,10 @@ sub _output_loop {
          chomp($_len         = <$_DAU_R_SOCK>);
 
          read($_DAU_R_SOCK, $_exit_msg, $_len) if ($_len);
+
+         chomp($_len = <$_DAU_R_SOCK>);
+
+         read($_DAU_R_SOCK, $_retry_buf, $_len) if ($_len);
 
          if (abs($_exit_status) > abs($self->{_wrk_status})) {
             $self->{_wrk_status} = $_exit_status;
@@ -235,10 +237,23 @@ sub _output_loop {
          if (defined $_on_post_exit) {
             $self->{_exited_wid} = $_exit_wid;
 
-            $_on_post_exit->($self, {
-               wid => $_exit_wid, pid => $_exit_pid, status => $_exit_status,
-               msg => $_exit_msg, id  => $_exit_id
-            });
+            if (length($_retry_buf)) {
+               $self->{_retry} = $self->{thaw}($_retry_buf);
+               my $_retry_cnt  = $_max_retries - $self->{_retry}[2] - 1;
+
+               $_on_post_exit->($self, {
+                  wid => $_exit_wid, pid => $_exit_pid, status => $_exit_status,
+                  msg => $_exit_msg, id  => $_exit_id
+               }, $_retry_cnt);
+
+               delete $self->{_retry};
+            }
+            else {
+               $_on_post_exit->($self, {
+                  wid => $_exit_wid, pid => $_exit_pid, status => $_exit_status,
+                  msg => $_exit_msg, id  => $_exit_id
+               }, $_max_retries || 0 );
+            }
 
             delete $self->{_exited_wid};
          }
@@ -690,6 +705,7 @@ sub _output_loop {
    $_cs_one_flag = ($self->{chunk_size} == 1) ? 1 : 0;
    $_aborted = $_chunk_id = $_eof_flag = 0;
 
+   $_max_retries  = $self->{max_retries};
    $_on_post_exit = $self->{on_post_exit};
    $_on_post_run  = $self->{on_post_run};
    $_chunk_size   = $self->{chunk_size};
@@ -698,6 +714,19 @@ sub _output_loop {
    $_user_error   = $self->{user_error};
    $_single_dim   = $self->{_single_dim};
    $_sess_dir     = $self->{_sess_dir};
+
+   if ($_max_retries && !$_on_post_exit) {
+      $_on_post_exit = sub {
+         my ($self, $_e, $_retry_cnt) = @_;
+         my ($_cnt, $_msg) = ($_retry_cnt + 1, "Error: Chunk $_e->{id} failed");
+
+         ($_retry_cnt < $_max_retries)
+            ? print {*STDERR} "$_msg, retrying chunk attempt #${_cnt}\n"
+            : print {*STDERR} "$_msg\n";
+
+         $self->restart_worker;
+      };
+   }
 
    if ($_has_user_tasks && $self->{user_tasks}->[0]->{chunk_size}) {
       $_chunk_size = $self->{user_tasks}->[0]->{chunk_size};

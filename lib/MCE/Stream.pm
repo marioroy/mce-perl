@@ -9,9 +9,7 @@ package MCE::Stream;
 use strict;
 use warnings;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized );
 
 our $VERSION = '1.699_001';
 
@@ -20,9 +18,8 @@ our $VERSION = '1.699_001';
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use Scalar::Util qw( looks_like_number );
-
-use MCE;
-use MCE::Queue;
+use Storable ();
+use MCE::Signal;
 
 our @CARP_NOT = qw( MCE );
 
@@ -32,53 +29,37 @@ our @CARP_NOT = qw( MCE );
 ##
 ###############################################################################
 
-my $DEFAULT_MODE = 'map';
-my $MAX_WORKERS  = 'auto';
-my $CHUNK_SIZE   = 'auto';
-my $FAST         = 0;
+my ($MAX_WORKERS, $CHUNK_SIZE) = ('auto', 'auto');
+
+my $TMP_DIR = $MCE::Signal::tmp_dir;
+my $FREEZE  = \&Storable::freeze;
+my $THAW    = \&Storable::thaw;
+
+my ($DEFAULT_MODE, $FAST) = ('map', 0);
 
 my ($_params, @_prev_c, @_prev_m, @_prev_n, @_prev_w, @_user_tasks, @_queue);
 my ($_MCE, $_loaded); my $_tag = 'MCE::Stream';
 
 sub import {
-
    my $_class = shift; return if ($_loaded++);
 
    ## Process module arguments.
    while (my $_argument = shift) {
       my $_arg = lc $_argument;
 
-      $DEFAULT_MODE = shift and next if ( $_arg eq 'default_mode' );
-      $MAX_WORKERS  = shift and next if ( $_arg eq 'max_workers' );
-      $CHUNK_SIZE   = shift and next if ( $_arg eq 'chunk_size' );
-
-      $MCE::FREEZE = $MCE::MCE->{freeze} = shift and next
-         if ( $_arg eq 'freeze' );
-      $MCE::THAW = $MCE::MCE->{thaw} = shift and next
-         if ( $_arg eq 'thaw' );
+      $MAX_WORKERS  = shift, next if ( $_arg eq 'max_workers' );
+      $CHUNK_SIZE   = shift, next if ( $_arg eq 'chunk_size' );
+      $FREEZE       = shift, next if ( $_arg eq 'freeze' );
+      $THAW         = shift, next if ( $_arg eq 'thaw' );
+      $TMP_DIR      = shift, next if ( $_arg eq 'tmp_dir' );
+      $DEFAULT_MODE = shift, next if ( $_arg eq 'default_mode' );
+      $FAST         = shift, next if ( $_arg eq 'fast' );
 
       if ( $_arg eq 'sereal' ) {
          if (shift eq '1') {
             local $@; eval 'use Sereal qw(encode_sereal decode_sereal)';
-            unless ($@) {
-               $MCE::FREEZE = $MCE::MCE->{freeze} = \&encode_sereal;
-               $MCE::THAW = $MCE::MCE->{thaw} = \&decode_sereal;
-            }
+            $FREEZE = \&encode_sereal, $THAW = \&decode_sereal unless $@;
          }
-         next;
-      }
-
-      if ( $_arg eq 'tmp_dir' ) {
-         $MCE::TMP_DIR = $MCE::MCE->{tmp_dir} = shift;
-         my $_e1 = 'is not a directory or does not exist';
-         my $_e2 = 'is not writeable';
-         _croak("Error: ($MCE::TMP_DIR) $_e1") unless -d $MCE::TMP_DIR;
-         _croak("Error: ($MCE::TMP_DIR) $_e2") unless -w $MCE::TMP_DIR;
-         next;
-      }
-
-      if ( $_arg eq 'fast' ) {
-         $FAST = 1 if (shift eq '1');
          next;
       }
 
@@ -88,11 +69,18 @@ sub import {
    _croak("Error: (DEFAULT_MODE) is not valid")
       if ($DEFAULT_MODE ne 'grep' && $DEFAULT_MODE ne 'map');
 
+   ## Preload essential modules.
+   require MCE; MCE->import(
+      freeze => $FREEZE, thaw => $THAW, tmp_dir => $TMP_DIR
+   );
+
    $MAX_WORKERS = MCE::Util::_parse_max_workers($MAX_WORKERS);
    _validate_number($MAX_WORKERS, 'MAX_WORKERS');
 
    _validate_number($CHUNK_SIZE, 'CHUNK_SIZE')
       unless ($CHUNK_SIZE eq 'auto');
+
+   require MCE::Queue; MCE::Queue->import();
 
    ## Import functions.
    no strict 'refs'; no warnings 'redefine';
@@ -165,7 +153,7 @@ sub init (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Stream');
 
    if (MCE->wid) {
-      @_ = (); _croak("$_tag: (init) cannot be called by the worker process");
+      @_ = (); _croak("$_tag: (init) is not allowed by worker process");
    }
 
    finish(); $_params = (ref $_[0] eq 'HASH') ? shift : { @_ };
@@ -178,7 +166,7 @@ sub init (@) {
 sub finish () {
 
    if (defined $_MCE && $_MCE->{_spawned}) {
-      MCE::_save_state; $_MCE->shutdown(); MCE::_restore_state;
+      MCE::_save_state(); $_MCE->shutdown(); MCE::_restore_state();
    }
 
    $_gather_ref = $_order_id = undef; undef %_tmp; @_user_tasks = ();
@@ -312,7 +300,7 @@ sub run (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Stream');
 
    if (MCE->wid) {
-      @_ = (); _croak("$_tag: (run) cannot be called by the worker process");
+      @_ = (); _croak("$_tag: (run) is not allowed by worker process");
    }
 
    if (ref $_[0] eq 'HASH' && !exists $_[0]->{code}) {
@@ -425,7 +413,7 @@ sub run (@) {
       }
    }
 
-   MCE::_save_state;
+   MCE::_save_state();
 
    ## -------------------------------------------------------------------------
 
@@ -472,7 +460,7 @@ sub run (@) {
          for my $_p (qw(
             RS interval stderr_file stdout_file user_error user_output
             job_delay submit_delay on_post_exit on_post_run user_args
-            flush_file flush_stderr flush_stdout
+            flush_file flush_stderr flush_stdout max_retries
          )) {
             $_MCE->{$_p} = $_params->{$_p} if (exists $_params->{$_p});
          }
@@ -503,7 +491,7 @@ sub run (@) {
       }
    }
 
-   MCE::_restore_state;
+   MCE::_restore_state();
 
    if (exists $_MCE->{_rla_return}) {
       $MCE::MCE->{_rla_return} = delete $_MCE->{_rla_return};
@@ -511,7 +499,7 @@ sub run (@) {
 
    if ($^S) {
       ## shutdown if in eval state
-      MCE::_save_state; $_MCE->shutdown(); MCE::_restore_state;
+      MCE::_save_state(); $_MCE->shutdown(); MCE::_restore_state();
       $_->DESTROY() for (@_queue); @_queue = ();
    }
 
@@ -758,25 +746,24 @@ otherwise -1.
 
 =head1 OVERRIDING DEFAULTS
 
-The following list 7 options which may be overridden when loading the module.
+The following list options which may be overridden when loading the module.
 
    use Sereal qw( encode_sereal decode_sereal );
    use CBOR::XS qw( encode_cbor decode_cbor );
    use JSON::XS qw( encode_json decode_json );
 
    use MCE::Stream
-         default_mode => 'grep',         ## Default 'map'
-         max_workers => 8,               ## Default 'auto'
-         chunk_size => 500,              ## Default 'auto'
-         fast => 1,                      ## Default 0 (fast queue?)
-         tmp_dir => "/path/to/app/tmp",  ## $MCE::Signal::tmp_dir
-         freeze => \&encode_sereal,      ## \&Storable::freeze
-         thaw => \&decode_sereal         ## \&Storable::thaw
+         default_mode => 'grep',          ## Default 'map'
+         fast => 1,                       ## Default 0 (fast dequeue)
+         max_workers => 8,                ## Default 'auto'
+         chunk_size => 500,               ## Default 'auto'
+         tmp_dir => "/path/to/app/tmp",   ## $MCE::Signal::tmp_dir
+         freeze => \&encode_sereal,       ## \&Storable::freeze
+         thaw => \&decode_sereal          ## \&Storable::thaw
    ;
 
-There is a simpler way to enable Sereal with MCE 1.5. The following will
-attempt to use Sereal if available, otherwise defaults to Storable for
-serialization.
+There is a simpler way to enable Sereal. The following will attempt to use
+Sereal if available, otherwise defaults to Storable for serialization.
 
    use MCE::Stream Sereal => 1;
 

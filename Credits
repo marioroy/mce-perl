@@ -159,8 +159,6 @@ Ogulin, Joseph
 
 Riccardi, Demian
 
-  For providing a cool demonstration computing PI for the README.md file.
-
   I received a message from Demian asking for mce_map. His message requested
   ( my @a = mce_map { ... } 1..100 ). Five models were introduced in v1.500;
   MCE::Flow, MCE::Grep, MCE::Loop, MCE::Map, and MCE::Stream.

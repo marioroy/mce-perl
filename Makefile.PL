@@ -10,7 +10,7 @@ use ExtUtils::MakeMaker;
 
 my @exe_files;
 
-if ($ENV{MCE_INSTALL_TOOLS} || $ENV{PERL_MCE_INSTALL_TOOLS}) {
+if ($ENV{MCE_INSTALL_TOOLS}) {
    push @exe_files, 'bin/mce_grep';
 }
 
@@ -126,14 +126,6 @@ WriteMakefile(
             },
             'MCE::Mutex' => {
                'file'    => 'lib/MCE/Mutex.pm',
-               'version' => '1.699_001'
-            },
-            'MCE::Mutex::Channel' => {
-               'file'    => 'lib/MCE/Mutex/Channel.pm',
-               'version' => '1.699_001'
-            },
-            'MCE::Mutex::Flock' => {
-               'file'    => 'lib/MCE/Mutex/Flock.pm',
                'version' => '1.699_001'
             },
             'MCE::Number' => {

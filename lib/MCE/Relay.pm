@@ -9,9 +9,7 @@ package MCE::Relay;
 use strict;
 use warnings;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized );
 
 our $VERSION = '1.699_001';
 
@@ -167,7 +165,7 @@ sub relay_final {
 
    my $x = shift; my $self = ref($x) ? $x : $MCE::MCE;
 
-   _croak('MCE::relay_final: method cannot be called by the worker process')
+   _croak('MCE::relay_final: method is not allowed by worker process')
       if ($self->{_wid});
 
    if (exists $self->{_rla_return}) {
@@ -191,9 +189,9 @@ sub relay_recv {
 
    _croak('MCE::relay: (init_relay) is not specified')
       unless (defined $self->{init_relay});
-   _croak('MCE::relay: method cannot be called by the manager process')
+   _croak('MCE::relay: method is not allowed by manager process')
       unless ($self->{_wid});
-   _croak('MCE::relay: method cannot be called by this sub task')
+   _croak('MCE::relay: method is not allowed by this sub task')
       if ($self->{_task_id} > 0);
 
    my $_chn = ($self->{_chunk_id} - 1) % $self->{max_workers};
@@ -237,9 +235,9 @@ sub relay (;&) {
 
    _croak('MCE::relay: (init_relay) is not specified')
       unless (defined $self->{init_relay});
-   _croak('MCE::relay: method cannot be called by the manager process')
+   _croak('MCE::relay: method is not allowed by manager process')
       unless ($self->{_wid});
-   _croak('MCE::relay: method cannot be called by this sub task')
+   _croak('MCE::relay: method is not allowed by this sub task')
       if ($self->{_task_id} > 0);
 
    if (ref $_code ne 'CODE') {

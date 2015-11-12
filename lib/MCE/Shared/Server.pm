@@ -9,19 +9,18 @@ package MCE::Shared::Server;
 use strict;
 use warnings;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
-no warnings 'once';
+no warnings qw( threads recursion uninitialized once );
 
 our $VERSION = '1.699_001';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
+## no critic (InputOutput::ProhibitTwoArgOpen)
 
 use Time::HiRes qw( sleep );
 use Scalar::Util qw( blessed refaddr reftype );
 use Socket qw( SOL_SOCKET SO_RCVBUF );
 use Storable qw( freeze thaw );
+use Symbol qw( gensym );
 use bytes;
 
 use MCE::Util qw( $LF );
@@ -53,16 +52,32 @@ use constant {
    SHR_A_UFT => 'A~UFT',   ## Array UNSHIFT
    SHR_A_EXI => 'A~EXI',   ## Array EXISTS
    SHR_A_SPL => 'A~SPL',   ## Array SPLICE
+   SHR_A_CLO => 'A~CLO',   ## Array Clone
    SHR_A_KEY => 'A~KEY',   ## Array Keys
    SHR_A_VAL => 'A~VAL',   ## Array Values
 
+   SHR_F_EOF => 'F~EOF',   ## File EOF
+   SHR_F_TEL => 'F~TEL',   ## File TELL
+   SHR_F_FNO => 'F~FNO',   ## File FILENO
+   SHR_F_SEE => 'F~SEE',   ## File SEEK
+   SHR_F_CLO => 'F~CLO',   ## File CLOSE
+   SHR_F_BIN => 'F~BIN',   ## File BINMODE
+   SHR_F_OPN => 'F~OPN',   ## File OPEN
+   SHR_F_REA => 'F~REA',   ## File READ
+   SHR_F_RLN => 'F~RLN',   ## File READLINE
+   SHR_F_GET => 'F~GET',   ## File GETC
+   SHR_F_PRI => 'F~PRI',   ## File PRINT
+   SHR_F_WRI => 'F~WRI',   ## File WRITE
+
    SHR_H_STO => 'H~STO',   ## Hash STORE
+   SHR_H_ST2 => 'H~ST2',   ## Hash STORE PAIRS
    SHR_H_FCH => 'H~FCH',   ## Hash FETCH
    SHR_H_DEL => 'H~DEL',   ## Hash DELETE
-   SHR_H_FST => 'H~FST',   ## Hash FIRSTKEY / NEXTKEY
+   SHR_H_FST => 'H~FST',   ## Hash FIRSTKEY/NEXTKEY
    SHR_H_EXI => 'H~EXI',   ## Hash EXISTS
    SHR_H_CLR => 'H~CLR',   ## Hash CLEAR
    SHR_H_SCA => 'H~SCA',   ## Hash SCALAR
+   SHR_H_CLO => 'H~CLO',   ## Hash Clone
    SHR_H_KEY => 'H~KEY',   ## Hash Keys
    SHR_H_VAL => 'H~VAL',   ## Hash Values
 
@@ -77,13 +92,13 @@ use constant {
 ##
 ###############################################################################
 
-my ($_all, $_obj, $_untie, $_cache) = ({},{},{},{});
+my ($_all, $_obj, $_untie, $_file, $_cache) = ({},{},{},{},{});
 my ($_next_id, $_thr_cloned, $_is_client) = (0,0,1);
 my ($_SVR, $_init_pid, $_svr_pid);
 
 my $_is_older_perl = ($] lt '5.016000') ? 1 : 0;
 
-END { _shutdown() if $_init_pid && $_init_pid eq "$$.$_thr_cloned" }
+END { _shutdown() }
 
 sub _croak { goto &MCE::Shared::_croak }
 sub  CLONE { $_thr_cloned++ }
@@ -122,11 +137,34 @@ sub _share_a {                                    ## Share array
 
    @{ $_item } = (); tie @{ $_item }, 'MCE::Shared::Array', $_id;
    bless $_item, $_class ? $_class : 'MCE::Shared::Array';
-
-   ## Cache item; freezes the blessed name and refaddr only, not data
    $_cache->{ $_id } = freeze($_item);
 
    return wantarray ? ($_item, $_id) : $_item;
+}
+
+sub _share_f {                                    ## Share file
+   my ($_cloned, $_fd) = (shift, shift);
+   my $_id = ++$_next_id; local $!;
+
+   $_file->{ $_id } = shift if ref($_[0]) eq 'HASH';
+   $_file->{ $_id }->{'_chunk_id'} = 0;
+
+   if (length $_[1]) {
+      open($_all->{ $_id }, "$_[0]", $_[1])
+         or _croak("open error ( '$_[0]', '$_[1]' ): $!");
+   }
+   elsif (length $_[0]) {
+      open($_all->{ $_id }, $_[0])
+         or _croak("open error ( '$_[0]' ): $!");
+   }
+   else {
+      $_all->{ $_id } = gensym();
+   }
+
+   bless \$_id, 'MCE::Shared::File';
+   $_cache->{ $_id } = freeze(\$_id);
+
+   return wantarray ? (\$_id, $_id) : $_id;
 }
 
 sub _share_h {                                    ## Share hash
@@ -156,8 +194,6 @@ sub _share_h {                                    ## Share hash
 
    %{ $_item } = (); tie %{ $_item }, 'MCE::Shared::Hash', $_id;
    bless $_item, $_class ? $_class : 'MCE::Shared::Hash';
-
-   ## Cache item; freezes the blessed name and refaddr only, not data
    $_cache->{ $_id } = freeze($_item);
 
    return wantarray ? ($_item, $_id) : $_item;
@@ -192,8 +228,6 @@ sub _share_s {                                    ## Share scalar
 
    tie ${ $_item }, 'MCE::Shared::Scalar', $_id;
    bless $_item, $_class ? $_class : 'MCE::Shared::Scalar';
-
-   ## Cache item; freezes the blessed name and refaddr only, not data
    $_cache->{ $_id } = freeze($_item);
 
    return wantarray ? ($_item, $_id) : $_item;
@@ -208,7 +242,6 @@ sub _share_o {                                    ## Share object
 
    tie my $_var, 'MCE::Shared::Object::_fetch', $_id;
    bless \$_var, 'MCE::Shared::Object';
-
    $_cache->{ $_id } = freeze(\$_var);
 
    return wantarray ? (\$_var, $_id) : \$_var;
@@ -222,15 +255,15 @@ sub _share_r {                                    ## Share reference
 
    if ($_rtype eq 'HASH') {
       return $_[1] if (tied(%{ $_[1] }) && tied(%{ $_[1] })->can('_id'));
-      scalar _share_h($_[0], $_[1]);
+      return scalar _share_h($_[0], $_[1]);
    }
    elsif ($_rtype eq 'ARRAY') {
       return $_[1] if (tied(@{ $_[1] }) && tied(@{ $_[1] })->can('_id'));
-      scalar _share_a($_[0], $_[1]);
+      return scalar _share_a($_[0], $_[1]);
    }
    elsif ($_rtype eq 'SCALAR' || $_rtype eq 'REF') {
       return $_[1] if (tied(${ $_[1] }) && tied(${ $_[1] })->can('_id'));
-      scalar _share_s($_[0], $_[1]);
+      return scalar _share_s($_[0], $_[1]);
    }
    else {
       _croak("Unsupported ref type: $_rtype");
@@ -279,11 +312,9 @@ sub _export {
       }
    }
 
-   if (exists $_obj->{ $_id }) {
-      $_class = blessed($_obj->{ $_id });
-   } else {
-      $_class = blessed($_[1]);
-   }
+   $_class = (exists $_obj->{ $_id })
+      ? blessed($_obj->{ $_id })
+      : blessed($_[1]);
 
    if ($_class !~ /^MCE::Shared::(?:Array|Hash|Scalar)$/) {
       return bless($_copy, $_class);
@@ -302,6 +333,8 @@ sub _send {
    my $_DAT_W_SOCK = $_SVR->{_dat_w_sock}->[0];
    my $_DAU_W_SOCK = $_SVR->{_dat_w_sock}->[$_chn];
 
+   $_chn = '0'.$_chn if ($^O eq 'MSWin32' && $_chn < 10);
+
    local $\ = undef if (defined $\);
    local $/ = $LF if (!$/ || $/ ne $LF);
 
@@ -310,13 +343,12 @@ sub _send {
 
    $_buf = freeze(shift);  print {$_DAU_W_SOCK} length($_buf) . $LF . $_buf;
    $_buf = freeze([ @_ ]); print {$_DAU_W_SOCK} length($_buf) . $LF . $_buf;
-   undef $_buf;
+   undef $_buf, undef @_;
 
    chomp($_id  = <$_DAU_W_SOCK>);
    chomp($_len = <$_DAU_W_SOCK>);
 
    read $_DAU_W_SOCK, $_buf, $_len;
-
    $_DAT_LOCK->unlock();
 
    return thaw($_buf);
@@ -333,12 +365,13 @@ sub _spawn {
    local $_;
 
    MCE::Util::_socket_pair($_SVR, qw(_dat_r_sock _dat_w_sock), $_)
-      for (0 .. DATA_CHANNELS + ($INC{'MCE.pm'} ? 1 : 0));
-   $_SVR->{'_mutex_'.$_} = MCE::Mutex->new(type => 'channel')
-      for (1 .. DATA_CHANNELS);
+      for (0 .. DATA_CHANNELS);
 
    setsockopt($_SVR->{_dat_r_sock}->[0], SOL_SOCKET, SO_RCVBUF, 4096)
       if ($^O ne 'aix' && $^O ne 'linux');
+
+   $_SVR->{'_mutex_'.$_} = MCE::Mutex->new()
+      for (1 .. DATA_CHANNELS);
 
    MCE::Shared::Client::_import_init($_SVR, $_all, $_obj, $_untie);
 
@@ -362,10 +395,13 @@ sub _spawn {
 }
 
 sub _shutdown {
+   return unless ($_init_pid && $_init_pid eq "$$.$_thr_cloned");
+
    if ($_svr_pid) {
+      my $_chn  = ($^O eq 'MSWin32') ? '01' : '1';
       $_svr_pid = undef; local $\ = undef if (defined $\);
 
-      print {$_SVR->{_dat_w_sock}->[0]} SHR_M_DNE . $LF . '1' . $LF;
+      print {$_SVR->{_dat_w_sock}->[0]} SHR_M_DNE . $LF . $_chn . $LF;
       sleep($^O eq 'MSWin32' ? 0.1 : 0.05);
 
       MCE::Util::_destroy_sockets($_SVR, qw( _dat_w_sock _dat_r_sock ));
@@ -374,6 +410,7 @@ sub _shutdown {
          $_SVR->{'_mutex_'.$_i}->DESTROY('shutdown');
       }
    }
+
    return;
 }
 
@@ -383,6 +420,7 @@ sub _delete {
    my $_id = shift;
 
    delete $_cache->{ $_id };
+   delete $_file->{ $_id };
    delete $_obj->{ $_id };
    delete $_all->{ $_id };
 
@@ -401,13 +439,14 @@ sub _destroy {
       my $_DAT_W_SOCK = $_SVR->{_dat_w_sock}->[0];
       my $_DAU_W_SOCK = $_SVR->{_dat_w_sock}->[$_chn];
 
+      $_chn = '0'.$_chn if ($^O eq 'MSWin32' && $_chn < 10);
+
       $_DAT_LOCK->lock();
       print {$_DAT_W_SOCK} SHR_M_DES . $LF . $_chn . $LF;
       print {$_DAU_W_SOCK} $_id . $LF;
       <$_DAU_W_SOCK>;
 
       $_DAT_LOCK->unlock();
-
       %{ $_untie } = ();
    }
    else {
@@ -443,7 +482,7 @@ sub _loop {
    require POSIX if $_is_child;
 
    MCE::Shared::Client::_set_is_client(0);
-   close STDIN; $| = 1; $_is_client = 0;
+   $| = 1, $_is_client = 0;
 
    local $\ = undef; local $/ = $LF;
 
@@ -454,7 +493,7 @@ sub _loop {
    };
 
    my ($_DAT_R_SOCK, $_DAU_R_SOCK); my ($_client_id, $_done) = (0, 0);
-   my ($_id, $_fn, $_wa, $_oid, $_key, $_len, $_ret, $_rtype);
+   my ($_id, $_fn, $_wa, $_oid, $_key, $_len, $_ret, $_rtype, $_cnt);
 
    my $_cb_ary = sub {
       chomp($_id  = <$_DAU_R_SOCK>);
@@ -515,6 +554,8 @@ sub _loop {
             ($_item, $_id) = _share_h($_cloned, @{ thaw($_buf) });
          } elsif ($_type eq 'SCALAR') {
             ($_item, $_id) = _share_s($_cloned, @{ thaw($_buf) });
+         } elsif ($_type eq 'GLOB') {
+            ($_item, $_id) = _share_f($_cloned, @{ thaw($_buf) });
          }
 
          undef $_buf; $_buf = freeze($_item);
@@ -525,6 +566,10 @@ sub _loop {
 
       SHR_M_DNE.$LF => sub {                      ## Done, stop server
          $_done = 1;
+
+         foreach (keys %{ $_all }) {
+            close $_all->{ $_ } if ref($_all->{ $_ }) eq 'GLOB';
+         }
 
          return;
       },
@@ -641,6 +686,7 @@ sub _loop {
          if ($_len) {
             read $_DAU_R_SOCK, $_buf, $_len;
             push @_, chop $_buf ? @{ thaw($_buf) } : $_buf;
+            undef $_buf if (length $_buf > 65536);
          }
 
          ## Request for Perl Object via compat => 0
@@ -797,6 +843,7 @@ sub _loop {
                push @{ $_all->{ $_id } }, (reftype($_a->[ $_k ]))
                   ? _share_r({}, $_a->[ $_k ]) : $_a->[ $_k ];
             }
+            undef $_buf if (length $_buf > 65536);
          }
          else {
             push(@{ $_all->{ $_id } }, $_buf);
@@ -829,6 +876,7 @@ sub _loop {
                unshift @{ $_all->{ $_id } }, (reftype($_a->[ $_k ]))
                   ? _share_r({}, $_a->[ $_k ]) : $_a->[ $_k ];
             }
+            undef $_buf if (length $_buf > 65536);
          }
          else {
             unshift(@{ $_all->{ $_id } }, $_buf);
@@ -879,6 +927,20 @@ sub _loop {
          return;
       },
 
+      SHR_A_CLO.$LF => sub {                      ## Array Clone
+         $_cb_ary->( sub {
+            read($_DAU_R_SOCK, (my $_buf), $_len) if $_len;
+            my ($_obj, $_cid) = _share_a({}, []);
+            my ($_var, $_clo) = ( $_all->{ $_id }, $_all->{ $_cid } );
+            if ($_len) {
+               @{ $_clo } = map { $_var->[ $_ ] } @{ thaw($_buf) };
+            } else {
+               @{ $_clo } = @{ $_var };
+            }
+            $_ = freeze([ $_obj ]);
+         });
+      },
+
       SHR_A_KEY.$LF => sub {                      ## Array Keys
          $_cb_ary->( sub {
             read($_DAU_R_SOCK, (my $_buf), $_len) if $_len;
@@ -903,6 +965,187 @@ sub _loop {
 
       ## ----------------------------------------------------------------------
 
+      SHR_F_EOF.$LF => sub {                      ## File EOF
+         chomp($_id = <$_DAU_R_SOCK>);
+
+         $_ret = eof( $_all->{ $_id } );
+         print {$_DAU_R_SOCK} $_ret . $LF;
+
+         return;
+      },
+
+      SHR_F_TEL.$LF => sub {                      ## File TELL
+         chomp($_id = <$_DAU_R_SOCK>);
+
+         $_ret = tell( $_all->{ $_id } );
+         print {$_DAU_R_SOCK} $_ret . $LF;
+
+         return;
+      },
+
+      SHR_F_FNO.$LF => sub {                      ## File FILENO
+         chomp($_id = <$_DAU_R_SOCK>);
+
+         $_ret = fileno( $_all->{ $_id } );
+         print {$_DAU_R_SOCK} $_ret . $LF;
+
+         return;
+      },
+
+      SHR_F_SEE.$LF => sub {                      ## File SEEK
+         my ($_pos, $_typ);
+
+         chomp($_id  = <$_DAU_R_SOCK>);
+         chomp($_pos = <$_DAU_R_SOCK>);
+         chomp($_typ = <$_DAU_R_SOCK>);
+
+         $_ret = seek( $_all->{ $_id }, $_pos, $_typ );
+         print {$_DAU_R_SOCK} $_ret . $LF;
+
+         return;
+      },
+
+      SHR_F_CLO.$LF => sub {                      ## File CLOSE
+         chomp($_id = <$_DAU_R_SOCK>);
+
+         $_ret = close( $_all->{ $_id } );
+         print {$_DAU_R_SOCK} $_ret . $LF;
+
+         return;
+      },
+
+      SHR_F_BIN.$LF => sub {                      ## File BINMODE
+         chomp($_id = <$_DAU_R_SOCK>);
+
+         binmode( $_all->{ $_id } );
+         print {$_DAU_R_SOCK} '1' . $LF;
+
+         return;
+      },
+
+      SHR_F_OPN.$LF => sub {                      ## File OPEN
+         my $_buf; local $!;
+
+         chomp($_id  = <$_DAU_R_SOCK>);
+         chomp($_len = <$_DAU_R_SOCK>);
+
+         read($_DAU_R_SOCK, $_buf, $_len);
+
+         close($_all->{ $_id }) if fileno($_all->{ $_id });
+         $_file->{ $_id }->{'_chunk_id'} = 0;
+         delete $_file->{ $_id }->{'_ended'};
+
+         my $_args = thaw($_buf);
+
+         if (scalar @{ $_args } == 2) {
+            open($_all->{ $_id }, $_args->[0], $_args->[1])
+               or _croak("open error ( '$_args->[0]', '$_args->[1]' ): $!");
+         }
+         else {
+            open($_all->{ $_id }, $_args->[0])
+               or _croak("open error ( '$_args->[0]' ): $!");
+         }
+
+         print {$_DAU_R_SOCK} $LF;
+
+         return;
+      },
+
+      SHR_F_REA.$LF => sub {                      ## File READ
+         my ($_buf, $_a3); local $!;
+
+         chomp($_id = <$_DAU_R_SOCK>);
+         chomp($_a3 = <$_DAU_R_SOCK>);
+
+         $_ret = read($_all->{ $_id }, $_buf, $_a3);
+         print {$_DAU_R_SOCK} $_ret . $LF . length($_buf) . $LF . $_buf;
+
+         return;
+      },
+
+      SHR_F_RLN.$LF => sub {                      ## File READLINE
+         chomp($_id  = <$_DAU_R_SOCK>);
+         chomp($_cnt = <$_DAU_R_SOCK>);
+
+         local $/ = $_file->{ $_id }->{'RS'} if $_file->{ $_id }->{'RS'};
+         my ($_chunk_id, $_buf) = (++$_file->{ $_id }->{'_chunk_id'});
+         my ($_fh) = ($_all->{ $_id });
+
+         if (exists $_file->{ $_id }->{'_ended'}) {
+            print {$_DAU_R_SOCK} $_chunk_id.$LF . '0'.$LF;
+            return;
+         }
+
+         if (length $/ > 1 && substr($/, 0, 1) eq "\n") {
+            $_len = length($/) - 1;
+            for my $_c (1 .. $_cnt) {
+               last if eof $_fh;
+               if ($_chunk_id > 1 || $_c > 1) {
+                  $_buf .= substr($/, 1), $_buf .= readline $_fh ||
+                     do { $_file->{ $_id }->{'_ended'} = 1, '' };
+               } else {
+                  $_buf .= readline $_fh ||
+                     do { $_file->{ $_id }->{'_ended'} = 1, '' };
+               }
+               substr($_buf, -$_len, $_len, '')
+                  if (substr($_buf, -$_len) eq substr($/, 1));
+            }
+         }
+         else {
+            for my $_c (1 .. $_cnt) {
+               last if eof $_fh;
+               $_buf .= readline $_fh ||
+                  do { $_file->{ $_id }->{'_ended'} = 1, '' };
+            }
+         }
+
+         print {$_DAU_R_SOCK} $_chunk_id.$LF . length($_buf).$LF, $_buf;
+
+         return;
+      },
+
+      SHR_F_GET.$LF => sub {                      ## File GETC
+         chomp($_id = <$_DAU_R_SOCK>);
+
+         $_ret = getc( $_all->{ $_id } );
+         print {$_DAU_R_SOCK} length($_ret).$LF, $_ret;
+
+         return;
+      },
+
+      SHR_F_PRI.$LF => sub {                      ## File PRINT
+         my $_buf;
+
+         chomp($_id  = <$_DAU_R_SOCK>);
+         chomp($_len = <$_DAU_R_SOCK>);
+
+         read $_DAU_R_SOCK, $_buf, $_len;
+         print {$_all->{ $_id }} $_buf;
+
+         return;
+      },
+
+      SHR_F_WRI.$LF => sub {                      ## File WRITE
+         my $_buf;
+
+         chomp($_id  = <$_DAU_R_SOCK>);
+         chomp($_len = <$_DAU_R_SOCK>);
+
+         if (chop $_len) {
+            read $_DAU_R_SOCK, $_buf, $_len;
+            my $_ref = thaw($_buf);
+            syswrite $_all->{ $_id }, $_ref->[0], $_ref->[1], $_ref->[2] || 0;
+         }
+         else {
+            read $_DAU_R_SOCK, $_buf, $_len;
+            syswrite $_all->{ $_id }, $_buf;
+         }
+
+         return;
+      },
+
+      ## ----------------------------------------------------------------------
+
       SHR_H_STO.$LF => sub {                      ## Hash STORE
          chomp($_id  = <$_DAU_R_SOCK>);
          chomp($_len = <$_DAU_R_SOCK>);
@@ -922,6 +1165,25 @@ sub _loop {
          }
          else {
             $_all->{ $_id }->{ $_key } = undef;
+         }
+
+         return;
+      },
+
+      SHR_H_ST2.$LF => sub {                      ## Hash STORE PAIRS
+         chomp($_id  = <$_DAU_R_SOCK>);
+         chomp($_len = <$_DAU_R_SOCK>);
+
+         read $_DAU_R_SOCK, (my $_buf), $_len;
+
+         my $_pairs = thaw($_buf); undef $_buf;
+         my ($_cloned, $_var) = ({}, $_all->{ $_id });
+
+         while (@{ $_pairs }) {
+            $_key = shift @{ $_pairs };
+            $_var->{ $_key } = reftype($_pairs->[0])
+               ? _share_r($_cloned, shift @{ $_pairs })
+               : shift @{ $_pairs };
          }
 
          return;
@@ -953,7 +1215,7 @@ sub _loop {
          return;
       },
 
-      SHR_H_FST.$LF => sub {                      ## Hash FIRSTKEY / NEXTKEY
+      SHR_H_FST.$LF => sub {                      ## Hash FIRSTKEY/NEXTKEY
          chomp($_id = <$_DAU_R_SOCK>);
 
          my @_a = keys %{ $_all->{ $_id } };
@@ -1002,6 +1264,20 @@ sub _loop {
          return;
       },
 
+      SHR_H_CLO.$LF => sub {                      ## Hash Clone
+         $_cb_ary->( sub {
+            read($_DAU_R_SOCK, (my $_buf), $_len) if $_len;
+            my ($_obj, $_cid) = _share_h({}, {});
+            my ($_var, $_clo) = ( $_all->{ $_id }, $_all->{ $_cid } );
+            if ($_len) {
+               %{ $_clo } = map { $_, $_var->{ $_ } } @{ thaw($_buf) };
+            } else {
+               %{ $_clo } = %{ $_var };
+            }
+            $_ = freeze([ $_obj ]);
+         });
+      },
+
       SHR_H_KEY.$LF => sub {                      ## Hash Keys
          $_cb_ary->( sub {
             read($_DAU_R_SOCK, (my $_buf), $_len) if $_len;
@@ -1018,7 +1294,7 @@ sub _loop {
             read($_DAU_R_SOCK, (my $_buf), $_len) if $_len;
             my $_var = $_all->{ $_id };
             $_ = freeze([ $_len
-               ? map { $_var->{ $_ } } @{ thaw($_buf) }
+               ? @{ $_var }{ @{ thaw($_buf) } }
                : values %{ $_var }
             ]);
          });
@@ -1098,14 +1374,14 @@ sub _loop {
          else {
             $_count = 0;
             do {
-               sysread($_DAT_R_SOCK, $_func, 8);
+               sysread($_DAT_R_SOCK, $_func, 9);
 
-               $_DAU_R_SOCK = $_channels->[ substr($_func, -2, 2, '') ];
+               $_DAU_R_SOCK = $_channels->[ substr($_func, -3, 3, '') ];
                $_output_function{$_func}();
 
                last if $_done;
 
-            } while ($_nbytes -= 8);
+            } while ($_nbytes -= 9);
          }
       }
    }

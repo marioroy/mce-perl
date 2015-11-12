@@ -9,22 +9,17 @@ package MCE::Util;
 use strict;
 use warnings;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized );
 
 our $VERSION = '1.699_001';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
-use Socket qw(
-   PF_UNIX PF_UNSPEC SOCK_DGRAM SOCK_STREAM SOL_SOCKET SO_SNDBUF SO_RCVBUF
-);
+use Socket qw( PF_UNIX PF_UNSPEC SOCK_STREAM SOL_SOCKET SO_SNDBUF SO_RCVBUF );
 use base qw( Exporter );
 use bytes;
 
 my  $_is_winenv = ($^O eq 'MSWin32' || $^O eq 'cygwin') ? 1 : 0;
-my  $_sock_type = ($^O eq 'linux') ? SOCK_DGRAM : SOCK_STREAM;
 
 our $LF = "\012";  Internals::SvREADONLY($LF, 1);
 
@@ -221,7 +216,7 @@ sub _socket_pair {
 
    if (defined $_i) {
       socketpair( $_obj->{$_r_sock}->[$_i], $_obj->{$_w_sock}->[$_i],
-         PF_UNIX, $_sock_type, PF_UNSPEC ) or die "socketpair: $!\n";
+         PF_UNIX, SOCK_STREAM, PF_UNSPEC ) or die "socketpair: $!\n";
 
       if ($^O ne 'aix' && $^O ne 'linux') {
          setsockopt($_obj->{$_r_sock}->[$_i], SOL_SOCKET, SO_SNDBUF, int $_size);
@@ -235,7 +230,7 @@ sub _socket_pair {
    }
    else {
       socketpair( $_obj->{$_r_sock}, $_obj->{$_w_sock},
-         PF_UNIX, $_sock_type, PF_UNSPEC ) or die "socketpair: $!\n";
+         PF_UNIX, SOCK_STREAM, PF_UNSPEC ) or die "socketpair: $!\n";
 
       if ($^O ne 'aix' && $^O ne 'linux') {
          setsockopt($_obj->{$_r_sock}, SOL_SOCKET, SO_SNDBUF, int $_size);

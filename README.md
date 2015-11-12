@@ -1,6 +1,6 @@
 ## Many-Core Engine for Perl
 
-This document describes MCE version 1.700.
+This document describes MCE version 1.699.
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
@@ -81,41 +81,34 @@ Parsing a huge log file.
 Looping through a sequence of numbers.
 
 ```perl
- use feature 'say';
-
  use MCE::Flow;
  use MCE::Number;
  use MCE::Shared;
 
- # Auto-shareable number when MCE::Shared is present
+ # Number is auto-shared when MCE::Shared is present
 
- my $g_count = MCE::Number->new(0);
+ my $pi = MCE::Number->new(0.0);
+ my $N  = shift || 4_000_000;
 
- # PI calculation
-
- sub mcpi_3 {
+ sub compute_pi {
     my ( $begin_seq, $end_seq ) = @_;
-    my ( $count, $n, $m ) = ( 0 );
+    my ( $_pi, $t ) = ( 0.0 );
 
-    foreach my $i ( $begin_seq .. $end_seq ){
-       ( $n, $m ) = ( rand, rand );
-       $count++ if (( $n * $n + $m * $m ) > 1 );
+    foreach my $i ( $begin_seq .. $end_seq ) {
+       $t = ( $i + 0.5 ) / $N;
+       $_pi += 4.0 / ( 1.0 + $t * $t );
     }
 
-    $g_count->Add( $count );
+    $pi->Add( $_pi );
  }
 
- # Compute bounds only; workers receive [ begin, end ] values
+ # Compute bounds only, workers receive [ begin, end ] values
 
  MCE::Flow::init { bounds_only => 1 };
 
- # Compute PI
+ mce_flow_s sub { compute_pi( $_->[0], $_->[1] ) }, 0, $N - 1;
 
- my $runs = shift || 1_000_000;
-
- mce_flow_s sub { mcpi_3( $_->[0], $_->[1] ) }, 1, $runs;
-
- say 4 * ( 1 - $g_count->Val / $runs );
+ printf "pi = %0.13f\n", $pi->Val / $N;  # 3.1415926535898
 ```
 
 ### Installation and Dependencies

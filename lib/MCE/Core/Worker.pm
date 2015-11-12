@@ -20,9 +20,7 @@ our $VERSION = '1.699_001';
 
 package MCE;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized );
 
 use bytes;
 
@@ -306,14 +304,8 @@ use bytes;
       $_task_id    = $self->{_task_id};
 
       if ($_lock_chn) {
-         if ($self->{_mutex_type} eq 'channel') {
-            $_dat_ex = sub { sysread(  $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
-            $_dat_un = sub { syswrite( $_DAT_LOCK->{_w_sock}, '0' ) };
-         }
-         else {
-            $_dat_ex = sub { flock $_DAT_LOCK, LOCK_EX };
-            $_dat_un = sub { flock $_DAT_LOCK, LOCK_UN };
-         }
+         $_dat_ex = sub { sysread(  $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
+         $_dat_un = sub { syswrite( $_DAT_LOCK->{_w_sock}, '0' ) };
       }
 
       local ($|, $!, $@);
@@ -339,6 +331,9 @@ use bytes;
    sub _do_user_func {
 
       my ($self, $_chunk, $_chunk_id) = @_;
+
+      $self->{_retry} = [ $_chunk, $_chunk_id, $self->{max_retries} ]
+         if ($self->{max_retries});
 
       $self->{_chunk_id} = $_chunk_id;
       $_user_func->($self, $_chunk, $_chunk_id);
@@ -375,6 +370,7 @@ sub _worker_do {
    $self->{_single_dim} = $_params_ref->{_single_dim};
    $self->{use_slurpio} = $_params_ref->{_use_slurpio};
    $self->{parallel_io} = $_params_ref->{_parallel_io};
+   $self->{max_retries} = $_params_ref->{_max_retries};
    $self->{RS}          = $_params_ref->{_RS};
 
    _do_user_func_init($self);
@@ -417,6 +413,13 @@ sub _worker_do {
    ## Call user_begin if defined.
    if (defined $self->{user_begin}) {
       $self->{user_begin}($self, $_task_id, $_task_name);
+   }
+
+   ## Retry chunk if previous attempt died.
+   if ($self->{_retry}) {
+      $self->{_chunk_id} = $self->{_retry}->[1];
+      $self->{user_func}->($self, $self->{_retry}->[0], $self->{_retry}->[1]);
+      delete $self->{_retry};
    }
 
    ## Call worker function.
@@ -472,10 +475,7 @@ sub _worker_do {
    ## Notify the main process a worker has completed.
    local $\ = undef if (defined $\);
 
-   if ($_lock_chn) {
-      ref $_DAT_LOCK eq 'GLOB'
-         ? flock($_DAT_LOCK, LOCK_EX) : $_DAT_LOCK->lock();
-   }
+   $_DAT_LOCK->lock() if $_lock_chn;
 
    if (exists $self->{_rla_return}) {
       print {$_DAT_W_SOCK} OUTPUT_W_RLA . $LF . $_chn . $LF;
@@ -485,10 +485,7 @@ sub _worker_do {
    print {$_DAT_W_SOCK} OUTPUT_W_DNE . $LF . $_chn . $LF;
    print {$_DAU_W_SOCK} $_task_id . $LF;
 
-   if ($_lock_chn) {
-      ref $_DAT_LOCK eq 'GLOB'
-         ? flock($_DAT_LOCK, LOCK_UN) : $_DAT_LOCK->unlock();
-   }
+   $_DAT_LOCK->unlock() if $_lock_chn;
 
    $self->{_running} = 0;
 
@@ -646,10 +643,11 @@ sub _worker_main {
          }
       }
 
+      local $SIG{__DIE__} = sub {}; local $\ = undef;
       my $_die_msg = (defined $_[0]) ? $_[0] : '';
-      local $SIG{__DIE__} = sub { }; local $\ = undef;
       print {*STDERR} $_die_msg;
-      $self->exit(255, $_die_msg);
+
+      $self->exit(255, $_die_msg, $self->{_chunk_id});
    };
 
    ## Use options from user_tasks if defined.
@@ -676,7 +674,7 @@ sub _worker_main {
    }
 
    ## Unset the need for channel locking if only worker on the channel.
-   if ($self->{_lock_chn} && $self->{mutex_type} eq 'auto') {
+   if ($self->{_lock_chn}) {
       my $_data_channels = $self->{_data_channels};
       if ($self->{_init_total_workers} < $_data_channels * 2) {
          if ($_wid > $self->{_init_total_workers} % $_data_channels) {
@@ -687,16 +685,7 @@ sub _worker_main {
 
    ## Choose locks for DATA channels.
    $self->{_com_lock} = $self->{'_mutex_0'};
-
-   if ($self->{_lock_chn}) {
-      if ($self->{_mutex_type} eq 'flock') {
-         open $self->{_dat_lock}, '+>>:raw:stdio', "$_sess_dir/_dat.lock.$_chn"
-            or die "(W) open error $_sess_dir/_dat.lock.$_chn: $!\n";
-      }
-      else {
-         $self->{_dat_lock} = $self->{'_mutex_'.$_chn};
-      }
-   }
+   $self->{_dat_lock} = $self->{'_mutex_'.$_chn} if ($self->{_lock_chn});
 
    ## Delete attributes no longer required after being spawned.
    delete @{ $self }{ qw(
@@ -718,7 +707,8 @@ sub _worker_main {
    ## Begin processing if worker was added during processing. Otherwise,
    ## respond back to the main process if the last worker spawned.
    if (defined $_params) {
-      sleep 0.002; _worker_do($self, $_params); undef $_params;
+      sleep 0.002; _worker_do($self, $_params);
+      undef $_params;
    }
    elsif ($_is_MSWin32) {
       lock $MCE::_WIN_LOCK;

@@ -20,9 +20,7 @@ our $VERSION = '1.699_001';
 
 package MCE;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized );
 
 use bytes;
 

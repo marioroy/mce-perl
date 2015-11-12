@@ -20,9 +20,7 @@ our $VERSION = '1.699_001';
 
 package MCE;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized );
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -132,8 +130,11 @@ sub _validate_args_s {
 
    _croak("$_tag: (RS) is not valid")
       if ($_s->{RS} && ref $_s->{RS} ne '');
+   _croak("$_tag: (max_retries) is not valid")
+      if ($_s->{max_retries} && $_s->{max_retries} !~ /\A\d+\z/);
    _croak("$_tag: (use_threads) is not 0 or 1")
       if ($_s->{use_threads} && $_s->{use_threads} !~ /\A[01]\z/);
+
    _croak("$_tag: (user_begin) is not a CODE reference")
       if ($_s->{user_begin} && ref $_s->{user_begin} ne 'CODE');
    _croak("$_tag: (user_func) is not a CODE reference")
@@ -228,11 +229,11 @@ sub _validate_runstate {
 
    @_ = ();
 
-   _croak("$_tag: method cannot be called by the worker process")
+   _croak("$_tag: method is not allowed by worker process")
       if ($self->{_wid});
-   _croak("$_tag: method cannot be called while processing")
+   _croak("$_tag: method is not allowed while processing")
       if ($self->{_send_cnt});
-   _croak("$_tag: method cannot be called while running")
+   _croak("$_tag: method is not allowed while running")
       if ($self->{_total_running});
 
    return;

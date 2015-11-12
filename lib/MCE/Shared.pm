@@ -9,29 +9,32 @@ package MCE::Shared;
 use strict;
 use warnings;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized );
 
 our $VERSION = '1.699_001';
 
-## no critic (BuiltinFunctions::ProhibitStringyEval)
-## no critic (Subroutines::ProhibitSubroutinePrototypes)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use Carp ();
 use Scalar::Util qw( blessed reftype );
-use bytes;
+use Symbol qw( gensym );
 
 use MCE::Shared::Client;
 use MCE::Shared::Server;
 
 our @CARP_NOT = qw(
-   MCE::Shared::Object
-   MCE::Shared::Array
-   MCE::Shared::Hash
-   MCE::Shared::Scalar
+   MCE::Shared::Object  MCE::Shared::Array  MCE::Shared::File
+   MCE::Shared::Hash    MCE::Shared::Scalar
 );
+
+sub _croak {
+   $SIG{__DIE__} = sub {
+      print {*STDERR} $_[0]; $SIG{INT} = sub {};
+      kill('INT', $^O eq 'MSWin32' ? -$$ : -getpgrp);
+      CORE::exit($?);
+   };
+   $\ = undef; goto &Carp::croak;
+}
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -40,28 +43,37 @@ our @CARP_NOT = qw(
 ###############################################################################
 
 sub import {
+   my $_class = shift;
+
    no strict 'refs'; no warnings 'redefine';
    *{ caller().'::mce_share' } = \&share;
+   *{ caller().'::mce_open' } = \&open;
+
+   return;
 }
 
 {
    no warnings 'prototype'; no warnings 'redefine';
-   use Attribute::Handlers autotie => { 'Shared' => __PACKAGE__ };
+   use Attribute::Handlers ();
 
-   sub UNIVERSAL::Shared :ATTR(HASH)   { tie %{ $_[2] }, 'MCE::Shared' }
    sub UNIVERSAL::Shared :ATTR(ARRAY)  { tie @{ $_[2] }, 'MCE::Shared' }
+   sub UNIVERSAL::Shared :ATTR(HASH)   { tie %{ $_[2] }, 'MCE::Shared' }
    sub UNIVERSAL::Shared :ATTR(SCALAR) { tie ${ $_[2] }, 'MCE::Shared' }
-
-   sub TIEHASH   { my %_h; shift; &share(\%_h, @_) }
-   sub TIEARRAY  { my @_a; shift; &share(\@_a, @_) }
-   sub TIESCALAR { my $_s; shift; &share(\$_s, @_) }
 }
+
+sub TIEARRAY  {    my @_a; shift; &share(\@_a, @_) }
+sub TIEHANDLE { local *_f; shift; &share(\*_f, @_) }
+sub TIEHASH   {    my %_h; shift; &share(\%_h, @_) }
+sub TIESCALAR {    my $_s; shift; &share(\$_s, @_) }
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Share function.
+## Public functions.
 ##
 ###############################################################################
+
+sub spawn    { MCE::Shared::Server::_spawn()    }
+sub shutdown { MCE::Shared::Server::_shutdown() }
 
 sub share {
    my $_params = (@_ == 2 && ref $_[0] eq 'HASH' && blessed $_[1]) ? shift : {};
@@ -79,14 +91,18 @@ sub share {
    $_params->{'type'}  = $_rtype;
    $_params->{'tag'}   = 'M~TIE';
 
-   if ($_rtype eq 'HASH') {
+   if ($_rtype eq 'ARRAY') {
+      return $_[0] if (tied(@{ $_[0] }) && tied(@{ $_[0] })->can('_id'));
+      $_item = MCE::Shared::Server::_send($_params, @_);
+   }
+   elsif ($_rtype eq 'GLOB') {
+      return $_[0] if (tied(*{ $_[0] }) && tied(*{ $_[0] })->can('_id'));
+      $_item = MCE::Shared::Server::_send($_params, fileno *{ (shift) }, @_);
+   }
+   elsif ($_rtype eq 'HASH') {
       return $_[0] if (tied(%{ $_[0] }) && tied(%{ $_[0] })->can('_id'));
       Carp::carp('Odd number of elements in hash assignment')
          if (!$_params->{'class'} && scalar @_ > 1 && (scalar @_ - 1) % 2);
-      $_item = MCE::Shared::Server::_send($_params, @_);
-   }
-   elsif ($_rtype eq 'ARRAY') {
-      return $_[0] if (tied(@{ $_[0] }) && tied(@{ $_[0] })->can('_id'));
       $_item = MCE::Shared::Server::_send($_params, @_);
    }
    elsif ($_rtype eq 'SCALAR') {
@@ -101,13 +117,18 @@ sub share {
    return (defined wantarray) ? $_item : ();
 }
 
-sub _croak {
-   $SIG{__DIE__} = sub {
-      print {*STDERR} $_[0]; $SIG{INT} = sub {};
-      kill('INT', $^O eq 'MSWin32' ? -$$ : -getpgrp);
-      CORE::exit($?);
-   };
-   $\ = undef; goto &Carp::croak;
+sub open {
+   my $_fh = gensym();
+
+   if (ref $_[-1] && defined (my $_fd = fileno($_[-1]))) {
+      my @_args = @_; pop @_args; $_args[-1] .= "&=$_fd";
+      tie *{ $_fh }, 'MCE::Shared', @_args;
+   }
+   else {
+      tie *{ $_fh }, 'MCE::Shared', @_;
+   }
+
+   return bless($_fh, 'MCE::Shared::File');
 }
 
 1;
@@ -152,7 +173,7 @@ This document describes MCE::Shared version 1.699_001
       my ($mce) = @_;
       my ($pid, $wid) = (MCE->pid, MCE->wid);
 
-      ## Locking is required when many workers update the same element.
+      ## Locking is required when multiple workers update the same element.
       ## This requires 2 trips to the manager process (fetch and store).
 
       $m1->synchronize( sub {
@@ -186,11 +207,60 @@ This document describes MCE::Shared version 1.699_001
 =head1 DESCRIPTION
 
 This module provides data sharing for MCE supporting threads and processes.
+The intention is not for 100% compatibility with threads::shared. It lacks
+support for cond_wait, cond_timedwait, cond_signal, and cond_broadcast.
+
+This module supports the sharing of the following data types:
+arrays and array refs, hashes and hash refs, and scalars and scalar refs.
+
+MCE::Shared may run alongside threads::shared.
+
+=head1 EXPORT
+
+The following function is exported by this module: C<mce_share>.
+
+   use MCE::Shared;
+
+   ## Array Ref
+
+   my $ar1 = mce_share [];
+   my $ar2 = mce_share [] = ( @list );
+   my $ar3 = mce_share \@ary;
+
+   $ar1->[ 0 ] = 'kind';
+   $ar1->Store( $index => $value );
+   $ar1->Push( @list );
+
+   ## Hash Ref
+
+   my $ha1 = mce_share {};
+   my $ha2 = mce_share {} = ( @pairs );
+   my $ha3 = mce_share \%has;
+
+   $has->{ key } = $value;
+   $has->Store( $key => $value );
+   $has->Store( @pairs );
+
+   ## Scalar Ref
+
+   my $va1 = mce_share \do { my $var = 0 };
+   my $va2 = mce_share \( 0 );
+   my $va3 = mce_share \$var;
+
+   ## Object
+
+   my $ob1 = mce_share( new $object );   # same as compat => 0
+
+   my $ob2 = mce_share( { compat => 0 }, new $object );
+   my $ob3 = mce_share( { compat => 1 }, new $object );
 
 =head1 API DOCUMENTATION
 
    TODO, coming soon...
 
+=head1 SEE ALSO
+
+L<threads::shared>
 
 =head1 INDEX
 

@@ -25,8 +25,6 @@ lib/MCE/Grep.pm
 lib/MCE/Loop.pm
 lib/MCE/Map.pm
 lib/MCE/Mutex.pm
-lib/MCE/Mutex/Channel.pm
-lib/MCE/Mutex/Flock.pm
 lib/MCE/Number.pm
 lib/MCE/Queue.pm
 lib/MCE/Relay.pm
@@ -63,6 +61,7 @@ t/05_mce_stream.t
 t/06_nodata_flow.t
 t/06_nodata_step.t
 t/07_shared_array.t
+t/07_shared_file.t
 t/07_shared_hash.t
 t/07_shared_scalar.t
 META.yml

@@ -20,9 +20,7 @@ our $VERSION = '1.699_001';
 
 package MCE;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized );
 
 use bytes;
 
@@ -53,14 +51,8 @@ sub _worker_user_iterator {
    my ($_dat_ex, $_dat_un);
 
    if ($_lock_chn) {
-      if ($self->{_mutex_type} eq 'channel') {
-         $_dat_ex = sub { sysread(  $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
-         $_dat_un = sub { syswrite( $_DAT_LOCK->{_w_sock}, '0' ) };
-      }
-      else {
-         $_dat_ex = sub { flock $_DAT_LOCK, LOCK_EX };
-         $_dat_un = sub { flock $_DAT_LOCK, LOCK_UN };
-      }
+      $_dat_ex = sub { sysread(  $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
+      $_dat_un = sub { syswrite( $_DAT_LOCK->{_w_sock}, '0' ) };
    }
 
    my ($_chunk_id, $_len, $_is_ref);

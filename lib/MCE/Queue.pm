@@ -9,9 +9,7 @@ package MCE::Queue;
 use strict;
 use warnings;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized );
 
 our $VERSION = '1.699_001';
 
@@ -19,7 +17,6 @@ our $VERSION = '1.699_001';
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
-use Fcntl qw( :flock O_RDONLY );
 use Scalar::Util qw( looks_like_number refaddr );
 use MCE::Util qw( $LF );
 use bytes;
@@ -45,10 +42,7 @@ BEGIN {
   }
 }
 
-use overload
-    q{""}    => $_strify,
-    q{0+}    => $_numify,
-    fallback => 1;
+use overload q{""} => $_strify, q{0+} => $_numify, fallback => 1;
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -1188,7 +1182,7 @@ sub _heap_insert_high {
 
 sub _mce_m_await {
 
-   _croak('MCE::Queue::await: method cannot be called by the manager process');
+   _croak('MCE::Queue::await: method is not allowed by manager process');
 }
 
 sub _mce_m_clear {
@@ -1353,14 +1347,8 @@ sub _mce_m_insertp {
       $_lock_chn   = $_MCE->{_lock_chn};
 
       if ($_lock_chn) {
-         if ($_MCE->{_mutex_type} eq 'channel') {
-            $_dat_ex = sub { sysread(  $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
-            $_dat_un = sub { syswrite( $_DAT_LOCK->{_w_sock}, '0' ) };
-         }
-         else {
-            $_dat_ex = sub { flock $_DAT_LOCK, LOCK_EX };
-            $_dat_un = sub { flock $_DAT_LOCK, LOCK_UN };
-         }
+         $_dat_ex = sub { sysread(  $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
+         $_dat_un = sub { syswrite( $_DAT_LOCK->{_w_sock}, '0' ) };
       }
 
       $_all = {};
