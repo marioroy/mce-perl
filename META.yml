@@ -13,19 +13,19 @@ build_requires:
     Test::Deep:           0
     Test::More:           0.45
 requires:
-    bytes:                0
-    Carp:                 0
-    constant:             0
-    Fcntl:                0
-    File::Path:           0
-    Getopt::Long:         0
-    IO::Handle:           0
-    perl:                 5.008
-    Scalar::Util:         0
-    Socket:               0
-    Storable:             2.04
-    Symbol:               0
-    Time::HiRes:          0
+    bytes:         0
+    Carp:          0
+    constant:      0
+    Fcntl:         0
+    File::Path:    0
+    Getopt::Long:  0
+    IO::Handle:    0
+    perl:          5.008
+    Scalar::Util:  0
+    Socket:        0
+    Storable:      2.04
+    Symbol:        0
+    Time::HiRes:   0
 resources:
     homepage:    https://github.com/marioroy/mce-perl
     license:     http://dev.perl.org/licenses/
