@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_001';
+our $VERSION = '1.699_002';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -233,7 +233,7 @@ MCE::Shared::Hash - Class for sharing hashes via MCE::Shared
 
 =head1 VERSION
 
-This document describes MCE::Shared::Hash version 1.699_001
+This document describes MCE::Shared::Hash version 1.699_002
 
 =head1 SYNOPSIS
 
