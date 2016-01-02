@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Util - Utility functions for Many-Core Engine.
+## Utility functions for Many-Core Engine.
 ##
 ###############################################################################
 
@@ -16,10 +16,12 @@ our $VERSION = '1.699_001';
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
 use Socket qw( PF_UNIX PF_UNSPEC SOCK_STREAM SOL_SOCKET SO_SNDBUF SO_RCVBUF );
+use Time::HiRes qw( sleep );
 use base qw( Exporter );
 use bytes;
 
-my  $_is_winenv = ($^O eq 'MSWin32' || $^O eq 'cygwin') ? 1 : 0;
+my  $_is_winenv  = ($^O eq 'MSWin32' || $^O eq 'cygwin') ? 1 : 0;
+my  $_zero_bytes = "\x00\x00\x00\x00";
 
 our $LF = "\012";  Internals::SvREADONLY($LF, 1);
 
@@ -153,7 +155,7 @@ sub _destroy_pipes {
    return;
 }
 
-sub _destroy_sockets {
+sub _destroy_socks {
 
    my ($_obj, @_params) = @_;
    local ($!, $?);
@@ -187,6 +189,9 @@ sub _pipe_pair {
    my ($_obj, $_r_sock, $_w_sock, $_i) = @_;
    my $_hndl; local ($|, $!);
 
+   # Doing $_obj->{$_r_sock}->autoflush(1) adds ~ 5% additional memory
+   # consumption from having to load IO::Handle.
+
    if (defined $_i) {
       pipe($_obj->{$_r_sock}->[$_i], $_obj->{$_w_sock}->[$_i])
          or die "pipe: $!\n";
@@ -207,12 +212,13 @@ sub _pipe_pair {
    return;
 }
 
-sub _socket_pair {
+sub _sock_pair {
 
    my ($_obj, $_r_sock, $_w_sock, $_i, $_size) = @_;
    my $_hndl; local ($|, $!);
 
    $_size = 16384 unless defined $_size;
+   # Ditto on not calling autoflush(1).
 
    if (defined $_i) {
       socketpair( $_obj->{$_r_sock}->[$_i], $_obj->{$_w_sock}->[$_i],
@@ -246,6 +252,36 @@ sub _socket_pair {
    select $_hndl;
 
    return;
+}
+
+sub _sock_ready {
+
+   return if (
+      !defined $_[1] && !$INC{'MCE/Hobo.pm'} && defined $MCE::VERSION
+   );
+
+   my ($_socket, $_timeout) = @_;
+   my $_val_bytes = "\x00\x00\x00\x00";
+   my $_ptr_bytes = unpack('I', pack('P', $_val_bytes));
+
+   if ($_timeout) {
+      $_timeout += time();
+      while (1) {
+         ioctl($_socket, 0x4004667f, $_ptr_bytes);  # MSWin32 FIONREAD
+       # return '' if unpack('I', $_val_bytes);     # unpack isn't needed here
+         return '' if $_val_bytes ne $_zero_bytes;  # this completes 2x faster
+         return 1  if time() > $_timeout;
+         sleep 0.080;
+      }
+   }
+   else {
+      while (1) {
+         ioctl($_socket, 0x4004667f, $_ptr_bytes);  # Ditto
+       # return if unpack('I', $_val_bytes);
+         return if $_val_bytes ne $_zero_bytes;
+         sleep 0.008;
+      }
+   }
 }
 
 sub _parse_max_workers {
@@ -450,7 +486,7 @@ L<Test::Smoke::SysInfo|Test::Smoke::SysInfo>.
 
 =head1 INDEX
 
-L<MCE|MCE>
+L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
 
 =head1 AUTHOR
 

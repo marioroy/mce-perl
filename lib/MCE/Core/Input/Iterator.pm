@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Core::Input::Iterator - Iterator reader.
+## Iterator reader.
 ##
 ## This package, used interally by the worker process, provides support for
 ## user specified iterators assigned to input_data.

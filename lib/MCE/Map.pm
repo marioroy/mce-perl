@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Map - Parallel map model similar to the native map function.
+## Parallel map model similar to the native map function.
 ##
 ###############################################################################
 
@@ -35,10 +35,10 @@ my $TMP_DIR = $MCE::Signal::tmp_dir;
 my $FREEZE  = \&Storable::freeze;
 my $THAW    = \&Storable::thaw;
 
-my ($_MCE, $_loaded); my ($_params, $_prev_c); my $_tag = 'MCE::Map';
+my ($_MCE, $_imported); my ($_params, $_prev_c); my $_tag = 'MCE::Map';
 
 sub import {
-   my $_class = shift; return if ($_loaded++);
+   my $_class = shift; return if ($_imported++);
 
    ## Process module arguments.
    while (my $_argument = shift) {
@@ -118,7 +118,7 @@ sub init (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Map');
 
    if (MCE->wid) {
-      @_ = (); _croak("$_tag: (init) is not allowed by worker process");
+      @_ = (); _croak("$_tag: (init) is not allowed by the worker process");
    }
 
    finish(); $_params = (ref $_[0] eq 'HASH') ? shift : { @_ };
@@ -241,7 +241,7 @@ sub run (&@) {
    my $_code = shift;   $_total_chunks = 0; undef %_tmp;
 
    if (MCE->wid) {
-      @_ = (); _croak("$_tag: (run) is not allowed by worker process");
+      @_ = (); _croak("$_tag: (run) is not allowed by the worker process");
    }
 
    my $_input_data; my $_max_workers = $MAX_WORKERS; my $_r = ref $_[0];
@@ -541,9 +541,6 @@ Sereal if available, otherwise defaults to Storable for serialization.
 
    use MCE::Map Sereal => 1;
 
-   ## Serialization is by the Sereal module if available.
-   my @m2 = mce_map { $_ * $_ } 1..10000;
-
 =head1 CUSTOMIZING MCE
 
 =over 3
@@ -673,7 +670,7 @@ longer needed.
 
 =head1 INDEX
 
-L<MCE|MCE>
+L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
 
 =head1 AUTHOR
 

@@ -22,19 +22,18 @@ WriteMakefile(
    NAME           => 'MCE',
 
    PREREQ_PM => {
-      'bytes'               => 0,
-      'constant'            => 0,
-      'Attribute::Handlers' => 0,
-      'Carp'                => 0,
-      'Fcntl'               => 0,
-      'File::Path'          => 0,
-      'Getopt::Long'        => 0,
-      'IO::Handle'          => 0,
-      'Scalar::Util'        => 0,
-      'Socket'              => 0,
-      'Storable'            => 2.04,
-      'Symbol'              => 0,
-      'Time::HiRes'         => 0
+      'bytes'        => 0,
+      'constant'     => 0,
+      'Carp'         => 0,
+      'Fcntl'        => 0,
+      'File::Path'   => 0,
+      'Getopt::Long' => 0,
+      'IO::Handle'   => 0,
+      'Scalar::Util' => 0,
+      'Socket'       => 0,
+      'Storable'     => 2.04,
+      'Symbol'       => 0,
+      'Time::HiRes'  => 0
    },
 
    VERSION        => '1.699_001',
@@ -51,6 +50,7 @@ WriteMakefile(
       (META_MERGE => {
          build_requires => {
             'ExtUtils::MakeMaker' => 0,
+            'Test::Deep'          => 0,
             'Test::More'          => 0.45
          },
          no_index => {
@@ -116,6 +116,10 @@ WriteMakefile(
                'file'    => 'lib/MCE/Grep.pm',
                'version' => '1.699_001'
             },
+            'MCE::Hobo' => {
+               'file'    => 'lib/MCE/Hobo.pm',
+               'version' => '1.699_001'
+            },
             'MCE::Loop' => {
                'file'    => 'lib/MCE/Loop.pm',
                'version' => '1.699_001'
@@ -126,10 +130,6 @@ WriteMakefile(
             },
             'MCE::Mutex' => {
                'file'    => 'lib/MCE/Mutex.pm',
-               'version' => '1.699_001'
-            },
-            'MCE::Number' => {
-               'file'    => 'lib/MCE/Number.pm',
                'version' => '1.699_001'
             },
             'MCE::Queue' => {
@@ -144,8 +144,40 @@ WriteMakefile(
                'file'    => 'lib/MCE/Shared.pm',
                'version' => '1.699_001'
             },
-            'MCE::Shared::Client' => {
-               'file'    => 'lib/MCE/Shared/Client.pm',
+            'MCE::Shared::Array' => {
+               'file'    => 'lib/MCE/Shared/Array.pm',
+               'version' => '1.699_001'
+            },
+            'MCE::Shared::Base' => {
+               'file'    => 'lib/MCE/Shared/Base.pm',
+               'version' => '1.699_001'
+            },
+            'MCE::Shared::Condvar' => {
+               'file'    => 'lib/MCE/Shared/Condvar.pm',
+               'version' => '1.699_001'
+            },
+            'MCE::Shared::Handle' => {
+               'file'    => 'lib/MCE/Shared/Handle.pm',
+               'version' => '1.699_001'
+            },
+            'MCE::Shared::Hash' => {
+               'file'    => 'lib/MCE/Shared/Hash.pm',
+               'version' => '1.699_001'
+            },
+            'MCE::Shared::Ordhash' => {
+               'file'    => 'lib/MCE/Shared/Ordhash.pm',
+               'version' => '1.699_001'
+            },
+            'MCE::Shared::Queue' => {
+               'file'    => 'lib/MCE/Shared/Queue.pm',
+               'version' => '1.699_001'
+            },
+            'MCE::Shared::Scalar' => {
+               'file'    => 'lib/MCE/Shared/Scalar.pm',
+               'version' => '1.699_001'
+            },
+            'MCE::Shared::Sequence' => {
+               'file'    => 'lib/MCE/Shared/Sequence.pm',
                'version' => '1.699_001'
             },
             'MCE::Shared::Server' => {

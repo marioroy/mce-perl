@@ -4,13 +4,12 @@ use strict;
 use warnings;
 
 use Test::More tests => 32;
-
 use MCE::Flow max_workers => 1;
 use MCE::Queue;
 
 ###############################################################################
 
-##  MCE::Queue supports 3 operating modes (local, manager, worker).
+##  MCE::Queue provides 3 operating modes (local, manager, and worker).
 ##  This will test MCE::Queue (normal queue) by the MCE manager process.
 ##
 ##  *{ 'MCE::Queue::clear'    } = \&MCE::Queue::_mce_m_clear;

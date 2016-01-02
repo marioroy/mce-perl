@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Core::Worker - Core methods for the worker process.
+## Core methods for the worker process.
 ##
 ## This package provides main, loop, and relevant methods used internally by
 ## the worker process.
@@ -192,14 +192,9 @@ use bytes;
 
       return unless (scalar @{ $_aref });
 
-      if (scalar @{ $_aref } > 1) {
+      if (scalar @{ $_aref } > 1 || ref $_aref->[0]) {
          $_tag = OUTPUT_A_GTR;
          $_buf = $self->{freeze}($_aref);
-         $_len = length $_buf;
-      }
-      elsif (ref $_aref->[0]) {
-         $_tag = OUTPUT_R_GTR;
-         $_buf = $self->{freeze}($_aref->[0]);
          $_len = length $_buf;
       }
       else {
@@ -225,8 +220,7 @@ use bytes;
 
       $_dat_ex->() if $_lock_chn;
       print {$_DAT_W_SOCK} $_tag . $LF . $_chn . $LF;
-      print {$_DAU_W_SOCK} $_task_id . $LF . $_len . $LF;
-      print {$_DAU_W_SOCK} $_buf if (length $_buf);
+      print {$_DAU_W_SOCK} $_task_id . $LF . $_len . $LF, $_buf;
       $_dat_un->() if $_lock_chn;
 
       return;
@@ -511,8 +505,8 @@ sub _worker_loop {
    my $_job_delay  = $self->{job_delay};
    my $_wid        = $self->{_wid};
 
-   my $_com_ex     = sub { sysread(  $_COM_LOCK->{_r_sock}, my $_b, 1 ) };
-   my $_com_un     = sub { syswrite( $_COM_LOCK->{_w_sock}, '0' ) };
+   my $_com_ex = sub { sysread(  $_COM_LOCK->{_r_sock}, my $_b, 1 ) };
+   my $_com_un = sub { syswrite( $_COM_LOCK->{_w_sock}, '0' ) };
 
    while (1) {
 
@@ -524,10 +518,10 @@ sub _worker_loop {
          $_response = <$_COM_W_SOCK>;
          print {$_COM_W_SOCK} $_wid . $LF;
 
+         ## End loop if invalid response.
          last unless (defined $_response);
          chomp $_response;
 
-         ## End loop if invalid response.
          last if ($_response !~ /\A(?:\d+|_data|_exit)\z/);
 
          ## Return to caller if instructed to exit.
@@ -630,7 +624,6 @@ sub _worker_main {
          ) {
             # thread env or running inside IPerl, check stack trace
             my $_t = Carp::longmess(); $_t =~ s/\teval [^\n]+\n$//;
-
             if ( $_t =~ /^(?:[^\n]+\n){1,7}\teval / ||
                  $_t =~ /\n\teval [^\n]+\n\t(?:eval|Try)/ )
             {
@@ -674,7 +667,7 @@ sub _worker_main {
    }
 
    ## Unset the need for channel locking if only worker on the channel.
-   if ($self->{_lock_chn}) {
+   if ($self->{_lock_chn} && !exists $INC{'MCE/Hobo.pm'}) {
       my $_data_channels = $self->{_data_channels};
       if ($self->{_init_total_workers} < $_data_channels * 2) {
          if ($_wid > $self->{_init_total_workers} % $_data_channels) {
@@ -696,8 +689,8 @@ sub _worker_main {
 
    MCE::_clean_sessions($_mce_sid);
 
-   ## Call MCE::Shared's init routine if present (enables parallel IPC).
-   MCE::Shared::Client::init($_wid) if ($INC{'MCE/Shared/Client.pm'});
+   ## Call MCE::Shared's init routine if present; enables parallel IPC.
+   MCE::Shared::init($_wid) if ($INC{'MCE/Shared.pm'});
 
    _do_send_init($self);
 
@@ -714,8 +707,11 @@ sub _worker_main {
       lock $MCE::_WIN_LOCK;
    }
 
-   ## Enter worker loop. Clear worker session after running.
-   _worker_loop($self); _do_send_clear($self);
+   ## Enter worker loop.
+   _worker_loop($self);
+
+   ## Clear worker session.
+   _do_send_clear($self);
 
    $self->{_com_lock} = undef;
    $self->{_dat_lock} = undef;

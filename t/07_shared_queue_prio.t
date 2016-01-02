@@ -5,23 +5,33 @@ use warnings;
 
 use Test::More tests => 40;
 use MCE::Flow max_workers => 1;
-use MCE::Queue;
+use MCE::Shared;
+use MCE::Shared::Queue;
 
 ###############################################################################
 
-##  MCE::Queue provides 3 operating modes (local, manager, and worker).
-##  This will test MCE::Queue (priority queue) by the MCE worker process.
-##
-##  *{ 'MCE::Queue::clear'    } = \&MCE::Queue::_mce_w_clear;
-##  *{ 'MCE::Queue::enqueuep' } = \&MCE::Queue::_mce_w_enqueuep;
-##  *{ 'MCE::Queue::dequeue'  } = \&MCE::Queue::_mce_w_dequeue;
-##  *{ 'MCE::Queue::pending'  } = \&MCE::Queue::_mce_w_pending;
-##  *{ 'MCE::Queue::insertp'  } = \&MCE::Queue::_mce_w_insertp;
-##  *{ 'MCE::Queue::peekp'    } = \&MCE::Queue::_mce_w_peekp;
-##  *{ 'MCE::Queue::peekh'    } = \&MCE::Queue::_mce_w_peekh;
-##  *{ 'MCE::Queue::heap'     } = \&MCE::Queue::_mce_w_heap;
+## Queues must be shared first before anything else or it will not work.
+## The reason is for the socket handles to be in place before starting the
+## server. Sharing a hash or array will cause the server to start.
 
-my ($q);
+my $q1 = MCE::Shared->queue( type => $MCE::Shared::Queue::FIFO );
+my $q2 = MCE::Shared->queue( type => $MCE::Shared::Queue::LIFO );
+
+my $q3 = MCE::Shared->queue(
+   porder => $MCE::Shared::Queue::HIGHEST,
+   type   => $MCE::Shared::Queue::FIFO
+);
+
+my $q4 = MCE::Shared->queue(
+   porder => $MCE::Shared::Queue::LOWEST,
+   type   => $MCE::Shared::Queue::FIFO
+);
+
+my $q;
+
+## One must explicitly start the server for queues. Not necessary otherwise.
+
+MCE::Shared->start();
 
 ###############################################################################
 
@@ -54,7 +64,7 @@ sub check {
 
 ##  FIFO tests
 
-$q = MCE::Queue->new( type => $MCE::Queue::FIFO );
+$q = $q1;
 
 sub check_dequeue_fifo {
    my (@r) = @_;
@@ -64,21 +74,22 @@ sub check_dequeue_fifo {
 
 mce_flow sub {
    my ($mce) = @_;
+   my $w; # effect is waiting for the check (MCE->do) to complete
 
    $q->enqueuep(5, '1', '2');
    $q->enqueuep(5, '3');
    $q->enqueuep(5, '4');
 
-   MCE->do('check_enqueuep', 'fifo, check enqueuep');
+   $w = MCE->do('check_enqueuep', 'fifo, check enqueuep');
 
    my @r = $q->dequeue(2);
    push @r, $q->dequeue;
 
-   MCE->do('check_dequeue_fifo', @r);
+   $w = MCE->do('check_dequeue_fifo', @r);
 
    $q->clear;
 
-   MCE->do('check_clear', 'fifo, check clear');
+   $w = MCE->do('check_clear', 'fifo, check clear');
 
    $q->enqueuep(5, 'a', 'b', 'c', 'd');
 
@@ -92,19 +103,19 @@ mce_flow sub {
    $q->insertp(5, -12, 'm');
    $q->insertp(5, -20, 'n');
 
-   MCE->do('check_insertp', 'fifo, check insertp', 'nmalefgbhcidjk');
-   MCE->do('check_pending', 'fifo, check pending', $q->pending());
+   $w = MCE->do('check_insertp', 'fifo, check insertp', 'nmalefgbhcidjk');
+   $w = MCE->do('check_pending', 'fifo, check pending', $q->pending());
 
-   MCE->do('check', 'fifo, check peekp at head     ',   'n', $q->peekp(5     ));
-   MCE->do('check', 'fifo, check peekp at index   0',   'n', $q->peekp(5,   0));
-   MCE->do('check', 'fifo, check peekp at index   2',   'a', $q->peekp(5,   2));
-   MCE->do('check', 'fifo, check peekp at index  13',   'k', $q->peekp(5,  13));
-   MCE->do('check', 'fifo, check peekp at index  20', undef, $q->peekp(5,  20));
-   MCE->do('check', 'fifo, check peekp at index  -2',   'j', $q->peekp(5,  -2));
-   MCE->do('check', 'fifo, check peekp at index -13',   'm', $q->peekp(5, -13));
-   MCE->do('check', 'fifo, check peekp at index -14',   'n', $q->peekp(5, -14));
-   MCE->do('check', 'fifo, check peekp at index -15', undef, $q->peekp(5, -15));
-   MCE->do('check', 'fifo, check peekp at index -20', undef, $q->peekp(5, -20));
+   $w = MCE->do('check', 'fifo, check peekp at head     ',   'n', $q->peekp(5     ));
+   $w = MCE->do('check', 'fifo, check peekp at index   0',   'n', $q->peekp(5,   0));
+   $w = MCE->do('check', 'fifo, check peekp at index   2',   'a', $q->peekp(5,   2));
+   $w = MCE->do('check', 'fifo, check peekp at index  13',   'k', $q->peekp(5,  13));
+   $w = MCE->do('check', 'fifo, check peekp at index  20', undef, $q->peekp(5,  20));
+   $w = MCE->do('check', 'fifo, check peekp at index  -2',   'j', $q->peekp(5,  -2));
+   $w = MCE->do('check', 'fifo, check peekp at index -13',   'm', $q->peekp(5, -13));
+   $w = MCE->do('check', 'fifo, check peekp at index -14',   'n', $q->peekp(5, -14));
+   $w = MCE->do('check', 'fifo, check peekp at index -15', undef, $q->peekp(5, -15));
+   $w = MCE->do('check', 'fifo, check peekp at index -20', undef, $q->peekp(5, -20));
 
    return;
 };
@@ -115,7 +126,7 @@ MCE::Flow::finish;
 
 ##  LIFO tests
 
-$q = MCE::Queue->new( type => $MCE::Queue::LIFO );
+$q = $q2;
 
 sub check_dequeue_lifo {
    my (@r) = @_;
@@ -125,21 +136,22 @@ sub check_dequeue_lifo {
 
 mce_flow sub {
    my ($mce) = @_;
+   my $w; # effect is waiting for the check (MCE->do) to complete
 
    $q->enqueuep(5, '1', '2');
    $q->enqueuep(5, '3');
    $q->enqueuep(5, '4');
 
-   MCE->do('check_enqueuep', 'lifo, check enqueuep');
+   $w = MCE->do('check_enqueuep', 'lifo, check enqueuep');
 
    my @r = $q->dequeue(2);
    push @r, $q->dequeue;
 
-   MCE->do('check_dequeue_lifo', @r);
+   $w = MCE->do('check_dequeue_lifo', @r);
 
    $q->clear;
 
-   MCE->do('check_clear', 'lifo, check clear');
+   $w = MCE->do('check_clear', 'lifo, check clear');
 
    $q->enqueuep(5, 'a', 'b', 'c', 'd');
 
@@ -153,19 +165,19 @@ mce_flow sub {
    $q->insertp(5, -12, 'm');
    $q->insertp(5, -20, 'n');
 
-   MCE->do('check_insertp', 'lifo, check insertp', 'kjaibhcgefldmn');
-   MCE->do('check_pending', 'lifo, check pending', $q->pending());
+   $w = MCE->do('check_insertp', 'lifo, check insertp', 'kjaibhcgefldmn');
+   $w = MCE->do('check_pending', 'lifo, check pending', $q->pending());
 
-   MCE->do('check', 'lifo, check peekp at head     ',   'n', $q->peekp(5     ));
-   MCE->do('check', 'lifo, check peekp at index   0',   'n', $q->peekp(5,   0));
-   MCE->do('check', 'lifo, check peekp at index   2',   'd', $q->peekp(5,   2));
-   MCE->do('check', 'lifo, check peekp at index  13',   'k', $q->peekp(5,  13));
-   MCE->do('check', 'lifo, check peekp at index  20', undef, $q->peekp(5,  20));
-   MCE->do('check', 'lifo, check peekp at index  -2',   'j', $q->peekp(5,  -2));
-   MCE->do('check', 'lifo, check peekp at index -13',   'm', $q->peekp(5, -13));
-   MCE->do('check', 'lifo, check peekp at index -14',   'n', $q->peekp(5, -14));
-   MCE->do('check', 'lifo, check peekp at index -15', undef, $q->peekp(5, -15));
-   MCE->do('check', 'lifo, check peekp at index -20', undef, $q->peekp(5, -20));
+   $w = MCE->do('check', 'lifo, check peekp at head     ',   'n', $q->peekp(5     ));
+   $w = MCE->do('check', 'lifo, check peekp at index   0',   'n', $q->peekp(5,   0));
+   $w = MCE->do('check', 'lifo, check peekp at index   2',   'd', $q->peekp(5,   2));
+   $w = MCE->do('check', 'lifo, check peekp at index  13',   'k', $q->peekp(5,  13));
+   $w = MCE->do('check', 'lifo, check peekp at index  20', undef, $q->peekp(5,  20));
+   $w = MCE->do('check', 'lifo, check peekp at index  -2',   'j', $q->peekp(5,  -2));
+   $w = MCE->do('check', 'lifo, check peekp at index -13',   'm', $q->peekp(5, -13));
+   $w = MCE->do('check', 'lifo, check peekp at index -14',   'n', $q->peekp(5, -14));
+   $w = MCE->do('check', 'lifo, check peekp at index -15', undef, $q->peekp(5, -15));
+   $w = MCE->do('check', 'lifo, check peekp at index -20', undef, $q->peekp(5, -20));
 
    return;
 };
@@ -176,9 +188,7 @@ MCE::Flow::finish;
 
 ##  HIGHEST priority tests, mix-mode (normal and priority)
 
-$q = MCE::Queue->new(
-   porder => $MCE::Queue::HIGHEST, type => $MCE::Queue::FIFO
-);
+$q = $q3;
 
 mce_flow sub {
    my ($mce) = @_;
@@ -208,9 +218,7 @@ MCE::Flow::finish;
 
 ##  LOWEST priority tests, mix-mode (normal and priority)
 
-$q = MCE::Queue->new(
-   porder => $MCE::Queue::LOWEST, type => $MCE::Queue::FIFO
-);
+$q = $q4;
 
 mce_flow sub {
    my ($mce) = @_;

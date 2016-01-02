@@ -4,7 +4,6 @@ use strict;
 use warnings;
 
 use Test::More tests => 4;
-
 use MCE::Flow max_workers => 1;
 
 sub check_hello {

@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Core::Manager - Core methods for the manager process.
+## Core methods for the manager process.
 ##
 ## This package provides the loop and relevant methods used internally by the
 ## manager process.
@@ -85,7 +85,7 @@ sub _output_loop {
    ## -------------------------------------------------------------------------
    ## Callback return.
 
-   my $_cb_ret_a = sub {                          ## CBK return array
+   my $_cb_ret_a = sub {                          # CBK return array
 
       my $_buf = $self->{freeze}($_[0]);
          $_len = length $_buf; local $\ = undef if (defined $\);
@@ -100,7 +100,7 @@ sub _output_loop {
       return;
    };
 
-   my $_cb_ret_r = sub {                          ## CBK return reference
+   my $_cb_ret_r = sub {                          # CBK return reference
 
       my $_buf = $self->{freeze}($_[0]);
          $_len = length $_buf; local $\ = undef if (defined $\);
@@ -115,7 +115,7 @@ sub _output_loop {
       return;
    };
 
-   my $_cb_ret_s = sub {                          ## CBK return scalar
+   my $_cb_ret_s = sub {                          # CBK return scalar
 
       $_len = (defined $_[0]) ? length $_[0] : -1;
       local $\ = undef if (defined $\);
@@ -135,12 +135,12 @@ sub _output_loop {
 
    my %_core_output_function = (
 
-      OUTPUT_W_ABT.$LF => sub {                   ## Worker has aborted
+      OUTPUT_W_ABT.$LF => sub {                   # Worker has aborted
          $_aborted = 1;
          return;
       },
 
-      OUTPUT_W_DNE.$LF => sub {                   ## Worker has completed
+      OUTPUT_W_DNE.$LF => sub {                   # Worker has completed
          chomp($_task_id = <$_DAU_R_SOCK>);
          $self->{_total_running} -= 1;
 
@@ -166,7 +166,7 @@ sub _output_loop {
 
       ## ----------------------------------------------------------------------
 
-      OUTPUT_W_EXT.$LF => sub {                   ## Worker has exited
+      OUTPUT_W_EXT.$LF => sub {                   # Worker has exited
          chomp($_task_id = <$_DAU_R_SOCK>);
 
          $self->{_total_exited}  += 1;
@@ -191,10 +191,10 @@ sub _output_loop {
 
          my ($_exit_msg, $_retry_buf) = ('', '');
 
-         chomp($_exit_wid    = <$_DAU_R_SOCK>);
-         chomp($_exit_pid    = <$_DAU_R_SOCK>);
-         chomp($_exit_status = <$_DAU_R_SOCK>);
-         chomp($_exit_id     = <$_DAU_R_SOCK>);
+         chomp($_exit_wid    = <$_DAU_R_SOCK>),
+         chomp($_exit_pid    = <$_DAU_R_SOCK>),
+         chomp($_exit_status = <$_DAU_R_SOCK>),
+         chomp($_exit_id     = <$_DAU_R_SOCK>),
          chomp($_len         = <$_DAU_R_SOCK>);
 
          read($_DAU_R_SOCK, $_exit_msg, $_len) if ($_len);
@@ -271,7 +271,7 @@ sub _output_loop {
 
       ## ----------------------------------------------------------------------
 
-      OUTPUT_A_ARY.$LF => sub {                   ## Array << Array
+      OUTPUT_A_ARY.$LF => sub {                   # Array << Array
          my $_buf;
 
          if ($_offset_pos >= $_input_size || $_aborted) {
@@ -310,7 +310,7 @@ sub _output_loop {
          return;
       },
 
-      OUTPUT_S_GLB.$LF => sub {                   ## Scalar << Glob FH
+      OUTPUT_S_GLB.$LF => sub {                   # Scalar << Glob FH
          my $_buf = '';
 
          ## The logic below honors ('Ctrl/Z' in Windows, 'Ctrl/D' in Unix)
@@ -372,7 +372,7 @@ sub _output_loop {
          return;
       },
 
-      OUTPUT_U_ITR.$LF => sub {                   ## User << Iterator
+      OUTPUT_U_ITR.$LF => sub {                   # User << Iterator
          my $_buf;
 
          if ($_aborted) {
@@ -420,14 +420,14 @@ sub _output_loop {
 
       ## ----------------------------------------------------------------------
 
-      OUTPUT_A_CBK.$LF => sub {                   ## Callback w/ multiple args
+      OUTPUT_A_CBK.$LF => sub {                   # Callback w/ multiple args
          my ($_buf, $_data_ref);
 
-         chomp($_wa  = <$_DAU_R_SOCK>);
-         chomp($_cb  = <$_DAU_R_SOCK>);
+         chomp($_wa  = <$_DAU_R_SOCK>),
+         chomp($_cb  = <$_DAU_R_SOCK>),
          chomp($_len = <$_DAU_R_SOCK>);
-         read $_DAU_R_SOCK, $_buf, $_len;
 
+         read $_DAU_R_SOCK, $_buf, $_len;
          $_data_ref = $self->{thaw}($_buf); undef $_buf;
 
          local $\ = $_O_SEP if ($_O_FLG); local $/ = $_I_SEP if ($_I_FLG);
@@ -448,12 +448,13 @@ sub _output_loop {
          return;
       },
 
-      OUTPUT_S_CBK.$LF => sub {                   ## Callback w/ 1 scalar arg
+      OUTPUT_S_CBK.$LF => sub {                   # Callback w/ 1 scalar arg
          my $_buf;
 
-         chomp($_wa  = <$_DAU_R_SOCK>);
-         chomp($_cb  = <$_DAU_R_SOCK>);
+         chomp($_wa  = <$_DAU_R_SOCK>),
+         chomp($_cb  = <$_DAU_R_SOCK>),
          chomp($_len = <$_DAU_R_SOCK>);
+
          read $_DAU_R_SOCK, $_buf, $_len;
 
          local $\ = $_O_SEP if ($_O_FLG); local $/ = $_I_SEP if ($_I_FLG);
@@ -474,9 +475,9 @@ sub _output_loop {
          return;
       },
 
-      OUTPUT_N_CBK.$LF => sub {                   ## Callback w/ no args
+      OUTPUT_N_CBK.$LF => sub {                   # Callback w/ no args
 
-         chomp($_wa = <$_DAU_R_SOCK>);
+         chomp($_wa = <$_DAU_R_SOCK>),
          chomp($_cb = <$_DAU_R_SOCK>);
 
          local $\ = $_O_SEP if ($_O_FLG); local $/ = $_I_SEP if ($_I_FLG);
@@ -499,11 +500,12 @@ sub _output_loop {
 
       ## ----------------------------------------------------------------------
 
-      OUTPUT_A_GTR.$LF => sub {                   ## Gather w/ multiple args
+      OUTPUT_A_GTR.$LF => sub {                   # Gather array/ref
          my $_buf;
 
-         chomp($_task_id = <$_DAU_R_SOCK>);
+         chomp($_task_id = <$_DAU_R_SOCK>),
          chomp($_len     = <$_DAU_R_SOCK>);
+
          read $_DAU_R_SOCK, $_buf, $_len;
 
          if ($_is_c_ref[$_task_id]) {
@@ -528,36 +530,12 @@ sub _output_loop {
          return;
       },
 
-      OUTPUT_R_GTR.$LF => sub {                   ## Gather w/ 1 reference arg
-         my $_buf;
-
-         chomp($_task_id = <$_DAU_R_SOCK>);
-         chomp($_len     = <$_DAU_R_SOCK>);
-         read $_DAU_R_SOCK, $_buf, $_len;
-
-         if ($_is_c_ref[$_task_id]) {
-            local $_ = $self->{thaw}($_buf);
-            $_gather[$_task_id]->($_);
-         }
-         elsif ($_is_h_ref[$_task_id]) {
-            local $_ = $self->{thaw}($_buf);
-            $_gather[$_task_id]->{$_} = undef;
-         }
-         elsif ($_is_q_ref[$_task_id]) {
-            $_gather[$_task_id]->enqueue($self->{thaw}($_buf));
-         }
-         else {
-            push @{ $_gather[$_task_id] }, $self->{thaw}($_buf);
-         }
-
-         return;
-      },
-
-      OUTPUT_S_GTR.$LF => sub {                   ## Gather w/ 1 scalar arg
+      OUTPUT_S_GTR.$LF => sub {                   # Gather scalar
          local $_;
 
-         chomp($_task_id = <$_DAU_R_SOCK>);
+         chomp($_task_id = <$_DAU_R_SOCK>),
          chomp($_len     = <$_DAU_R_SOCK>);
+
          read $_DAU_R_SOCK, $_, $_len if ($_len >= 0);
 
          if ($_is_c_ref[$_task_id]) {
@@ -578,7 +556,7 @@ sub _output_loop {
 
       ## ----------------------------------------------------------------------
 
-      OUTPUT_O_SND.$LF => sub {                   ## Send >> STDOUT
+      OUTPUT_O_SND.$LF => sub {                   # Send >> STDOUT
          my $_buf;
 
          chomp($_len = <$_DAU_R_SOCK>);
@@ -593,7 +571,7 @@ sub _output_loop {
          return;
       },
 
-      OUTPUT_E_SND.$LF => sub {                   ## Send >> STDERR
+      OUTPUT_E_SND.$LF => sub {                   # Send >> STDERR
          my $_buf;
 
          chomp($_len = <$_DAU_R_SOCK>);
@@ -608,11 +586,12 @@ sub _output_loop {
          return;
       },
 
-      OUTPUT_F_SND.$LF => sub {                   ## Send >> File
+      OUTPUT_F_SND.$LF => sub {                   # Send >> File
          my ($_buf, $_OUT_FILE);
 
-         chomp($_file = <$_DAU_R_SOCK>);
+         chomp($_file = <$_DAU_R_SOCK>),
          chomp($_len  = <$_DAU_R_SOCK>);
+
          read $_DAU_R_SOCK, $_buf, $_len;
 
          unless (exists $_sendto_fhs{$_file}) {
@@ -633,11 +612,12 @@ sub _output_loop {
          return;
       },
 
-      OUTPUT_D_SND.$LF => sub {                   ## Send >> File descriptor
+      OUTPUT_D_SND.$LF => sub {                   # Send >> File descriptor
          my ($_buf, $_OUT_FILE);
 
-         chomp($_fd  = <$_DAU_R_SOCK>);
+         chomp($_fd  = <$_DAU_R_SOCK>),
          chomp($_len = <$_DAU_R_SOCK>);
+
          read $_DAU_R_SOCK, $_buf, $_len;
 
          unless (exists $_sendto_fhs{$_fd}) {
@@ -663,7 +643,7 @@ sub _output_loop {
 
       ## ----------------------------------------------------------------------
 
-      OUTPUT_B_SYN.$LF => sub {                   ## Barrier sync - begin
+      OUTPUT_B_SYN.$LF => sub {                   # Barrier sync - begin
 
          if (!defined $_sync_cnt || $_sync_cnt == 0) {
             $_syn_flag = 1;
@@ -682,7 +662,7 @@ sub _output_loop {
          return;
       },
 
-      OUTPUT_E_SYN.$LF => sub {                   ## Barrier sync - end
+      OUTPUT_E_SYN.$LF => sub {                   # Barrier sync - end
 
          if (--$_sync_cnt == 0) {
             my $_total_running = ($_has_user_tasks)
@@ -801,7 +781,7 @@ sub _output_loop {
 
    my $_func; my $_channels = $self->{_dat_r_sock};
 
-   $_BSB_W_SOCK = $self->{_bsb_w_sock};        ## For IPC
+   $_BSB_W_SOCK = $self->{_bsb_w_sock};
    $_BSE_W_SOCK = $self->{_bse_w_sock};
    $_DAT_R_SOCK = $self->{_dat_r_sock}->[0];
 
@@ -818,12 +798,11 @@ sub _output_loop {
       $_p->($self, \$_DAU_R_SOCK);
    }
 
-   ## Call on hash function. Exit loop when workers have completed.
+   ## Call on hash function; exit loop when workers have completed.
    while (1) {
       $_func = <$_DAT_R_SOCK>;
-      next unless $_func;
-
       $_DAU_R_SOCK = $_channels->[ <$_DAT_R_SOCK> ];
+
       if (exists $_core_output_function{$_func}) {
          $_core_output_function{$_func}();
       } elsif (exists $_plugin_function->{$_func}) {

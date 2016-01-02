@@ -10,10 +10,11 @@ use bytes;
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
-my ($buf, $fh, $fno, $ret1, $ret2, $ret3, $ret4, $ret5) = ('');
+my ($buf, $fno, $ret1, $ret2, $ret3, $ret4, $ret5) = ('');
 my $tmp_file = "$tmp_dir/test.txt";
 
-$fh  = mce_open ">:raw", $tmp_file;
+my $fh = MCE::Shared->handle(">:raw", $tmp_file);
+
 $fno = fileno $fh;
 
 for (1 .. 9) {
@@ -25,7 +26,8 @@ close $fh;
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
-$fh   = mce_open "<:raw", $tmp_file;
+open $fh, "<:raw", $tmp_file;
+
 $ret1 = eof $fh;
 
 while ( <$fh> ) {

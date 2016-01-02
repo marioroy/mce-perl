@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Core::Input::Handle - File_path and Scalar_ref input reader.
+## File_path and Scalar_ref input reader.
 ##
 ## This package provides the read handle method used internally by the worker
 ## process. Distribution follows a bank-queuing model.

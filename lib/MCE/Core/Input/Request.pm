@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Core::Input::Request - Array_ref and Glob_ref input reader.
+## Array_ref and Glob_ref input reader.
 ##
 ## This package provides the request chunk method used internally by the worker
 ## process. Distribution follows a bank-queuing model.

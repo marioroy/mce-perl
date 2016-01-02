@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Candy - Sugar methods and output iterators for Many-Core Engine.
+## Sugar methods and output iterators for Many-Core Engine.
 ##
 ###############################################################################
 
@@ -21,11 +21,11 @@ our @CARP_NOT = qw( MCE );
 ##
 ###############################################################################
 
-my $_loaded;
+my $_imported;
 
 sub import {
 
-   my $_class = shift; return if ($_loaded++);
+   my $_class = shift; return if ($_imported++);
 
    unless (defined $MCE::VERSION) {
       $\ = undef; require Carp;
@@ -521,7 +521,7 @@ processing input data.
 
 =head1 INDEX
 
-L<MCE|MCE>
+L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
 
 =head1 AUTHOR
 

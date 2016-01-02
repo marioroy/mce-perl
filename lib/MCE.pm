@@ -20,20 +20,20 @@ our $VERSION = '1.699_001';
 use Carp ();
 
 BEGIN {
-   ## Forking is emulated under the Windows enviornment (excluding Cygwin).
+   local $@;
+
+   ## Forking is emulated under the Windows enviornment, excluding Cygwin.
    ## MCE 1.514+ will load the 'threads' module by default on Windows.
    ## Folks may specify use_threads => 0 if threads is not desired.
 
    if ($^O eq 'MSWin32' && !defined $threads::VERSION) {
-      local $@; local $SIG{__DIE__} = \&_NOOP;
       eval 'use threads; use threads::shared';
    }
    elsif (defined $threads::VERSION) {
-      unless (defined $threads::shared::VERSION) {
-         local $@; local $SIG{__DIE__} = \&_NOOP;
-         eval 'use threads::shared';
-      }
+      eval 'use threads::shared' unless defined($threads::shared::VERSION);
    }
+
+   eval 'PDL::no_clone_skip_warning()' if $INC{'PDL.pm'};
 }
 
 use Scalar::Util qw( looks_like_number refaddr );
@@ -60,8 +60,7 @@ BEGIN {
    ## Each entry contains 2 positive numbers: chunk_id & msg_id.
    ## Attempt 64-bit size, otherwize fall back to machine's word length.
    {
-      local $@; local $SIG{__DIE__} = \&_NOOP;
-      eval { $_que_read_size = length pack('Q2', 0, 0); };
+      local $@; eval { $_que_read_size = length pack('Q2', 0, 0); };
       $_que_template  = ($@) ? 'I2' : 'Q2';
       $_que_read_size = length pack($_que_template, 0, 0);
    }
@@ -125,11 +124,6 @@ BEGIN {
       };
    }
 
-   ## PDL + MCE (spawning as threads) is not stable. Thanks to David Mertens
-   ## for reporting on how he fixed it for his PDL::Parallel::threads module.
-
-   sub PDL::CLONE_SKIP { return 1; }
-
    return;
 }
 
@@ -151,10 +145,10 @@ my  $FREEZE  = \&Storable::freeze;
 my  $THAW    = \&Storable::thaw;
 
 my ($MAX_WORKERS, $CHUNK_SIZE) = (1, 1);
-my ($_has_threads, $_loaded);
+my ($_has_threads, $_imported);
 
 sub import {
-   my $_class = shift; return if ($_loaded++);
+   my $_class = shift; return if ($_imported++);
 
    ## Process module arguments.
    while ( my $_argument = shift ) {
@@ -221,50 +215,48 @@ sub import {
 
 use constant {
 
-   DATA_CHANNELS  => 8,                  ## Max data channels
+   FAST_SEND_SIZE => 1024 * 64 + 128,   # Use one print call if N < size
+   MAX_CHUNK_SIZE => 1024 * 1024 * 64,  # Maximum chunk size allowed
 
-   FAST_SEND_SIZE => 1024 * 64 + 128,    ## Use one print call if <  size
-   MAX_CHUNK_SIZE => 1024 * 1024 * 64,   ## Maximum chunk size allowed
+   DATA_CHANNELS  => 8,        # Max data channels
+   MAX_RECS_SIZE  => 8192,     # Reads number of records if N <= value
+                               # Reads number of bytes if N > value
 
-   MAX_RECS_SIZE  => 8192,               ## Reads # of records if <= value
-                                         ## Reads # of bytes   if >  value
+   OUTPUT_W_ABT   => 'W~ABT',  # Worker has aborted
+   OUTPUT_W_DNE   => 'W~DNE',  # Worker has completed
+   OUTPUT_W_RLA   => 'W~RLA',  # Worker has relayed
+   OUTPUT_W_EXT   => 'W~EXT',  # Worker has exited
+   OUTPUT_A_ARY   => 'A~ARY',  # Array  << Array
+   OUTPUT_S_GLB   => 'S~GLB',  # Scalar << Glob FH
+   OUTPUT_U_ITR   => 'U~ITR',  # User   << Iterator
+   OUTPUT_A_CBK   => 'A~CBK',  # Callback w/ multiple args
+   OUTPUT_S_CBK   => 'S~CBK',  # Callback w/ 1 scalar arg
+   OUTPUT_N_CBK   => 'N~CBK',  # Callback w/ no args
+   OUTPUT_A_GTR   => 'A~GTR',  # Gather array/ref
+   OUTPUT_S_GTR   => 'S~GTR',  # Gather scalar
+   OUTPUT_O_SND   => 'O~SND',  # Send >> STDOUT
+   OUTPUT_E_SND   => 'E~SND',  # Send >> STDERR
+   OUTPUT_F_SND   => 'F~SND',  # Send >> File
+   OUTPUT_D_SND   => 'D~SND',  # Send >> File descriptor
+   OUTPUT_B_SYN   => 'B~SYN',  # Barrier sync - begin
+   OUTPUT_E_SYN   => 'E~SYN',  # Barrier sync - end
 
-   OUTPUT_W_ABT   => 'W~ABT',            ## Worker has aborted
-   OUTPUT_W_DNE   => 'W~DNE',            ## Worker has completed
-   OUTPUT_W_RLA   => 'W~RLA',            ## Worker has relayed
-   OUTPUT_W_EXT   => 'W~EXT',            ## Worker has exited
-   OUTPUT_A_ARY   => 'A~ARY',            ## Array  << Array
-   OUTPUT_S_GLB   => 'S~GLB',            ## Scalar << Glob FH
-   OUTPUT_U_ITR   => 'U~ITR',            ## User   << Iterator
-   OUTPUT_A_CBK   => 'A~CBK',            ## Callback w/ multiple args
-   OUTPUT_S_CBK   => 'S~CBK',            ## Callback w/ 1 scalar arg
-   OUTPUT_N_CBK   => 'N~CBK',            ## Callback w/ no args
-   OUTPUT_A_GTR   => 'A~GTR',            ## Gather w/ multiple args
-   OUTPUT_R_GTR   => 'R~GTR',            ## Gather w/ 1 reference arg
-   OUTPUT_S_GTR   => 'S~GTR',            ## Gather w/ 1 scalar arg
-   OUTPUT_O_SND   => 'O~SND',            ## Send >> STDOUT
-   OUTPUT_E_SND   => 'E~SND',            ## Send >> STDERR
-   OUTPUT_F_SND   => 'F~SND',            ## Send >> File
-   OUTPUT_D_SND   => 'D~SND',            ## Send >> File descriptor
-   OUTPUT_B_SYN   => 'B~SYN',            ## Barrier sync - begin
-   OUTPUT_E_SYN   => 'E~SYN',            ## Barrier sync - end
+   READ_FILE      => 0,        # Worker reads file handle
+   READ_MEMORY    => 1,        # Worker reads memory handle
 
-   READ_FILE      => 0,                  ## Worker reads file handle
-   READ_MEMORY    => 1,                  ## Worker reads memory handle
+   REQUEST_ARRAY  => 0,        # Worker requests next array chunk
+   REQUEST_GLOB   => 1,        # Worker requests next glob chunk
 
-   REQUEST_ARRAY  => 0,                  ## Worker requests next array chunk
-   REQUEST_GLOB   => 1,                  ## Worker requests next glob chunk
+   SENDTO_FILEV1  => 0,        # Worker sends to 'file', $a, '/path'
+   SENDTO_FILEV2  => 1,        # Worker sends to 'file:/path', $a
+   SENDTO_STDOUT  => 2,        # Worker sends to STDOUT
+   SENDTO_STDERR  => 3,        # Worker sends to STDERR
+   SENDTO_FD      => 4,        # Worker sends to file descriptor
 
-   SENDTO_FILEV1  => 0,                  ## Worker sends to 'file', $a, '/path'
-   SENDTO_FILEV2  => 1,                  ## Worker sends to 'file:/path', $a
-   SENDTO_STDOUT  => 2,                  ## Worker sends to STDOUT
-   SENDTO_STDERR  => 3,                  ## Worker sends to STDERR
-   SENDTO_FD      => 4,                  ## Worker sends to file descriptor
-
-   WANTS_UNDEF    => 0,                  ## Callee wants nothing
-   WANTS_ARRAY    => 1,                  ## Callee wants list
-   WANTS_SCALAR   => 2,                  ## Callee wants scalar
-   WANTS_REF      => 3                   ## Callee wants H/A/S ref
+   WANTS_UNDEF    => 0,        # Callee wants nothing
+   WANTS_ARRAY    => 1,        # Callee wants list
+   WANTS_SCALAR   => 2,        # Callee wants scalar
+   WANTS_REF      => 3         # Callee wants H/A/S ref
 };
 
 my (%_mce_sess_dir, %_mce_spawned); my $_mce_count = 0;
@@ -428,13 +420,13 @@ sub new {
    ## -------------------------------------------------------------------------
    ## Private options. Limit chunk_size.
 
-   $self{_chunk_id}   = 0;       ## Chunk ID
-   $self{_send_cnt}   = 0;       ## Number of times data was sent via send
-   $self{_spawned}    = 0;       ## Have workers been spawned
-   $self{_task_id}    = 0;       ## Task ID, starts at 0 (array index)
-   $self{_task_wid}   = 0;       ## Task Worker ID, starts at 1 per task
-   $self{_wid}        = 0;       ## Worker ID, starts at 1 per MCE instance
-   $self{_wrk_status} = 0;       ## For saving exit status when worker exits
+   $self{_chunk_id}   = 0;  # Chunk ID
+   $self{_send_cnt}   = 0;  # Number of times data was sent via send
+   $self{_spawned}    = 0;  # Have workers been spawned
+   $self{_task_id}    = 0;  # Task ID, starts at 0 (array index)
+   $self{_task_wid}   = 0;  # Task Worker ID, starts at 1 per task
+   $self{_wid}        = 0;  # Worker ID, starts at 1 per MCE instance
+   $self{_wrk_status} = 0;  # For saving exit status when worker exits
 
    $self{chunk_size} = MAX_CHUNK_SIZE if ($self{chunk_size} > MAX_CHUNK_SIZE);
 
@@ -456,6 +448,7 @@ sub new {
       ? $_total_workers : $_data_channels;
 
    $self{_lock_chn} = ($_total_workers > $_data_channels) ? 1 : 0;
+   $self{_lock_chn} = 1 if ($INC{'MCE/Hobo.pm'});
 
    $MCE = \%self if ($MCE->{_wid} == 0);
 
@@ -474,12 +467,16 @@ sub spawn {
 
    @_ = ();
 
-   _croak('MCE::spawn: method is not allowed by worker process')
+   _croak('MCE::spawn: method is not allowed by the worker process')
       if ($self->{_wid});
 
    ## Return if workers have already been spawned.
    return $self if ($self->{_spawned});
 
+   ## The shared server must be running if present.
+   MCE::Shared::start() if ($INC{'MCE/Shared.pm'});
+
+   ## Load input module.
    if (defined $self->{sequence}) {
       require MCE::Core::Input::Sequence
          unless $INC{'MCE/Core/Input/Sequence.pm'};
@@ -500,11 +497,12 @@ sub spawn {
       }
    }
 
+   ## Load POSIX if requested.
    if ($self->{posix_exit} && !$self->{use_threads}) {
       require POSIX unless $INC{'POSIX.pm'};
    }
 
-   lock $_MCE_LOCK if ($_has_threads);            ## Obtain MCE lock.
+   lock $_MCE_LOCK if ($_has_threads);  # Obtain MCE lock
    lock $_WIN_LOCK if ($_is_MSWin32);
 
    my $_die_handler  = $SIG{__DIE__};  $SIG{__DIE__}  = \&_die;
@@ -514,7 +512,7 @@ sub spawn {
       $TOP_HDLR = $self;
    }
    elsif (!$TOP_HDLR->{_mgr_live} && !$TOP_HDLR->{_wid}) {
-      $TOP_HDLR->shutdown;
+      $TOP_HDLR->shutdown if ($_is_MSWin32);
       $TOP_HDLR = $self;
    }
    elsif (refaddr($self) != refaddr($TOP_HDLR)) {
@@ -568,24 +566,24 @@ sub spawn {
    }
 
    ## Create sockets for IPC.
-   MCE::Util::_socket_pair($self, qw(_bsb_r_sock _bsb_w_sock));       # sync
-   MCE::Util::_socket_pair($self, qw(_bse_r_sock _bse_w_sock));       # sync
-   MCE::Util::_socket_pair($self, qw(_com_r_sock _com_w_sock));       # core
-   MCE::Util::_socket_pair($self, qw(_dat_r_sock _dat_w_sock), $_)    # core
+   MCE::Util::_sock_pair($self, qw(_bsb_r_sock _bsb_w_sock));       # sync
+   MCE::Util::_sock_pair($self, qw(_bse_r_sock _bse_w_sock));       # sync
+   MCE::Util::_sock_pair($self, qw(_com_r_sock _com_w_sock));       # core
+   MCE::Util::_sock_pair($self, qw(_dat_r_sock _dat_w_sock), $_)    # core
       for (0 .. $_data_channels);
 
    setsockopt($self->{_dat_r_sock}->[0], SOL_SOCKET, SO_RCVBUF, pack('i', 4096))
       if ($^O ne 'aix' && $^O ne 'linux');
 
-   ($^O =~ /^(?:cygwin|solaris)$/)                                    # input
-      ? MCE::Util::_socket_pair($self, qw(_que_r_sock _que_w_sock))
-      : MCE::Util::_pipe_pair($self, qw(_que_r_sock _que_w_sock));
+   ($_is_MSWin32)                                                   # input
+      ? MCE::Util::_pipe_pair($self, qw(_que_r_sock _que_w_sock))
+      : MCE::Util::_sock_pair($self, qw(_que_r_sock _que_w_sock));
 
-   if (defined $self->{init_relay}) {                                 # relay
+   if (defined $self->{init_relay}) {                               # relay
       unless (defined $MCE::Relay::VERSION) {
          require MCE::Relay; MCE::Relay->import();
       }
-      MCE::Util::_socket_pair($self, qw(_rla_r_sock _rla_w_sock), $_)
+      MCE::Util::_sock_pair($self, qw(_rla_r_sock _rla_w_sock), $_)
          for (0 .. $_max_workers - 1);
    }
 
@@ -741,7 +739,7 @@ sub restart_worker {
 
    @_ = ();
 
-   _croak('MCE::restart_worker: method is not allowed by worker process')
+   _croak('MCE::restart_worker: method is not allowed by the worker process')
       if ($self->{_wid});
 
    my $_wid = $self->{_exited_wid};
@@ -784,7 +782,7 @@ sub run {
 
    my $x = shift; my $self = ref($x) ? $x : $MCE;
 
-   _croak('MCE::run: method is not allowed by worker process')
+   _croak('MCE::run: method is not allowed by the worker process')
       if ($self->{_wid});
 
    my ($_auto_shutdown, $_params_ref);
@@ -875,7 +873,7 @@ sub run {
    elsif (defined $self->{input_data}) {
       my $_ref = ref $self->{input_data};
 
-      if ($_ref eq 'ARRAY') {                        ## Array mode.
+      if ($_ref eq 'ARRAY') {                        # Array mode
          $_run_mode   = 'array';
          $_input_data = $self->{input_data};
          $_input_file = $_input_glob = undef;
@@ -887,21 +885,21 @@ sub run {
             return $self->shutdown() if ($_auto_shutdown == 1);
          }
       }
-      elsif ($_ref eq 'GLOB' || $_ref =~ /^IO::/) {  ## Glob mode.
+      elsif ($_ref eq 'GLOB' || $_ref =~ /^IO::/) {  # Glob mode
          $_run_mode   = 'glob';
          $_input_glob = $self->{input_data};
          $_input_data = $_input_file = undef;
          $_abort_msg  = 0; ## Flag: Has Data: No
          $_first_msg  = 1; ## Flag: Has Data: Yes
       }
-      elsif ($_ref eq 'CODE') {                      ## Iterator mode.
+      elsif ($_ref eq 'CODE') {                      # Iterator mode
          $_run_mode   = 'iterator';
          $_input_data = $self->{input_data};
          $_input_file = $_input_glob = undef;
          $_abort_msg  = 0; ## Flag: Has Data: No
          $_first_msg  = 1; ## Flag: Has Data: Yes
       }
-      elsif ($_ref eq '') {                          ## File mode.
+      elsif ($_ref eq '') {                          # File mode
          $_run_mode   = 'file';
          $_input_file = $self->{input_data};
          $_input_data = $_input_glob = undef;
@@ -912,7 +910,7 @@ sub run {
             return $self->shutdown() if ($_auto_shutdown == 1);
          }
       }
-      elsif ($_ref eq 'SCALAR') {                    ## Memory mode.
+      elsif ($_ref eq 'SCALAR') {                    # Memory mode
          $_run_mode   = 'memory';
          $_input_data = $_input_file = $_input_glob = undef;
          $_abort_msg  = length(${ $self->{input_data} }) + 1;
@@ -926,7 +924,7 @@ sub run {
          _croak('MCE::run: (input_data) is not valid');
       }
    }
-   else {                                            ## Nodata mode.
+   else {                                            # Nodata mode
       $_run_mode  = 'nodata';
       $_abort_msg = undef;
    }
@@ -1077,7 +1075,7 @@ sub send {
 
    my $x = shift; my $self = ref($x) ? $x : $MCE;
 
-   _croak('MCE::send: method is not allowed by worker process')
+   _croak('MCE::send: method is not allowed by the worker process')
       if ($self->{_wid});
    _croak('MCE::send: method is not allowed while running')
       if ($self->{_total_running});
@@ -1212,15 +1210,15 @@ sub shutdown {
    ## Close sockets.
    $_COM_R_SOCK = undef;
 
-   MCE::Util::_destroy_sockets($self, qw(
+   MCE::Util::_destroy_socks($self, qw(
       _bsb_w_sock _bsb_r_sock _bse_w_sock _bse_r_sock
       _com_w_sock _com_r_sock _dat_w_sock _dat_r_sock
       _rla_w_sock _rla_r_sock
    ));
 
-   ($^O =~ /^(?:cygwin|solaris)$/)
-      ? MCE::Util::_destroy_sockets($self, qw( _que_w_sock _que_r_sock ))
-      : MCE::Util::_destroy_pipes($self, qw( _que_w_sock _que_r_sock ));
+   ($_is_MSWin32)
+      ? MCE::Util::_destroy_pipes($self, qw( _que_w_sock _que_r_sock ))
+      : MCE::Util::_destroy_socks($self, qw( _que_w_sock _que_r_sock ));
 
    ## -------------------------------------------------------------------------
 
@@ -1373,7 +1371,7 @@ sub exit {
 
    @_ = ();
 
-   _croak('MCE::exit: method is not allowed by manager process')
+   _croak('MCE::exit: method is not allowed by the manager process')
       unless ($self->{_wid});
 
    MCE::Signal::stop_and_exit('__DIE__') unless ($self->{_running});
@@ -1424,6 +1422,7 @@ sub exit {
    $SIG{__DIE__} = $SIG{__WARN__} = sub {};
 
    if ($_has_threads && threads->can('exit')) {
+      if ($_is_MSWin32) { lock $_EXT_LOCK; sleep 0.002; }
       threads->exit($_exit_status);
    }
    elsif ($self->{posix_exit}) {
@@ -1440,7 +1439,7 @@ sub last {
 
    my $x = shift; my $self = ref($x) ? $x : $MCE;
 
-   _croak('MCE::last: method is not allowed by manager process')
+   _croak('MCE::last: method is not allowed by the manager process')
       unless ($self->{_wid});
 
    $self->{_last_jmp}() if (defined $self->{_last_jmp});
@@ -1454,7 +1453,7 @@ sub next {
 
    my $x = shift; my $self = ref($x) ? $x : $MCE;
 
-   _croak('MCE::next: method is not allowed by manager process')
+   _croak('MCE::next: method is not allowed by the manager process')
       unless ($self->{_wid});
 
    $self->{_next_jmp}() if (defined $self->{_next_jmp});
@@ -1484,7 +1483,7 @@ sub status {
 
    my $x = shift; my $self = ref($x) ? $x : $MCE;
 
-   _croak('MCE::status: method is not allowed by worker process')
+   _croak('MCE::status: method is not allowed by the worker process')
       if ($self->{_wid});
 
    return (defined $self->{_wrk_status}) ? $self->{_wrk_status} : 0;
@@ -1502,7 +1501,7 @@ sub do {
 
    my $x = shift; my $self = ref($x) ? $x : $MCE;
 
-   _croak('MCE::do: method is not allowed by manager process')
+   _croak('MCE::do: method is not allowed by the manager process')
       unless ($self->{_wid});
 
    if (ref $_[0] eq 'CODE') {
@@ -1524,7 +1523,7 @@ sub gather {
 
    my $x = shift; my $self = ref($x) ? $x : $MCE;
 
-   _croak('MCE::gather: method is not allowed by manager process')
+   _croak('MCE::gather: method is not allowed by the manager process')
       unless ($self->{_wid});
 
    return _do_gather($self, [ @_ ]);
@@ -1548,7 +1547,7 @@ sub gather {
       my $x = shift; my $self = ref($x) ? $x : $MCE;
       my $_to = shift;
 
-      _croak('MCE::sendto: method is not allowed by manager process')
+      _croak('MCE::sendto: method is not allowed by the manager process')
          unless ($self->{_wid});
 
       return unless (defined $_[0]);
@@ -1582,9 +1581,9 @@ sub gather {
          }
       }
 
-      if ($_dest == SENDTO_FILEV1) {              ## sendto 'file', $a, $path
-         return if (!defined $_[1] || @_ > 2);    ## Please switch to using V2
-         $_value = $_[1]; delete $_[1];           ## sendto 'file:/path', $a
+      if ($_dest == SENDTO_FILEV1) {            # sendto 'file', $a, $path
+         return if (!defined $_[1] || @_ > 2);  # Please switch to using V2
+         $_value = $_[1]; delete $_[1];         # sendto 'file:/path', $a
          $_dest  = SENDTO_FILEV2;
       }
 
@@ -1750,7 +1749,7 @@ sub _dispatch {
    @_ = ();
 
    ## Sets the seed of the base generator uniquely between workers.
-   if ($INC{'Math/Random.pm'} && not $self->{use_threads}) {
+   if ($INC{'Math/Random.pm'} && !$self->{use_threads}) {
       my ($_wid, $_cur_seed) = ($_args[1], Math::Random::random_get_seed());
 
       my $_new_seed = ($_cur_seed < 1073741781)
@@ -1768,7 +1767,7 @@ sub _dispatch {
    $SIG{__DIE__} = $SIG{__WARN__} = sub {};
 
    if ($_has_threads && threads->can('exit')) {
-      if ($_is_MSWin32) { lock $_EXT_LOCK; }
+      if ($_is_MSWin32) { lock $_EXT_LOCK; sleep 0.002; }
       threads->exit(0);
    }
    elsif ($self->{posix_exit}) {

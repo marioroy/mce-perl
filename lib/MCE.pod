@@ -5,14 +5,14 @@ MCE - Many-Core Engine for Perl providing parallel processing capabilities
 
 =head1 VERSION
 
-This document describes MCE version 1.699
+This document describes MCE version 1.699_001
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
 
 =begin html
 
-<p><img src="https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/MCE.png" width="612" height="484" alt="MCE" /></p>
+<p><img src="https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/MCE.png" width="612" height="444" alt="MCE" /></p>
 
 =end html
 
@@ -75,10 +75,22 @@ Parsing a huge log file.
       if ($$slurp_ref =~ /$pattern/m) {
          my @matches;
 
+         # The following is fast on Unix, but performance degrades
+         # drastically on Windows beyond 4 workers.
+
          open my $MEM_FH, '<', $slurp_ref;
          binmode $MEM_FH, ':raw';
          while (<$MEM_FH>) { push @matches, $_ if (/$pattern/); }
          close   $MEM_FH;
+
+         # Therefore, use the following construction on Windows.
+
+         while ( $$slurp_ref =~ /([^\n]+\n)/mg ) {
+            my $line = $1; # save $1 to not lose the value
+            push @matches, $line if ($line =~ /$pattern/);
+         }
+
+         # Gather matched lines.
 
          MCE->gather(@matches);
       }
@@ -90,12 +102,9 @@ Parsing a huge log file.
 Looping through a sequence of numbers.
 
    use MCE::Flow;
-   use MCE::Number;
    use MCE::Shared;
 
-   # Number is auto-shared when MCE::Shared is present
-
-   my $pi = MCE::Number->new(0.0);
+   my $pi = MCE::Shared->scalar( 0.0 );
    my $N  = shift || 4_000_000;
 
    sub compute_pi {
@@ -107,7 +116,7 @@ Looping through a sequence of numbers.
          $_pi += 4.0 / ( 1.0 + $t * $t );
       }
 
-      $pi->Add( $_pi );
+      $pi->incrby( $_pi );
    }
 
    # Compute bounds only, workers receive [ begin, end ] values
@@ -116,7 +125,7 @@ Looping through a sequence of numbers.
 
    mce_flow_s sub { compute_pi( $_->[0], $_->[1] ) }, 0, $N - 1;
 
-   printf "pi = %0.13f\n", $pi->Val / $N;  # 3.1415926535898
+   printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
 
 =head1 CORE MODULES
 
@@ -149,13 +158,14 @@ There are 6 add-on modules for use with MCE.
 Provides a collection of sugar methods and output iterators for preserving
 output order.
 
+=item L<MCE::Hobo|MCE::Hobo>
+
+Provides threads-like capability for executing code asynchronously via child
+processes.
+
 =item L<MCE::Mutex|MCE::Mutex>
 
 Provides a simple semaphore implementation supporting threads and processes.
-
-=item L<MCE::Number|MCE::Number>
-
-An auto-shareable pure-Perl number class for threads::shared or MCE::Shared.
 
 =item L<MCE::Queue|MCE::Queue>
 
@@ -172,6 +182,23 @@ involvement by the manager process while running.
 =item L<MCE::Shared|MCE::Shared>
 
 An extension for sharing data or objects supporting threads and processes.
+Eight classes are included for use with MCE::Shared.
+
+L<MCE::Shared::Array|MCE::Shared::Array>
+
+L<MCE::Shared::Condvar|MCE::Shared::Condvar>
+
+L<MCE::Shared::Handle|MCE::Shared::Handle>
+
+L<MCE::Shared::Hash|MCE::Shared::Hash>
+
+L<MCE::Shared::Ordhash|MCE::Shared::Ordhash>
+
+L<MCE::Shared::Queue|MCE::Shared::Queue>
+
+L<MCE::Shared::Scalar|MCE::Shared::Scalar>
+
+L<MCE::Shared::Sequence|MCE::Shared::Sequence>
 
 =back
 

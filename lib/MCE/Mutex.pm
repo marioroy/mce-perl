@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Mutex - Locking for Many-Core Engine.
+## Locking for Many-Core Engine.
 ##
 ###############################################################################
 
@@ -17,7 +17,8 @@ use MCE::Util qw( $LF );
 
 our @CARP_NOT = qw( MCE::Shared MCE );
 
-my $_tid = $INC{'threads.pm'} ? threads->tid() : 0;
+my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
+my $_tid = $_has_threads ? threads->tid() : 0;
 
 sub CLONE {
    $_tid = threads->tid();
@@ -26,14 +27,14 @@ sub CLONE {
 
 sub DESTROY {
    my ($_obj, $_arg) = @_;
-   my $_pid = $INC{'threads.pm'} ? $$ .'.'. $_tid : $$;
+   my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
 
    $_obj->unlock() if ($_obj->{ $_pid });
 
    if ($_arg eq 'shutdown' || $_obj->{'init_pid'} eq $_pid) {
-      ($_obj->{'pipe'} || $^O eq 'MSWin32')
+      ($^O eq 'MSWin32')
          ? MCE::Util::_destroy_pipes($_obj, qw(_w_sock _r_sock))
-         : MCE::Util::_destroy_sockets($_obj, qw(_w_sock _r_sock));
+         : MCE::Util::_destroy_socks($_obj, qw(_w_sock _r_sock));
    }
 
    return;
@@ -46,14 +47,13 @@ sub DESTROY {
 ###############################################################################
 
 sub new {
-   my ($_class, %_argv) = @_; my $_obj = {};
+   my ($_class, %_argv) = @_; my $_obj = { %_argv };
 
-   $_obj->{'init_pid'} = $INC{'threads.pm'} ? $$ .'.'. $_tid : $$;
-   $_obj->{'pipe'}     = ($^O =~ /^(?:cygwin|solaris)$/) ? 0 : 1;
+   $_obj->{'init_pid'} = $_has_threads ? $$ .'.'. $_tid : $$;
 
-   ($_obj->{'pipe'} || $^O eq 'MSWin32')
+   ($^O eq 'MSWin32')
       ? MCE::Util::_pipe_pair($_obj, qw(_r_sock _w_sock))
-      : MCE::Util::_socket_pair($_obj, qw(_r_sock _w_sock));
+      : MCE::Util::_sock_pair($_obj, qw(_r_sock _w_sock));
 
    syswrite($_obj->{_w_sock}, '0');
 
@@ -61,25 +61,21 @@ sub new {
 }
 
 sub lock {
-   my $_obj = shift;
-   my $_pid = $INC{'threads.pm'} ? $$ .'.'. $_tid : $$;
+   my ($_obj) = @_;
+   my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
 
-   unless ($_obj->{ $_pid }) {
-      sysread($_obj->{_r_sock}, my $_b, 1);
-      $_obj->{ $_pid } = 1;
-   }
+   sysread($_obj->{_r_sock}, my $_b, 1), $_obj->{ $_pid } = 1
+      unless ($_obj->{ $_pid });
 
    return;
 }
 
 sub unlock {
-   my $_obj = shift;
-   my $_pid = $INC{'threads.pm'} ? $$ .'.'. $_tid : $$;
+   my ($_obj) = @_;
+   my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
 
-   if ($_obj->{ $_pid }) {
-      syswrite($_obj->{_w_sock}, '0');
-      $_obj->{ $_pid } = 0;
-   }
+   syswrite($_obj->{_w_sock}, '0'), $_obj->{ $_pid } = 0
+      if ($_obj->{ $_pid });
 
    return;
 }
@@ -87,17 +83,19 @@ sub unlock {
 sub synchronize {
    my ($_obj, $_code) = (shift, shift);
 
-   if (ref $_code eq 'CODE') {
-      if (defined wantarray) {
-         $_obj->lock();   my @_a = $_code->(@_);
-         $_obj->unlock();
+   return if (ref $_code ne 'CODE');
 
-         return wantarray ? @_a : $_a[0];
-      }
-      else {
-         $_obj->lock();   $_code->(@_);
-         $_obj->unlock();
-      }
+   if (defined wantarray) {
+      $_obj->lock();
+      my @_a = $_code->(@_);
+      $_obj->unlock();
+
+      return wantarray ? @_a : $_a[0];
+   }
+   else {
+      $_obj->lock();
+      $_code->(@_);
+      $_obj->unlock();
    }
 
    return;
@@ -161,7 +159,11 @@ The inspiration for this module came from reading Mutex for Ruby.
 
 =head2 MCE::Mutex->new ( void )
 
-Creates a new mutex lock via a pipe or socket depending on platform.
+Creates a new mutex.
+
+Channel locking is through a pipe or socket depending on platform.
+The advantage of channel locking is not having to re-establish handles
+inside new processes or threads.
 
 =head2 $m->lock ( void )
 
@@ -188,7 +190,7 @@ completes. Optionally, the method is wantarray aware.
 
 =head1 INDEX
 
-L<MCE|MCE>
+L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
 
 =head1 AUTHOR
 

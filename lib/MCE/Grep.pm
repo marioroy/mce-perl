@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Grep - Parallel grep model similar to the native grep function.
+## Parallel grep model similar to the native grep function.
 ##
 ###############################################################################
 
@@ -35,10 +35,10 @@ my $TMP_DIR = $MCE::Signal::tmp_dir;
 my $FREEZE  = \&Storable::freeze;
 my $THAW    = \&Storable::thaw;
 
-my ($_MCE, $_loaded); my ($_params, $_prev_c); my $_tag = 'MCE::Grep';
+my ($_MCE, $_imported); my ($_params, $_prev_c); my $_tag = 'MCE::Grep';
 
 sub import {
-   my $_class = shift; return if ($_loaded++);
+   my $_class = shift; return if ($_imported++);
 
    ## Process module arguments.
    while (my $_argument = shift) {
@@ -118,7 +118,7 @@ sub init (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Grep');
 
    if (MCE->wid) {
-      @_ = (); _croak("$_tag: (init) is not allowed by worker process");
+      @_ = (); _croak("$_tag: (init) is not allowed by the worker process");
    }
 
    finish(); $_params = (ref $_[0] eq 'HASH') ? shift : { @_ };
@@ -241,7 +241,7 @@ sub run (&@) {
    my $_code = shift;   $_total_chunks = 0; undef %_tmp;
 
    if (MCE->wid) {
-      @_ = (); _croak("$_tag: (run) is not allowed by worker process");
+      @_ = (); _croak("$_tag: (run) is not allowed by the worker process");
    }
 
    my $_input_data; my $_max_workers = $MAX_WORKERS; my $_r = ref $_[0];
@@ -561,10 +561,22 @@ examples/egrep.pl, included with the distribution.
       if ($$slurp_ref =~ /$pattern/m) {
          my @matches;
 
+         ## The following is fast on Unix. Performance degrades
+         ## drastically on Windows beyond 4 workers.
+
          open my $MEM_FH, '<', $slurp_ref;
          binmode $MEM_FH, ':raw';
          while (<$MEM_FH>) { push @matches, $_ if (/$pattern/); }
          close   $MEM_FH;
+
+         ## Therefore, use the following construct on Windows.
+
+         while ( $$slurp_ref =~ /([^\n]+\n)/mg ) {
+            my $line = $1; # save $1 to not lose the value
+            push @matches, $line if ($line =~ /$pattern/);
+         }
+
+         ## Gather matched lines.
 
          MCE->gather(@matches);
       }
@@ -593,9 +605,6 @@ There is a simpler way to enable Sereal. The following will attempt to use
 Sereal if available, otherwise defaults to Storable for serialization.
 
    use MCE::Grep Sereal => 1;
-
-   ## Serialization is by the Sereal module if available.
-   my @m2 = mce_grep { $_ % 5 == 0 } 1..10000;
 
 =head1 CUSTOMIZING MCE
 
@@ -719,7 +728,7 @@ longer needed.
 
 =head1 INDEX
 
-L<MCE|MCE>
+L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
 
 =head1 AUTHOR
 

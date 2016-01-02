@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Core::Validation - Core validation methods for Many-Core Engine.
+## Core validation methods for Many-Core Engine.
 ##
 ## This package provides validation methods used internally by the manager
 ## process.
@@ -179,6 +179,7 @@ sub _validate_args_s {
             $_s->{sequence}->[2] = $_seq->{step};
          }
       }
+
       if ( ($_seq->{step} < 0 && $_seq->{begin} < $_seq->{end}) ||
            ($_seq->{step} > 0 && $_seq->{begin} > $_seq->{end}) ||
            ($_seq->{step} == 0)
@@ -209,6 +210,7 @@ sub _validate_args_s {
                $_i->{$_p} < 1
             ));
       }
+
       $_i->{max_nodes} = 1 unless (exists $_i->{max_nodes});
       $_i->{node_id}   = 1 unless (exists $_i->{node_id});
       $_i->{_time}     = time;
@@ -229,7 +231,7 @@ sub _validate_runstate {
 
    @_ = ();
 
-   _croak("$_tag: method is not allowed by worker process")
+   _croak("$_tag: method is not allowed by the worker process")
       if ($self->{_wid});
    _croak("$_tag: method is not allowed while processing")
       if ($self->{_send_cnt});

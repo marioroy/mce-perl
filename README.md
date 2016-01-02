@@ -65,10 +65,22 @@ Parsing a huge log file.
     if ($$slurp_ref =~ /$pattern/m) {
        my @matches;
 
+       # The following is fast on Unix, but performance degrades
+       # drastically on Windows beyond 4 workers.
+
        open my $MEM_FH, '<', $slurp_ref;
        binmode $MEM_FH, ':raw';
        while (<$MEM_FH>) { push @matches, $_ if (/$pattern/); }
        close   $MEM_FH;
+
+       # Therefore, use the following construction on Windows.
+
+       while ( $$slurp_ref =~ /([^\n]+\n)/mg ) {
+          my $line = $1; # save $1 to not lose the value
+          push @matches, $line if ($line =~ /$pattern/);
+       }
+
+       # Gather matched lines.
 
        MCE->gather(@matches);
     }
@@ -82,12 +94,9 @@ Looping through a sequence of numbers.
 
 ```perl
  use MCE::Flow;
- use MCE::Number;
  use MCE::Shared;
 
- # Number is auto-shared when MCE::Shared is present
-
- my $pi = MCE::Number->new(0.0);
+ my $pi = MCE::Shared->scalar( 0.0 );
  my $N  = shift || 4_000_000;
 
  sub compute_pi {
@@ -99,7 +108,7 @@ Looping through a sequence of numbers.
        $_pi += 4.0 / ( 1.0 + $t * $t );
     }
 
-    $pi->Add( $_pi );
+    $pi->incrby( $_pi );
  }
 
  # Compute bounds only, workers receive [ begin, end ] values
@@ -108,7 +117,7 @@ Looping through a sequence of numbers.
 
  mce_flow_s sub { compute_pi( $_->[0], $_->[1] ) }, 0, $N - 1;
 
- printf "pi = %0.13f\n", $pi->Val / $N;  # 3.1415926535898
+ printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
 ```
 
 ### Installation and Dependencies

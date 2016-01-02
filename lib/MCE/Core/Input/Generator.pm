@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Core::Input::Generator - Sequence of numbers (for task_id > 0).
+## Sequence of numbers (for task_id > 0).
 ##
 ## This package provides a sequence of numbers used internally by the worker
 ## process. Distribution is divided equally among workers. This allows sequence

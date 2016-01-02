@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Relay - Extends Many-Core Engine with relay capabilities.
+## Extends Many-Core Engine with relay capabilities.
 ##
 ###############################################################################
 
@@ -18,7 +18,7 @@ our $VERSION = '1.699_001';
 use bytes;
 
 use constant {
-   OUTPUT_W_RLA => 'W~RLA',              ## Worker has relayed
+   OUTPUT_W_RLA => 'W~RLA',  # Worker has relayed
 };
 
 ###############################################################################
@@ -28,11 +28,11 @@ use constant {
 ###############################################################################
 
 my $LF = "\012";  Internals::SvREADONLY($LF, 1);
-my $_loaded;
+my $_imported;
 
 sub import {
 
-   my $_class = shift; return if ($_loaded++);
+   my $_class = shift; return if ($_imported++);
 
    if (defined $MCE::VERSION) {
       _mce_m_init();
@@ -59,7 +59,7 @@ sub import {
 
    my %_output_function = (
 
-      OUTPUT_W_RLA.$LF => sub {                   ## Worker has relayed
+      OUTPUT_W_RLA.$LF => sub {                   # Worker has relayed
 
          $_DAU_R_SOCK = ${ $_DAU_R_SOCK_REF };
 
@@ -165,7 +165,7 @@ sub relay_final {
 
    my $x = shift; my $self = ref($x) ? $x : $MCE::MCE;
 
-   _croak('MCE::relay_final: method is not allowed by worker process')
+   _croak('MCE::relay_final: method is not allowed by the worker process')
       if ($self->{_wid});
 
    if (exists $self->{_rla_return}) {
@@ -189,7 +189,7 @@ sub relay_recv {
 
    _croak('MCE::relay: (init_relay) is not specified')
       unless (defined $self->{init_relay});
-   _croak('MCE::relay: method is not allowed by manager process')
+   _croak('MCE::relay: method is not allowed by the manager process')
       unless ($self->{_wid});
    _croak('MCE::relay: method is not allowed by this sub task')
       if ($self->{_task_id} > 0);
@@ -235,7 +235,7 @@ sub relay (;&) {
 
    _croak('MCE::relay: (init_relay) is not specified')
       unless (defined $self->{init_relay});
-   _croak('MCE::relay: method is not allowed by manager process')
+   _croak('MCE::relay: method is not allowed by the manager process')
       unless ($self->{_wid});
    _croak('MCE::relay: method is not allowed by this sub task')
       if ($self->{_task_id} > 0);
@@ -566,7 +566,7 @@ is chunk_id driven (or task_wid when not processing input), thus orderly.
 
 =head1 INDEX
 
-L<MCE|MCE>
+L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
 
 =head1 AUTHOR
 

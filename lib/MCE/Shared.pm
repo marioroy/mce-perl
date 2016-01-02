@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Shared - MCE extension for sharing data structures between workers.
+## MCE extension for sharing objects and data between workers.
 ##
 ###############################################################################
 
@@ -13,58 +13,105 @@ no warnings qw( threads recursion uninitialized );
 
 our $VERSION = '1.699_001';
 
-## no critic (TestingAndDebugging::ProhibitNoStrict)
+## no critic (BuiltinFunctions::ProhibitStringyEval)
 
-use Carp ();
-use Scalar::Util qw( blessed reftype );
-use Symbol qw( gensym );
-
-use MCE::Shared::Client;
+use Scalar::Util qw( blessed refaddr );
 use MCE::Shared::Server;
 
 our @CARP_NOT = qw(
-   MCE::Shared::Object  MCE::Shared::Array  MCE::Shared::File
-   MCE::Shared::Hash    MCE::Shared::Scalar
+   MCE::Shared::Array   MCE::Shared::Condvar   MCE::Shared::Handle
+   MCE::Shared::Hash    MCE::Shared::Ordhash   MCE::Shared::Queue
+   MCE::Shared::Scalar  MCE::Shared::Sequence  MCE::Shared::Server
+
+   MCE::Shared::Object
 );
 
-sub _croak {
-   $SIG{__DIE__} = sub {
-      print {*STDERR} $_[0]; $SIG{INT} = sub {};
-      kill('INT', $^O eq 'MSWin32' ? -$$ : -getpgrp);
-      CORE::exit($?);
-   };
-   $\ = undef; goto &Carp::croak;
-}
-
-###############################################################################
-## ----------------------------------------------------------------------------
-## Import function; plus TIE support.
-##
-###############################################################################
+my $_imported;
 
 sub import {
    my $_class = shift;
+   return if $_imported++;
 
-   no strict 'refs'; no warnings 'redefine';
-   *{ caller().'::mce_share' } = \&share;
-   *{ caller().'::mce_open' } = \&open;
+   while ( my $_argument = shift ) {
+      if ( lc $_argument eq 'sereal' ) {
+         MCE::Shared::Server::_use_sereal() if (shift eq '1');
+         next;
+      }
+      _croak("Error: ($_argument) invalid module option");
+   }
 
    return;
 }
 
-{
-   no warnings 'prototype'; no warnings 'redefine';
-   use Attribute::Handlers ();
+###############################################################################
+## ----------------------------------------------------------------------------
+## Share function.
+##
+###############################################################################
 
-   sub UNIVERSAL::Shared :ATTR(ARRAY)  { tie @{ $_[2] }, 'MCE::Shared' }
-   sub UNIVERSAL::Shared :ATTR(HASH)   { tie %{ $_[2] }, 'MCE::Shared' }
-   sub UNIVERSAL::Shared :ATTR(SCALAR) { tie ${ $_[2] }, 'MCE::Shared' }
+my ($_count, %_lkup) = (0);
+
+sub share {
+   shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
+
+   my $_params = ref $_[0] eq 'HASH' && ref $_[1] ? shift : {};
+   my ($_class, $_ra, $_item) = (blessed($_[0]), refaddr($_[0]));
+
+   # safety for circular references to not loop endlessly
+   return $_lkup{ $_ra } if defined $_ra && exists $_lkup{ $_ra };
+
+   $_count++;
+
+   # blessed object, \@array, \%hash, or \$scalar
+   if ($_class) {
+      _incr_count($_[0]), return $_[0] if $_[0]->can('SHARED_ID');
+
+      _croak("Running MCE::Queue via MCE::Shared is not supported.\n",
+             "A shared queue is possible via MCE::Shared->queue().\n\n")
+         if ($_class eq 'MCE::Queue');
+
+      $_params->{'class'} = $_class;
+      $_item = MCE::Shared::Server::_new($_params, $_[0]);
+   }
+   elsif (ref $_[0] eq 'ARRAY') {
+      if (tied(@{ $_[0] }) && tied(@{ $_[0] })->can('SHARED_ID')) {
+         _incr_count(tied(@{ $_[0] })), return tied(@{ $_[0] });
+      }
+      $_item = $_lkup{ $_ra } = MCE::Shared->array($_params, @{ $_[0] });
+      @{ $_[0] } = ();  tie @{ $_[0] }, 'MCE::Shared::Object', $_item;
+   }
+   elsif (ref $_[0] eq 'HASH') {
+      if (tied(%{ $_[0] }) && tied(%{ $_[0] })->can('SHARED_ID')) {
+         _incr_count(tied(%{ $_[0] })), return tied(%{ $_[0] });
+      }
+      $_item = $_lkup{ $_ra } = MCE::Shared->hash($_params, %{ $_[0] });
+      %{ $_[0] } = ();  tie %{ $_[0] }, 'MCE::Shared::Object', $_item;
+   }
+   elsif (ref $_[0] eq 'SCALAR' && !ref ${ $_[0] }) {
+      if (tied(${ $_[0] }) && tied(${ $_[0] })->can('SHARED_ID')) {
+         _incr_count(tied(${ $_[0] })), return tied(${ $_[0] });
+      }
+      $_item = $_lkup{ $_ra } = MCE::Shared->scalar($_params, ${ $_[0] });
+      undef ${ $_[0] }; tie ${ $_[0] }, 'MCE::Shared::Object', $_item;
+   }
+
+   # synopsis
+   elsif (ref $_[0] eq 'REF') {
+      _croak('A "REF" type is not supported');
+   }
+   else {
+      if (ref $_[0] eq 'GLOB') {
+         _incr_count(tied(*{ $_[0] })), return $_[0] if (
+            tied(*{ $_[0] }) && tied(*{ $_[0] })->can('SHARED_ID')
+         );
+      }
+      _croak('Synopsis: blessed object, \@array, \%hash, or \$scalar');
+   }
+
+   %_lkup = () unless --$_count;
+
+   $_item;
 }
-
-sub TIEARRAY  {    my @_a; shift; &share(\@_a, @_) }
-sub TIEHANDLE { local *_f; shift; &share(\*_f, @_) }
-sub TIEHASH   {    my %_h; shift; &share(\%_h, @_) }
-sub TIESCALAR {    my $_s; shift; &share(\$_s, @_) }
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -72,63 +119,133 @@ sub TIESCALAR {    my $_s; shift; &share(\$_s, @_) }
 ##
 ###############################################################################
 
-sub spawn    { MCE::Shared::Server::_spawn()    }
-sub shutdown { MCE::Shared::Server::_shutdown() }
+sub start { MCE::Shared::Server::_start() }
+sub stop  { MCE::Shared::Server::_stop()  }
+sub init  { MCE::Shared::Object::_init()  }
 
-sub share {
-   my $_params = (@_ == 2 && ref $_[0] eq 'HASH' && blessed $_[1]) ? shift : {};
-   my $_rtype  = reftype($_[0]);
-   my $_item;
-
-   _croak("Usage: mce_share( object or array/hash/scalar ref )\n\n")
-      unless $_rtype;
-
-   for (keys %{ $_params }) {
-      _croak("The ($_) option to share is not valid") unless $_ eq 'compat';
-   }
-
-   $_params->{'class'} = blessed($_[0]);
-   $_params->{'type'}  = $_rtype;
-   $_params->{'tag'}   = 'M~TIE';
-
-   if ($_rtype eq 'ARRAY') {
-      return $_[0] if (tied(@{ $_[0] }) && tied(@{ $_[0] })->can('_id'));
-      $_item = MCE::Shared::Server::_send($_params, @_);
-   }
-   elsif ($_rtype eq 'GLOB') {
-      return $_[0] if (tied(*{ $_[0] }) && tied(*{ $_[0] })->can('_id'));
-      $_item = MCE::Shared::Server::_send($_params, fileno *{ (shift) }, @_);
-   }
-   elsif ($_rtype eq 'HASH') {
-      return $_[0] if (tied(%{ $_[0] }) && tied(%{ $_[0] })->can('_id'));
-      Carp::carp('Odd number of elements in hash assignment')
-         if (!$_params->{'class'} && scalar @_ > 1 && (scalar @_ - 1) % 2);
-      $_item = MCE::Shared::Server::_send($_params, @_);
-   }
-   elsif ($_rtype eq 'SCALAR') {
-      return $_[0] if (tied(${ $_[0] }) && tied(${ $_[0] })->can('_id'));
-      _croak('Too many arguments in scalar assignment') if (scalar @_ > 2);
-      $_item = MCE::Shared::Server::_send($_params, @_);
-   }
-   else {
-      _croak("Unsupported ref type: $_rtype");
-   }
-
-   return (defined wantarray) ? $_item : ();
+sub condvar {
+   shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
+   require MCE::Shared::Condvar unless $INC{'MCE/Shared/Condvar.pm'};
+   &share( MCE::Shared::Condvar->new(@_) );
+}
+sub queue {
+   shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
+   require MCE::Shared::Queue unless $INC{'MCE/Shared/Queue.pm'};
+   &share( MCE::Shared::Queue->new(@_) );
+}
+sub scalar {
+   shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
+   require MCE::Shared::Scalar unless $INC{'MCE/Shared/Scalar.pm'};
+   &share( MCE::Shared::Scalar->new(@_) );
+}
+sub sequence {
+   shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
+   require MCE::Shared::Sequence unless $INC{'MCE/Shared/Sequence.pm'};
+   &share( MCE::Shared::Sequence->new(@_) );
 }
 
-sub open {
-   my $_fh = gensym();
+## 'num_sequence' is an alias for 'sequence'
+*num_sequence = \&sequence;
 
-   if (ref $_[-1] && defined (my $_fd = fileno($_[-1]))) {
-      my @_args = @_; pop @_args; $_args[-1] .= "&=$_fd";
-      tie *{ $_fh }, 'MCE::Shared', @_args;
+sub array {
+   shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
+   require MCE::Shared::Array unless $INC{'MCE/Shared/Array.pm'};
+   my ( $_item ) = (
+      &share( ref $_[0] eq 'HASH' ? shift : {}, MCE::Shared::Array->new() )
+   );
+   $_item->push(@_) if @_;
+   $_item;
+}
+sub hash {
+   shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
+   require MCE::Shared::Hash unless $INC{'MCE/Shared/Hash.pm'};
+   my ( $_item ) = (
+      &share( ref $_[0] eq 'HASH' ? shift : {}, MCE::Shared::Hash->new() )
+   );
+   $_item->mset(@_) if @_;
+   $_item;
+}
+sub ordhash {
+   shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
+   require MCE::Shared::Ordhash unless $INC{'MCE/Shared/Ordhash.pm'};
+   my ( $_item ) = (
+      &share( ref $_[0] eq 'HASH' ? shift : {}, MCE::Shared::Ordhash->new() )
+   );
+   $_item->mset(@_) if @_;
+   $_item;
+}
+
+sub handle {
+   shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
+   require MCE::Shared::Handle unless $INC{'MCE/Shared/Handle.pm'};
+
+   my $_item = &share( MCE::Shared::Handle->new([]) );
+   tie local *HANDLE, 'MCE::Shared::Object', $_item;
+   $_item->OPEN(@_) if @_;
+
+   *HANDLE;
+}
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## PDL sharing -- construction takes place under the shared server-process.
+##
+###############################################################################
+
+if ($INC{'PDL.pm'}) {
+   local $@; eval q{
+
+      sub pdl_byte     { push @_, 'byte';     goto &_pdl_share }
+      sub pdl_short    { push @_, 'short';    goto &_pdl_share }
+      sub pdl_ushort   { push @_, 'ushort';   goto &_pdl_share }
+      sub pdl_long     { push @_, 'long';     goto &_pdl_share }
+      sub pdl_longlong { push @_, 'longlong'; goto &_pdl_share }
+      sub pdl_float    { push @_, 'float';    goto &_pdl_share }
+      sub pdl_double   { push @_, 'double';   goto &_pdl_share }
+      sub pdl_ones     { push @_, 'ones';     goto &_pdl_share }
+      sub pdl_sequence { push @_, 'sequence'; goto &_pdl_share }
+      sub pdl_zeroes   { push @_, 'zeroes';   goto &_pdl_share }
+      sub pdl_indx     { push @_, 'indx';     goto &_pdl_share }
+      sub pdl          { push @_, 'pdl';      goto &_pdl_share }
+
+      sub _pdl_share {
+         shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
+         MCE::Shared::Server::_new({ 'class' => ':construct_pdl:' }, [ @_ ]);
+      }
+   };
+}
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Private functions.
+##
+###############################################################################
+
+sub TIEARRAY  { shift; MCE::Shared->array(@_)  }
+sub TIEHASH   { shift; MCE::Shared->hash(@_)   }
+sub TIESCALAR { shift; MCE::Shared->scalar(@_) }
+
+sub TIEHANDLE {
+   require MCE::Shared::Handle unless $INC{'MCE/Shared/Handle.pm'};
+   my $_item = &share( MCE::Shared::Handle->new([]) ); shift;
+   $_item->OPEN(@_) if @_;
+   $_item;
+}
+
+sub _croak {
+   $_count = 0, %_lkup = ();
+   if (defined $MCE::VERSION) {
+      goto &MCE::_croak;
    }
    else {
-      tie *{ $_fh }, 'MCE::Shared', @_;
+      require MCE::Shared::Base unless $INC{'MCE/Shared/Base.pm'};
+      goto &MCE::Shared::Base::_croak;
    }
+}
 
-   return bless($_fh, 'MCE::Shared::File');
+sub _incr_count {
+   # increments counter for safety during destroy
+   MCE::Shared::Server::_incr_count($_[0]->SHARED_ID);
 }
 
 1;
@@ -143,7 +260,7 @@ __END__
 
 =head1 NAME
 
-MCE::Shared - MCE extension for sharing data structures between workers
+MCE::Shared - MCE extension for sharing data between workers
 
 =head1 VERSION
 
@@ -151,18 +268,33 @@ This document describes MCE::Shared version 1.699_001
 
 =head1 SYNOPSIS
 
-   use feature 'say';
+   # OO construction
+
+   use MCE::Shared Sereal => 1;
+
+   my $ar = MCE::Shared->array( @list );
+   my $cv = MCE::Shared->condvar( 0 );
+   my $fh = MCE::Shared->handle( '>>', \*STDOUT );
+   my $ha = MCE::Shared->hash( @pairs );
+   my $oh = MCE::Shared->ordhash( @pairs );
+   my $qu = MCE::Shared->queue( await => 1, fast => 0 );
+   my $va = MCE::Shared->scalar( $value );
+   my $nu = MCE::Shared->sequence( $begin, $end, $step, $fmt );
+   my $ob = MCE::Shared->share( $blessed_object );
+
+   # Tie construction
 
    use MCE::Flow;
-   use MCE::Shared;
+   use MCE::Shared Sereal => 1;
+   use feature 'say';
 
-   my $var : Shared = 'initial value';
-   my @ary : Shared = qw(a list of values);
-   my %has : Shared = (key1 => 'value', key2 => 'value');
+   tie my $var, 'MCE::Shared', 'initial value';
+   tie my @ary, 'MCE::Shared', qw(a list of values);
+   tie my %has, 'MCE::Shared', (key1 => 'value', key2 => 'value');
 
-   my $cnt : Shared = 0;
-   my @foo : Shared;
-   my %bar : Shared;
+   tie my $cnt, 'MCE::Shared', 0;
+   tie my @foo, 'MCE::Shared';
+   tie my %bar, 'MCE::Shared';
 
    my $m1 = MCE::Mutex->new;
 
@@ -207,64 +339,111 @@ This document describes MCE::Shared version 1.699_001
 =head1 DESCRIPTION
 
 This module provides data sharing for MCE supporting threads and processes.
-The intention is not for 100% compatibility with threads::shared. It lacks
-support for cond_wait, cond_timedwait, cond_signal, and cond_broadcast.
-
-This module supports the sharing of the following data types:
-arrays and array refs, hashes and hash refs, and scalars and scalar refs.
-
 MCE::Shared may run alongside threads::shared.
 
-=head1 EXPORT
+The documentation below will be completed before the final 1.700 release.
 
-The following function is exported by this module: C<mce_share>.
+=head1 DATA SHARING
 
-   use MCE::Shared;
+=over 3
 
-   ## Array Ref
+=item array
 
-   my $ar1 = mce_share [];
-   my $ar2 = mce_share [] = ( @list );
-   my $ar3 = mce_share \@ary;
+=item condvar
 
-   $ar1->[ 0 ] = 'kind';
-   $ar1->Store( $index => $value );
-   $ar1->Push( @list );
+=item handle
 
-   ## Hash Ref
+=item hash
 
-   my $ha1 = mce_share {};
-   my $ha2 = mce_share {} = ( @pairs );
-   my $ha3 = mce_share \%has;
+=item ordhash
 
-   $has->{ key } = $value;
-   $has->Store( $key => $value );
-   $has->Store( @pairs );
+=item queue
 
-   ## Scalar Ref
+=item scalar
 
-   my $va1 = mce_share \do { my $var = 0 };
-   my $va2 = mce_share \( 0 );
-   my $va3 = mce_share \$var;
+=item sequence
 
-   ## Object
+=item num_sequence
 
-   my $ob1 = mce_share( new $object );   # same as compat => 0
+C<num_sequence> is an alias for C<sequence>.
 
-   my $ob2 = mce_share( { compat => 0 }, new $object );
-   my $ob3 = mce_share( { compat => 1 }, new $object );
+=back
 
-=head1 API DOCUMENTATION
+=head1 OBJECT SHARING
 
-   TODO, coming soon...
+=over 3
 
-=head1 SEE ALSO
+=item share
 
-L<threads::shared>
+=back
+
+=head1 PDL SHARING
+
+=over 3
+
+=item pdl_byte
+
+=item pdl_short
+
+=item pdl_ushort
+
+=item pdl_long
+
+=item pdl_longlong
+
+=item pdl_float
+
+=item pdl_double
+
+=item pdl_ones
+
+=item pdl_sequence
+
+=item pdl_zeroes
+
+=item pdl_indx
+
+=item pdl
+
+=item ins_inplace
+
+=back
+
+See MCE's Cookbook on github for PDL demonstrations.
+
+=head1 COMMON API
+
+=over 3
+
+=item blessed
+
+=item destroy
+
+=item export
+
+=item next
+
+=item prev
+
+=item reset
+
+=back
+
+=head1 SERVER API
+
+=over 3
+
+=item start
+
+=item stop
+
+=item init
+
+=back
 
 =head1 INDEX
 
-L<MCE|MCE>
+L<MCE|MCE>, L<MCE::Core|MCE::Core>
 
 =head1 AUTHOR
 

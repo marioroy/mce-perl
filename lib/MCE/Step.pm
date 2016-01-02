@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Step - Parallel step model for building creative steps.
+## Parallel step model for building creative steps.
 ##
 ###############################################################################
 
@@ -37,10 +37,10 @@ my $THAW    = \&Storable::thaw;
 my $FAST    = 0;
 
 my ($_params, @_prev_c, @_prev_n, @_prev_t, @_prev_w, @_user_tasks, @_queue);
-my ($_MCE, $_loaded, $_last_task_id, %_lkup); my $_tag = 'MCE::Step';
+my ($_MCE, $_imported, $_last_task_id, %_lkup); my $_tag = 'MCE::Step';
 
 sub import {
-   my $_class = shift; return if ($_loaded++);
+   my $_class = shift; return if ($_imported++);
 
    ## Process module arguments.
    while (my $_argument = shift) {
@@ -128,7 +128,7 @@ sub _task_end {
 
       my $x = shift; my $self = ref($x) ? $x : $_MCE;
 
-      _croak('MCE::step: method is not allowed by manager process')
+      _croak('MCE::step: method is not allowed by the manager process')
          unless ($self->{_wid});
 
       my $_task_id = $self->{_task_id};
@@ -153,7 +153,7 @@ sub _task_end {
 
       my $x = shift; my $self = ref($x) ? $x : $_MCE; my $_name = shift;
 
-      _croak('MCE::enq: method is not allowed by manager process')
+      _croak('MCE::enq: method is not allowed by the manager process')
          unless ($self->{_wid});
       _croak('MCE::enq: (task_name) is not specified or valid')
          if (!defined $_name || !exists $_lkup{$_name});
@@ -190,7 +190,7 @@ sub _task_end {
       my $x = shift; my $self = ref($x) ? $x : $_MCE;
       my ($_name, $_p) = (shift, shift);
 
-      _croak('MCE::enqp: method is not allowed by manager process')
+      _croak('MCE::enqp: method is not allowed by the manager process')
          unless ($self->{_wid});
       _croak('MCE::enqp: (task_name) is not specified or valid')
          if (!defined $_name || !exists $_lkup{$_name});
@@ -228,7 +228,7 @@ sub _task_end {
 
       my $x = shift; my $self = ref($x) ? $x : $_MCE; my $_name = shift;
 
-      _croak('MCE::await: method is not allowed by manager process')
+      _croak('MCE::await: method is not allowed by the manager process')
          unless ($self->{_wid});
       _croak('MCE::await: (task_name) is not specified or valid')
          if (!defined $_name || !exists $_lkup{$_name});
@@ -262,7 +262,7 @@ sub init (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Step');
 
    if (MCE->wid) {
-      @_ = (); _croak("$_tag: (init) is not allowed by worker process");
+      @_ = (); _croak("$_tag: (init) is not allowed by the worker process");
    }
 
    finish(); $_params = (ref $_[0] eq 'HASH') ? shift : { @_ };
@@ -410,7 +410,7 @@ sub run (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Step');
 
    if (MCE->wid) {
-      @_ = (); _croak("$_tag: (run) is not allowed by worker process");
+      @_ = (); _croak("$_tag: (run) is not allowed by the worker process");
    }
 
    if (ref $_[0] eq 'HASH') {
@@ -963,13 +963,6 @@ There is a simpler way to enable Sereal. The following will attempt to use
 Sereal if available, otherwise defaults to Storable for serialization.
 
    use MCE::Step Sereal => 1;
-
-   MCE::Step::init {
-      chunk_size => 1
-   };
-
-   ## Serialization is by the Sereal module if available.
-   my %answer = mce_step sub { MCE->gather( $_, sqrt $_ ) }, 1..10000;
 
 =head1 CUSTOMIZING MCE
 
@@ -1575,7 +1568,7 @@ longer needed.
 
 =head1 INDEX
 
-L<MCE|MCE>
+L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
 
 =head1 AUTHOR
 

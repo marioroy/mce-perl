@@ -3,26 +3,40 @@
 use strict;
 use warnings;
 
-use Test::More tests => 3;
+use Test::More tests => 14;
 use MCE::Flow max_workers => 1;
 use MCE::Shared;
 
-my $s1 : Shared = 10;
-my $s2 : Shared = '';
+tie my $s1, 'MCE::Shared', 10;
+tie my $s2, 'MCE::Shared', '';
 
-my $s5 = mce_share \do{ my $value = 0 };
+my $s5 = MCE::Shared->scalar( 0 );
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
 MCE::Flow::run( sub {
-   $s1  +=  5;
-   $s2  .= '';
-   $$s5  = 20;
+   $s1 +=  5;
+   $s2 .= '';
+   $s5->set(20);
 });
 
 MCE::Flow::finish;
 
-is( $s1,  15, 'shared scalar, check fetch, store' );
-is( $s2,  '', 'shared scalar, check blank value' );
-is( $$s5, 20, 'shared scalar, check value' );
+is( $s1, 15, 'shared scalar, check fetch, store' );
+is( $s2, '', 'shared scalar, check blank value' );
+is( $s5->get(), 20, 'shared scalar, check value' );
+
+## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+
+is( $s5->length(), 2, 'shared scalar, check length' );
+is( $s5->incr(), 21, 'shared scalar, check incr' );
+is( $s5->decr(), 20, 'shared scalar, check decr' );
+is( $s5->incrby(4), 24, 'shared scalar, check incrby' );
+is( $s5->decrby(4), 20, 'shared scalar, check decrby' );
+is( $s5->pincr(), 20, 'shared scalar, check pincr' );
+is( $s5->get(), 21, 'shared scalar, check value after pincr' );
+is( $s5->pdecr(), 21, 'shared scalar, check pdecr' );
+is( $s5->get(), 20, 'shared scalar, check value after pdecr' );
+is( $s5->append('ba'), 4, 'shared scalar, check append' );
+is( $s5->get(), '20ba', 'shared scalar, check value after append' );
 

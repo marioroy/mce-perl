@@ -4,12 +4,11 @@ use strict;
 use warnings;
 
 use Test::More tests => 32;
-
 use MCE::Queue;
 
 ###############################################################################
 
-##  MCE::Queue supports 3 operating modes (local, manager, worker).
+##  MCE::Queue provides 3 operating modes (local, manager, and worker).
 ##  This will test MCE::Queue (normal queue) in local mode.
 ##
 ##  Local mode is selected when MCE is not present, during importing of

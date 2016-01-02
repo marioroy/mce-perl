@@ -10,9 +10,9 @@ configure_requires:
     ExtUtils::MakeMaker:  0
 build_requires:
     ExtUtils::MakeMaker:  0
+    Test::Deep:           0
     Test::More:           0.45
 requires:
-    Attribute::Handlers:  0
     bytes:                0
     Carp:                 0
     constant:             0
@@ -67,6 +67,9 @@ provides:
     MCE::Grep:
         file:     lib/MCE/Grep.pm
         version:  1.699_001
+    MCE::Hobo:
+        file:     lib/MCE/Hobo.pm
+        version:  1.699_001
     MCE::Loop:
         file:     lib/MCE/Loop.pm
         version:  1.699_001
@@ -75,9 +78,6 @@ provides:
         version:  1.699_001
     MCE::Mutex:
         file:     lib/MCE/Mutex.pm
-        version:  1.699_001
-    MCE::Number:
-        file:     lib/MCE/Number.pm
         version:  1.699_001
     MCE::Queue:
         file:     lib/MCE/Queue.pm
@@ -88,8 +88,32 @@ provides:
     MCE::Shared:
         file:     lib/MCE/Shared.pm
         version:  1.699_001
-    MCE::Shared::Client:
-        file:     lib/MCE/Shared/Client.pm
+    MCE::Shared::Array:
+        file:     lib/MCE/Shared/Array.pm
+        version:  1.699_001
+    MCE::Shared::Base:
+        file:     lib/MCE/Shared/Base.pm
+        version:  1.699_001
+    MCE::Shared::Condvar:
+        file:     lib/MCE/Shared/Condvar.pm
+        version:  1.699_001
+    MCE::Shared::Handle:
+        file:     lib/MCE/Shared/Handle.pm
+        version:  1.699_001
+    MCE::Shared::Hash:
+        file:     lib/MCE/Shared/Hash.pm
+        version:  1.699_001
+    MCE::Shared::Ordhash:
+        file:     lib/MCE/Shared/Ordhash.pm
+        version:  1.699_001
+    MCE::Shared::Queue:
+        file:     lib/MCE/Shared/Queue.pm
+        version:  1.699_001
+    MCE::Shared::Scalar:
+        file:     lib/MCE/Shared/Scalar.pm
+        version:  1.699_001
+    MCE::Shared::Sequence:
+        file:     lib/MCE/Shared/Sequence.pm
         version:  1.699_001
     MCE::Shared::Server:
         file:     lib/MCE/Shared/Server.pm

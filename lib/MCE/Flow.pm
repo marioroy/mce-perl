@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Flow - Parallel flow model for building creative applications.
+## Parallel flow model for building creative applications.
 ##
 ###############################################################################
 
@@ -36,10 +36,10 @@ my $FREEZE  = \&Storable::freeze;
 my $THAW    = \&Storable::thaw;
 
 my ($_params, @_prev_c, @_prev_n, @_prev_t, @_prev_w, @_user_tasks);
-my ($_MCE, $_loaded); my $_tag = 'MCE::Flow';
+my ($_MCE, $_imported); my $_tag = 'MCE::Flow';
 
 sub import {
-   my $_class = shift; return if ($_loaded++);
+   my $_class = shift; return if ($_imported++);
 
    ## Process module arguments.
    while (my $_argument = shift) {
@@ -101,7 +101,7 @@ sub init (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Flow');
 
    if (MCE->wid) {
-      @_ = (); _croak("$_tag: (init) is not allowed by worker process");
+      @_ = (); _croak("$_tag: (init) is not allowed by the worker process");
    }
 
    finish(); $_params = (ref $_[0] eq 'HASH') ? shift : { @_ };
@@ -247,7 +247,7 @@ sub run (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Flow');
 
    if (MCE->wid) {
-      @_ = (); _croak("$_tag: (run) is not allowed by worker process");
+      @_ = (); _croak("$_tag: (run) is not allowed by the worker process");
    }
 
    if (ref $_[0] eq 'HASH') {
@@ -794,13 +794,6 @@ Sereal if available, otherwise defaults to Storable for serialization.
 
    use MCE::Flow Sereal => 1;
 
-   MCE::Flow::init {
-      chunk_size => 1
-   };
-
-   ## Serialization is by the Sereal module if available.
-   my %answer = mce_flow sub { MCE->gather( $_, sqrt $_ ) }, 1..10000;
-
 =head1 CUSTOMIZING MCE
 
 =over 3
@@ -959,8 +952,6 @@ optional. The format is passed to sprintf (% may be omitted below).
       begin => $beg, end => $end, step => $step, format => $fmt
    };
 
-=back
-
 The sequence engine can compute 'begin' and 'end' items only, for the chunk,
 and not the items in between (hence boundaries only). This option applies
 to sequence only and has no effect when chunk_size equals 1.
@@ -1012,6 +1003,8 @@ Time was measured using 1 worker to emphasize the difference.
    6250001 ..  7500000
    7500001 ..  8750000
    8750001 .. 10000000
+
+=back
 
 =head1 GATHERING DATA
 
@@ -1220,7 +1213,7 @@ longer needed.
 
 =head1 INDEX
 
-L<MCE|MCE>
+L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
 
 =head1 AUTHOR
 

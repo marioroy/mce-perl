@@ -1,11 +1,7 @@
 
 Revision history for Perl module MCE.
 
-1.699 Tue Nov 10 18:00:00 EST 2015
-
-  [ TODO before releasing MCE 1.700 final ]
-
-  * Complete MCE::Shared documentation
+1.699 Fri Jan 01 18:00:00 EST 2016
 
   [BUG FIXES]
 
@@ -19,34 +15,36 @@ Revision history for Perl module MCE.
   * Added code in MCE::Grep's documentation for parsing huge files.
   * Added support for running MCE with Perl under MobaXterm on Windows.
 
-  * Reduced startup time including job submission for Windows and Cygwin.
-
   * MCE/examples and MCE/images are no longer included with the distribution.
     These are maintained separately at https://github.com/marioroy/mce-examples
     and https://github.com/marioroy/mce-assets respectively.
 
-  * MCE::Mutex performs channel locking via a pipe or socket depending on
-    platform. Previously, locking was through file locking using flock.
-    This resolves the slow locking performance in Cygwin.
+  * MCE performs channel locking via a pipe or socket depending on platform.
+    Previously, locking was through file locking using flock. This resolves
+    the slow locking performance on Cygwin.
 
-  * Optimized locking in Mutex and Queue for the MSWin32 platform.
-  * Optimized signal handling with improved support for Windows.
+  * Optimized signal handling including improved support on Windows.
 
-  * Seeds the Math::Random generator automatically when present for non-threads
-    to avoid child processes sharing the same seed value as the parent and
-    each other. The new seed is computed using the current seed. Thus, okay
-    to set the seed at the application level for predictable results.
+  * Reduced overhead during spawning and job submissions on Windows and Cygwin.
+    This enables IPC to complete up to 20x faster, thus benefiting Monte-Carlo
+    simulations; e.g. calling ->run(0) or ->process(...) repeatedly.
 
   * The MCE::Flow and MCE::Step Models can take an anonymous array for
-    specifying use_threads uniquely for each sub-task.
+    specifying use_threads uniquely for sub-tasks.
 
   [NEW FEATURES]
 
-  * Added MCE::Shared, MCE::Shared::Client, and MCE::Shared::Server.
-    These provide sharing capabilities for MCE including support for threads
-    and non-threads on popular platforms.
+  * Added MCE::Hobo for running code asynchronously. This provides async/join
+    functionality for processes similarly to async/join in threads. It includes
+    ->exit, ->kill, ->is_joinable, ->is_running, ->list, and more.
 
-  * Added MCE::Number, a shareable number class for threads and processes.
+  * Added MCE::Shared for sharing objects/data between threads/processes.
+  * Added MCE::Shared::{ Array, Handle, Hash, Ordhash, and Scalar }.
+  * Added MCE::Shared::{ Condvar, Queue, and Sequence }.
+  * Added MCE::Shared::{ Server }.
+
+  * Added methods ->await, ->enq, and ->enqp to MCE::Step.
+  * Added method ->await to MCE::Queue.
 
   * Added option max_retries => N for retrying a failed chunk from a worker
     dying while processing input data or sequence of numbers.
@@ -55,8 +53,10 @@ Revision history for Perl module MCE.
     This is necessary for running with Tk and child processes or with
     use_threads => 0.
 
-  * Added methods ->enq, ->enqp, and ->await to MCE::Step.
-  * Added method ->await to MCE::Queue.
+  * Seeds the Math::Random generator automatically when present for non-threads
+    to avoid child processes sharing the same seed value as the parent and
+    each other. The new seed is computed using the current seed. Thus, okay
+    to set the seed at the application level for predictable results.
 
 1.608 Fri Apr 10 03:00:00 EST 2015
 

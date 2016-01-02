@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Stream - Parallel stream model for chaining multiple maps and greps.
+## Parallel stream model for chaining multiple maps and greps.
 ##
 ###############################################################################
 
@@ -38,10 +38,10 @@ my $THAW    = \&Storable::thaw;
 my ($DEFAULT_MODE, $FAST) = ('map', 0);
 
 my ($_params, @_prev_c, @_prev_m, @_prev_n, @_prev_w, @_user_tasks, @_queue);
-my ($_MCE, $_loaded); my $_tag = 'MCE::Stream';
+my ($_MCE, $_imported); my $_tag = 'MCE::Stream';
 
 sub import {
-   my $_class = shift; return if ($_loaded++);
+   my $_class = shift; return if ($_imported++);
 
    ## Process module arguments.
    while (my $_argument = shift) {
@@ -153,7 +153,7 @@ sub init (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Stream');
 
    if (MCE->wid) {
-      @_ = (); _croak("$_tag: (init) is not allowed by worker process");
+      @_ = (); _croak("$_tag: (init) is not allowed by the worker process");
    }
 
    finish(); $_params = (ref $_[0] eq 'HASH') ? shift : { @_ };
@@ -300,7 +300,7 @@ sub run (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Stream');
 
    if (MCE->wid) {
-      @_ = (); _croak("$_tag: (run) is not allowed by worker process");
+      @_ = (); _croak("$_tag: (run) is not allowed by the worker process");
    }
 
    if (ref $_[0] eq 'HASH' && !exists $_[0]->{code}) {
@@ -767,9 +767,6 @@ Sereal if available, otherwise defaults to Storable for serialization.
 
    use MCE::Stream Sereal => 1;
 
-   ## Serialization is by the Sereal module if available.
-   my @m2 = mce_stream sub { $_ * $_ }, 1..10000;
-
 =head1 CUSTOMIZING MCE
 
 =over 3
@@ -981,7 +978,7 @@ longer needed.
 
 =head1 INDEX
 
-L<MCE|MCE>
+L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
 
 =head1 AUTHOR
 

@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Subs - Exports functions mapped directly to MCE methods.
+## Exports functions mapped directly to MCE methods.
 ##
 ###############################################################################
 
@@ -25,11 +25,11 @@ use MCE::Relay;
 ##
 ###############################################################################
 
-my $_loaded;
+my $_imported;
 
 sub import {
 
-   my $_class = shift; return if ($_loaded++);
+   my $_class = shift; return if ($_imported++);
 
    my $_g_flg = 0; my $_m_flg = 0; my $_w_flg = 0;
    my $_flag = sub { 1 }; my $_package = caller;
@@ -389,7 +389,7 @@ MCE methods are described in L<MCE::Core|MCE::Core>.
 
 =head1 INDEX
 
-L<MCE|MCE>
+L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
 
 =head1 AUTHOR
 

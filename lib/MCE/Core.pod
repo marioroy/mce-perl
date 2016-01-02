@@ -365,9 +365,6 @@ Sereal if available, otherwise defaults to Storable for serialization.
 
    use MCE Sereal => 1;
 
-   ## Serialization is by the Sereal module if available.
-   my $mce = MCE->new( ... );
-
 =head2 RUNNING
 
 Run calls spawn, submits the job; workers call user_begin, user_func, and
@@ -1237,7 +1234,7 @@ applies to input_data or sequence. The value is 0 for the manager process.
 
 =head2 $mce->chunk_size ( void )
 
-Returns the chunk_size used by MCE.
+Getter method for chunk_size used by MCE.
 
    my $chunk_size = $mce->chunk_size;
    my $chunk_size = MCE->chunk_size;
@@ -1251,9 +1248,16 @@ can be overridden when including MCE.
    my $frozen = $mce->freeze([ 0, 2, 4 ]);
    my $frozen = MCE->freeze([ 0, 2, 4 ]);
 
+=head2 $mce->max_retries ( void )
+
+Getter method for max_retries used by MCE.
+
+   my $max_retries = $mce->max_retries;
+   my $max_retries = MCE->max_retries;
+
 =head2 $mce->max_workers ( void )
 
-Returns the value for max_workers used by MCE.
+Getter method for max_workers used by MCE.
 
    my $max_workers = $mce->max_workers;
    my $max_workers = MCE->max_workers;
@@ -1396,6 +1400,10 @@ Do the following if wanting workers to persist between jobs.
    $mce->process({ sequence => [ 10, 90, 2 ] });
 
    $mce->shutdown;
+
+=head2 $mce->relay_final ( void )
+
+Desribed in L<MCE::Relay|MCE::Relay>.
 
 =head2 $mce->restart_worker ( void )
 
@@ -1779,6 +1787,12 @@ reference.
    MCE->print(\*STDOUT, \@array, "\n");
    MCE->print("", \@array, "\n");         ## ok
 
+=head2 $mce->relay ( sub { code } )
+
+=head2 $mce->relay_recv ( void )
+
+Desribed in L<MCE::Relay|MCE::Relay>.
+
 =head2 $mce->sendto ( $to, $arg1, ... )
 
 The sendto method is called by workers for serializing data to standard output,
@@ -2089,7 +2103,7 @@ The interval.pl example above is included with MCE.
 
 =head1 INDEX
 
-L<MCE|MCE>
+L<MCE|MCE>, L<MCE::Shared|MCE::Shared>
 
 =head1 AUTHOR
 
