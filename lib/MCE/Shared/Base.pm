@@ -373,7 +373,7 @@ __END__
 
 =head1 NAME
 
-MCE::Shared::Base - Base package
+MCE::Shared::Base - Base package for MCE::Shared classes
 
 =head1 VERSION
 

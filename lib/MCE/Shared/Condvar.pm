@@ -16,6 +16,7 @@ our $VERSION = '1.699_001';
 use MCE::Shared::Base;
 use MCE::Util ();
 use MCE::Mutex;
+use bytes;
 
 use overload (
    q("")    => \&MCE::Shared::Base::_stringify_h,

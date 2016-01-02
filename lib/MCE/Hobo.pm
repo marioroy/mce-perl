@@ -36,6 +36,7 @@ BEGIN {
 use Time::HiRes qw(sleep);
 use Storable ();
 use POSIX ();
+use bytes;
 
 use MCE::Shared::Ordhash;
 use MCE::Shared::Hash;

@@ -179,11 +179,13 @@ sub handle {
    shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
    require MCE::Shared::Handle unless $INC{'MCE/Shared/Handle.pm'};
 
-   my $_item = &share( MCE::Shared::Handle->new([]) );
-   tie local *HANDLE, 'MCE::Shared::Object', $_item;
+   my $_item = &share( MCE::Shared::Handle->TIEHANDLE([]) );
+   my $_fh   = \do { local *HANDLE };
+
+   tie *{ $_fh }, 'MCE::Shared::Object', $_item;
    $_item->OPEN(@_) if @_;
 
-   *HANDLE;
+   $_fh;
 }
 
 ###############################################################################
@@ -227,7 +229,7 @@ sub TIESCALAR { shift; MCE::Shared->scalar(@_) }
 
 sub TIEHANDLE {
    require MCE::Shared::Handle unless $INC{'MCE/Shared/Handle.pm'};
-   my $_item = &share( MCE::Shared::Handle->new([]) ); shift;
+   my $_item = &share( MCE::Shared::Handle->TIEHANDLE([]) ); shift;
    $_item->OPEN(@_) if @_;
    $_item;
 }

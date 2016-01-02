@@ -885,7 +885,7 @@ sub _loop {
       },
 
       SHR_O_OPN.$LF => sub {                      # Handle OPEN
-         my ($_fd, $_buf);
+         my ($_fd, $_buf); local $!;
 
          chomp($_id  = <$_DAU_R_SOCK>),
          chomp($_fd  = <$_DAU_R_SOCK>),
@@ -922,7 +922,9 @@ sub _loop {
          chomp($_id = <$_DAU_R_SOCK>),
          chomp($_a3 = <$_DAU_R_SOCK>);
 
-         $_ret = read($_obj{ $_id }, $_buf, $_a3);
+         my $_fh = $_obj{ $_id };
+
+         $_ret = read($_fh, $_buf, $_a3) unless eof($_fh);
          print {$_DAU_R_SOCK} $_ret.$LF . length($_buf).$LF, $_buf;
 
          return;
@@ -933,23 +935,25 @@ sub _loop {
          chomp($_len = <$_DAU_R_SOCK>);
 
          local $/; read($_DAU_R_SOCK, $/, $_len) if ($_len);
-         my ($_fh, $_buf) = ($_obj{ $_id });
+         my ($_fh, $_buf) = ($_obj{ $_id }); local $!;
 
          # support special case; e.g. $/ = "\n>" for bioinformatics
          # anchoring ">" at the start of line
 
-         if (length $/ > 1 && substr($/, 0, 1) eq "\n" && !eof $_fh) {
-            $_len = length($/) - 1;
-            if (tell $_fh) {
-               $_buf = substr($/, 1), $_buf .= readline($_fh);
-            } else {
+         if (!eof($_fh)) {
+            if (length $/ > 1 && substr($/, 0, 1) eq "\n" && !eof $_fh) {
+               $_len = length($/) - 1;
+               if (tell $_fh) {
+                  $_buf = substr($/, 1), $_buf .= readline($_fh);
+               } else {
+                  $_buf = readline($_fh);
+               }
+               substr($_buf, -$_len, $_len, '')
+                  if (substr($_buf, -$_len) eq substr($/, 1));
+            }
+            else {
                $_buf = readline($_fh);
             }
-            substr($_buf, -$_len, $_len, '')
-               if (substr($_buf, -$_len) eq substr($/, 1));
-         }
-         else {
-            $_buf = readline($_fh);
          }
 
          print {$_DAU_R_SOCK} "$.$LF" . length($_buf).$LF, $_buf;

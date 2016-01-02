@@ -9,17 +9,22 @@ package MCE::Shared::Handle;
 use strict;
 use warnings;
 
-no warnings qw( threads recursion uninitialized once );
+no warnings qw( threads recursion uninitialized );
 
 our $VERSION = '1.699_001';
 
-## no critic (TestingAndDebugging::ProhibitNoStrict)
 ## no critic (InputOutput::ProhibitTwoArgOpen)
 
+use MCE::Shared::Base;
 use bytes;
+
+sub _croak {
+   goto &MCE::Shared::Base::_croak;
+}
 
 sub TIEHANDLE {
    my $class = shift;
+
    if (ref $_[0] eq 'ARRAY') {
       # For use with MCE::Shared to reach the Server process
       # without a GLOB initially.
@@ -28,9 +33,23 @@ sub TIEHANDLE {
    else {
       my $fh = \do { local *HANDLE };
       bless $fh, $class;
-      $fh->OPEN(@_) if @_;
+
+      if (@_ == 2 && ref $_[1] && defined(my $_fd = fileno($_[1]))) {
+         $fh->OPEN($_[0]."&=$_fd") or _croak("open error: $!");
+      } elsif (@_) {
+         $fh->OPEN(@_) or _croak("open error: $!");
+      }
+
       $fh;
    }
+}
+
+sub new {
+   my $class = shift;
+   my $fh = \do { local *HANDLE };
+   tie *{ $fh }, $class, @_;
+
+   (@_ && !defined(fileno $fh)) ? undef : $fh;
 }
 
 ## Based on Tie::StdHandle.
@@ -92,13 +111,6 @@ sub WRITE {
           : syswrite($_[0], $_[1]);
 }
 
-## Aliases.
-
-{
-   no strict 'refs';
-   *{ __PACKAGE__.'::new' } = \&TIEHANDLE;
-}
-
 1;
 
 __END__
@@ -119,14 +131,24 @@ This document describes MCE::Shared::Handle version 1.699_001
 
 =head1 SYNOPSIS
 
+   # non-shared
+   use MCE::Shared::Handle;
+
+   my $fh = MCE::Shared::Handle->new( "<", "sample.fasta" );
+
+   # shared
+   use MCE::Shared;
+
+   my $fh = MCE::Shared->handle( "<", "sample.fasta" );
+
+   # demo
    use MCE::Hobo;
    use MCE::Shared;
 
    my $ofh = MCE::Shared->handle( '>>', \*STDOUT );
-   my $ifh = MCE::Shared->handle(  '<', '/path/to/input/file' );
+   my $ifh = MCE::Shared->handle( '<', '/path/to/input/file' );
 
    # output is serialized (not garbled), but not ordered
-
    sub parallel {
       $/ = "\n"; # can set the input record separator
       while (my $line = <$ifh>) {
@@ -138,8 +160,7 @@ This document describes MCE::Shared::Handle version 1.699_001
 
    $_->join() for MCE::Hobo->list();
 
-   # shared handle operations
-
+   # handle functions
    my $bool = eof($ifh);
    my $off  = tell($ifh);
    my $fd   = fileno($ifh);
