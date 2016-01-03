@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_002';
+our $VERSION = '1.699_003';
 
 use Scalar::Util qw( looks_like_number );
 use MCE::Shared::Base;
@@ -125,7 +125,7 @@ MCE::Shared::Sequence - Number sequence generator
 
 =head1 VERSION
 
-This document describes MCE::Shared::Sequence version 1.699_002
+This document describes MCE::Shared::Sequence version 1.699_003
 
 =head1 SYNOPSIS
 

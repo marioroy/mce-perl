@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_002';
+our $VERSION = '1.699_003';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -661,7 +661,7 @@ MCE::Shared::Ordhash - Class for sharing ordered hashes via MCE::Shared
 
 =head1 VERSION
 
-This document describes MCE::Shared::Ordhash version 1.699_002
+This document describes MCE::Shared::Ordhash version 1.699_003
 
 =head1 SYNOPSIS
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_002';
+our $VERSION = '1.699_003';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -257,7 +257,7 @@ MCE::Shared::Array - Class for sharing arrays via MCE::Shared
 
 =head1 VERSION
 
-This document describes MCE::Shared::Array version 1.699_002
+This document describes MCE::Shared::Array version 1.699_003
 
 =head1 SYNOPSIS
 

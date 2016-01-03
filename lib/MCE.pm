@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE - Many-Core Engine for Perl providing parallel processing capabilities.
+## MCE - Many-Core Engine for Perl providing parallel capabilities.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_002';
+our $VERSION = '1.699_003';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)

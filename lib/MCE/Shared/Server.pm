@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.699_002';
+our $VERSION = '1.699_003';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -69,15 +69,20 @@ use constant {
 
    SHR_O_FSZ => 'O~FSZ',  # A FETCHSIZE
    SHR_O_SET => 'O~SET',  # A,H,OH,S set
+   SHR_O_SE2 => 'O~SE2',  # A,H,OH set (thawless)
    SHR_O_GET => 'O~GET',  # A,H,OH,S get
    SHR_O_DEL => 'O~DEL',  # A,H,OH delete
    SHR_O_EXI => 'O~EXI',  # A,H,OH exists
    SHR_O_CLR => 'O~CLR',  # A,H,OH clear
    SHR_O_MSE => 'O~MSE',  # A,H,OH mset
+   SHR_O_MS2 => 'O~MS2',  # A,H,OH mset (thawless)
    SHR_O_POP => 'O~POP',  # A,OH pop
    SHR_O_PSH => 'O~PSH',  # A,OH push
+   SHR_O_PS2 => 'O~PS2',  # A,OH push (thawless)
    SHR_O_SFT => 'O~SFT',  # A,OH shift
    SHR_O_UNS => 'O~UNS',  # A,OH unshift
+   SHR_O_UN2 => 'O~UN2',  # A,OH unshift (thawless)
+   SHR_O_SCA => 'O~SCA',  # H SCALAR
    SHR_O_CLO => 'O~CLO',  # Handle CLOSE
    SHR_O_OPN => 'O~OPN',  # Handle OPEN
    SHR_O_REA => 'O~REA',  # Handle READ
@@ -435,7 +440,7 @@ sub _loop {
 
    local $\ = undef; local $/ = $LF; $| = 1;
 
-   my ($_DAU_R_SOCK, $_id, $_fn, $_wa, $_key, $_len, $_ret, $_func);
+   my ($_DAU_R_SOCK, $_id, $_fn, $_wa, $_key, $_len, $_le2, $_ret, $_func);
    my ($_CV, $_Q, $_cnt, $_pending, $_t, $_frozen);
    my ($_client_id, $_done) = (0, 0);
 
@@ -753,6 +758,19 @@ sub _loop {
          return;
       },
 
+      SHR_O_SE2.$LF => sub {                      # A,H,OH set (thawless)
+         chomp($_id  = <$_DAU_R_SOCK>),
+         chomp($_len = <$_DAU_R_SOCK>),
+         chomp($_le2 = <$_DAU_R_SOCK>);
+
+         read($_DAU_R_SOCK, my($_arg1), $_len);
+         read($_DAU_R_SOCK, my($_arg2), $_le2);
+
+         $_obj{ $_id }->set($_arg1, $_arg2);
+
+         return;
+      },
+
       SHR_O_GET.$LF => sub {                      # A,H,OH,S get
          chomp($_id  = <$_DAU_R_SOCK>),
          chomp($_len = <$_DAU_R_SOCK>);
@@ -834,6 +852,21 @@ sub _loop {
          return;
       },
 
+      SHR_O_MS2.$LF => sub {                      # A,H,OH mset (thawless)
+         chomp($_id  = <$_DAU_R_SOCK>),
+         chomp($_wa  = <$_DAU_R_SOCK>),
+         chomp($_len = <$_DAU_R_SOCK>),
+         chomp($_le2 = <$_DAU_R_SOCK>);
+
+         read($_DAU_R_SOCK, my($_arg1), $_len);
+         read($_DAU_R_SOCK, my($_arg2), $_le2);
+
+         $_ret = $_obj{ $_id }->mset($_arg1, $_arg2);
+         print {$_DAU_R_SOCK} $_ret.$LF if $_wa;
+
+         return;
+      },
+
       SHR_O_POP.$LF => sub {                      # A,OH pop
          chomp($_id = <$_DAU_R_SOCK>);
 
@@ -850,6 +883,27 @@ sub _loop {
 
          read $_DAU_R_SOCK, my($_buf), $_len;
          $_ret = $_obj{ $_id }->push(@{ $_thaw->($_buf) });
+         print {$_DAU_R_SOCK} $_ret.$LF if $_wa;
+
+         return;
+      },
+
+      SHR_O_PS2.$LF => sub {                      # A,OH push (thawless)
+         chomp($_id  = <$_DAU_R_SOCK>),
+         chomp($_wa  = <$_DAU_R_SOCK>),
+         chomp($_len = <$_DAU_R_SOCK>),
+         chomp($_le2 = <$_DAU_R_SOCK>);
+
+         read($_DAU_R_SOCK, my($_arg1), $_len);
+
+         if ($_le2 >= 0) {
+            read($_DAU_R_SOCK, my($_arg2), $_le2);
+            $_ret = $_obj{ $_id }->push($_arg1, $_arg2);
+         }
+         else {
+            $_ret = $_obj{ $_id }->push($_arg1);
+         }
+
          print {$_DAU_R_SOCK} $_ret.$LF if $_wa;
 
          return;
@@ -872,6 +926,36 @@ sub _loop {
          read $_DAU_R_SOCK, my($_buf), $_len;
          $_ret = $_obj{ $_id }->unshift(@{ $_thaw->($_buf) });
          print {$_DAU_R_SOCK} $_ret.$LF if $_wa;
+
+         return;
+      },
+
+      SHR_O_UN2.$LF => sub {                      # A,OH unshift (thawless)
+         chomp($_id  = <$_DAU_R_SOCK>),
+         chomp($_wa  = <$_DAU_R_SOCK>),
+         chomp($_len = <$_DAU_R_SOCK>),
+         chomp($_le2 = <$_DAU_R_SOCK>);
+
+         read($_DAU_R_SOCK, my($_arg1), $_len);
+
+         if ($_le2 >= 0) {
+            read($_DAU_R_SOCK, my($_arg2), $_le2);
+            $_ret = $_obj{ $_id }->unshift($_arg1, $_arg2);
+         }
+         else {
+            $_ret = $_obj{ $_id }->unshift($_arg1);
+         }
+
+         print {$_DAU_R_SOCK} $_ret.$LF if $_wa;
+
+         return;
+      },
+
+      SHR_O_SCA.$LF => sub {                      # H SCALAR
+         chomp($_id = <$_DAU_R_SOCK>);
+
+         $_ret = $_obj{ $_id }->SCALAR() || 0;
+         print {$_DAU_R_SOCK} $_ret.$LF;
 
          return;
       },
@@ -1529,17 +1613,53 @@ sub _req5 {
    $_len;
 }
 
-## called by POP and SHIFT
+## called by mset, push, and unshift
 
 sub _req6 {
-   my ($_tag, $_id) = (shift, shift);
+   my ($_tag, $_shr) = (shift, shift);
+   my ($_id , $_wa ) = (${ $_shr }, defined wantarray ? 1 : 0);
+   my ($_len, $_buf);
 
+   return unless @_;
+
+   if (!exists $_is_hash{ $_id }) {
+      $_is_hash{ $_id } = (
+         $_shr->blessed() =~ /^MCE::Shared::(?:Hash|Ordhash)$/
+      ) ? 1 : 0;
+   }
+
+   if ($_is_hash{ $_id } || $_tag eq 'O~MS2') {
+      _croak("requires key-value pairs") unless ( @_ % 2 == 0 );
+   }
+
+   $_buf = (@_ == 2)
+      ? $_id.$LF . $_wa.$LF . length($_[0]).$LF . length($_[1]).$LF . $_[0]
+      : $_id.$LF . $_wa.$LF . length($_[0]).$LF . '-1'.$LF;
+
+   local $\ = undef if (defined $\);
+
+   $_dat_ex->();
+   print {$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF;
+   print {$_DAU_W_SOCK} $_buf, $_[-1];
+
+   if ($_wa) {
+      local $/ = $LF if (!$/ || $/ ne $LF);
+      chomp($_len = <$_DAU_W_SOCK>);
+   }
+
+   $_dat_un->();
+   $_len;
+}
+
+## called by POP and SHIFT
+
+sub _req7 {
    local $\ = undef if (defined $\);
    local $/ = $LF if (!$/ || $/ ne $LF);
 
    $_dat_ex->();
-   print {$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF;
-   print {$_DAU_W_SOCK} $_id.$LF;
+   print {$_DAT_W_SOCK} $_[0].$LF . $_chn.$LF;
+   print {$_DAU_W_SOCK} $_[1];
 
    chomp(my $_len = <$_DAU_W_SOCK>);
    read $_DAU_W_SOCK, my($_buf), $_len;
@@ -1563,7 +1683,7 @@ sub _req6 {
 
 ## called by next and prev
 
-sub _req7 {
+sub _req8 {
    local $\ = undef if (defined $\);
    local $/ = $LF if (!$/ || $/ ne $LF);
 
@@ -1586,19 +1706,29 @@ sub _req7 {
 ##
 ###############################################################################
 
-sub FETCHSIZE {
-   _req1('O~FSZ', ${ $_[0] }.$LF);
-}
+sub FETCHSIZE { _req1('O~FSZ', ${ $_[0] }.$LF) }
+sub SCALAR    { _req1('O~SCA', ${ $_[0] }.$LF) }
 
 sub STORE {
    my ($_id, $_buf, $_len) = (${ (shift) });
 
    if (@_ == 2) {
-      my $_key = $_[0];
-      $_[1] = MCE::Shared::share({ _DEEPLY_ => 1 }, $_[1]) if ref($_[1]);
-      $_buf = $_freeze->([ "$_key", $_[1] ]);
+      if (!ref($_[0]) && !ref($_[1]) && defined($_[1])) {
+         $_buf = $_id.$LF . length($_[0]).$LF . length($_[1]).$LF . $_[0];
+         local $\ = undef if (defined $\);
 
-      _req2('O~SET', $_id.$LF . length($_buf).'1'.$LF, $_buf);
+         $_dat_ex->();
+         print {$_DAT_W_SOCK} 'O~SE2'.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} $_buf, $_[1];
+         $_dat_un->();
+      }
+      else {
+         my $_key = $_[0];
+         $_[1] = MCE::Shared::share({ _DEEPLY_ => 1 }, $_[1]) if ref($_[1]);
+         $_buf = $_freeze->([ "$_key", $_[1] ]);
+
+         _req2('O~SET', $_id.$LF . length($_buf).'1'.$LF, $_buf);
+      }
 
       $_[1];
    }
@@ -1685,15 +1815,27 @@ sub FIRSTKEY {
    $_iter{ $_id }->();
 }
 
-sub NEXTKEY {
-   $_iter{ ${ $_[0] } }->();
+sub NEXTKEY { $_iter{ ${ $_[0] } }->()       }
+sub POP     { _req7('O~POP', ${ $_[0] }.$LF) }
+sub SHIFT   { _req7('O~SFT', ${ $_[0] }.$LF) }
+
+sub mset {
+   (@_ == 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
+      ? _req6('O~MS2', @_)
+      : _req5('O~MSE', @_);
 }
 
-sub mset    { _req5('O~MSE', @_) }
-sub POP     { _req6('O~POP', ${ $_[0] }) }
-sub PUSH    { _req5('O~PSH', @_) }
-sub SHIFT   { _req6('O~SFT', ${ $_[0] }) }
-sub UNSHIFT { _req5('O~UNS', @_) }
+sub PUSH {
+   (@_ <= 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
+      ? _req6('O~PS2', @_)
+      : _req5('O~PSH', @_);
+}
+
+sub UNSHIFT {
+   (@_ <= 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
+      ? _req6('O~UN2', @_)
+      : _req5('O~UNS', @_);
+}
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -2084,12 +2226,12 @@ sub iterator {
 
 sub next {
    my $_wa = (wantarray) ? 1 : 0;
-   _req7('M~NXT', ${ $_[0] }.$LF . $_wa.$LF, $_wa);
+   _req8('M~NXT', ${ $_[0] }.$LF . $_wa.$LF, $_wa);
 }
 
 sub prev {
    my $_wa = (wantarray) ? 1 : 0;
-   _req7('M~PRE', ${ $_[0] }.$LF . $_wa.$LF, $_wa);
+   _req8('M~PRE', ${ $_[0] }.$LF . $_wa.$LF, $_wa);
 }
 
 sub reset {
@@ -2140,7 +2282,7 @@ MCE::Shared::Server - Server/Object classes for MCE::Shared.
 
 =head1 VERSION
 
-This document describes MCE::Shared::Server version 1.699_002
+This document describes MCE::Shared::Server version 1.699_003
 
 =head1 DESCRIPTION
 

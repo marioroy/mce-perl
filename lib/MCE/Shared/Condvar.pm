@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_002';
+our $VERSION = '1.699_003';
 
 use MCE::Shared::Base;
 use MCE::Util ();
@@ -103,7 +103,7 @@ MCE::Shared::Condvar - Class providing condition variables for MCE::Shared
 
 =head1 VERSION
 
-This document describes MCE::Shared::Condvar version 1.699_002
+This document describes MCE::Shared::Condvar version 1.699_003
 
 =head1 SYNOPSIS
 
