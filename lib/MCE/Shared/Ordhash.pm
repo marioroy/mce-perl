@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## A shareable pure-Perl ordered hash class.
+## Ordered-hash helper class.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_003';
+our $VERSION = '1.699_004';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -657,11 +657,11 @@ __END__
 
 =head1 NAME
 
-MCE::Shared::Ordhash - Class for sharing ordered hashes via MCE::Shared
+MCE::Shared::Ordhash - Ordered-hash helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Ordhash version 1.699_003
+This document describes MCE::Shared::Ordhash version 1.699_004
 
 =head1 SYNOPSIS
 

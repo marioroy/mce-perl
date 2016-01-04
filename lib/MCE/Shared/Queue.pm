@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Hybrid (normal and priority) queues for use with MCE::Shared.
+## Hybrid-queue helper class.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_003';
+our $VERSION = '1.699_004';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 
@@ -593,11 +593,11 @@ __END__
 
 =head1 NAME
 
-MCE::Shared::Queue - Class for shared queues via MCE::Shared
+MCE::Shared::Queue - Hybrid-queue helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Queue version 1.699_003
+This document describes MCE::Shared::Queue version 1.699_004
 
 =head1 SYNOPSIS
 

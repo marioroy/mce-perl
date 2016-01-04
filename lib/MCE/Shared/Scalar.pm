@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Scalar class for use with MCE::Shared.
+## Scalar helper class.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_003';
+our $VERSION = '1.699_004';
 
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
@@ -78,11 +78,11 @@ __END__
 
 =head1 NAME
 
-MCE::Shared::Scalar - Class for sharing scalars via MCE::Shared
+MCE::Shared::Scalar - Scalar helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Scalar version 1.699_003
+This document describes MCE::Shared::Scalar version 1.699_004
 
 =head1 SYNOPSIS
 

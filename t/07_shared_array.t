@@ -3,7 +3,6 @@
 use strict;
 use warnings;
 
-use Test::Deep qw( !blessed );
 use Test::More tests => 59;
 use MCE::Flow max_workers => 1;
 use MCE::Shared;
@@ -17,6 +16,19 @@ tie my $s2, 'MCE::Shared';
 tie my $s3, 'MCE::Shared';
 
 my $a5 = MCE::Shared->array(0);
+
+sub cmp_array {
+   no warnings qw(uninitialized);
+
+   return ok(0, $_[2]) if (ref $_[0] ne 'ARRAY' || ref $_[1] ne 'ARRAY');
+   return ok(0, $_[2]) if (@{ $_[0] } != @{ $_[1] });
+
+   for (0 .. $#{ $_[0] }) {
+      return ok(0, $_[2]) if ($_[0][$_] ne $_[1][$_]);
+   }
+
+   ok(1, $_[2]);
+}
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
@@ -98,19 +110,17 @@ $a5->mset( qw(
 
 ## find vals
 
-cmp_deeply(
+cmp_array(
    [ $a5->find('val =~ /\.\.\./') ],
    [ qw/ 7 hope... 10 light... / ],
    'shared array, check find vals =~ match'
 );
-
-cmp_deeply(
+cmp_array(
    [ $a5->find('val !~ /^[a-z]/') ],
    [ qw/ 2 Your 3 Where 11 18 12 9 13 3 / ],
    'shared array, check find vals !~ match'
 );
-
-cmp_deeply(
+cmp_array(
    [ $a5->find('val eq life') ], [ qw/ 5 life / ],
    'shared array, check find vals eq match'
 );
@@ -121,7 +131,7 @@ is( $a5->find('val le hope...'), 18, 'shared array, check find vals le match' );
 is( $a5->find('val gt hope...'), 10, 'shared array, check find vals gt match' );
 is( $a5->find('val ge hope...'), 12, 'shared array, check find vals ge match' );
 
-cmp_deeply(
+cmp_array(
    [ $a5->find('val == 9') ], [ qw/ 12 9 / ],
    'shared array, check find vals == match'
 );
@@ -139,12 +149,11 @@ $a5->clear();
 $a5->mset( qw/ 0 summer 1 winter / );
 $a5->set( 2, undef );
 
-cmp_deeply(
+cmp_array(
    [ $a5->find('val eq undef') ], [ 2, undef ],
    'shared array, check find vals eq undef'
 );
-
-cmp_deeply(
+cmp_array(
    [ $a5->find('val ne undef') ], [ qw/ 0 summer 1 winter / ],
    'shared array, check find vals ne undef'
 );
@@ -153,22 +162,19 @@ cmp_deeply(
 
 $a5->clear(); $a5->push( 1, 2, 3, 6, 5, 4, 10 );
 
-cmp_deeply(
+cmp_array(
    [ $a5->sort() ], [ qw/ 1 2 3 4 5 6 10 / ],
    'shared array, check sort'
 );
-
-cmp_deeply(
+cmp_array(
    [ $a5->sort("desc") ], [ qw/ 10 6 5 4 3 2 1 / ],
    'shared array, check sort desc'
 );
-
-cmp_deeply(
+cmp_array(
    [ $a5->sort("alpha") ], [ qw/ 1 10 2 3 4 5 6 / ],
    'shared array, check sort alpha'
 );
-
-cmp_deeply(
+cmp_array(
    [ $a5->sort("alpha desc") ], [ qw/ 6 5 4 3 2 10 1 / ],
    'shared array, check sort alpha desc'
 );
@@ -177,23 +183,23 @@ cmp_deeply(
 
 $a5->clear(); $a5->mset( 0, 'over', 1, 'the', 2, 'rainbow', 3, 77 );
 
-cmp_deeply(
+cmp_array(
    [ $a5->pairs() ], [ qw/ 0 over 1 the 2 rainbow 3 77 / ],
    'shared array, check mset'
 );
-cmp_deeply(
+cmp_array(
    [ $a5->mget(0, 2) ], [ qw/ over rainbow / ],
    'shared array, check mget'
 );
-cmp_deeply(
+cmp_array(
    [ $a5->keys() ], [ qw/ 0 1 2 3 / ],
    'shared array, check keys'
 );
-cmp_deeply(
+cmp_array(
    [ $a5->values() ], [ qw/ over the rainbow 77 / ],
    'shared array, check values'
 );
-cmp_deeply(
+cmp_array(
    [ $a5->pairs() ], [ qw/ 0 over 1 the 2 rainbow 3 77 / ],
    'shared array, check pairs'
 );
@@ -217,15 +223,15 @@ my $a8 = $a5->flush();
 
 is( ref($a7), 'MCE::Shared::Array', 'shared array, check ref' );
 
-cmp_deeply(
+cmp_array(
    [ $a6->pairs() ], [ qw/ 0 over 1 the 2 rainbow 3 77ba / ],
    'shared array, check clone'
 );
-cmp_deeply(
+cmp_array(
    [ $a7->pairs() ], [ qw/ 0 rainbow 1 77ba / ],
    'shared array, check clone( indices )'
 );
-cmp_deeply(
+cmp_array(
    [ $a8->pairs() ], [ qw/ 0 over 1 the 2 rainbow 3 77ba / ],
    'shared array, check flush'
 );
@@ -250,7 +256,7 @@ while ( my $val = $iter->() ) {
 
 is( $count, 4, 'shared array, check iterator count' );
 
-cmp_deeply(
+cmp_array(
    [ @check ], [ qw/ 0 rainbow 1 77ba rainbow 77ba / ],
    'shared array, check iterator results'
 );

@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Hash class for use with MCE::Shared.
+## Hash helper class.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_003';
+our $VERSION = '1.699_004';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -229,11 +229,11 @@ __END__
 
 =head1 NAME
 
-MCE::Shared::Hash - Class for sharing hashes via MCE::Shared
+MCE::Shared::Hash - Hash helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Hash version 1.699_003
+This document describes MCE::Shared::Hash version 1.699_004
 
 =head1 SYNOPSIS
 

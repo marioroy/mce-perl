@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_003';
+our $VERSION = '1.699_004';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -266,7 +266,7 @@ MCE::Shared - MCE extension for sharing data between workers
 
 =head1 VERSION
 
-This document describes MCE::Shared version 1.699_003
+This document describes MCE::Shared version 1.699_004
 
 =head1 SYNOPSIS
 
@@ -411,7 +411,7 @@ C<num_sequence> is an alias for C<sequence>.
 
 =back
 
-See MCE's Cookbook on github for PDL demonstrations.
+See the MCE Cookbook on github for PDL demonstrations.
 
 =head1 COMMON API
 
@@ -428,6 +428,14 @@ See MCE's Cookbook on github for PDL demonstrations.
 =item prev
 
 =item reset
+
+=item __set - deeply share: no
+
+=item __mset - deeply share: no
+
+=item __push - deeply share: no
+
+=item __unshift - deeply share: no
 
 =back
 

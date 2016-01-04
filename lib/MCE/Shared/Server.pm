@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Server/Object core classes for MCE::Shared.
+## Server/Object packages for MCE::Shared.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.699_003';
+our $VERSION = '1.699_004';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -53,6 +53,7 @@ use constant {
 
    SHR_M_NEW => 'M~NEW',  # New share
    SHR_M_CNT => 'M~CNT',  # Increment count
+   SHR_M_DEE => 'M~DEE',  # Deeply shared
    SHR_M_DNE => 'M~DNE',  # Done sharing
    SHR_M_CID => 'M~CID',  # ClientID request
    SHR_M_OBJ => 'M~OBJ',  # Object request
@@ -69,19 +70,19 @@ use constant {
 
    SHR_O_FSZ => 'O~FSZ',  # A FETCHSIZE
    SHR_O_SET => 'O~SET',  # A,H,OH,S set
-   SHR_O_SE2 => 'O~SE2',  # A,H,OH set (thawless)
+   SHR_O_SE2 => 'O~SE2',  # A,H,OH set - thaw'less
    SHR_O_GET => 'O~GET',  # A,H,OH,S get
    SHR_O_DEL => 'O~DEL',  # A,H,OH delete
    SHR_O_EXI => 'O~EXI',  # A,H,OH exists
    SHR_O_CLR => 'O~CLR',  # A,H,OH clear
    SHR_O_MSE => 'O~MSE',  # A,H,OH mset
-   SHR_O_MS2 => 'O~MS2',  # A,H,OH mset (thawless)
+   SHR_O_MS2 => 'O~MS2',  # A,H,OH mset - thaw'less
    SHR_O_POP => 'O~POP',  # A,OH pop
    SHR_O_PSH => 'O~PSH',  # A,OH push
-   SHR_O_PS2 => 'O~PS2',  # A,OH push (thawless)
+   SHR_O_PS2 => 'O~PS2',  # A,OH push - thaw'less
    SHR_O_SFT => 'O~SFT',  # A,OH shift
    SHR_O_UNS => 'O~UNS',  # A,OH unshift
-   SHR_O_UN2 => 'O~UN2',  # A,OH unshift (thawless)
+   SHR_O_UN2 => 'O~UN2',  # A,OH unshift - thaw'less
    SHR_O_SCA => 'O~SCA',  # H SCALAR
    SHR_O_CLO => 'O~CLO',  # Handle CLOSE
    SHR_O_OPN => 'O~OPN',  # Handle OPEN
@@ -105,7 +106,7 @@ use constant {
 ##
 ###############################################################################
 
-my ($_SVR, %_all, %_aref, %_href, %_obj, %_ob2, %_itr, %_new) = (undef);
+my ($_SVR, %_all, %_aref, %_href, %_obj, %_ob2, %_ob3, %_itr, %_new) = (undef);
 my ($_next_id, $_is_client, $_init_pid, $_svr_pid) = (0, 1);
 my $LF = "\012"; Internals::SvREADONLY($LF, 1);
 
@@ -287,7 +288,7 @@ sub _share {
       eval "use $_class ()";
    }
 
-   $_all{ $_id } = $_class; $_all{ "$_id:count" } = 1;
+   $_all{ $_id } = $_class; $_ob3{ "$_id:count" } = 1;
 
    if ($_class eq 'MCE::Shared::Handle') {
       require Symbol unless $INC{'Symbol.pm'};
@@ -372,20 +373,18 @@ sub _destroy {
    my ($_lkup, $_item, $_id) = @_;
 
    ## safety for circular references to not destroy dangerously
-   return if exists $_all{ "$_id:count" } && --$_all{ "$_id:count" } > 0;
+   return if exists $_ob3{ "$_id:count" } && --$_ob3{ "$_id:count" } > 0;
 
    ## safety for circular references to not loop endlessly
    return if exists $_lkup->{ $_id };
 
    $_lkup->{ $_id } = 1;
 
-   if ($_all{ $_id } =~ /^MCE::Shared::(?:Array|Hash|Ordhash)$/) {
-      for my $k ($_item->keys) {
-         if (blessed($_item->get($k))) {
-            my $_oid = $_item->get($k)->SHARED_ID();
-            _destroy($_lkup, $_obj{ $_oid }, $_oid);
-         }
+   if (exists $_ob3{ "$_id:deeply" }) {
+      for my $_oid (keys %{ $_ob3{ "$_id:deeply" } }) {
+         _destroy($_lkup, $_obj{ $_oid }, $_oid);
       }
+      delete $_ob3{ "$_id:deeply" };
    }
    elsif ($_all{ $_id } eq 'MCE::Shared::Scalar') {
       if (blessed($_item->get())) {
@@ -398,15 +397,15 @@ sub _destroy {
       close $_obj{ $_id } if defined(fileno($_obj{ $_id }));
    }
 
-   delete $_all{ $_id }; delete $_all{ "$_id:count" };
-   delete $_obj{ $_id }; delete $_ob2{ $_id };
+   delete $_all{ $_id }; delete $_obj{ $_id };
+   delete $_ob2{ $_id }; delete $_ob3{ "$_id:count" };
    delete $_itr{ $_id };
 
    return;
 }
 
 sub _done {
-   %_all = (), %_obj = (), %_ob2 = (), %_itr = ();
+   %_all = (), %_obj = (), %_ob2 = (), %_ob3 = (), %_itr = ();
 }
 
 ###############################################################################
@@ -538,8 +537,17 @@ sub _loop {
       SHR_M_CNT.$LF => sub {                      # Increment count
          chomp($_id = <$_DAU_R_SOCK>);
 
-         $_all{ "$_id:count" }++;
+         $_ob3{ "$_id:count" }++;
          print {$_DAU_R_SOCK} $LF;
+
+         return;
+      },
+
+      SHR_M_DEE.$LF => sub {                      # Deeply shared
+         chomp(my $_id1 = <$_DAU_R_SOCK>),
+         chomp(my $_id2 = <$_DAU_R_SOCK>);
+
+         $_ob3{ "$_id1:deeply" }->{ $_id2 } = 1;
 
          return;
       },
@@ -628,8 +636,6 @@ sub _loop {
          $_ret = (exists $_all{ $_id }) ? '1' : '0';
          _destroy({}, $_obj{ $_id }, $_id) if $_ret;
          %_aref = (), %_href = ();
-
-         print {$_DAU_R_SOCK} $_ret.$LF;
 
          return;
       },
@@ -758,7 +764,7 @@ sub _loop {
          return;
       },
 
-      SHR_O_SE2.$LF => sub {                      # A,H,OH set (thawless)
+      SHR_O_SE2.$LF => sub {                      # A,H,OH set thaw'less
          chomp($_id  = <$_DAU_R_SOCK>),
          chomp($_len = <$_DAU_R_SOCK>),
          chomp($_le2 = <$_DAU_R_SOCK>);
@@ -824,15 +830,12 @@ sub _loop {
       SHR_O_CLR.$LF => sub {                      # A,H,OH clear
          chomp($_id = <$_DAU_R_SOCK>);
 
-         if (ref($_obj{ $_id }) =~ /^MCE::Shared::(?:Array|Hash|Ordhash)$/) {
-            my $_item = $_obj{ $_id };
+         if (exists $_ob3{ "$_id:deeply" }) {
             my $_keep = { $_id => 1 };
-            for my $k ($_item->keys) {
-               if (blessed($_item->get($k))) {
-                  my $_oid = $_item->get($k)->SHARED_ID();
-                  _destroy($_keep, $_obj{ $_oid }, $_oid);
-               }
+            for my $_oid (keys %{ $_ob3{ "$_id:deeply" } }) {
+               _destroy($_keep, $_obj{ $_oid }, $_oid);
             }
+            delete $_ob3{ "$_id:deeply" };
          }
 
          $_obj{ $_id }->clear();
@@ -852,7 +855,7 @@ sub _loop {
          return;
       },
 
-      SHR_O_MS2.$LF => sub {                      # A,H,OH mset (thawless)
+      SHR_O_MS2.$LF => sub {                      # A,H,OH mset thaw'less
          chomp($_id  = <$_DAU_R_SOCK>),
          chomp($_wa  = <$_DAU_R_SOCK>),
          chomp($_len = <$_DAU_R_SOCK>),
@@ -888,7 +891,7 @@ sub _loop {
          return;
       },
 
-      SHR_O_PS2.$LF => sub {                      # A,OH push (thawless)
+      SHR_O_PS2.$LF => sub {                      # A,OH push thaw'less
          chomp($_id  = <$_DAU_R_SOCK>),
          chomp($_wa  = <$_DAU_R_SOCK>),
          chomp($_len = <$_DAU_R_SOCK>),
@@ -930,7 +933,7 @@ sub _loop {
          return;
       },
 
-      SHR_O_UN2.$LF => sub {                      # A,OH unshift (thawless)
+      SHR_O_UN2.$LF => sub {                      # A,OH unshift thaw'less
          chomp($_id  = <$_DAU_R_SOCK>),
          chomp($_wa  = <$_DAU_R_SOCK>),
          chomp($_len = <$_DAU_R_SOCK>),
@@ -1355,7 +1358,7 @@ sub CLONE {
 ## Private functions.
 
 sub DESTROY {
-   if (defined $_svr_pid && $_is_client && $_[0]) {
+   if ($_is_client && defined $_svr_pid && defined $_[0]) {
       my $_id = $_[0]->SHARED_ID();
 
       if (exists $_new{ $_id }) {
@@ -1365,7 +1368,7 @@ sub DESTROY {
             return if ($INC{'MCE/Signal.pm'} && $MCE::Signal::KILLED);
             return if ($MCE::Shared::Server::KILLED);
 
-            delete($_new{ $_id }), _req1('M~DES', $_id.$LF);
+            delete($_new{ $_id }), _req2('M~DES', $_id.$LF, '');
          }
       }
    }
@@ -1377,6 +1380,7 @@ sub _croak {
    goto &MCE::Shared::Base::_croak;
 }
 sub SHARED_ID { ${ $_[0] } }
+
 sub TIEARRAY  {    $_[1]   }
 sub TIEHANDLE {    $_[1]   }
 sub TIEHASH   {    $_[1]   }
@@ -1489,8 +1493,8 @@ sub AUTOLOAD {
 ##
 ###############################################################################
 
-## called by FETCHSIZE, EXISTS, broadcast, signal, timedwait, pending,
-## blessed, destroy, and reset
+## called by FETCHSIZE, EXISTS, broadcast, signal, timedwait, pending, blessed,
+## and reset
 
 sub _req1 {
    local $\ = undef if (defined $\);
@@ -1506,8 +1510,8 @@ sub _req1 {
    $_ret;
 }
 
-## called by STORE, CLEAR, CLOSE, PRINT, PRINTF, timedwait, wait, await,
-## and ins_inplace
+## called by DESTROY, STORE, CLEAR, CLOSE, PRINT, PRINTF, _req5, __set,
+## timedwait, wait, await, destroy, and ins_inplace
 
 sub _req2 {
    local $\ = undef if (defined $\);
@@ -1567,7 +1571,7 @@ sub _req4 {
       : @{ $_thaw->($_buf) };
 }
 
-## called by mset, push, and unshift
+## called by mset, push, and unshift - deeply share: yes
 
 sub _req5 {
    my ($_tag, $_shr) = (shift, shift);
@@ -1586,14 +1590,20 @@ sub _req5 {
       _croak("requires key-value pairs") unless ( @_ % 2 == 0 );
       my ($_key, @_pairs);
       for (my $i = 1; $i <= $#_; $i += 2) {
-         $_[$i] = MCE::Shared::share({ _DEEPLY_ => 1 }, $_[$i]) if ref($_[$i]);
+         if (ref $_[$i]) {
+            $_[$i] = MCE::Shared::share({ _DEEPLY_ => 1 }, $_[$i]);
+            _req2('M~DEE', $_id.$LF, $_[$i]->SHARED_ID().$LF);
+         }
       }
       $_key = shift(), push(@_pairs, "$_key", shift()) while (@_);
       $_buf = $_freeze->(\@_pairs);
    }
    else {
       for my $i (0 .. $#_) {
-         $_[$i] = MCE::Shared::share({ _DEEPLY_ => 1 }, $_[$i]) if ref($_[$i]);
+         if (ref $_[$i]) {
+            $_[$i] = MCE::Shared::share({ _DEEPLY_ => 1 }, $_[$i]);
+            _req2('M~DEE', $_id.$LF, $_[$i]->SHARED_ID().$LF);
+         }
       }
       $_buf = $_freeze->([ @_ ]);
    }
@@ -1613,7 +1623,7 @@ sub _req5 {
    $_len;
 }
 
-## called by mset, push, and unshift
+## called by __mset, __push, and __unshift - deeply share: no
 
 sub _req6 {
    my ($_tag, $_shr) = (shift, shift);
@@ -1622,15 +1632,30 @@ sub _req6 {
 
    return unless @_;
 
-   if (!exists $_is_hash{ $_id }) {
-      $_is_hash{ $_id } = (
-         $_shr->blessed() =~ /^MCE::Shared::(?:Hash|Ordhash)$/
-      ) ? 1 : 0;
+   $_buf = $_freeze->([ @_ ]);
+   local $\ = undef if (defined $\);
+
+   $_dat_ex->();
+   print {$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF;
+   print {$_DAU_W_SOCK} $_id.$LF . $_wa.$LF . length($_buf).$LF, $_buf;
+
+   if ($_wa) {
+      local $/ = $LF if (!$/ || $/ ne $LF);
+      chomp($_len = <$_DAU_W_SOCK>);
    }
 
-   if ($_is_hash{ $_id } || $_tag eq 'O~MS2') {
-      _croak("requires key-value pairs") unless ( @_ % 2 == 0 );
-   }
+   $_dat_un->();
+   $_len;
+}
+
+## called by mset, push, and unshift - thaw'less
+
+sub _req7 {
+   my ($_tag, $_shr) = (shift, shift);
+   my ($_id , $_wa ) = (${ $_shr }, defined wantarray ? 1 : 0);
+   my ($_len, $_buf);
+
+   return unless @_;
 
    $_buf = (@_ == 2)
       ? $_id.$LF . $_wa.$LF . length($_[0]).$LF . length($_[1]).$LF . $_[0]
@@ -1653,7 +1678,7 @@ sub _req6 {
 
 ## called by POP and SHIFT
 
-sub _req7 {
+sub _req8 {
    local $\ = undef if (defined $\);
    local $/ = $LF if (!$/ || $/ ne $LF);
 
@@ -1683,7 +1708,7 @@ sub _req7 {
 
 ## called by next and prev
 
-sub _req8 {
+sub _req9 {
    local $\ = undef if (defined $\);
    local $/ = $LF if (!$/ || $/ ne $LF);
 
@@ -1710,7 +1735,7 @@ sub FETCHSIZE { _req1('O~FSZ', ${ $_[0] }.$LF) }
 sub SCALAR    { _req1('O~SCA', ${ $_[0] }.$LF) }
 
 sub STORE {
-   my ($_id, $_buf, $_len) = (${ (shift) });
+   my ($_id, $_buf) = (${ (shift) });
 
    if (@_ == 2) {
       if (!ref($_[0]) && !ref($_[1]) && defined($_[1])) {
@@ -1724,9 +1749,11 @@ sub STORE {
       }
       else {
          my $_key = $_[0];
-         $_[1] = MCE::Shared::share({ _DEEPLY_ => 1 }, $_[1]) if ref($_[1]);
+         if (ref $_[1]) {
+            $_[1] = MCE::Shared::share({ _DEEPLY_ => 1 }, $_[1]);
+            _req2('M~DEE', $_id.$LF, $_[1]->SHARED_ID().$LF);
+         }
          $_buf = $_freeze->([ "$_key", $_[1] ]);
-
          _req2('O~SET', $_id.$LF . length($_buf).'1'.$LF, $_buf);
       }
 
@@ -1816,25 +1843,64 @@ sub FIRSTKEY {
 }
 
 sub NEXTKEY { $_iter{ ${ $_[0] } }->()       }
-sub POP     { _req7('O~POP', ${ $_[0] }.$LF) }
-sub SHIFT   { _req7('O~SFT', ${ $_[0] }.$LF) }
+
+sub POP     { _req8('O~POP', ${ $_[0] }.$LF) }
+sub SHIFT   { _req8('O~SFT', ${ $_[0] }.$LF) }
+
+## deeply-share: yes
 
 sub mset {
    (@_ == 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
-      ? _req6('O~MS2', @_)
-      : _req5('O~MSE', @_);
+      ? _req7('O~MS2', @_) : _req5('O~MSE', @_);
 }
-
 sub PUSH {
    (@_ <= 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
-      ? _req6('O~PS2', @_)
-      : _req5('O~PSH', @_);
+      ? _req7('O~PS2', @_) : _req5('O~PSH', @_);
 }
-
 sub UNSHIFT {
    (@_ <= 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
-      ? _req6('O~UN2', @_)
-      : _req5('O~UNS', @_);
+      ? _req7('O~UN2', @_) : _req5('O~UNS', @_);
+}
+
+## deeply-share: no
+
+sub __mset {
+   (@_ <= 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
+      ? _req7('O~MS2', @_) : _req6('O~MSE', @_);
+}
+sub __push {
+   (@_ <= 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
+      ? _req7('O~PS2', @_) : _req6('O~PSH', @_);
+}
+sub __unshift {
+   (@_ <= 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
+      ? _req7('O~UN2', @_) : _req6('O~UNS', @_);
+}
+
+sub __set {
+   if (@_ == 3) {
+      my ($_id, $_buf) = (${ (shift) });
+
+      if (!ref($_[0]) && !ref($_[1]) && defined($_[1])) {
+         $_buf = $_id.$LF . length($_[0]).$LF . length($_[1]).$LF . $_[0];
+         local $\ = undef if (defined $\);
+
+         $_dat_ex->();
+         print {$_DAT_W_SOCK} 'O~SE2'.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} $_buf, $_[1];
+         $_dat_un->();
+      }
+      else {
+         my $_key = $_[0];
+         $_buf = $_freeze->([ "$_key", $_[1] ]);
+         _req2('O~SET', $_id.$LF . length($_buf).'1'.$LF, $_buf);
+      }
+
+      $_[1];
+   }
+   else {
+      &STORE(@_);
+   }
 }
 
 ###############################################################################
@@ -2170,8 +2236,8 @@ sub destroy {
    delete $_all{ $_id }; delete $_obj{ $_id };
    %_aref = (), %_href = ();
 
-   if (exists $_new{ $_id } && $_new{ $_id } eq $_pid) {
-      _req1('M~DES', $_id.$LF);
+   if (defined $_svr_pid && exists $_new{ $_id } && $_new{ $_id } eq $_pid) {
+      _req2('M~DES', $_id.$LF, '');
    }
 
    $_[0] = undef;
@@ -2226,14 +2292,12 @@ sub iterator {
 
 sub next {
    my $_wa = (wantarray) ? 1 : 0;
-   _req8('M~NXT', ${ $_[0] }.$LF . $_wa.$LF, $_wa);
+   _req9('M~NXT', ${ $_[0] }.$LF . $_wa.$LF, $_wa);
 }
-
 sub prev {
    my $_wa = (wantarray) ? 1 : 0;
-   _req8('M~PRE', ${ $_[0] }.$LF . $_wa.$LF, $_wa);
+   _req9('M~PRE', ${ $_[0] }.$LF . $_wa.$LF, $_wa);
 }
-
 sub reset {
    _req1('M~RES', ${ $_[0] }.$LF);
    return;
@@ -2278,15 +2342,15 @@ __END__
 
 =head1 NAME
 
-MCE::Shared::Server - Server/Object classes for MCE::Shared. 
+MCE::Shared::Server - Server/Object packages for MCE::Shared
 
 =head1 VERSION
 
-This document describes MCE::Shared::Server version 1.699_003
+This document describes MCE::Shared::Server version 1.699_004
 
 =head1 DESCRIPTION
 
-Core class for L<MCE::Shared|MCE::Shared>. There is no public API.
+Core class for L<MCE::Shared|MCE::Shared>. See documentation there.
 
 =head1 INDEX
 

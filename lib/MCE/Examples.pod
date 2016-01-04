@@ -1,11 +1,11 @@
 
 =head1 NAME
 
-MCE::Examples - Various examples demonstrating Many-Core Engine
+MCE::Examples - Various examples and demonstration
 
 =head1 VERSION
 
-This document describes MCE::Examples version 1.699_003
+This document describes MCE::Examples version 1.699_004
 
 =head1 INCLUDED WITH THE DISTRIBUTION
 
@@ -26,8 +26,8 @@ by the binary, not Perl. This wrapper resides under the bin directory.
 =head1 MCE EXAMPLES ON GITHUB
 
 The examples directory, beginning with 1.700, is maintained separately at a
-Github repository L<https://github.com/marioroy/mce-examples|MCE Examples>
-and no longer included with the Perl MCE distribution.
+Github repository L<https://github.com/marioroy/mce-examples> and no longer
+included with the Perl MCE distribution.
 
 =head1 PROCESSING INPUT DATA
 

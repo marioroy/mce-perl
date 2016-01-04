@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Number sequence class for use with MCE::Shared.
+## Sequence helper class.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_003';
+our $VERSION = '1.699_004';
 
 use Scalar::Util qw( looks_like_number );
 use MCE::Shared::Base;
@@ -121,11 +121,11 @@ __END__
 
 =head1 NAME
 
-MCE::Shared::Sequence - Number sequence generator
+MCE::Shared::Sequence - Sequence helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Sequence version 1.699_003
+This document describes MCE::Shared::Sequence version 1.699_004
 
 =head1 SYNOPSIS
 

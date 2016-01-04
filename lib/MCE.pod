@@ -1,11 +1,11 @@
 
 =head1 NAME
 
-MCE - Many-Core Engine for Perl providing parallel capabilities
+MCE - Many-Core Engine for Perl providing parallel processing capabilities
 
 =head1 VERSION
 
-This document describes MCE version 1.699_003
+This document describes MCE version 1.699_004
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.

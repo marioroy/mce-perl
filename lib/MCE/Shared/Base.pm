@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Base package for MCE::Shared.
+## Base package for helper classes.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_003';
+our $VERSION = '1.699_004';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -373,11 +373,11 @@ __END__
 
 =head1 NAME
 
-MCE::Shared::Base - Base package for MCE::Shared classes
+MCE::Shared::Base - Base package for helper classes
 
 =head1 VERSION
 
-This document describes MCE::Shared::Base version 1.699_003
+This document describes MCE::Shared::Base version 1.699_004
 
 =head1 DESCRIPTION
 

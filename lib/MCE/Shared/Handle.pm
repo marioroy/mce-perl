@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Handle class for use with MCE::Shared.
+## Handle helper class.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_003';
+our $VERSION = '1.699_004';
 
 ## no critic (InputOutput::ProhibitTwoArgOpen)
 
@@ -123,11 +123,11 @@ __END__
 
 =head1 NAME
 
-MCE::Shared::Handle - Class for sharing handles via MCE::Shared
+MCE::Shared::Handle - Handle helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Handle version 1.699_003
+This document describes MCE::Shared::Handle version 1.699_004
 
 =head1 SYNOPSIS
 

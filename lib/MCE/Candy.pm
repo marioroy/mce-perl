@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Sugar methods and output iterators for Many-Core Engine.
+## Sugar methods and output iterators.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_003';
+our $VERSION = '1.699_004';
 
 our @CARP_NOT = qw( MCE );
 
@@ -205,11 +205,11 @@ __END__
 
 =head1 NAME
 
-MCE::Candy - Sugar methods and output iterators for Many-Core Engine
+MCE::Candy - Sugar methods and output iterators
 
 =head1 VERSION
 
-This document describes MCE::Candy version 1.699_003
+This document describes MCE::Candy version 1.699_004
 
 =head1 DESCRIPTION
 

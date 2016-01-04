@@ -1,11 +1,11 @@
 
 =head1 NAME
 
-MCE::Core - Documentation describing the Core API for Many-Core Engine
+MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.699_003
+This document describes MCE::Core version 1.699_004
 
 =head1 SYNOPSIS
 

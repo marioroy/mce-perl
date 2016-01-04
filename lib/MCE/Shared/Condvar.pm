@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Condition variable class for use with MCE::Shared.
+## Condvar helper class.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_003';
+our $VERSION = '1.699_004';
 
 use MCE::Shared::Base;
 use MCE::Util ();
@@ -99,11 +99,11 @@ __END__
 
 =head1 NAME
 
-MCE::Shared::Condvar - Class providing condition variables for MCE::Shared
+MCE::Shared::Condvar - Condvar helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Condvar version 1.699_003
+This document describes MCE::Shared::Condvar version 1.699_004
 
 =head1 SYNOPSIS
 

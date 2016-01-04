@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized redefine );
 
-our $VERSION = '1.699_003';
+our $VERSION = '1.699_004';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -476,7 +476,7 @@ MCE::Hobo - MCE model for running code asynchronously
 
 =head1 VERSION
 
-This document describes MCE::Hobo version 1.699_003
+This document describes MCE::Hobo version 1.699_004
 
 =head1 SYNOPSIS
 

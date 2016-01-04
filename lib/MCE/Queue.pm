@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Hybrid (normal and priority) queues for Many-Core Engine.
+## Hybrid (normal and priority) queues.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_003';
+our $VERSION = '1.699_004';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -1621,11 +1621,11 @@ __END__
 
 =head1 NAME
 
-MCE::Queue - Hybrid (normal and priority) queues for Many-Core Engine
+MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.699_003
+This document describes MCE::Queue version 1.699_004
 
 =head1 SYNOPSIS
 

@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Array class for use with MCE::Shared.
+## Array helper class.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_003';
+our $VERSION = '1.699_004';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -253,11 +253,11 @@ __END__
 
 =head1 NAME
 
-MCE::Shared::Array - Class for sharing arrays via MCE::Shared
+MCE::Shared::Array - Array helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Array version 1.699_003
+This document describes MCE::Shared::Array version 1.699_004
 
 =head1 SYNOPSIS
 
