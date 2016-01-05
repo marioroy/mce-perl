@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE model for running code asynchronously.
+## A fast, pure-Perl threads-like parallelization module.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized redefine );
 
-our $VERSION = '1.699_004';
+our $VERSION = '1.699_005';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -472,11 +472,11 @@ __END__
 
 =head1 NAME
 
-MCE::Hobo - MCE model for running code asynchronously
+MCE::Hobo - A fast, pure-Perl threads-like parallelization module
 
 =head1 VERSION
 
-This document describes MCE::Hobo version 1.699_004
+This document describes MCE::Hobo version 1.699_005
 
 =head1 SYNOPSIS
 
@@ -542,12 +542,14 @@ This document describes MCE::Hobo version 1.699_004
 
 =head1 DESCRIPTION
 
-C<MCE::Hobo> provides C<threads>-like capability for running code
-asynchronously via child processes. The underlying IPC is managed by
-C<MCE::Shared>, which runs on all major platforms including Cygwin.
+A hobo is a migratory worker inside the machine that carries the
+asynchronous gene. Hobos are equipped with C<threads>-like capability
+for running code asynchronously. Unlike threads, each hobo is a unique
+process to the underlying OS. The IPC is managed by C<MCE::Shared>,
+which runs on all major platforms including Cygwin.
 
-This module may be used as a standalone or together with MCE including
-running alongside threads.
+C<MCE::Hobo> may be used as a standalone or together with C<MCE>
+including running alongside C<threads>.
 
 The following is a parallel demonstration.
 

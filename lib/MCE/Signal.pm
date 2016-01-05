@@ -11,12 +11,13 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_004';
+our $VERSION = '1.699_005';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
 our ($display_die_with_localtime, $display_warn_with_localtime);
 our ($main_proc_id, $prog_name, $tmp_dir);
+my  ($_has_threads);
 
 use Carp ();
 
@@ -37,6 +38,8 @@ BEGIN {
          eval 'use threads::shared';
       }
    }
+
+   $_has_threads = $INC{'threads/shared.pm'} ? 1 : 0;
 }
 
 use File::Path ();
@@ -245,7 +248,7 @@ sub stop_and_exit {
 
    ## For the main process.
    if ($_is_main_proc) {
-      lock $_handler_cnt if $INC{'threads/shared.pm'};
+      lock $_handler_cnt if $_has_threads;
 
       if (++$_handler_cnt == 1) {
          open my $_FH, '>>', "$tmp_dir/stopped";
@@ -495,7 +498,7 @@ MCE::Signal - Temporary directory creation/cleanup and signal handling
 
 =head1 VERSION
 
-This document describes MCE::Signal version 1.699_004
+This document describes MCE::Signal version 1.699_005
 
 =head1 SYNOPSIS
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.699_004';
+our $VERSION = '1.699_005';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -24,22 +24,26 @@ use Socket qw( SOL_SOCKET SO_RCVBUF );
 use Storable ();
 use bytes;
 
-my ($_freeze, $_thaw);
+my ($_freeze, $_thaw, $_has_threads);
 
 BEGIN {
    $_freeze = \&Storable::freeze;
    $_thaw   = \&Storable::thaw;
-   local $@;
+
+   local $@; local $SIG{__DIE__} = \&_NOOP;
 
    if ($^O eq 'MSWin32' && !defined $threads::VERSION) {
       eval 'use threads; use threads::shared';
    }
    elsif (defined $threads::VERSION) {
-      eval 'use threads::shared' unless defined($threads::shared::VERSION);
+      unless (defined $threads::shared::VERSION) {
+         eval 'use threads::shared';
+      }
    }
 
-   eval 'use IO::FDPass' if !$INC{'IO/FDPass.pm'} && $^O ne 'cygwin';
+   $_has_threads = $INC{'threads/shared.pm'} ? 1 : 0;
 
+   eval 'use IO::FDPass' if !$INC{'IO/FDPass.pm'} && $^O ne 'cygwin';
    eval 'PDL::no_clone_skip_warning()' if $INC{'PDL.pm'};
 }
 
@@ -110,8 +114,7 @@ my ($_SVR, %_all, %_aref, %_href, %_obj, %_ob2, %_ob3, %_itr, %_new) = (undef);
 my ($_next_id, $_is_client, $_init_pid, $_svr_pid) = (0, 1);
 my $LF = "\012"; Internals::SvREADONLY($LF, 1);
 
-my $_is_MSWin32  = ($^O eq 'MSWin32') ? 1 : 0;
-my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
+my $_is_MSWin32 = ($^O eq 'MSWin32') ? 1 : 0;
 my $_tid = $_has_threads ? threads->tid() : 0;
 
 sub _croak { require Carp unless $INC{'Carp.pm'}; goto &Carp::croak }
@@ -136,7 +139,7 @@ END {
       $MCE::Shared::Server::KILLED = 1;
 
       $SIG{INT} = $SIG{__DIE__} = $SIG{__WARN__} = $SIG{$_[0]} = sub {};
-      lock $_handler_cnt if $INC{'threads/shared.pm'};
+      lock $_handler_cnt if $_has_threads;
 
       if (++$_handler_cnt == 1) {
          CORE::kill($_sig_name, $_is_MSWin32 ? -$$ : -getpgrp);
@@ -153,6 +156,9 @@ END {
          ($_is_MSWin32)
             ? CORE::kill('KILL', -$$, $$)
             : CORE::kill('INT', -getpgrp);
+
+         CORE::kill('KILL', -$$, $$)
+            if ($_sig_name ne 'PIPE' && $INC{'MCE/Hobo.pm'});
       }
 
       sleep 0.065 for (1..5);
@@ -1510,7 +1516,7 @@ sub _req1 {
    $_ret;
 }
 
-## called by DESTROY, STORE, CLEAR, CLOSE, PRINT, PRINTF, _req5, __set,
+## called by DESTROY, STORE, CLEAR, CLOSE, PRINT, PRINTF, _req5, _set,
 ## timedwait, wait, await, destroy, and ins_inplace
 
 sub _req2 {
@@ -1623,7 +1629,7 @@ sub _req5 {
    $_len;
 }
 
-## called by __mset, __push, and __unshift - deeply share: no
+## called by _mset, _push, and _unshift - deeply share: no
 
 sub _req6 {
    my ($_tag, $_shr) = (shift, shift);
@@ -1864,20 +1870,20 @@ sub UNSHIFT {
 
 ## deeply-share: no
 
-sub __mset {
+sub _mset {
    (@_ <= 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
       ? _req7('O~MS2', @_) : _req6('O~MSE', @_);
 }
-sub __push {
+sub _push {
    (@_ <= 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
       ? _req7('O~PS2', @_) : _req6('O~PSH', @_);
 }
-sub __unshift {
+sub _unshift {
    (@_ <= 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
       ? _req7('O~UN2', @_) : _req6('O~UNS', @_);
 }
 
-sub __set {
+sub _set {
    if (@_ == 3) {
       my ($_id, $_buf) = (${ (shift) });
 
@@ -2346,7 +2352,7 @@ MCE::Shared::Server - Server/Object packages for MCE::Shared
 
 =head1 VERSION
 
-This document describes MCE::Shared::Server version 1.699_004
+This document describes MCE::Shared::Server version 1.699_005
 
 =head1 DESCRIPTION
 

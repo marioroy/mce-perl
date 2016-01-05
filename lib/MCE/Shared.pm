@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_004';
+our $VERSION = '1.699_005';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -266,7 +266,7 @@ MCE::Shared - MCE extension for sharing data between workers
 
 =head1 VERSION
 
-This document describes MCE::Shared version 1.699_004
+This document describes MCE::Shared version 1.699_005
 
 =head1 SYNOPSIS
 
@@ -429,13 +429,13 @@ See the MCE Cookbook on github for PDL demonstrations.
 
 =item reset
 
-=item __set - deeply share: no
+=item _set - deeply share: no
 
-=item __mset - deeply share: no
+=item _mset - deeply share: no
 
-=item __push - deeply share: no
+=item _push - deeply share: no
 
-=item __unshift - deeply share: no
+=item _unshift - deeply share: no
 
 =back
 

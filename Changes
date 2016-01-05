@@ -1,7 +1,14 @@
 
 Revision history for Perl module MCE.
 
-1.699 Sun Jan 03 21:30:00 EST 2016
+1.699 Tue Jan 05 02:00:00 EST 2016
+
+  The 1.7 release is reaching completion soon. The code for MCE::Hobo and
+  all of MCE::Shared are final. Thank you to the many Perl smoke-testers
+  whom have tested the MCE module under various OS configurations.
+
+  Best regards,
+  Mario
 
   [BUG FIXES]
 

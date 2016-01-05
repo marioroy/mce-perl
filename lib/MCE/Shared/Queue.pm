@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_004';
+our $VERSION = '1.699_005';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 
@@ -597,7 +597,7 @@ MCE::Shared::Queue - Hybrid-queue helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Queue version 1.699_004
+This document describes MCE::Shared::Queue version 1.699_005
 
 =head1 SYNOPSIS
 

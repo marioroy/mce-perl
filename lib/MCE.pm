@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_004';
+our $VERSION = '1.699_005';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -19,8 +19,10 @@ our $VERSION = '1.699_004';
 
 use Carp ();
 
+my $_has_threads;
+
 BEGIN {
-   local $@;
+   local $@; local $SIG{__DIE__} = \&_NOOP;
 
    ## Forking is emulated under the Windows enviornment, excluding Cygwin.
    ## MCE 1.514+ will load the 'threads' module by default on Windows.
@@ -30,8 +32,12 @@ BEGIN {
       eval 'use threads; use threads::shared';
    }
    elsif (defined $threads::VERSION) {
-      eval 'use threads::shared' unless defined($threads::shared::VERSION);
+      unless (defined $threads::shared::VERSION) {
+         eval 'use threads::shared';
+      }
    }
+
+   $_has_threads = $INC{'threads/shared.pm'} ? 1 : 0;
 
    eval 'PDL::no_clone_skip_warning()' if $INC{'PDL.pm'};
 }
@@ -145,7 +151,7 @@ my  $FREEZE  = \&Storable::freeze;
 my  $THAW    = \&Storable::thaw;
 
 my ($MAX_WORKERS, $CHUNK_SIZE) = (1, 1);
-my ($_has_threads, $_imported);
+my ($_imported);
 
 sub import {
    my $_class = shift; return if ($_imported++);
@@ -187,9 +193,6 @@ sub import {
 
       _croak("Error: ($_argument) invalid module option");
    }
-
-   ## Automatically spawn threads when threads is present, otherwise processes.
-   $_has_threads = ($INC{'threads.pm'}) ? 1 : 0;
 
    ## Preload essential modules.
    require MCE::Core::Validation;
