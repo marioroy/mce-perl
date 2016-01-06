@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_005';
+our $VERSION = '1.699_006';
 
 use MCE::Util qw( $LF );
 
@@ -117,7 +117,7 @@ MCE::Mutex - Locking for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Mutex version 1.699_005
+This document describes MCE::Mutex version 1.699_006
 
 =head1 SYNOPSIS
 

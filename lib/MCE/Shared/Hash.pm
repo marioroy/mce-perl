@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_005';
+our $VERSION = '1.699_006';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -32,7 +32,7 @@ sub _croak {
 
 sub TIEHASH {
    my $self = bless {}, shift;
-   $self->mset(@_) if @_;
+   $self->merge(@_) if @_;
    $self;
 }
 
@@ -49,7 +49,7 @@ sub SCALAR   { scalar keys %{$_[0]} }
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## clone, flush, iterator, mget, mset, keys, values, pairs
+## clone, flush, iterator, mget, merge, keys, values, pairs
 ##
 ###############################################################################
 
@@ -94,7 +94,7 @@ sub mget {
       : ();
 }
 
-sub mset {
+sub merge {
    my ( $self, $key ) = ( shift );
 
    while ( @_ ) {
@@ -233,7 +233,7 @@ MCE::Shared::Hash - Hash helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Hash version 1.699_005
+This document describes MCE::Shared::Hash version 1.699_006
 
 =head1 SYNOPSIS
 
@@ -259,7 +259,7 @@ This document describes MCE::Shared::Hash version 1.699_005
    $ha2   = $ha->clone( @keys );              # @keys is optional
    $ha3   = $ha->flush( @keys );
    $iter  = $ha->iterator( @keys );           # ($key, $val) = $iter->()
-   $len   = $ha->mset( $key/$val pairs );
+   $len   = $ha->merge( $key/$val pairs );
    @vals  = $ha->mget( @keys );
    @keys  = $ha->keys( @keys );
    @vals  = $ha->values( @keys );
@@ -325,7 +325,7 @@ To be completed before the final 1.700 release.
 
 =item mget
 
-=item mset
+=item merge
 
 =item keys
 

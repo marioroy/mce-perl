@@ -103,7 +103,7 @@ is( $s2, 'moon', 'shared array, check pop' );
 
 $a5->clear();
 
-$a5->mset( qw(
+$a5->merge( qw(
    0 me 1 channel 2 Your 3 Where 4 despair 5 life 6 me 7 hope...
    8 there 9 darkness 10 light... 11 18 12 9 13 3
 ));
@@ -146,7 +146,7 @@ is( $a5->find('val >= 18'), 2, 'shared array, check find vals >= match' );
 
 $a5->clear();
 
-$a5->mset( qw/ 0 summer 1 winter / );
+$a5->merge( qw/ 0 summer 1 winter / );
 $a5->set( 2, undef );
 
 cmp_array(
@@ -181,11 +181,11 @@ cmp_array(
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
-$a5->clear(); $a5->mset( 0, 'over', 1, 'the', 2, 'rainbow', 3, 77 );
+$a5->clear(); $a5->merge( 0, 'over', 1, 'the', 2, 'rainbow', 3, 77 );
 
 cmp_array(
    [ $a5->pairs() ], [ qw/ 0 over 1 the 2 rainbow 3 77 / ],
-   'shared array, check mset'
+   'shared array, check merge'
 );
 cmp_array(
    [ $a5->mget(0, 2) ], [ qw/ over rainbow / ],

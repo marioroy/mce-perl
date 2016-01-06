@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.699_005';
+our $VERSION = '1.699_006';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -79,8 +79,8 @@ use constant {
    SHR_O_DEL => 'O~DEL',  # A,H,OH delete
    SHR_O_EXI => 'O~EXI',  # A,H,OH exists
    SHR_O_CLR => 'O~CLR',  # A,H,OH clear
-   SHR_O_MSE => 'O~MSE',  # A,H,OH mset
-   SHR_O_MS2 => 'O~MS2',  # A,H,OH mset - thaw'less
+   SHR_O_MSE => 'O~MSE',  # A,H,OH merge
+   SHR_O_MS2 => 'O~MS2',  # A,H,OH merge - thaw'less
    SHR_O_POP => 'O~POP',  # A,OH pop
    SHR_O_PSH => 'O~PSH',  # A,OH push
    SHR_O_PS2 => 'O~PS2',  # A,OH push - thaw'less
@@ -849,19 +849,19 @@ sub _loop {
          return;
       },
 
-      SHR_O_MSE.$LF => sub {                      # A,H,OH mset
+      SHR_O_MSE.$LF => sub {                      # A,H,OH merge
          chomp($_id  = <$_DAU_R_SOCK>),
          chomp($_wa  = <$_DAU_R_SOCK>),
          chomp($_len = <$_DAU_R_SOCK>);
 
          read $_DAU_R_SOCK, my($_buf), $_len;
-         $_ret = $_obj{ $_id }->mset(@{ $_thaw->($_buf) });
+         $_ret = $_obj{ $_id }->merge(@{ $_thaw->($_buf) });
          print {$_DAU_R_SOCK} $_ret.$LF if $_wa;
 
          return;
       },
 
-      SHR_O_MS2.$LF => sub {                      # A,H,OH mset thaw'less
+      SHR_O_MS2.$LF => sub {                      # A,H,OH merge thaw'less
          chomp($_id  = <$_DAU_R_SOCK>),
          chomp($_wa  = <$_DAU_R_SOCK>),
          chomp($_len = <$_DAU_R_SOCK>),
@@ -870,7 +870,7 @@ sub _loop {
          read($_DAU_R_SOCK, my($_arg1), $_len);
          read($_DAU_R_SOCK, my($_arg2), $_le2);
 
-         $_ret = $_obj{ $_id }->mset($_arg1, $_arg2);
+         $_ret = $_obj{ $_id }->merge($_arg1, $_arg2);
          print {$_DAU_R_SOCK} $_ret.$LF if $_wa;
 
          return;
@@ -1516,7 +1516,7 @@ sub _req1 {
    $_ret;
 }
 
-## called by DESTROY, STORE, CLEAR, CLOSE, PRINT, PRINTF, _req5, _set,
+## called by DESTROY, STORE, CLEAR, CLOSE, PRINT, PRINTF, _req5, set,
 ## timedwait, wait, await, destroy, and ins_inplace
 
 sub _req2 {
@@ -1577,7 +1577,7 @@ sub _req4 {
       : @{ $_thaw->($_buf) };
 }
 
-## called by mset, push, and unshift - deeply share: yes
+## called by dmerge, dpush, and dunshift - deeply share: yes
 
 sub _req5 {
    my ($_tag, $_shr) = (shift, shift);
@@ -1629,7 +1629,7 @@ sub _req5 {
    $_len;
 }
 
-## called by _mset, _push, and _unshift - deeply share: no
+## called by merge, push, and unshift - deeply share: no
 
 sub _req6 {
    my ($_tag, $_shr) = (shift, shift);
@@ -1654,7 +1654,7 @@ sub _req6 {
    $_len;
 }
 
-## called by mset, push, and unshift - thaw'less
+## called by d/merge, d/push, and d/unshift - thaw'less
 
 sub _req7 {
    my ($_tag, $_shr) = (shift, shift);
@@ -1853,9 +1853,9 @@ sub NEXTKEY { $_iter{ ${ $_[0] } }->()       }
 sub POP     { _req8('O~POP', ${ $_[0] }.$LF) }
 sub SHIFT   { _req8('O~SFT', ${ $_[0] }.$LF) }
 
-## deeply-share: yes
+## deeply share: yes
 
-sub mset {
+sub dmerge {
    (@_ == 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
       ? _req7('O~MS2', @_) : _req5('O~MSE', @_);
 }
@@ -1868,22 +1868,22 @@ sub UNSHIFT {
       ? _req7('O~UN2', @_) : _req5('O~UNS', @_);
 }
 
-## deeply-share: no
+## deeply share: no
 
-sub _mset {
+sub merge {
    (@_ <= 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
       ? _req7('O~MS2', @_) : _req6('O~MSE', @_);
 }
-sub _push {
+sub push {
    (@_ <= 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
       ? _req7('O~PS2', @_) : _req6('O~PSH', @_);
 }
-sub _unshift {
+sub unshift {
    (@_ <= 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
       ? _req7('O~UN2', @_) : _req6('O~UNS', @_);
 }
 
-sub _set {
+sub set {
    if (@_ == 3) {
       my ($_id, $_buf) = (${ (shift) });
 
@@ -2325,15 +2325,15 @@ if ($INC{'PDL.pm'}) {
 
 {
    no strict 'refs';
-   *{ __PACKAGE__.'::set'     } = \&STORE;
-   *{ __PACKAGE__.'::get'     } = \&FETCH;
-   *{ __PACKAGE__.'::delete'  } = \&DELETE;
-   *{ __PACKAGE__.'::exists'  } = \&EXISTS;
-   *{ __PACKAGE__.'::clear'   } = \&CLEAR;
-   *{ __PACKAGE__.'::pop'     } = \&POP;
-   *{ __PACKAGE__.'::push'    } = \&PUSH;
-   *{ __PACKAGE__.'::shift'   } = \&SHIFT;
-   *{ __PACKAGE__.'::unshift' } = \&UNSHIFT;
+   *{ __PACKAGE__.'::dset'     } = \&STORE;
+   *{ __PACKAGE__.'::get'      } = \&FETCH;
+   *{ __PACKAGE__.'::delete'   } = \&DELETE;
+   *{ __PACKAGE__.'::exists'   } = \&EXISTS;
+   *{ __PACKAGE__.'::clear'    } = \&CLEAR;
+   *{ __PACKAGE__.'::pop'      } = \&POP;
+   *{ __PACKAGE__.'::dpush'    } = \&PUSH;
+   *{ __PACKAGE__.'::shift'    } = \&SHIFT;
+   *{ __PACKAGE__.'::dunshift' } = \&UNSHIFT;
 }
 
 1;
@@ -2352,7 +2352,7 @@ MCE::Shared::Server - Server/Object packages for MCE::Shared
 
 =head1 VERSION
 
-This document describes MCE::Shared::Server version 1.699_005
+This document describes MCE::Shared::Server version 1.699_006
 
 =head1 DESCRIPTION
 

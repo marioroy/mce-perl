@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_005';
+our $VERSION = '1.699_006';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -382,7 +382,7 @@ sub _reorder {
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## clone, flush, iterator, mget, mset, keys, values, pairs
+## clone, flush, iterator, mget, merge, keys, values, pairs
 ##
 ###############################################################################
 
@@ -434,7 +434,7 @@ sub mget {
       : ();
 }
 
-sub mset {
+sub merge {
    my $self = shift;
    my ( $data, $keys, $key ) = ( $self->[_DATA], $self->[_KEYS] );
    _croak("requires key-value pairs") unless ( @_ % 2 == 0 );
@@ -661,7 +661,7 @@ MCE::Shared::Ordhash - Ordered-hash helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Ordhash version 1.699_005
+This document describes MCE::Shared::Ordhash version 1.699_006
 
 =head1 SYNOPSIS
 
@@ -692,7 +692,7 @@ This document describes MCE::Shared::Ordhash version 1.699_005
    $oh2   = $oh->clone( @keys );              # @keys is optional
    $oh3   = $oh->flush( @keys );
    $iter  = $oh->iterator( @keys );           # ($key, $val) = $iter->()
-   $len   = $oh->mset( $key/$val pairs );
+   $len   = $oh->merge( $key/$val pairs );
    @vals  = $oh->mget( @keys );
    @keys  = $oh->keys( @keys );
    @vals  = $oh->values( @keys );
@@ -780,7 +780,7 @@ To be completed before the final 1.700 release.
 
 =item mget
 
-=item mset
+=item merge
 
 =item keys
 

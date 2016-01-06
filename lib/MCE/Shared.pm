@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_005';
+our $VERSION = '1.699_006';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -162,7 +162,7 @@ sub hash {
    my ( $_item ) = (
       &share( ref $_[0] eq 'HASH' ? shift : {}, MCE::Shared::Hash->new() )
    );
-   $_item->mset(@_) if @_;
+   $_item->merge(@_) if @_;
    $_item;
 }
 sub ordhash {
@@ -171,7 +171,7 @@ sub ordhash {
    my ( $_item ) = (
       &share( ref $_[0] eq 'HASH' ? shift : {}, MCE::Shared::Ordhash->new() )
    );
-   $_item->mset(@_) if @_;
+   $_item->merge(@_) if @_;
    $_item;
 }
 
@@ -266,7 +266,7 @@ MCE::Shared - MCE extension for sharing data between workers
 
 =head1 VERSION
 
-This document describes MCE::Shared version 1.699_005
+This document describes MCE::Shared version 1.699_006
 
 =head1 SYNOPSIS
 
@@ -341,9 +341,49 @@ This document describes MCE::Shared version 1.699_005
 =head1 DESCRIPTION
 
 This module provides data sharing for MCE supporting threads and processes.
-MCE::Shared may run alongside threads::shared.
 
-The documentation below will be completed before the final 1.700 release.
+C<MCE::Shared> enables extra functionality on systems with C<IO::FDPass>.
+Without it, MCE::Shared is unable to send file descriptors to the
+shared-manager process for <queue>, C<condvar>, and possibly C<handle>.
+
+As of this writing, the L<IO::FDPass|IO::FDPass> module is not a requirement
+for running MCE::Shared nor is the check made during installation. The reason
+is that C<IO::FDPass> is not possible on Cygwin and not sure about AIX.
+
+The following is a suggestion for systems without C<IO::FDPass>.
+This restriction applies to C<queue>, C<condvar>, and C<handle> only.
+
+   use MCE::Shared;
+
+   # Construct shared queue(s) and condvar(s) first.
+   # These contain GLOB handles - freezing not allowed.
+
+   my $q1  = MCE::Shared->queue();
+   my $q2  = MCE::Shared->queue();
+
+   my $cv1 = MCE::Shared->condvar();
+   my $cv2 = MCE::Shared->condvar();
+
+   # Start the shared-manager manually.
+
+   MCE::Shared->start();
+
+   # The shared-manager process knows of STDOUT, STDERR, STDIN
+
+   my $fh1 = MCE::Shared->handle(">>", \*STDOUT);  # ok
+   my $fh2 = MCE::Shared->handle("<", "/path/to/sequence.fasta");  # ok
+   my $h1  = MCE::Shared->hash();
+
+Otherwise, sharing is immediate and not delayed with C<IO::FDPass>. It is not
+necessary to share C<queue> and C<condvar> first or worry about starting the
+shared-manager process.
+
+   use MCE::Shared;
+
+   my $h1 = MCE::Shared->hash();    # shares immediately
+   my $q1 = MCE::Shared->queue();   # IO::FDPass sends file descriptors
+   my $cv = MCE::Shared->condvar(); # IO::FDPass sends file descriptors
+   my $h2 = MCE::Shared->ordhash();
 
 =head1 DATA SHARING
 
@@ -365,6 +405,31 @@ The documentation below will be completed before the final 1.700 release.
 
 =item sequence
 
+C<array>, C<condvar>, C<handle>, C<hash>, C<ordhash>, C<queue>, C<scalar>, and
+C<sequence> are sugar syntax for constructing a shared object.
+
+  # long form
+
+  use MCE::Shared;
+  use MCE::Shared::Array;
+  use MCE::Shared::Hash;
+
+  my $ar = MCE::Shared->share( MCE::Shared::Array->new() );
+  my $ha = MCE::Shared->share( MCE::Shared::Hash->new() );
+
+  # short form
+
+  use MCE::Shared;
+
+  my $ar = MCE::Shared->array( @list );
+  my $cv = MCE::Shared->condvar( 0 );
+  my $fh = MCE::Shared->handle( '>>', \*STDOUT );
+  my $ha = MCE::Shared->hash( @pairs );
+  my $oh = MCE::Shared->ordhash( @pairs );
+  my $qu = MCE::Shared->queue( await => 1, fast => 0 );
+  my $va = MCE::Shared->scalar( $value );
+  my $nu = MCE::Shared->sequence( $begin, $end, $step, $fmt );
+
 =item num_sequence
 
 C<num_sequence> is an alias for C<sequence>.
@@ -376,6 +441,48 @@ C<num_sequence> is an alias for C<sequence>.
 =over 3
 
 =item share
+
+This class method transfers the blessed-object to the shared-manager
+process and returns a C<MCE::Shared::Object> containing the C<SHARED_ID>.
+The object must not contain any C<GLOB>'s or C<CODE_REF>'s or the transfer
+will fail.
+
+Unlike C<threads::shared>, objects are not deeply shared. The shared object
+is accessable only through the underlying OO interface.
+
+   use MCE::Shared;
+   use Hash::Ordered;
+
+   my ($ho_shared, $ho_unshared);
+
+   $ho_shared = MCE::Shared->share( Hash::Ordered->new() );
+
+   $ho_shared->push( @pairs );            # OO interface only
+   $ho_shared->merge( @pairs );
+
+   $ho_unshared = $ho_shared->export();   # back to unshared
+   $ho_unshared = $ho_shared->destroy();  # including destruction
+
+The following provide long and short forms for constructing a shared array,
+hash, or scalar object.
+
+   use MCE::Shared;
+
+   use MCE::Shared::Array;    # Loading helper classes is not necessary
+   use MCE::Shared::Hash;     # when using the shorter form.
+   use MCE::Shared::Scalar;
+
+   my $a1 = MCE::Shared->share( MCE::Shared::Array->new( @list ) );
+   my $a3 = MCE::Shared->share( [ @list ] );  # sugar syntax
+   my $a2 = MCE::Shared->array( @list );
+
+   my $h1 = MCE::Shared->share( MCE::Shared::Hash->new( @pairs ) );
+   my $h3 = MCE::Shared->share( { @pairs } ); # sugar syntax
+   my $h2 = MCE::Shared->hash( @pairs );
+
+   my $s1 = MCE::Shared->share( MCE::Shared::Scalar->new( 20 ) );
+   my $s2 = MCE::Shared->share( \do{ my $o = 20 } );
+   my $s4 = MCE::Shared->scalar( 20 );
 
 =back
 
@@ -407,11 +514,42 @@ C<num_sequence> is an alias for C<sequence>.
 
 =item pdl
 
+C<pdl_byte>, C<pdl_short>, C<pdl_ushort>, C<pdl_long>, C<pdl_longlong>,
+C<pdl_float>, C<pdl_double>, C<pdl_ones>, C<pdl_sequence>, C<pdl_zeroes>,
+C<pdl_indx>, and C<pdl> are sugar syntax for PDL construction take place
+under the shared-manager process.
+
+   use PDL;
+   use PDL::IO::Storable;   # must load for freezing/thawing
+
+   use MCE::Shared;         # must load MCE::Shared after PDL
+   
+   # not efficient from memory copy/transfer and unnecessary destruction
+   my $ob1 = MCE::Shared->share( zeroes( 256, 256 ) );
+
+   # efficient
+   my $ob1 = MCE::Shared->zeroes( 256, 256 );
+
 =item ins_inplace
 
-=back
+The C<ins_inplace> method applies to shared PDL objects. It supports two forms
+for writing bits back into the PDL object residing under the shared-manager
+process.
 
-See the MCE Cookbook on github for PDL demonstrations.
+   # --- action taken by the shared-manager process
+   # ins_inplace(  2 args ):   $this->slice( $arg1 ) .= $arg2;
+   # ins_inplace( >2 args ):   ins( inplace( $this ), $what, @coords );
+
+   # --- use case
+   $o->ins_inplace( ":,$start:$stop", $result );  #  2 args
+   $o->ins_inplace( $result, 0, $seq_n );         # >2 args
+
+The MCE-Cookbook on Github provides a couple working PDL demonstrations for
+further reading.
+
+L<https://github.com/marioroy/mce-cookbook>
+
+=back
 
 =head1 COMMON API
 
@@ -419,9 +557,85 @@ See the MCE Cookbook on github for PDL demonstrations.
 
 =item blessed
 
+Returns the real C<blessed> name, provided by the shared-manager process.
+
+   use Scalar::Util qw(blessed);
+   use MCE::Shared;
+
+   use MCE::Shared::Ordhash;
+   use Hash::Ordered;
+
+   my $oh1 = MCE::Shared->share( MCE::Shared::Ordhash->new() );
+   my $oh2 = MCE::Shared->share( Hash::Ordered->new() );
+
+   print blessed($oh1), "\n";    # MCE::Shared::Object
+   print blessed($oh2), "\n";    # MCE::Shared::Object
+
+   print $oh1->blessed(), "\n";  # MCE::Shared::Ordhash
+   print $oh2->blessed(), "\n";  # Hash::Ordered
+
 =item destroy
 
+Exports optionally, but destroys the shared object entirely from the
+shared-manager process.
+
+   my $exported_ob = $shared_ob->destroy();
+
+   $shared_ob; # becomes undef
+
 =item export
+
+Exports the shared object into a non-shared object. One must export when passing
+the shared object into any dump routine. Otherwise, the data C<${ SHARED_ID }>
+is all one will see.
+
+   use MCE::Shared;
+   use MCE::Shared::Ordhash;
+
+   sub _dump {
+      require Data::Dumper unless $INC{'Data/Dumper.pm'};
+      no warnings 'once';
+
+      local $Data::Dumper::Varname  = 'VAR';
+      local $Data::Dumper::Deepcopy = 1;
+      local $Data::Dumper::Indent   = 1;
+      local $Data::Dumper::Purity   = 1;
+      local $Data::Dumper::Sortkeys = 0;
+      local $Data::Dumper::Terse    = 0;
+
+      print Data::Dumper::Dumper($_[0]) . "\n";
+   }
+
+   # these do the same thing
+   my $oh1 = MCE::Shared->share( MCE::Shared::Ordhash->new() );
+   my $oh2 = MCE::Shared->ordhash();
+
+   _dump($oh1);  # ${ 1 }  # SHARED_ID value
+   _dump($oh2);  # ${ 2 }
+
+   _dump($oh1->export());  # actual structure and content
+   _dump($oh2->export());
+
+C<export> can optionally take a list of indices/keys for what to export.
+This applies to shared array, hash, and ordhash.
+
+   use MCE::Shared;
+
+   my $h1 = MCE::Shared->hash(           # shared hash
+      qw/ I Heard The Bluebirds Sing by Marty Robbins /
+        # k v     k   v         k    v  k     v
+   );
+
+   my $h2 = $h1->export( qw/ I The / );  # non-shared hash
+
+   _dump($h2);
+
+   __END__
+
+   $VAR1 = bless( {
+     'I' => 'Heard',
+     'The' => 'Bluebirds'
+   }, 'MCE::Shared::Hash' );
 
 =item next
 
@@ -429,13 +643,114 @@ See the MCE Cookbook on github for PDL demonstrations.
 
 =item reset
 
-=item _set - deeply share: no
+C<next>, C<prev>, and C<reset> enables parallel iteration between workers
+for shared array, hash, ordhash, and sequence. Call C<reset> after running
+to start over. Workers may iterate either direction C<next> or C<prev>.
 
-=item _mset - deeply share: no
+   use MCE::Hobo;
+   use MCE::Shared;
 
-=item _push - deeply share: no
+   my $ob = MCE::Shared->array( 'a' .. 'j' );
 
-=item _unshift - deeply share: no
+   sub parallel {
+      my ($id) = @_;
+      while (defined (my $item = $ob->next)) {
+         print "$id: $item\n";
+         sleep 1;
+      }
+   }
+
+   MCE::Hobo->new( \&parallel, $_ ) for 1 .. 3;
+
+   # ... do other work ...
+
+   $_->join() for MCE::Hobo->list();
+
+   -- Output
+
+   1: a
+   2: b
+   3: c
+   2: f
+   1: d
+   3: e
+   2: g
+   3: i
+   1: h
+   2: j
+
+There are two forms for iterating through a shared hash or ordhash object.
+
+   use MCE::Hobo;
+   use MCE::Shared;
+
+   my $ob = MCE::Shared->ordhash(
+      map {( "key_$_" => "val_$_" )} "a" .. "j"
+   );
+
+   sub iter1 {
+      my ($id) = @_;
+      while ( my ($key, $val) = $ob->next ) {
+         print "$id: $key => $val\n";
+         sleep 1;
+      }
+   }
+
+   sub iter2 {
+      my ($id) = @_;
+      while ( defined (my $val = $ob->prev) ) {
+         print "$id: $val\n";
+         sleep 1;
+      }
+   }
+
+   MCE::Hobo->new(\&iter1, $_) for 1 .. 3;
+   $_->join() for MCE::Hobo->list();
+
+   $ob->reset();
+
+   MCE::Hobo->new(\&iter2, $_) for 1 .. 3;
+   $_->join() for MCE::Hobo->list();
+
+The shared-manager process will iterate orderly, but there is no guarantee for
+the amount of time required by workers. Thus, output may not be ordered.
+
+   -- Output
+
+   1: key_a => val_a
+   2: key_b => val_b
+   3: key_c => val_c
+   1: key_d => val_d
+   2: key_f => val_f
+   3: key_e => val_e
+   3: key_i => val_i
+   2: key_g => val_g
+   1: key_h => val_h
+   3: key_j => val_j
+   1: val_j
+   2: val_i
+   3: val_h
+   1: val_g
+   3: val_e
+   2: val_f
+   3: val_d
+   2: val_b
+   1: val_c
+   2: val_a
+
+=item dset
+
+=item dmerge
+
+=item dpush
+
+=item dunshift
+
+Deep-sharing non-blessed structure(s) is possible with C<dset>, C<dmerge>,
+C<dpush>, and C<dunshift>. These do the same thing as their counterparts
+C<set>, C<merge>, C<push>, and C<unshift>. These methods traverse the list
+or hash recursively and covert non-blessed deeply-structures to shared
+objects.
 
 =back
 
@@ -445,9 +760,27 @@ See the MCE Cookbook on github for PDL demonstrations.
 
 =item start
 
+Starts the shared-manager process. This is done automatically.
+
+   MCE::Shared->start();
+
 =item stop
 
+Stops the shared-manager process wiping all shared data content. This is not
+typically done by the user, but rather by END automatically when the script
+terminates.
+
+   MCE::Shared->stop();
+
 =item init
+
+This is called automatically by each MCE/Hobo worker immediately after being
+spawned for selection of 1 of 8 data channels. The effect is extra parallelism
+during inter-process communication. The ID (optionally - must be an integer)
+is modded with 8 in a round-robin fashion.
+
+   MCE::Shared->init();
+   MCE::Shared->init( ID );
 
 =back
 

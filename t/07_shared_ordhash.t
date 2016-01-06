@@ -115,7 +115,7 @@ is( join('', $h1->pairs), 'otheyoudreameduhigh', 'shared ordhash, check splice' 
 
 $h5->clear();
 
-$h5->mset( qw(
+$h5->merge( qw(
    Make me a channel of Your peace...
    Where there's despair in life let me bring hope...
    Where there is darkness only light...
@@ -195,7 +195,7 @@ is( $h5->find('val >= 18'), 2, 'shared ordhash, check find vals >= match' );
 
 $h5->clear();
 
-$h5->mset( qw/ spring summer fall winter / );
+$h5->merge( qw/ spring summer fall winter / );
 $h5->set( key => undef );
 
 cmp_array(
@@ -209,7 +209,7 @@ cmp_array(
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
-$h5->clear(); $h5->mset( 1 => 1, 6 => 3, 2 => 6, 5 => 5, 4 => 4, 10 => 10 );
+$h5->clear(); $h5->merge( 1 => 1, 6 => 3, 2 => 6, 5 => 5, 4 => 4, 10 => 10 );
 
 ## by val
 
@@ -253,11 +253,11 @@ cmp_array(
 
 ## MCE::Shared->ordhash is ordered. Therefore, sorting not required.
 
-$h5->clear(); $h5->mset( 0, 'over', 1, 'the', 2, 'rainbow', 3, 77 );
+$h5->clear(); $h5->merge( 0, 'over', 1, 'the', 2, 'rainbow', 3, 77 );
 
 cmp_array(
    [ $h5->pairs() ], [ qw/ 0 over 1 the 2 rainbow 3 77 / ],
-   'shared ordhash, check mset'
+   'shared ordhash, check merge'
 );
 cmp_array(
    [ $h5->mget(0, 2) ], [ qw/ over rainbow / ],

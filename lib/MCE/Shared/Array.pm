@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_005';
+our $VERSION = '1.699_006';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -63,7 +63,7 @@ sub SPLICE {
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## clone, flush, iterator, mget, mset, keys, values, pairs
+## clone, flush, iterator, mget, merge, keys, values, pairs
 ##
 ###############################################################################
 
@@ -108,7 +108,7 @@ sub mget {
       : ();
 }
 
-sub mset {
+sub merge {
    my ( $self, $key ) = ( shift );
 
    while ( @_ ) {
@@ -257,7 +257,7 @@ MCE::Shared::Array - Array helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Array version 1.699_005
+This document describes MCE::Shared::Array version 1.699_006
 
 =head1 SYNOPSIS
 
@@ -288,7 +288,7 @@ This document describes MCE::Shared::Array version 1.699_005
    $ar2   = $ar->clone( @indices );           # @indices is optional
    $ar3   = $ar->flush( @indices );
    $iter  = $ar->iterator( @indices );        # ($idx, $val) = $iter->()
-   $len   = $ar->mset( $idx/$val pairs );
+   $len   = $ar->merge( $idx/$val pairs );
    @vals  = $ar->mget( @indices );
    @keys  = $ar->keys( @indices );
    @vals  = $ar->values( @indices );
@@ -367,7 +367,7 @@ To be completed before the final 1.700 release.
 
 =item mget
 
-=item mset
+=item merge
 
 =item keys
 

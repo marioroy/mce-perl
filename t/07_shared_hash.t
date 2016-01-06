@@ -84,7 +84,7 @@ is( $h1{ret}->[1], 'air', 'shared hash, check auto freeze/thaw' );
 
 $h5->clear();
 
-$h5->mset( qw(
+$h5->merge( qw(
    Make me a channel of Your peace...
    Where there's despair in life let me bring hope...
    Where there is darkness only light...
@@ -164,7 +164,7 @@ is( $h5->find('val >= 18'), 2, 'shared hash, check find vals >= match' );
 
 $h5->clear();
 
-$h5->mset( qw/ spring summer fall winter / );
+$h5->merge( qw/ spring summer fall winter / );
 $h5->set( key => undef );
 
 cmp_array(
@@ -180,11 +180,11 @@ cmp_array(
 
 ## MCE::Shared->hash isn't ordered. Therefore, must sort.
 
-$h5->clear(); $h5->mset( 0, 'over', 1, 'the', 2, 'rainbow', 3, 77 );
+$h5->clear(); $h5->merge( 0, 'over', 1, 'the', 2, 'rainbow', 3, 77 );
 
 cmp_array(
    [ sort $h5->pairs() ], [ sort qw/ 0 over 1 the 2 rainbow 3 77 / ],
-   'shared hash, check mset'
+   'shared hash, check merge'
 );
 cmp_array(
    [ sort $h5->mget(0, 2) ], [ sort qw/ over rainbow / ],
