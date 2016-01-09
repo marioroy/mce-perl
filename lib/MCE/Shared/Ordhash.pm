@@ -2,6 +2,14 @@
 ## ----------------------------------------------------------------------------
 ## Ordered-hash helper class.
 ##
+## An optimized ordered-hash implementation inspired by Hash::Ordered v0.009.
+##
+## -- Added SPLICE, sorting, plus extra capabilities for use with MCE::Hobo.
+## -- Keys garbage collection is done in-place for minimum memory consumption.
+## -- Revised tombstone deletion to ensure safety with varied usage patterns.
+## -- The indexed hash is filled on-demand to not impact subsequent stores.
+## -- Provides support for hash-like dereferencing, also on-demand.
+##
 ###############################################################################
 
 package MCE::Shared::Ordhash;
@@ -11,28 +19,15 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_006';
+our $VERSION = '1.699_007';
 
-## no critic (BuiltinFunctions::ProhibitStringyEval)
-## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
-
-## An optimized ordered-hash implementation inspired by Hash::Ordered v0.009.
-##
-## <> Keys garbage collection is done in-place for minimum memory consumption.
-## <> Revised tombstone deletion to ensure safety with varied usage patterns.
-## <> The indexed hash is filled on-demand to not impact subsequent stores.
-## <> Provides support for hash-like dereferencing, also on-demand.
-## <> Added SPLICE, sorting, plus extra capabilities for use with MCE::Hobo.
-##
 
 use MCE::Shared::Base;
 use base 'MCE::Shared::Base';
 use bytes;
 
-use constant {
-   _TOMBSTONE => \1,  # ref to arbitrary scalar
-};
+use constant { _TOMBSTONE => \1 };  # ref to arbitrary scalar
 
 use constant {
    _DATA => 0,  # unordered data
@@ -69,7 +64,6 @@ sub _croak {
 sub TIEHASH {
    my ( $class ) = ( shift );
    my ( $key, %data, @keys );
-
    _croak("requires key-value pairs") unless ( @_ % 2 == 0 );
 
    while ( @_ ) {
@@ -82,10 +76,8 @@ sub TIEHASH {
 }
 
 sub STORE {
-   my ( $self, $key ) = @_;  # $_[2] not copied in case it's large
-
+   my ( $self, $key ) = @_;  # $_[2] is not copied in case it's large
    push @{ $self->[_KEYS] }, "$key" unless exists $self->[_DATA]{ $key };
-
    $self->[_DATA]{ $key } = $_[2];
 }
 
@@ -104,8 +96,7 @@ sub DELETE {
          $self->[_BEGI]++, delete $self->[_INDX]{ $key } if $self->[_INDX];
          shift @{ $keys };
 
-         ## GC start of list
-         if ( ref $keys->[0] ) {
+         if ( ref $keys->[0] ) {     # GC start of list
             my $i = 0;
             $i++, shift @{ $keys } while ref( $keys->[0] );
             $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
@@ -117,30 +108,27 @@ sub DELETE {
          delete $self->[_INDX]{ $key } if $self->[_INDX];
          pop @{ $keys };
 
-         ## GC end of list
-         if ( ref $keys->[-1] ) {
+         if ( ref $keys->[-1] ) {    # GC end of list
             my $i = 0;
             $i++, pop @{ $keys } while ref( $keys->[-1] );
             $self->[_GCNT] -= $i;
          }
       }
 
-      ## key is in the middle
+      ## otherwise, key is in the middle
       else {
          my $indx = $self->[_INDX] || $self->_make_indx();
          my $id   = delete $indx->{ $key };
 
-         ## refresh index on-demand only
+         ## fill index on-demand; tombstone
          $self->_fill_indx(), $id = delete $indx->{ $key } if !defined $id;
-
-         ## tombstone deletion
          $keys->[ $id - $self->[_BEGI] ] = _TOMBSTONE;
 
-         ## GC keys if more than half have been deleted
+         ## GC keys if more than half are tombstone
          $self->purge() if ++$self->[_GCNT] > ( @{ $keys } >> 1 );
       }
 
-      $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
+      $self->[_BEGI] = 0, $self->[_INDX] = undef unless scalar @{ $keys };
 
       delete $self->[_DATA]{ $key };
    }
@@ -190,26 +178,23 @@ sub SCALAR {
 ###############################################################################
 
 sub POP {
-   my $self = shift;
-   my $key  = pop @{ $self->[_KEYS] };
+   my ( $self ) = @_;
 
-   if ( $self->[_GCNT] ) {
-      my $keys = $self->[_KEYS];
-
-      ## GC end of list
-      if ( ref $keys->[-1] ) {
-         my $i = 0;
-         $i++, pop @{ $keys } while ref( $keys->[-1] );
-         $self->[_GCNT] -= $i;
+   if ( $self->[_INDX] ) {
+      my $key = $self->[_KEYS][-1];
+      if ( defined $key ) {
+         return wantarray
+            ? ( $key, $self->DELETE($key) )
+            : $self->DELETE($key);
       }
-
-      $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
    }
-
-   if ( defined $key ) {
-      delete $self->[_INDX]{ $key } if $self->[_INDX];
-
-      return $key, delete $self->[_DATA]{ $key };
+   else {
+      my $key = pop @{ $self->[_KEYS] };
+      if ( defined $key ) {
+         return wantarray
+            ? ( $key, delete $self->[_DATA]{$key} )
+            : delete $self->[_DATA]{$key};
+      }
    }
 
    return;
@@ -221,7 +206,6 @@ sub PUSH {                                        # ( @pairs ); reorder
 
    while ( @_ ) {
       my ( $key, $val ) = splice( @_, 0, 2 );
-
       $self->DELETE($key) if exists $data->{ $key };
       push @{ $keys }, "$key";
       $data->{ $key } = $val;
@@ -231,26 +215,23 @@ sub PUSH {                                        # ( @pairs ); reorder
 }
 
 sub SHIFT {
-   my $self = shift;
-   my $key  = shift @{ $self->[_KEYS] };
+   my ( $self ) = @_;
 
-   if ( $self->[_GCNT] ) {
-      my $keys = $self->[_KEYS];
-
-      ## GC start of list
-      if ( ref $keys->[0] ) {
-         my $i = 0;
-         $i++, shift @{ $keys } while ref( $keys->[0] );
-         $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
+   if ( $self->[_INDX] ) {
+      my $key = $self->[_KEYS][0];
+      if ( defined $key ) {
+         return wantarray
+            ? ( $key, $self->DELETE($key) )
+            : $self->DELETE($key);
       }
-
-      $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
    }
-
-   if ( defined $key ) {
-      $self->[_BEGI]++, delete $self->[_INDX]{ $key } if $self->[_INDX];
-
-      return $key, delete $self->[_DATA]{ $key };
+   else {
+      my $key = shift @{ $self->[_KEYS] };
+      if ( defined $key ) {
+         return wantarray
+            ? ( $key, delete $self->[_DATA]{$key} )
+            : delete $self->[_DATA]{$key};
+      }
    }
 
    return;
@@ -262,7 +243,6 @@ sub UNSHIFT {                                     # ( @pairs ); reorder
 
    while ( @_ ) {
       my ( $key, $val ) = splice( @_, -2, 2 );
-
       $self->DELETE($key) if exists $data->{ $key };
       $data->{ $key } = $val, unshift @{ $keys }, "$key";
       $self->[_BEGI]-- if $self->[_INDX];
@@ -322,14 +302,12 @@ sub _make_indx {
 sub _fill_indx {
    my ( $self ) = @_;
    my ( $keys, $indx ) = ( $self->[_KEYS], $self->[_INDX] );
-
    return $self->_make_indx() unless defined $indx;
 
    my ( $left, $right ) = @{ $indx }{ @{ $keys }[ 0, -1 ] };
 
    if ( !defined $left ) {
       my ( $pos, $id, $key ) = ( 0, $self->[_BEGI] );
-
       for ( 1 .. @{ $keys } ) {
          $key = $keys->[ $pos ];
          if ( !ref $key ) {
@@ -342,7 +320,6 @@ sub _fill_indx {
 
    if ( !defined $right ) {
       my ( $pos, $id, $key ) = ( -1, $self->[_BEGI] + $#{ $keys } );
-
       for ( 1 .. @{ $keys } ) {
          $key = $keys->[ $pos ];
          if ( !ref $key ) {
@@ -353,29 +330,15 @@ sub _fill_indx {
       }
    }
 
-   $indx;
+   return;
 }
 
 sub _reorder {
-   my ( $self ) = ( shift );
-   my ( $data, $keys ) = @$self;
-   my ( %keep );
-
-   return unless @_;
+   my $self = shift;
+   @{ $self->[_KEYS] } = @_;
 
    $self->[_BEGI] = $self->[_GCNT] = 0,
    $self->[_INDX] = $self->[_ITER] = undef;
-
-   @{ $keys } = ();
-
-   for ( @_ ) {
-      if ( exists $data->{ $_ } ) {
-         $keep{ $_ } = $data->{ $_ };
-         push(@{ $keys }, "$_");
-      }
-   }
-
-   $self->[_DATA] = \%keep;
 
    return;
 }
@@ -408,6 +371,7 @@ sub clone {
    }
 
    $self->clear() if $params->{'flush'};
+
    bless [ \%data, \@keys, undef, 0, 0, undef ], ref $self;
 }
 
@@ -495,21 +459,17 @@ sub pairs {
 
 sub purge {
    my ( $self ) = @_;
+   my ( $i, $keys ) = ( 0, $self->[_KEYS] );
 
    ## @{ $self->[_KEYS] } = grep !ref($_), @{ $self->[_KEYS] };
 
-   ## Tombstone purging is done in-place for lesser memory consumption.
-
-   if ( $self->[_GCNT] ) {
-      my ( $i, $keys ) = ( 0, $self->[_KEYS] );
-
-      if ( @{ $keys } ) {
-         for ( 0 .. @{ $keys } - 1 ) {
-            next if ref( $keys->[$_] );
-            $keys->[ $i++ ] = $keys->[$_];
-         }
-         splice @{ $keys }, $i;
+   ## Purging is done in-place for lesser memory consumption.
+   if ( @{ $keys } ) {
+      for ( 0 .. @{ $keys } - 1 ) {
+         next if ref( $keys->[$_] );
+         $keys->[ $i++ ] = $keys->[$_];
       }
+      splice @{ $keys }, $i;
    }
 
    $self->[_INDX] = undef, $self->[_BEGI] = $self->[_GCNT] = 0;
@@ -523,7 +483,6 @@ sub find {
    my ( $data, $keys ) = @{ $self };
 
    ## Returns ( KEY, VALUE ) pairs where KEY matches expression.
-
    if ( $attr eq 'key' ) {
       my $_find = $self->_find_keys_hash();
 
@@ -537,7 +496,6 @@ sub find {
    }
 
    ## Returns ( KEY, VALUE ) pairs where VALUE matches expression.
-
    elsif ( $attr eq 'val' || $attr eq 'value' ) {
       my $_find = $self->_find_vals_hash();
 
@@ -549,8 +507,6 @@ sub find {
 
       $_find->{ $op }->( $data, $expr, grep !ref($_), @{ $keys } );
    }
-
-   ## Error.
 
    else {
       _croak('Find error: invalid ATTR');
@@ -568,7 +524,6 @@ sub sort {
    }
 
    ## Sort by key.
-
    if ( $by_key ) {
       if ( $alpha ) { ( $desc )
          ? $self->_reorder( CORE::sort { $b cmp $a } $self->keys )
@@ -583,7 +538,6 @@ sub sort {
    }
 
    ## Sort by value.
-
    else {
       my $d = $self->[_DATA];
 
@@ -607,7 +561,7 @@ sub sort {
 ###############################################################################
 
 sub append {   $_[0]->[_DATA]{ $_[1] } .= $_[2] || '' ;
-        length $_[0]->[_DATA]{ $_[1] }
+        length $_[0]->[_DATA]{ $_[1] };
 }
 sub decr   { --$_[0]->[_DATA]{ $_[1] }                }
 sub decrby {   $_[0]->[_DATA]{ $_[1] } -= $_[2] || 0  }
@@ -661,7 +615,7 @@ MCE::Shared::Ordhash - Ordered-hash helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Ordhash version 1.699_006
+This document describes MCE::Shared::Ordhash version 1.699_007
 
 =head1 SYNOPSIS
 
@@ -713,7 +667,7 @@ This document describes MCE::Shared::Ordhash version 1.699_006
    %pairs = $oh->find( "key =~ /$pattern/i" );
    %pairs = $oh->find( "key !~ /$pattern/i" );
 
-   %pairs = $oh->find( "val eq $string" );    # also, search key
+   %pairs = $oh->find( "val eq $string" );    # also, find( "key ..." )
    %pairs = $oh->find( "val ne $string" );
    %pairs = $oh->find( "val lt $string" );
    %pairs = $oh->find( "val le $string" );

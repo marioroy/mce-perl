@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_006';
+our $VERSION = '1.699_007';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -45,7 +45,6 @@ BEGIN {
 use Scalar::Util qw( looks_like_number refaddr );
 use Time::HiRes qw( sleep time );
 
-use Fcntl qw( O_RDONLY );
 use Symbol qw( qualify_to_ref );
 use Socket qw( SOL_SOCKET SO_RCVBUF );
 use Storable ();
@@ -989,7 +988,7 @@ sub run {
       ## Insert the first message into the queue if defined.
       if (defined $_first_msg) {
          my $_QUE_W_SOCK = $self->{_que_w_sock};
-         syswrite $_QUE_W_SOCK, pack($_que_template, 0, $_first_msg);
+         1 until syswrite $_QUE_W_SOCK, pack($_que_template, 0, $_first_msg);
       }
 
       ## Submit params data to workers.
@@ -1013,7 +1012,9 @@ sub run {
       }
 
       ## Notify workers to begin processing.
-      syswrite $_BSE_W_SOCK, $LF for (1 .. $_total_workers);
+      for (1 .. $_total_workers) {
+         1 until syswrite $_BSE_W_SOCK, $LF;
+      }
    }
 
    ## -------------------------------------------------------------------------
@@ -1053,7 +1054,7 @@ sub run {
       unless ($_run_mode eq 'nodata') {
          if (defined $self->{_que_r_sock}) {
             my $_QUE_R_SOCK = $self->{_que_r_sock};
-            sysread $_QUE_R_SOCK, (my $_next), $_que_read_size;
+            1 until sysread $_QUE_R_SOCK, (my $_next), $_que_read_size;
          }
       }
    }
@@ -1280,13 +1281,13 @@ sub sync {
    print {$_DAT_W_SOCK} OUTPUT_B_SYN . $LF . $_chn . $LF;
 
    ## Wait here until all workers (task_id 0) have synced.
-   sysread $_BSB_R_SOCK, $_buffer, 1;
+   1 until sysread $_BSB_R_SOCK, $_buffer, 1;
 
    ## Notify the manager process (end).
    print {$_DAT_W_SOCK} OUTPUT_E_SYN . $LF . $_chn . $LF;
 
    ## Wait here until all workers (task_id 0) have un-synced.
-   sysread $_BSE_R_SOCK, $_buffer, 1;
+   1 until sysread $_BSE_R_SOCK, $_buffer, 1;
 
    return;
 }
@@ -1335,8 +1336,8 @@ sub abort {
       local $\ = undef;
 
       if ($_abort_msg > 0) {
-         sysread  $_QUE_R_SOCK, (my $_next), $_que_read_size;
-         syswrite $_QUE_W_SOCK, pack($_que_template, 0, $_abort_msg);
+         1 until sysread  $_QUE_R_SOCK, (my $_next), $_que_read_size;
+         1 until syswrite $_QUE_W_SOCK, pack($_que_template, 0, $_abort_msg);
       }
 
       if ($self->{_wid} > 0) {

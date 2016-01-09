@@ -11,9 +11,8 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_006';
+our $VERSION = '1.699_007';
 
-## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use MCE::Shared::Base;
@@ -69,6 +68,7 @@ sub clone {
    }
 
    $self->clear() if $params->{'flush'};
+
    bless \%data, ref $self;
 }
 
@@ -151,7 +151,6 @@ sub find {
    my ( $attr, $op, $expr ) = split( /\s+/, $search, 3 );
 
    ## Returns ( KEY, VALUE ) pairs where KEY matches expression.
-
    if ( $attr eq 'key' ) {
       my $_find = $self->_find_keys_hash();
 
@@ -165,7 +164,6 @@ sub find {
    }
 
    ## Returns ( KEY, VALUE ) pairs where VALUE matches expression.
-
    elsif ( $attr eq 'val' || $attr eq 'value' ) {
       my $_find = $self->_find_vals_hash();
 
@@ -177,8 +175,6 @@ sub find {
 
       $_find->{ $op }->( $self, $expr, CORE::keys %{ $self } );
    }
-
-   ## Error.
 
    else {
       _croak('Find error: invalid ATTR');
@@ -233,7 +229,7 @@ MCE::Shared::Hash - Hash helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Hash version 1.699_006
+This document describes MCE::Shared::Hash version 1.699_007
 
 =head1 SYNOPSIS
 
@@ -270,7 +266,7 @@ This document describes MCE::Shared::Hash version 1.699_006
    %pairs = $ha->find( "key =~ /$pattern/i" );
    %pairs = $ha->find( "key !~ /$pattern/i" );
 
-   %pairs = $ha->find( "val eq $string" );    # also, search key
+   %pairs = $ha->find( "val eq $string" );    # also, find( "key ..." )
    %pairs = $ha->find( "val ne $string" );
    %pairs = $ha->find( "val lt $string" );
    %pairs = $ha->find( "val le $string" );

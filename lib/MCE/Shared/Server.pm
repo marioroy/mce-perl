@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.699_006';
+our $VERSION = '1.699_007';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -1081,7 +1081,8 @@ sub _loop {
 
          $_CV = $_obj{ $_id };
          my $_hndl = $_CV->{_cw_sock};
-         syswrite($_hndl, $LF) for 1 .. $_CV->{_count};
+
+         for (1 .. $_CV->{_count}) { 1 until syswrite $_hndl, $LF }
          $_CV->{_count} = 0;
 
          print {$_DAU_R_SOCK} $LF;
@@ -1094,8 +1095,10 @@ sub _loop {
 
          $_CV = $_obj{ $_id };
 
-         $_CV->{_count} -= 1, syswrite $_CV->{_cw_sock}, $LF
-            if ( $_CV->{_count} >= 0 );
+         if ( $_CV->{_count} >= 0 ) {
+            1 until syswrite $_CV->{_cw_sock}, $LF;
+            $_CV->{_count} -= 1;
+         }
 
          print {$_DAU_R_SOCK} $LF;
 
@@ -1130,7 +1133,7 @@ sub _loop {
          $_Q->{_tsem} = $_t;
 
          if ($_Q->pending() <= $_t) {
-            syswrite $_Q->{_aw_sock}, $LF;
+            1 until syswrite $_Q->{_aw_sock}, $LF;
          } else {
             $_Q->{_asem} += 1;
          }
@@ -1160,9 +1163,9 @@ sub _loop {
                $_pending = int($_pending / $_cnt) if ($_cnt);
                if ($_pending) {
                   $_pending = MAX_DQ_DEPTH if ($_pending > MAX_DQ_DEPTH);
-                  syswrite $_Q->{_qw_sock}, $LF for (1 .. $_pending);
+                  for (1 .. $_pending) { 1 until syswrite $_Q->{_qw_sock}, $LF }
                }
-               $_Q->{_dsem}  = $_pending;
+               $_Q->{_dsem} = $_pending;
             }
             else {
                $_Q->{_dsem} -= 1;
@@ -1170,7 +1173,7 @@ sub _loop {
          }
          else {
             ## Otherwise, never to exceed one byte in the channel
-            syswrite $_Q->{_qw_sock}, $LF if ($_Q->_has_data());
+            if ($_Q->_has_data()) { 1 until syswrite $_Q->{_qw_sock}, $LF }
          }
 
          if ($_cnt) {
@@ -1196,7 +1199,7 @@ sub _loop {
          }
 
          if ($_Q->{_await} && $_Q->{_asem} && $_Q->pending() <= $_Q->{_tsem}) {
-            syswrite $_Q->{_aw_sock}, $LF for (1 .. $_Q->{_asem});
+            for (1 .. $_Q->{_asem}) { 1 until syswrite $_Q->{_aw_sock}, $LF }
             $_Q->{_asem} = 0;
          }
 
@@ -1238,7 +1241,7 @@ sub _loop {
          }
 
          if ($_Q->{_await} && $_Q->{_asem} && $_Q->pending() <= $_Q->{_tsem}) {
-            syswrite $_Q->{_aw_sock}, $LF for (1 .. $_Q->{_asem});
+            for (1 .. $_Q->{_asem}) { 1 until syswrite $_Q->{_aw_sock}, $LF }
             $_Q->{_asem} = 0;
          }
 
@@ -1398,8 +1401,8 @@ sub _server_init {
    $_DAT_W_SOCK = $_SVR->{_dat_w_sock}->[0];
    $_DAU_W_SOCK = $_SVR->{_dat_w_sock}->[$_chn];
 
-   $_dat_ex = sub { sysread(  $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
-   $_dat_un = sub { syswrite( $_DAT_LOCK->{_w_sock}, '0' ) };
+   $_dat_ex = sub { 1 until sysread(  $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
+   $_dat_un = sub { 1 until syswrite( $_DAT_LOCK->{_w_sock}, '0' ) };
 
    return;
 }
@@ -1702,14 +1705,18 @@ sub _req8 {
       $_ret->[1] = $_ret->[1]->destroy()
          if ($_blessed->($_ret->[1]) && $_ret->[1]->can('destroy'));
 
-      return @{ $_ret };
+      return wantarray ? @{ $_ret } : $_ret->[1]
+         if (defined $_ret->[0]);
    }
    else {
       $_ret->[0] = $_ret->[0]->destroy()
          if ($_blessed->($_ret->[0]) && $_ret->[0]->can('destroy'));
 
-      return $_ret->[0];
+      return $_ret->[0]
+         if (defined $_ret->[0]);
    }
+
+   return;
 }
 
 ## called by next and prev
@@ -1871,7 +1878,7 @@ sub UNSHIFT {
 ## deeply share: no
 
 sub merge {
-   (@_ <= 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
+   (@_ == 3 && !ref($_[1]) && !ref($_[-1]) && defined($_[-1]))
       ? _req7('O~MS2', @_) : _req6('O~MSE', @_);
 }
 sub push {
@@ -2117,7 +2124,7 @@ sub timedwait {
       die "alarm clock restart\n"
          if $_is_MSWin32 && $_ready->($_CV->{_cr_sock}, $_timeout);
 
-      sysread $_CV->{_cr_sock}, my($_next), 1;  # block
+      1 until sysread $_CV->{_cr_sock}, my($_next), 1;  # block
 
       alarm 0;
    };
@@ -2144,7 +2151,7 @@ sub wait {
    $_CV->{_mutex}->unlock;
 
    $_ready->($_CV->{_cr_sock}) if $_is_MSWin32;
-   sysread $_CV->{_cr_sock}, my($_next), 1;  # block
+   1 until sysread $_CV->{_cr_sock}, my($_next), 1;  # block
 
    return '';
 }
@@ -2172,7 +2179,7 @@ sub await {
    _req2('O~QUA', $_id.$LF . $_t.$LF, '');
 
    $_ready->($_Q->{_ar_sock}) if $_is_MSWin32;
-   sysread $_Q->{_ar_sock}, my($_next), 1;  # block
+   1 until sysread $_Q->{_ar_sock}, my($_next), 1;  # block
 
    return;
 }
@@ -2193,7 +2200,7 @@ sub dequeue {
    }
 
    $_ready->($_Q->{_qr_sock}) if $_is_MSWin32;
-   sysread $_Q->{_qr_sock}, my($_next), 1;  # block
+   1 until sysread $_Q->{_qr_sock}, my($_next), 1;  # block
 
    _req4('O~QUD', $_id.$LF . $_cnt.$LF, $_cnt);
 }
@@ -2352,7 +2359,7 @@ MCE::Shared::Server - Server/Object packages for MCE::Shared
 
 =head1 VERSION
 
-This document describes MCE::Shared::Server version 1.699_006
+This document describes MCE::Shared::Server version 1.699_007
 
 =head1 DESCRIPTION
 

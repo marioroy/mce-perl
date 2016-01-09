@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.699_006';
+our $VERSION = '1.699_007';
 
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
@@ -154,7 +154,7 @@ sub _output_loop {
 
          if ($_task_id == 0 && defined $_syn_flag && $_sync_cnt) {
             if ($_sync_cnt == $_total_running) {
-               syswrite $_BSB_W_SOCK, $LF for (1 .. $_total_running);
+               for (1 .. $_total_running) { 1 until syswrite $_BSB_W_SOCK, $LF }
                undef $_syn_flag;
             }
          }
@@ -184,7 +184,7 @@ sub _output_loop {
 
          if ($_task_id == 0 && defined $_syn_flag && $_sync_cnt) {
             if ($_sync_cnt == $_total_running) {
-               syswrite $_BSB_W_SOCK, $LF for (1 .. $_total_running);
+               for (1 .. $_total_running) { 1 until syswrite $_BSB_W_SOCK, $LF }
                undef $_syn_flag;
             }
          }
@@ -655,7 +655,7 @@ sub _output_loop {
             : $self->{_total_running};
 
          if (++$_sync_cnt == $_total_running) {
-            syswrite $_BSB_W_SOCK, $LF for (1 .. $_total_running);
+            for (1 .. $_total_running) { 1 until syswrite $_BSB_W_SOCK, $LF }
             undef $_syn_flag;
          }
 
@@ -669,7 +669,7 @@ sub _output_loop {
                ? $self->{_task}->[0]->{_total_running}
                : $self->{_total_running};
 
-            syswrite $_BSE_W_SOCK, $LF for (1 .. $_total_running);
+            for (1 .. $_total_running) { 1 until syswrite $_BSE_W_SOCK, $LF }
          }
 
          return;

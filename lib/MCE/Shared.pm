@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_006';
+our $VERSION = '1.699_007';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -266,7 +266,7 @@ MCE::Shared - MCE extension for sharing data between workers
 
 =head1 VERSION
 
-This document describes MCE::Shared version 1.699_006
+This document describes MCE::Shared version 1.699_007
 
 =head1 SYNOPSIS
 
@@ -344,7 +344,7 @@ This module provides data sharing for MCE supporting threads and processes.
 
 C<MCE::Shared> enables extra functionality on systems with C<IO::FDPass>.
 Without it, MCE::Shared is unable to send file descriptors to the
-shared-manager process for <queue>, C<condvar>, and possibly C<handle>.
+shared-manager process for C<queue>, C<condvar>, and possibly C<handle>.
 
 As of this writing, the L<IO::FDPass|IO::FDPass> module is not a requirement
 for running MCE::Shared nor is the check made during installation. The reason

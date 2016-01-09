@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.699_006
+This document describes MCE::Core version 1.699_007
 
 =head1 SYNOPSIS
 
@@ -163,7 +163,7 @@ Below, a new instance is configured with all available options.
          # Do not enable parallel_io when running MCE on many
          # blades with input coming from shared storage.
 
-         # Set posix_exit to avoid END and destructor processing
+         # Set posix_exit to avoid all END and destructor processing
          # for non-threads spawned via fork.
 
          # Enable slurpio to pass the raw chunk (scalar ref)

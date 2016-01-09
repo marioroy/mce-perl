@@ -11,9 +11,8 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_006';
+our $VERSION = '1.699_007';
 
-## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use MCE::Shared::Base;
@@ -83,6 +82,7 @@ sub clone {
    }
 
    $self->clear() if $params->{'flush'};
+
    bless \@data, ref $self;
 }
 
@@ -165,7 +165,6 @@ sub find {
    my ( $attr, $op, $expr ) = split( /\s+/, $search, 3 );
 
    ## Returns ( IDX, VALUE ) pairs where VALUE matches expression.
-
    if ( $attr eq 'val' || $attr eq 'value' ) {
       my $_find = $self->_find_vals_array();
 
@@ -177,9 +176,6 @@ sub find {
 
       $_find->{ $op }->( $self, $expr, 0 .. $#{ $self } );
    }
-
-   ## Error.
-
    else {
       _croak('Find error: invalid ATTR');
    }
@@ -257,7 +253,7 @@ MCE::Shared::Array - Array helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Array version 1.699_006
+This document describes MCE::Shared::Array version 1.699_007
 
 =head1 SYNOPSIS
 

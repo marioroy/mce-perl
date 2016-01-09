@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_006';
+our $VERSION = '1.699_007';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -224,8 +224,9 @@ sub new {
          MCE::Util::_sock_pair($_Q, qw(_qr_sock _qw_sock));
          MCE::Util::_sock_pair($_Q, qw(_ar_sock _aw_sock)) if $_Q->{_await};
 
-         syswrite $_Q->{_qw_sock}, $LF
-            if (exists $_argv{queue} && scalar @{ $_argv{queue} });
+         if (exists $_argv{queue} && scalar @{ $_argv{queue} }) {
+            1 until syswrite $_Q->{_qw_sock}, $LF;
+         }
       }
       else {
          $_Q->{_standalone} = 1;
@@ -655,7 +656,7 @@ sub _heap_insert_high {
          $_Q->{_tsem} = $_t;
 
          if ($_Q->_pending() <= $_t) {
-            syswrite $_Q->{_aw_sock}, $LF;
+            1 until syswrite $_Q->{_aw_sock}, $LF;
          } else {
             $_Q->{_asem} += 1;
          }
@@ -669,8 +670,9 @@ sub _heap_insert_high {
          chomp($_id = <$_DAU_R_SOCK>);
          $_Q = $_all->{$_id};
 
-         sysread $_Q->{_qr_sock}, my($_buf), 1 if ($_Q->_has_data());
-
+         if ($_Q->_has_data()) {
+            1 until sysread $_Q->{_qr_sock}, my($_buf), 1;
+         }
          $_Q->_clear();
 
          print {$_DAU_R_SOCK} $LF;
@@ -692,10 +694,11 @@ sub _heap_insert_high {
          if ($_Q->{gather}) {
             local $_ = $_MCE->{thaw}($_buf);
             $_Q->{gather}($_Q, @{ $_ });
-         } else {
-            syswrite $_Q->{_qw_sock}, $LF
-               if (!$_Q->{_nb_flag} && !$_Q->_has_data());
-
+         }
+         else {
+            if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
+               1 until syswrite $_Q->{_qw_sock}, $LF;
+            }
             push @{ $_Q->{_datq} }, @{ $_MCE->{thaw}($_buf) };
          }
 
@@ -712,9 +715,9 @@ sub _heap_insert_high {
          read $_DAU_R_SOCK, my($_buf), $_len;
          $_Q = $_all->{$_id};
 
-         syswrite $_Q->{_qw_sock}, $LF
-            if (!$_Q->{_nb_flag} && !$_Q->_has_data());
-
+         if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
+            1 until syswrite $_Q->{_qw_sock}, $LF;
+         }
          $_Q->_enqueuep($_p, @{ $_MCE->{thaw}($_buf) });
 
          return;
@@ -734,10 +737,11 @@ sub _heap_insert_high {
 
          if ($_Q->{gather}) {
             $_Q->{gather}($_Q, $_);
-         } else {
-            syswrite $_Q->{_qw_sock}, $LF
-               if (!$_Q->{_nb_flag} && !$_Q->_has_data());
-
+         }
+         else {
+            if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
+               1 until syswrite $_Q->{_qw_sock}, $LF;
+            }
             push @{ $_Q->{_datq} }, $_;
          }
 
@@ -754,9 +758,9 @@ sub _heap_insert_high {
          read $_DAU_R_SOCK, my($_buf), $_len;
          $_Q = $_all->{$_id};
 
-         syswrite $_Q->{_qw_sock}, $LF
-            if (!$_Q->{_nb_flag} && !$_Q->_has_data());
-
+         if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
+            1 until syswrite $_Q->{_qw_sock}, $LF;
+         }
          $_Q->_enqueuep($_p, $_buf);
 
          return;
@@ -788,9 +792,9 @@ sub _heap_insert_high {
                $_pending = int($_pending / $_cnt) if ($_cnt);
                if ($_pending) {
                   $_pending = MAX_DQ_DEPTH if ($_pending > MAX_DQ_DEPTH);
-                  syswrite $_Q->{_qw_sock}, $LF for (1 .. $_pending);
+                  for (1 .. $_pending) { 1 until syswrite $_Q->{_qw_sock}, $LF }
                }
-               $_Q->{_dsem}  = $_pending;
+               $_Q->{_dsem} = $_pending;
             }
             else {
                $_Q->{_dsem} -= 1;
@@ -798,7 +802,7 @@ sub _heap_insert_high {
          }
          else {
             ## Otherwise, never to exceed one byte in the channel
-            syswrite $_Q->{_qw_sock}, $LF if ($_Q->_has_data());
+            if ($_Q->_has_data()) { 1 until syswrite $_Q->{_qw_sock}, $LF }
          }
 
          if ($_cnt) {
@@ -812,7 +816,8 @@ sub _heap_insert_high {
          else {
             unless (defined $_buf) {
                print {$_DAU_R_SOCK} '-1' . $LF;
-            } else {
+            }
+            else {
                if (ref $_buf) {
                   $_buf  = $_MCE->{freeze}($_buf) . '1';
                } else {
@@ -823,7 +828,7 @@ sub _heap_insert_high {
          }
 
          if ($_Q->{_await} && $_Q->{_asem} && $_Q->_pending() <= $_Q->{_tsem}) {
-            syswrite $_Q->{_aw_sock}, $LF for (1 .. $_Q->{_asem});
+            for (1 .. $_Q->{_asem}) { 1 until syswrite $_Q->{_aw_sock}, $LF }
             $_Q->{_asem} = 0;
          }
 
@@ -866,7 +871,7 @@ sub _heap_insert_high {
          }
 
          if ($_Q->{_await} && $_Q->{_asem} && $_Q->_pending() <= $_Q->{_tsem}) {
-            syswrite $_Q->{_aw_sock}, $LF for (1 .. $_Q->{_asem});
+            for (1 .. $_Q->{_asem}) { 1 until syswrite $_Q->{_aw_sock}, $LF }
             $_Q->{_asem} = 0;
          }
 
@@ -897,8 +902,9 @@ sub _heap_insert_high {
          read $_DAU_R_SOCK, my($_buf), $_len;
          $_Q = $_all->{$_id};
 
-         syswrite $_Q->{_qw_sock}, $LF
-            if (!$_Q->{_nb_flag} && !$_Q->_has_data());
+         if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
+            1 until syswrite $_Q->{_qw_sock}, $LF;
+         }
 
          if (chop $_buf) {
             $_Q->_insert($_i, @{ $_MCE->{thaw}($_buf) });
@@ -920,8 +926,9 @@ sub _heap_insert_high {
          read $_DAU_R_SOCK, my($_buf), $_len;
          $_Q = $_all->{$_id};
 
-         syswrite $_Q->{_qw_sock}, $LF
-            if (!$_Q->{_nb_flag} && !$_Q->_has_data());
+         if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
+            1 until syswrite $_Q->{_qw_sock}, $LF;
+         }
 
          if (chop $_buf) {
             $_Q->_insertp($_p, $_i, @{ $_MCE->{thaw}($_buf) });
@@ -1071,8 +1078,9 @@ sub _mce_m_clear {
 
    if ($_Q->{_fast}) {
       warn "Queue: (clear) is not allowed for fast => 1\n";
-   } else {
-      sysread $_Q->{_qr_sock}, $_next, 1 if ($_Q->_has_data());
+   }
+   else {
+      if ($_Q->_has_data()) { 1 until sysread $_Q->{_qr_sock}, $_next, 1 }
       $_Q->_clear();
    }
 
@@ -1084,9 +1092,9 @@ sub _mce_m_enqueue {
 
    return unless (scalar @_);
 
-   syswrite $_Q->{_qw_sock}, $LF
-      if (!$_Q->{_nb_flag} && !$_Q->_has_data());
-
+   if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
+      1 until syswrite $_Q->{_qw_sock}, $LF;
+   }
    push @{ $_Q->{_datq} }, @_;
 
    return;
@@ -1100,9 +1108,9 @@ sub _mce_m_enqueuep {
 
    return unless (scalar @_);
 
-   syswrite $_Q->{_qw_sock}, $LF
-      if (!$_Q->{_nb_flag} && !$_Q->_has_data());
-
+   if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
+      1 until syswrite $_Q->{_qw_sock}, $LF;
+   }
    $_Q->_enqueuep($_p, @_);
 
    return;
@@ -1114,7 +1122,7 @@ sub _mce_m_dequeue {
    my ($_Q, $_cnt) = @_;
    my (@_items, $_buf, $_next, $_pending);
 
-   sysread $_Q->{_qr_sock}, $_next, 1;  # block
+   1 until sysread $_Q->{_qr_sock}, $_next, 1;  # block
 
    if (defined $_cnt && $_cnt ne '1') {
       @_items = $_Q->_dequeue($_cnt);
@@ -1129,9 +1137,9 @@ sub _mce_m_dequeue {
          $_pending = int($_pending / $_cnt) if (defined $_cnt);
          if ($_pending) {
             $_pending = MAX_DQ_DEPTH if ($_pending > MAX_DQ_DEPTH);
-            syswrite $_Q->{_qw_sock}, $LF for (1 .. $_pending);
+            for (1 .. $_pending) { 1 until syswrite $_Q->{_qw_sock}, $LF }
          }
-         $_Q->{_dsem}  = $_pending;
+         $_Q->{_dsem} = $_pending;
       }
       else {
          $_Q->{_dsem} -= 1;
@@ -1139,7 +1147,7 @@ sub _mce_m_dequeue {
    }
    else {
       ## Otherwise, never to exceed one byte in the channel
-      syswrite $_Q->{_qw_sock}, $LF if ($_Q->_has_data());
+      if ($_Q->_has_data()) { 1 until syswrite $_Q->{_qw_sock}, $LF }
    }
 
    $_Q->{_nb_flag} = 0;
@@ -1172,8 +1180,9 @@ sub _mce_m_insert {
 
    return unless (scalar @_);
 
-   syswrite $_Q->{_qw_sock}, $LF
-      if (!$_Q->{_nb_flag} && !$_Q->_has_data());
+   if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
+      1 until syswrite $_Q->{_qw_sock}, $LF;
+   }
 
    $_Q->_insert($_i, @_);
 
@@ -1190,9 +1199,9 @@ sub _mce_m_insertp {
 
    return unless (scalar @_);
 
-   syswrite $_Q->{_qw_sock}, $LF
-      if (!$_Q->{_nb_flag} && !$_Q->_has_data());
-
+   if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
+      1 until syswrite $_Q->{_qw_sock}, $LF;
+   }
    $_Q->_insertp($_p, $_i, @_);
 
    return;
@@ -1256,8 +1265,8 @@ sub _mce_m_insertp {
       $_lock_chn   = $_MCE->{_lock_chn};
 
       if ($_lock_chn) {
-         $_dat_ex = sub { sysread(  $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
-         $_dat_un = sub { syswrite( $_DAT_LOCK->{_w_sock}, '0' ) };
+         $_dat_ex = sub { 1 until sysread(  $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
+         $_dat_un = sub { 1 until syswrite( $_DAT_LOCK->{_w_sock}, '0' ) };
       }
 
       $_all = {};
@@ -1302,7 +1311,7 @@ sub _mce_m_insertp {
       print {$_DAU_W_SOCK} $_Q->{_id} . $LF . $_t . $LF;
       $_dat_un->() if $_lock_chn;
 
-      sysread $_Q->{_ar_sock}, $_next, 1;  # block
+      1 until sysread $_Q->{_ar_sock}, $_next, 1;  # block
 
       return;
    }
@@ -1397,7 +1406,7 @@ sub _mce_m_insertp {
          $_cnt = 1;
       }
 
-      sysread $_Q->{_qr_sock}, $_next, 1;  # block
+      1 until sysread $_Q->{_qr_sock}, $_next, 1;  # block
 
       $_req2->(OUTPUT_D_QUE, $_Q->{_id}.$LF . $_cnt.$LF, $_cnt);
    }
@@ -1625,7 +1634,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.699_006
+This document describes MCE::Queue version 1.699_007
 
 =head1 SYNOPSIS
 

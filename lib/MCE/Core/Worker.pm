@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.699_006';
+our $VERSION = '1.699_007';
 
 ## Items below are folded into MCE.
 
@@ -298,8 +298,8 @@ use bytes;
       $_task_id    = $self->{_task_id};
 
       if ($_lock_chn) {
-         $_dat_ex = sub { sysread(  $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
-         $_dat_un = sub { syswrite( $_DAT_LOCK->{_w_sock}, '0' ) };
+         $_dat_ex = sub { 1 until sysread(  $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
+         $_dat_un = sub { 1 until syswrite( $_DAT_LOCK->{_w_sock}, '0' ) };
       }
 
       local ($|, $!, $@);
@@ -505,8 +505,8 @@ sub _worker_loop {
    my $_job_delay  = $self->{job_delay};
    my $_wid        = $self->{_wid};
 
-   my $_com_ex = sub { sysread(  $_COM_LOCK->{_r_sock}, my $_b, 1 ) };
-   my $_com_un = sub { syswrite( $_COM_LOCK->{_w_sock}, '0' ) };
+   my $_com_ex = sub { 1 until sysread(  $_COM_LOCK->{_r_sock}, my $_b, 1 ) };
+   my $_com_un = sub { 1 until syswrite( $_COM_LOCK->{_w_sock}, '0' ) };
 
    while (1) {
 
@@ -565,7 +565,7 @@ sub _worker_loop {
       next if ($_response eq '_data');
 
       ## Wait here until MCE completes job submission to all workers.
-      sysread $self->{_bse_r_sock}, (my $_c), 1;
+      1 until sysread $self->{_bse_r_sock}, (my $_c), 1;
 
       if (defined $_job_delay && $_job_delay > 0.0) {
          sleep $_job_delay * $_wid;
