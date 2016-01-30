@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 19;
+use Test::More tests => 21;
 use MCE::Hobo;
 use MCE::Shared;
 
@@ -68,15 +68,17 @@ my $cv = MCE::Shared->condvar();
 
 $cv->set(20);
 
-is( $cv->length(), 2, 'shared condvar, check length' );
+is( $cv->len(), 2, 'shared condvar, check length' );
 is( $cv->incr(), 21, 'shared condvar, check incr' );
 is( $cv->decr(), 20, 'shared condvar, check decr' );
 is( $cv->incrby(4), 24, 'shared condvar, check incrby' );
 is( $cv->decrby(4), 20, 'shared condvar, check decrby' );
-is( $cv->pincr(), 20, 'shared condvar, check pincr' );
-is( $cv->get(), 21, 'shared condvar, check value after pincr' );
-is( $cv->pdecr(), 21, 'shared condvar, check pdecr' );
-is( $cv->get(), 20, 'shared condvar, check value after pdecr' );
+is( $cv->getincr(), 20, 'shared condvar, check getincr' );
+is( $cv->get(), 21, 'shared condvar, check value after getincr' );
+is( $cv->getdecr(), 21, 'shared condvar, check getdecr' );
+is( $cv->get(), 20, 'shared condvar, check value after getdecr' );
 is( $cv->append('ba'), 4, 'shared condvar, check append' );
 is( $cv->get(), '20ba', 'shared condvar, check value after append' );
+is( $cv->getset('foo'), '20ba', 'shared condvar, check getset' );
+is( $cv->get(), 'foo', 'shared condvar, check value after getset' );
 

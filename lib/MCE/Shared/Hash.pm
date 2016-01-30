@@ -11,12 +11,11 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_007';
+our $VERSION = '1.699_008';
 
-## no critic (TestingAndDebugging::ProhibitNoStrict)
+# no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use MCE::Shared::Base;
-use base 'MCE::Shared::Base';
 use bytes;
 
 use overload (
@@ -25,17 +24,13 @@ use overload (
    fallback => 1
 );
 
-sub _croak {
-   goto &MCE::Shared::Base::_croak;
-}
-
 sub TIEHASH {
    my $self = bless {}, shift;
-   $self->merge(@_) if @_;
+   $self->mset(@_) if @_;
    $self;
 }
 
-## Based on Tie::StdHash from Tie::Hash.
+# Based on Tie::StdHash from Tie::Hash.
 
 sub STORE    { $_[0]->{$_[1]} = $_[2] }
 sub FETCH    { $_[0]->{$_[1]} }
@@ -48,9 +43,43 @@ sub SCALAR   { scalar keys %{$_[0]} }
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## clone, flush, iterator, mget, merge, keys, values, pairs
+## _find, clone, flush, iterator, keys, pairs, values
 ##
 ###############################################################################
+
+#  Query string:
+#
+#  Several methods receive query string as an argument. The string is
+#  quoteless. Any quotes inside the string will be treated literally.
+#
+#  Search capability { =~ !~ eq ne lt le gt ge == != < <= > >= }
+#
+#  "key =~ /pattern/i :AND val =~ /pattern/i"
+#  "key =~ /pattern/i :AND val eq foo bar"     # val eq foo bar
+#  "val eq foo baz :OR key !~ /pattern/i"
+#
+#     key means to match against keys in the hash
+#     val means to match against values in the hash
+#
+#  Do not mix :AND(s) and :OR(s) together.
+
+# _find ( { getkeys => 1 }, "query string" )
+# _find ( { getvals => 1 }, "query string" )
+#
+# _find ( "query string" ) # pairs
+
+sub _find {
+   my $self   = shift;
+   my $params = ref($_[0]) eq 'HASH' ? shift : {};
+   my $query  = shift;
+
+   MCE::Shared::Base::_find_hash(
+      $self, $params, $query, CORE::keys %{ $self }
+   );
+}
+
+# clone ( key [, key, ... ] )
+# clone
 
 sub clone {
    my $self = shift;
@@ -72,13 +101,26 @@ sub clone {
    bless \%data, ref $self;
 }
 
+# flush ( key [, key, ... ] )
+# flush
+
 sub flush {
    shift()->clone( { flush => 1 }, @_ );
 }
 
+# iterator ( key [, key, ... ] )
+# iterator ( "query string" )
+# iterator
+
 sub iterator {
    my ( $self, @keys ) = @_;
-   @keys = CORE::keys %{ $self } unless @keys;
+
+   if ( !scalar @keys ) {
+      @keys = CORE::keys %{ $self };
+   }
+   elsif ( @keys == 1 && $keys[0] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {
+      @keys = $self->keys($keys[0]);
+   }
 
    return sub {
       return unless @keys;
@@ -87,130 +129,176 @@ sub iterator {
    };
 }
 
+# keys ( key [, key, ... ] )
+# keys ( "query string" )
+# keys
+
+sub keys {
+   my $self = shift;
+
+   if ( @_ == 1 && $_[0] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {
+      $self->_find({ getkeys => 1 }, @_);
+   }
+   else {
+      if ( wantarray ) {
+         @_ ? map { exists $self->{ $_ } ? $_ : undef } @_
+            : CORE::keys %{ $self };
+      }
+      else {
+         scalar CORE::keys %{ $self };
+      }
+   }
+}
+
+# pairs ( key [, key, ... ] )
+# pairs ( "query string" )
+# pairs
+
+sub pairs {
+   my $self = shift;
+
+   if ( @_ == 1 && $_[0] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {
+      $self->_find(@_);
+   }
+   else {
+      if ( wantarray ) {
+         @_ ? map { $_ => $self->{ $_ } } @_
+            : %{ $self };
+      }
+      else {
+         ( scalar CORE::keys %{ $self } ) << 1;
+      }
+   }
+}
+
+# values ( key [, key, ... ] )
+# values ( "query string" )
+# values
+
+sub values {
+   my $self = shift;
+
+   if ( @_ == 1 && $_[0] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {
+      $self->_find({ getvals => 1 }, @_);
+   }
+   else {
+      if ( wantarray ) {
+         @_ ? @{ $self }{ @_ }
+            : CORE::values %{ $self };
+      }
+      else {
+         scalar CORE::keys %{ $self };
+      }
+   }
+}
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## mdel, mexists, mget, mset
+##
+###############################################################################
+
+# mdel ( key [, key, ... ] )
+
+sub mdel {
+   my $self = shift;
+   my ( $cnt, $key ) = ( 0 );
+
+   while ( @_ ) {
+      $key = shift;
+      $cnt++, delete($self->{ $key }) if exists($self->{ $key });
+   }
+
+   $cnt;
+}
+
+# mexists ( key [, key, ... ] )
+
+sub mexists {
+   my $self = shift;
+   my $key;
+
+   while ( @_ ) {
+      $key = shift;
+      return '' if ( !exists $self->{ $key } );
+   }
+
+   1;
+}
+
+# mget ( key [, key, ... ] )
+
 sub mget {
    my $self = shift;
 
-   @_ ? @{ $self }{ @_ }
-      : ();
+   @_ ? @{ $self }{ @_ } : ();
 }
 
-sub merge {
+# mset ( key, value [, key, value, ... ] )
+
+sub mset {
    my ( $self, $key ) = ( shift );
 
    while ( @_ ) {
       $key = shift, $self->{ $key } = shift;
    }
 
-   scalar CORE::keys %{ $self };
-}
-
-sub keys {
-   my $self = shift;
-
-   if ( wantarray ) {
-      @_ ? map { exists $self->{ $_ } ? $_ : undef } @_
-         : CORE::keys %{ $self };
-   }
-   else {
-      scalar CORE::keys %{ $self };
-   }
-}
-
-sub values {
-   my $self = shift;
-
-   if ( wantarray ) {
-      @_ ? @{ $self }{ @_ }
-         : CORE::values %{ $self };
-   }
-   else {
-      scalar CORE::keys %{ $self };
-   }
-}
-
-sub pairs {
-   my $self = shift;
-
-   if ( wantarray ) {
-      @_ ? map { $_ => $self->{ $_ } } @_
-         : %{ $self };
-   }
-   else {
-      ( scalar CORE::keys %{ $self } ) << 1;
-   }
+   defined wantarray ? scalar CORE::keys %{ $self } : ();
 }
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## find
+## Sugar API, mostly resembles http://redis.io/commands#string primitives.
 ##
 ###############################################################################
 
-sub find {
-   my ( $self, $search ) = @_;
-   my ( $attr, $op, $expr ) = split( /\s+/, $search, 3 );
+# append ( key, string )
 
-   ## Returns ( KEY, VALUE ) pairs where KEY matches expression.
-   if ( $attr eq 'key' ) {
-      my $_find = $self->_find_keys_hash();
-
-      _croak('Find error: invalid OPCODE') unless length $op;
-      _croak('Find error: invalid OPCODE') unless exists $_find->{ $op };
-      _croak('Find error: invalid EXPR'  ) unless length $expr;
-
-      $expr = undef if $expr eq 'undef';
-
-      $_find->{ $op }->( $self, $expr, CORE::keys %{ $self } );
-   }
-
-   ## Returns ( KEY, VALUE ) pairs where VALUE matches expression.
-   elsif ( $attr eq 'val' || $attr eq 'value' ) {
-      my $_find = $self->_find_vals_hash();
-
-      _croak('Find error: invalid OPCODE') unless length $op;
-      _croak('Find error: invalid OPCODE') unless exists $_find->{ $op };
-      _croak('Find error: invalid EXPR'  ) unless length $expr;
-
-      $expr = undef if $expr eq 'undef';
-
-      $_find->{ $op }->( $self, $expr, CORE::keys %{ $self } );
-   }
-
-   else {
-      _croak('Find error: invalid ATTR');
-   }
+sub append {
+   $_[0]->{ $_[1] } .= $_[2] || '';
+   length $_[0]->{ $_[1] };
 }
 
-###############################################################################
-## ----------------------------------------------------------------------------
-## append, decr, decrby, incr, incrby, pdecr, pincr
-##
-###############################################################################
+# decr    ( key )
+# decrby  ( key, number )
+# incr    ( key )
+# incrby  ( key, number )
+# getdecr ( key )
+# getincr ( key )
 
-sub append {   $_[0]->{ $_[1] } .= $_[2] || '' ; length $_[0]->{ $_[1] } }
-sub decr   { --$_[0]->{ $_[1] }                }
-sub decrby {   $_[0]->{ $_[1] } -= $_[2] || 0  }
-sub incr   { ++$_[0]->{ $_[1] }                }
-sub incrby {   $_[0]->{ $_[1] } += $_[2] || 0  }
-sub pdecr  {   $_[0]->{ $_[1] }--              }
-sub pincr  {   $_[0]->{ $_[1] }++              }
+sub decr    { --$_[0]->{ $_[1] }               }
+sub decrby  {   $_[0]->{ $_[1] } -= $_[2] || 0 }
+sub incr    { ++$_[0]->{ $_[1] }               }
+sub incrby  {   $_[0]->{ $_[1] } += $_[2] || 0 }
+sub getdecr {   $_[0]->{ $_[1] }--        || 0 }
+sub getincr {   $_[0]->{ $_[1] }++        || 0 }
 
-sub length {
+# getset ( key, value )
+
+sub getset { my $old = $_[0]->{ $_[1] }; $_[0]->{ $_[1] } = $_[2]; $old }
+
+# len ( key )
+# len
+
+sub len {
    ( defined $_[1] )
-      ? CORE::length( $_[0]->{ $_[1] } )
+      ? length $_[0]->{ $_[1] } || 0
       : scalar CORE::keys %{ $_[0] };
 }
 
-## Aliases.
-
 {
    no strict 'refs';
+
    *{ __PACKAGE__.'::new'    } = \&TIEHASH;
    *{ __PACKAGE__.'::set'    } = \&STORE;
    *{ __PACKAGE__.'::get'    } = \&FETCH;
    *{ __PACKAGE__.'::delete' } = \&DELETE;
    *{ __PACKAGE__.'::exists' } = \&EXISTS;
    *{ __PACKAGE__.'::clear'  } = \&CLEAR;
+
+   *{ __PACKAGE__.'::del'    } = \&delete;
+   *{ __PACKAGE__.'::merge'  } = \&mset;
+   *{ __PACKAGE__.'::vals'   } = \&values;
 }
 
 1;
@@ -229,7 +317,7 @@ MCE::Shared::Hash - Hash helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Hash version 1.699_007
+This document describes MCE::Shared::Hash version 1.699_008
 
 =head1 SYNOPSIS
 
@@ -246,48 +334,58 @@ This document describes MCE::Shared::Hash version 1.699_007
    # oo interface
    $val   = $ha->set( $key, $val );
    $val   = $ha->get( $key );
-   $val   = $ha->delete( $key );
+   $val   = $ha->delete( $key );              # del is an alias for delete
    $bool  = $ha->exists( $key );
    void   = $ha->clear();
-   $len   = $ha->length();                    # scalar keys %{ $ha }
-   $len   = $ha->length( $key );              # length $ha->{ $key }
+   $len   = $ha->len();                       # scalar keys %{ $ha }
+   $len   = $ha->len( $key );                 # length $ha->{ $key }
 
    $ha2   = $ha->clone( @keys );              # @keys is optional
    $ha3   = $ha->flush( @keys );
    $iter  = $ha->iterator( @keys );           # ($key, $val) = $iter->()
-   $len   = $ha->merge( $key/$val pairs );
-   @vals  = $ha->mget( @keys );
    @keys  = $ha->keys( @keys );
-   @vals  = $ha->values( @keys );
    %pairs = $ha->pairs( @keys );
+   @vals  = $ha->values( @keys );             # vals is an alias for values
 
-   %pairs = $ha->find( "val =~ /$pattern/i" );
-   %pairs = $ha->find( "val !~ /$pattern/i" );
-   %pairs = $ha->find( "key =~ /$pattern/i" );
-   %pairs = $ha->find( "key !~ /$pattern/i" );
+   $cnt   = $ha->mdel( @keys );
+   @vals  = $ha->mget( @keys );
+   $bool  = $ha->mexists( @keys );            # true if all keys exists
+   $len   = $ha->mset( $key/$val pairs );     # merge is an alias for mset
 
-   %pairs = $ha->find( "val eq $string" );    # also, find( "key ..." )
-   %pairs = $ha->find( "val ne $string" );
-   %pairs = $ha->find( "val lt $string" );
-   %pairs = $ha->find( "val le $string" );
-   %pairs = $ha->find( "val gt $string" );
-   %pairs = $ha->find( "val ge $string" );
+   # search capability key/val { =~ !~ eq ne lt le gt ge == != < <= > >= }
+   # query string is quoteless, otherwise quote(s) are treated literally
+   # key/val means to match against actual key/val respectively
+   # do not mix :AND(s) and :OR(s) together
 
-   %pairs = $ha->find( "val == $number" );    # ditto, find( "key ..." )
-   %pairs = $ha->find( "val != $number" );
-   %pairs = $ha->find( "val <  $number" );
-   %pairs = $ha->find( "val <= $number" );
-   %pairs = $ha->find( "val >  $number" );
-   %pairs = $ha->find( "val >= $number" );
+   @keys  = $ha->keys( "key =~ /$pattern/i" );
+   @keys  = $ha->keys( "key !~ /$pattern/i" );
+   @keys  = $ha->keys( "val =~ /$pattern/i" );
+   @keys  = $ha->keys( "val !~ /$pattern/i" );
+
+   %pairs = $ha->pairs( "key == $number" );
+   %pairs = $ha->pairs( "key != $number :AND val > 100" );
+   %pairs = $ha->pairs( "key <  $number :OR key > $number" );
+   %pairs = $ha->pairs( "val <= $number" );
+   %pairs = $ha->pairs( "val >  $number" );
+   %pairs = $ha->pairs( "val >= $number" );
+
+   @vals  = $ha->values( "key eq $string" );
+   @vals  = $ha->values( "key ne $string with space" );
+   @vals  = $ha->values( "key lt $string :OR val =~ /$pat1|$pat2/" );
+   @vals  = $ha->values( "val le $string :AND val eq foo bar" );
+   @vals  = $ha->values( "val gt $string" );
+   @vals  = $ha->values( "val ge $string" );
 
    # sugar methods without having to call set/get explicitly
+
    $len   = $ha->append( $key, $string );     #   $val .= $string
    $val   = $ha->decr( $key );                # --$val
    $val   = $ha->decrby( $key, $number );     #   $val -= $number
+   $val   = $ha->getdecr( $key );             #   $val--
+   $val   = $ha->getincr( $key );             #   $val++
    $val   = $ha->incr( $key );                # ++$val
    $val   = $ha->incrby( $key, $number );     #   $val += $number
-   $val   = $ha->pdecr( $key );               #   $val--
-   $val   = $ha->pincr( $key );               #   $val++
+   $old   = $ha->getset( $key, $new );        #   $o = $v, $v = $n, $o
 
 =head1 DESCRIPTION
 
@@ -299,57 +397,111 @@ To be completed before the final 1.700 release.
 
 =over 3
 
+=item new ( key, value [, key, value, ... ] )
+
 =item new
-
-=item set
-
-=item get
-
-=item delete
-
-=item exists
 
 =item clear
 
-=item length
+=item clone ( key [, key, ... ] )
 
 =item clone
 
+=item delete ( key )
+
+=item exists ( key )
+
+=item flush ( key [, key, ... ] )
+
 =item flush
+
+Same as C<clone>. Clears all existing items before returning.
+
+=item get ( key )
+
+=item iterator ( key [, key, ... ] )
+
+=item iterator ( "query string" )
 
 =item iterator
 
-=item mget
+=item keys ( key [, key, ... ] )
 
-=item merge
+=item keys ( "query string" )
 
 =item keys
 
-=item values
+=item len ( [ key ] )
+
+=item mdel ( keys )
+
+=item mexists ( keys )
+
+=item mget ( keys )
+
+=item mset ( key/value pairs )
+
+=item pairs ( key [, key, ... ] )
+
+=item pairs ( "query string" )
 
 =item pairs
 
-=item find
+=item set ( key, value )
 
-=item append
+=item values ( key [, key, ... ] )
 
-=item decr
+=item values ( "query string" )
 
-=item decrby
+=item values
 
-=item incr
+=back
 
-=item incrby
+=head1 SUGAR METHODS
 
-=item pdecr
+This module is equipped with sugar methods to not have to call C<set>
+and C<get> explicitly. The API resembles a subset of the Redis primitives
+L<http://redis.io/commands#strings> with key representing the hash key.
 
-=item pincr
+=over 3
+
+=item append ( key, string )
+
+Append a value to a key.
+
+=item decr ( key )
+
+Decrement the value of a key by one and return its new value.
+
+=item decrby ( key, number )
+
+Decrement the value of a key by the given number and return its new value.
+
+=item getdecr ( key )
+
+Decrement the value of a key by one and return its old value.
+
+=item getincr ( key )
+
+Increment the value of a key by one and return its old value.
+
+=item getset ( key, value )
+
+Set the value of a key and return its old value.
+
+=item incr ( key )
+
+Increment the value of a key by one and return its new value.
+
+=item incrby ( key, number )
+
+Increment the value of a key by the given number and return its new value.
 
 =back
 
 =head1 CREDITS
 
-Implementation inspired by L<Tie::StdHash|Tie::StdHash>.
+The implementation is inspired by L<Tie::StdHash|Tie::StdHash>.
 
 =head1 INDEX
 

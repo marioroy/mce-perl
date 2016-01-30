@@ -1,15 +1,35 @@
 
 Revision history for Perl module MCE.
 
-1.699 Sat Jan 09 01:00:00 EST 2016
+1.699 Sat Jan 30 14:00:00 EST 2016
 
-  1.699_007 has reached improved stability for the upcoming 1.7 release.
-  The long journey in the making of 1.7 is finally coming to a closure.
-  I'm taking a couple days off. Need to, after the 007 release. :)
+  # 1.699_008 changes.
 
-  Afterwards will focus on completing the documentation for the various
-  MCE::Shared/* helper classes. MCE::Hobo is good to go.
+    * Added MCE::Shared::Minidb.
 
+    * Find makeover for MCE::Shared::{ Array, Hash, Minidb, Ordhash }.
+      Added support for multiple rules.
+
+    * API changes in MCE::Shared::Object.
+      Added new method store for deeply sharing non-blessed objects
+      Removed dset, dmerge, dpush, and dunshift
+      Updated demonstration in MCE::Shared POD
+
+    * API changes in MCE::Shared::{ Array, Condvar, Hash, Ordhash, Scalar }.
+      Renamed length to len
+      Renamed pdecr to getdecr
+      Renamed pincr to getincr
+      Added method getset
+
+    * API changes in MCE::Shared::{ Array, Hash, Ordhash }.
+      Renamed find to _find, now a private method
+      Added new methods mdel and mexists
+      Added query support to keys, pairs, and values
+        e.g. $oh->keys( "key =~ /pattern/ :OR val > 100" )
+
+    * API changes in MCE::Shared and MCE::Shared::Sequence.
+      Renamed reset to rewind
+      Removed prev
 
   [BUG FIXES]
 
@@ -48,11 +68,11 @@ Revision history for Perl module MCE.
 
   * Added MCE::Shared for sharing objects/data between threads/processes.
   * Added MCE::Shared::{ Array, Handle, Hash, Ordhash, and Scalar }.
-  * Added MCE::Shared::{ Condvar, Queue, and Sequence }.
+  * Added MCE::Shared::{ Condvar, Minidb, Queue, and Sequence }.
   * Added MCE::Shared::{ Server }.
 
   * Added methods ->await, ->enq, and ->enqp to MCE::Step.
-  * Added method ->await to MCE::Queue.
+  * Added method  ->await to MCE::Queue.
 
   * Added option max_retries => N for retrying a failed chunk from a worker
     dying while processing input data or sequence of numbers.

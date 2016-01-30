@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized redefine );
 
-our $VERSION = '1.699_007';
+our $VERSION = '1.699_008';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -255,15 +255,15 @@ sub finish {
       return if ($INC{'MCE/Signal.pm'} && $MCE::Signal::KILLED);
       return if ($MCE::Shared::Server::KILLED);
 
-      _croak('Finished with active hobos') if $_LIST->length;
+      _croak('Finished with active hobos') if $_LIST->len;
 
       my $mgr_id = "$$.$_tid";
       $_LIST = undef;
 
       if (defined $_DATA && $_DATA->exists($mgr_id)) {
-         $_DATA->delete( $mgr_id )->destroy;
-         $_STAT->delete( $mgr_id )->destroy;
-         $_STAT->delete("$mgr_id:id");
+         $_DATA->del( $mgr_id )->destroy;
+         $_STAT->del( $mgr_id )->destroy;
+         $_STAT->del("$mgr_id:id");
       }
    }
 
@@ -322,14 +322,14 @@ sub join {
       else {
          waitpid($self->{PID}, 0);
 
-         my $results = $_DATA->get($mgr_id)->delete($wrk_id);
-         my $error   = $_STAT->get($mgr_id)->delete($wrk_id);
+         my $results = $_DATA->get($mgr_id)->del($wrk_id);
+         my $error   = $_STAT->get($mgr_id)->del($wrk_id);
 
          $self->{ERROR}   = (length $error > 10) ? substr($error, 10) : "";
          $self->{RESULTS} = (defined $results) ? $_THAW->($results) : [];
          $self->{JOINED}  = 1;
 
-         $_LIST->delete($wrk_id);
+         $_LIST->del($wrk_id);
 
          (defined wantarray)
             ? wantarray ? @{ $self->{RESULTS} } : $self->{RESULTS}->[-1]
@@ -363,18 +363,20 @@ sub kill {
    $self;
 }
 
-sub list { (defined $_LIST) ? $_LIST->values : () }
+sub list {
+   (defined $_LIST) ? $_LIST->vals : ();
+}
 
 sub list_joinable {
    if (defined $_LIST) {
       my ($mgr_id, $wrk_id) = ("$$.$_tid");
-      for my $self ($_LIST->values) {
+      for my $self ($_LIST->vals) {
          if (!exists $self->{JOINED}) {
             $wrk_id = $self->{WRK_ID};
             sleep 0.01 until $_STAT->get($mgr_id)->exists($wrk_id);
          }
       }
-      my %lkup = $_STAT->get($mgr_id)->find('val =~ /^joinable/');
+      my %lkup = $_STAT->get($mgr_id)->pairs('val =~ /^joinable/');
       map { exists $lkup{$_} ? $_LIST->get($_) : () } $_LIST->keys;
    }
    else {
@@ -385,13 +387,13 @@ sub list_joinable {
 sub list_running {
    if (defined $_LIST) {
       my ($mgr_id, $wrk_id) = ("$$.$_tid");
-      for my $self ($_LIST->values) {
+      for my $self ($_LIST->vals) {
          if (!exists $self->{JOINED}) {
             $wrk_id = $self->{WRK_ID};
             sleep 0.01 until $_STAT->get($mgr_id)->exists($wrk_id);
          }
       }
-      my %lkup = $_STAT->get($mgr_id)->find('val eq running');
+      my %lkup = $_STAT->get($mgr_id)->pairs('val eq running');
       map { exists $lkup{$_} ? $_LIST->get($_) : () } $_LIST->keys;
    }
    else {
@@ -466,7 +468,7 @@ MCE::Hobo - A fast, pure-Perl threads-like parallelization module
 
 =head1 VERSION
 
-This document describes MCE::Hobo version 1.699_007
+This document describes MCE::Hobo version 1.699_008
 
 =head1 SYNOPSIS
 
@@ -567,7 +569,7 @@ The following is a parallel demonstration.
       while ( <$ifh> ) {
          printf {$ofh} "[ %4d ] %s", $., $_;
 
-       # $ary->[ $. - 1 ] = "[ ID $id ] read line $.\n" );  # on-demand
+       # $ary->[ $. - 1 ] = "[ ID $id ] read line $.\n" );  # dereference
          $ary->set( $. - 1, "[ ID $id ] read line $.\n" );  # OO faster
       }
    }
@@ -578,12 +580,10 @@ The following is a parallel demonstration.
 
    $_->join for MCE::Hobo->list();
 
-   my $search = MCE::Shared::Ordhash->new(  # non-shared
-      $ary->find( "val =~ / ID 2 /" )       # search array (one IPC call)
-   );
+   # search array -- single IPC
+   my @vals = $ary->vals( "val =~ / ID 2 /" );
 
-   # print {*STDERR} join( "", values %{ $search } );  # on-demand
-     print {*STDERR} join( "", $search->values );      # OO faster
+   print {*STDERR} join( "", @vals );
 
 =head1 OVERRIDING DEFAULTS
 
@@ -595,7 +595,7 @@ The following list options which may be overridden when loading the module.
 
    use MCE::Hobo
          freeze => \&encode_sereal,       ## \&Storable::freeze
-         thaw => \&decode_sereal          ## \&Storable::thaw
+         thaw   => \&decode_sereal        ## \&Storable::thaw
    ;
 
 There is a simpler way to enable Sereal. The following will attempt to use
@@ -608,11 +608,11 @@ Sereal if available, otherwise defaults to Storable for serialization.
 
 =over 3
 
-=item $hobo = MCE::Hobo->create({ posix_exit => 1 }, FUNCTION, ARGS)
+=item $hobo = MCE::Hobo->create( { posix_exit => 1 }, FUNCTION, ARGS )
 
-=item $hobo = MCE::Hobo->create(FUNCTION, ARGS)
+=item $hobo = MCE::Hobo->create( FUNCTION, ARGS )
 
-=item $hobo = MCE::Hobo->new(FUNCTION, ARGS)
+=item $hobo = MCE::Hobo->new( FUNCTION, ARGS )
 
 This will create a new hobo that will begin execution with function as the
 entry point, and optionally ARGS for list of parameters. It will return the
@@ -673,7 +673,7 @@ determined at the time of joining and mostly wantarray-aware.
    my @res2 = $hobo2->join;  # ( foo )
    my $res2 = $hobo2->join;  #   foo
 
-=item $hobo1->equal($hobo2)
+=item $hobo1->equal( $hobo2 )
 
 Tests if two hobo objects are the same hobo or not. Hobo comparison is based
 on process IDs. This is overloaded to the more natural forms.
@@ -737,7 +737,7 @@ Returns true if a hobo is still running.
 
 Returns true if the hobo has finished running and not yet joined.
 
-=item $hobo->kill('SIG...')
+=item $hobo->kill( 'SIG...' )
 
 Sends the specified signal to the hobo. Returns the hobo object to allow for
 method chaining. As with C<exit>, it is important to join eventually if not
@@ -812,14 +812,6 @@ have been notified to quit.
    benchmark_this('Redis      ', 8, 5.0, \&parallel_redis, $redis);
    benchmark_this('Redis::Fast', 8, 5.0, \&parallel_redis, $rfast);
    benchmark_this('MCE::Shared', 8, 5.0, \&parallel_array);
-
-C<forks::shared> is slow. So I thought why not compare C<MCE::Shared> with
-something else. C<Redis>, C<Redis::Fast>, and C<MCE::Shared> all perform well
-with parallelization. C<MCE::Hobo>, inspired by C<threads>, is lots of fun.
-
-   Redis       <> duration: 5.088 secs, count: 206555
-   Redis::Fast <> duration: 5.091 secs, count: 200729
-   MCE::Shared <> duration: 5.089 secs, count: 293658
 
 =item $hobo->list()
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_007';
+our $VERSION = '1.699_008';
 
 use MCE::Shared::Base;
 use MCE::Util ();
@@ -60,24 +60,11 @@ sub new {
 ##
 ###############################################################################
 
-sub set    {   $_[0]->{_value}  = $_[1]       }
-sub get    {   $_[0]->{_value}                }
+sub get { $_[0]->{_value} }
+sub set { $_[0]->{_value} = $_[1] }
 
-sub append {   $_[0]->{_value} .= $_[1] || '' ;
-        length $_[0]->{_value}
-}
-sub decr   { --$_[0]->{_value}                }
-sub decrby {   $_[0]->{_value} -= $_[1] || 0  }
-sub incr   { ++$_[0]->{_value}                }
-sub incrby {   $_[0]->{_value} += $_[1] || 0  }
-sub pdecr  {   $_[0]->{_value}--              }
-sub pincr  {   $_[0]->{_value}++              }
-
-sub length {
-   CORE::length($_[0]->{_value}) || 0;
-}
-
-## Handled by MCE::Shared::Object.
+# The following methods applies to sharing only and are handled by
+# MCE::Shared::Object.
 
 sub lock      { }
 sub unlock    { }
@@ -86,6 +73,41 @@ sub broadcast { }
 sub signal    { }
 sub timedwait { }
 sub wait      { }
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Sugar API, mostly resembles http://redis.io/commands#string primitives.
+##
+###############################################################################
+
+# append ( string )
+
+sub append {
+   $_[0]->{_value} .= $_[1] || '';
+   length $_[0]->{_value};
+}
+
+# decr
+# decrby ( number )
+# incr
+# incrby ( number )
+# getdecr
+# getincr
+
+sub decr    { --$_[0]->{_value}               }
+sub decrby  {   $_[0]->{_value} -= $_[1] || 0 }
+sub incr    { ++$_[0]->{_value}               }
+sub incrby  {   $_[0]->{_value} += $_[1] || 0 }
+sub getdecr {   $_[0]->{_value}--        || 0 }
+sub getincr {   $_[0]->{_value}++        || 0 }
+
+# getset ( value )
+
+sub getset { my $old = $_[0]->{_value}; $_[0]->{_value} = $_[1]; $old }
+
+# len
+
+sub len { length($_[0]->{_value}) || 0 }
 
 1;
 
@@ -103,7 +125,7 @@ MCE::Shared::Condvar - Condvar helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Condvar version 1.699_007
+This document describes MCE::Shared::Condvar version 1.699_008
 
 =head1 SYNOPSIS
 
@@ -123,16 +145,17 @@ This document describes MCE::Shared::Condvar version 1.699_007
 
    $val = $cv->set( $val );
    $val = $cv->get();
-   $len = $cv->length();
+   $len = $cv->len();
 
    # sugar methods without having to call set/get explicitly
    $val = $cv->append( $string );             #   $val .= $string
    $val = $cv->decr();                        # --$val
    $val = $cv->decrby( $number );             #   $val -= $number
+   $val = $cv->getdecr();                     #   $val--
+   $val = $cv->getincr();                     #   $val++
    $val = $cv->incr();                        # ++$val
    $val = $cv->incrby( $number );             #   $val += $number
-   $val = $cv->pdecr();                       #   $val--
-   $val = $cv->pincr();                       #   $val++
+   $old = $cv->getset( $new );                #   $o = $v, $v = $n, $o
 
 =head1 DESCRIPTION
 
@@ -148,7 +171,7 @@ The following demonstrates barrier synchronization.
    my $count = MCE::Shared->condvar(0);
    my $state = MCE::Shared->scalar('ready');
 
-   # Sleeping with small values is expensive on Cygwin (imo).
+   # Sleeping with a small value is expensive on Cygwin (imo).
    my $microsecs = ($^O eq 'cygwin') ? 0 : 200;
 
    # Lock is released when calling ->broadcast, ->signal, ->timedwait,
@@ -187,7 +210,7 @@ The following demonstrates barrier synchronization.
       my $id = MCE->wid;
       for (1 .. 400) {
          MCE->print("$_: $id\n");
-         ## MCE->sync();  # via MCE Core API
+         # MCE->sync();   # via MCE Core API
          barrier_sync();  # via MCE::Shared::Condvar
       }
    }
@@ -203,6 +226,8 @@ To be completed before the final 1.700 release.
 
 =over 3
 
+=item new ( value )
+
 =item new
 
 =item lock
@@ -213,31 +238,69 @@ To be completed before the final 1.700 release.
 
 =item signal
 
-=item timedwait
+=item timedwait ( floating_seconds )
 
 =item wait
 
-=item set
+=item set ( value )
+
+Set scalar to value.
 
 =item get
 
-=item length
+Get the scalar value.
 
-=item append
+=item len
+
+Get the length of the scalar value.
+
+=back
+
+=head1 SUGAR METHODS
+
+This module is equipped with sugar methods to not have to call C<set>
+and C<get> explicitly. The API resembles a subset of the Redis primitives
+L<http://redis.io/commands#strings> without the key argument.
+
+=over 3
+
+=item append ( value )
+
+Append the value at the end of the scalar value.
 
 =item decr
 
-=item decrby
+Decrement the value by one and return its new value.
+
+=item decrby ( number )
+
+Decrement the value by the given number and return its new value.
+
+=item getdecr
+
+Decrement the value by one and return its old value.
+
+=item getincr
+
+Increment the value by one and return its old value.
+
+=item getset ( value )
+
+Set to value and return its old value.
 
 =item incr
 
-=item incrby
+Increment the value by one and return its new value.
 
-=item pdecr
+=item incrby ( number )
 
-=item pincr
+Increment the value by the given number and return its new value.
 
 =back
+
+=head1 CREDITS
+
+The implementation is inspired by L<threads|threads>.
 
 =head1 INDEX
 

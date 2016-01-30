@@ -11,14 +11,346 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_007';
+our $VERSION = '1.699_008';
 
-## no critic (BuiltinFunctions::ProhibitStringyEval)
+# no critic (BuiltinFunctions::ProhibitStringyEval)
 
 use Scalar::Util qw( looks_like_number refaddr );
+use bytes;
 
-## 'overloading.pm' is not available until 5.10.1 so emulate with Scalar::Util
-## tip borrowed from Hash::Ordered by David Golden
+###############################################################################
+## ----------------------------------------------------------------------------
+## Find support.
+##
+###############################################################################
+
+my %rules = (                         ##
+                                     #/\#
+                                    #//\\#
+                           #///////#///\\\#\\\\\\\#
+                  #///P///#///E///#///  \\\#\\\R\\\#\\\L\\\#
+         #///////#//// //#//// //#/////\\\\\#\\ \\\\#\\ \\\\#\\\\\\\#
+        #//// //#///////#///////#//////\\\\\\#\\\\\\\#\\\\\\\#\\ \\\\#
+         '==' => sub { looks_like_number ($_[0]) && $_[0] == $_[1] },
+         '!=' => sub { looks_like_number ($_[0]) && $_[0] != $_[1] },
+         '<'  => sub { looks_like_number ($_[0]) && $_[0] <  $_[1] },
+         '<=' => sub { looks_like_number ($_[0]) && $_[0] <= $_[1] },
+         '>'  => sub { looks_like_number ($_[0]) && $_[0] >  $_[1] },
+         '>=' => sub { looks_like_number ($_[0]) && $_[0] >= $_[1] },
+         'eq' => sub {              !ref ($_[0]) && $_[0] eq $_[1] },
+         'ne' => sub {              !ref ($_[0]) && $_[0] ne $_[1] },
+         'lt' => sub {              !ref ($_[0]) && $_[0] lt $_[1] },
+         'le' => sub {              !ref ($_[0]) && $_[0] le $_[1] },
+         'gt' => sub {              !ref ($_[0]) && $_[0] gt $_[1] },
+         'ge' => sub {              !ref ($_[0]) && $_[0] ge $_[1] },
+         '=~' => sub {              !ref ($_[0]) && $_[0] =~ $_[1] },
+         '!~' => sub {              !ref ($_[0]) && $_[0] !~ $_[1] },
+             ####   /    Welcome;    \   ####   ####   ####   ####
+            ####   /                  \   ####   ####   ####   ####
+
+);                                         # Perl Palace, MR 01/2016
+
+sub _compile {
+   my ( $query ) = @_;
+   my ( @f,@c,@e, $aflg );
+
+   # Quoteless string. Quotes are treated literally inside string.
+   # Do not mix :AND and :OR together; not supported at this time.
+
+   # "key =~ /$pattern/i :AND field =~ /$pattern/i"
+   # "key =~ /$pattern/i :AND val eq foo bar"     # val eq 'foo bar'
+   # "val eq foo bar :OR key !~ /$pattern/i"
+
+   if ( length $query ) {
+      local $@;  $aflg = ( $query =~ / :and /i );
+
+      for ( split( / :(?:and|or) /i, $query ) ) {
+         if ( /(.+)[ ]+(=~|!~)[ ]+(.+)/ ) {
+            if ( length($2) && exists($rules{$2}) ) {
+               push(@f,$1), push(@c,$rules{$2}), push(@e,eval("qr$3"));
+               pop(@f), pop(@c), pop(@e) if $@;
+            }
+         }
+         elsif ( /(.+)[ ]+(==|!=|<|<=|>|>=|eq|ne|lt|le|gt|ge)[ ]+(.+)/ ) {
+            if ( length($2) && exists($rules{$2}) ) {
+               push(@f,$1), push(@c,$rules{$2}), push(@e,$3);
+            }
+         }
+      }
+
+      for ( @e ) {
+         $_ = undef if $_ eq 'undef';
+      }
+   }
+
+   ( \@f,\@c,\@e, $aflg );
+}
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Find items in array.
+##
+###############################################################################
+
+sub _find_array {
+   my ( $data, $params, $query ) = ( shift, shift, shift );
+   my ( $field, $code, $expr, $aflg ) = _compile( $query );
+
+   # Single rule
+   if ( scalar @{ $field } == 1 ) {
+      my ( $f, $c, $e ) = ( $field->[0], $code->[0], $expr->[0] );
+
+      if ( $f eq 'key' ) {
+         if ( $params->{'getkeys'} ) {
+            map { $c->( $_, $e ) ? ( $_ ) : () } @_;
+         }
+         elsif ( $params->{'getvals'} ) {
+            map { $c->( $_, $e ) ? ( $data->[$_] ) : () } @_;
+         }
+         else {
+            map { $c->( $_, $e ) ? ( $_ => $data->[$_] ) : () } @_;
+         }
+      }
+      else {
+         if ( $params->{'getkeys'} ) {
+            map { $c->( $data->[$_], $e ) ? ( $_ ) : () } @_;
+         }
+         elsif ( $params->{'getvals'} ) {
+            map { $c->( $data->[$_], $e ) ? ( $data->[$_] ) : () } @_;
+         }
+         else {
+            map { $c->( $data->[$_], $e ) ? ( $_ => $data->[$_] ) : () } @_;
+         }
+      }
+   }
+
+   # Multiple rules
+   elsif ( scalar @{ $field } > 1 ) {
+      my $ok;
+
+      my $is = $aflg ?
+      sub {
+         $ok = 1;
+         for my $i ( 0 .. $#{ $field } ) {
+            $ok = $field->[$i] eq 'key'
+               ? $code->[$i]( $_, $expr->[$i] )
+               : $code->[$i]( $data->[$_], $expr->[$i] );
+            last unless $ok;
+         }
+         return;
+      } :
+      sub {
+         $ok = 0;
+         for my $i ( 0 .. $#{ $field } ) {
+            $ok = $field->[$i] eq 'key'
+               ? $code->[$i]( $_, $expr->[$i] )
+               : $code->[$i]( $data->[$_], $expr->[$i] );
+            last if $ok;
+         }
+         return;
+      };
+
+      if ( $params->{'getkeys'} ) {
+         map { $is->(), $ok ? ( $_ ) : () } @_;
+      }
+      elsif ( $params->{'getvals'} ) {
+         map { $is->(), $ok ? ( $data->[$_] ) : () } @_;
+      }
+      else {
+         map { $is->(), $ok ? ( $_ => $data->[$_] ) : () } @_;
+      }
+   }
+
+   # Not supported
+   else {
+      ();
+   }
+}
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Find items in hash.
+##
+###############################################################################
+
+sub _find_hash {
+   my ( $data, $params, $query ) = ( shift, shift, shift );
+   my ( $field, $code, $expr, $aflg ) = _compile( $query );
+
+   # Single rule
+   if ( scalar @{ $field } == 1 ) {
+      my ( $f, $c, $e ) = ( $field->[0], $code->[0], $expr->[0] );
+
+      if ( $f eq 'key' ) {
+         if ( $params->{'getkeys'} ) {
+            map { $c->( $_, $e ) ? ( $_ ) : () } @_;
+         }
+         elsif ( $params->{'getvals'} ) {
+            map { $c->( $_, $e ) ? ( $data->{$_} ) : () } @_;
+         }
+         else {
+            map { $c->( $_, $e ) ? ( $_ => $data->{$_} ) : () } @_;
+         }
+      }
+
+      elsif ( $params->{'hfind'} ) {                  # Minidb HoH
+         if ( $params->{'getkeys'} ) {
+            map { $c->( $data->{$_}{$f}, $e ) ? ( $_ ) : () } @_;
+         }
+         elsif ( $params->{'getvals'} ) {
+            map { $c->( $data->{$_}{$f}, $e ) ? ( $data->{$_} ) : () } @_;
+         }
+         else {
+            map { $c->( $data->{$_}{$f}, $e ) ? ( $_ => $data->{$_} ) : () } @_;
+         }
+      }
+
+      elsif ( $params->{'lfind'} ) {                  # Minidb HoA
+         if ( $params->{'getkeys'} ) {
+            map { $c->( $data->{$_}[$f], $e ) ? ( $_ ) : () } @_;
+         }
+         elsif ( $params->{'getvals'} ) {
+            map { $c->( $data->{$_}[$f], $e ) ? ( $data->{$_} ) : () } @_;
+         }
+         else {
+            map { $c->( $data->{$_}[$f], $e ) ? ( $_ => $data->{$_} ) : () } @_;
+         }
+      }
+
+      else {                                          # Hash/Ordhash
+         if ( $params->{'getkeys'} ) {
+            map { $c->( $data->{$_}, $e ) ? ( $_ ) : () } @_;
+         }
+         elsif ( $params->{'getvals'} ) {
+            map { $c->( $data->{$_}, $e ) ? ( $data->{$_} ) : () } @_;
+         }
+         else {
+            map { $c->( $data->{$_}, $e ) ? ( $_ => $data->{$_} ) : () } @_;
+         }
+      }
+   }
+
+   # Multiple rules
+   elsif ( scalar @{ $field } > 1 ) {
+      my $ok;
+
+      if ( $params->{'hfind'} ) {                     # Minidb HoH
+         my $is = $aflg ?
+         sub {
+            $ok = 1;
+            for my $i ( 0 .. $#{ $field } ) {
+               $ok = $field->[$i] eq 'key'
+                  ? $code->[$i]( $_, $expr->[$i] )
+                  : $code->[$i]( $data->{$_}{ $field->[$i] }, $expr->[$i] );
+               last unless $ok;
+            }
+            return;
+         } :
+         sub {
+            $ok = 0;
+            for my $i ( 0 .. $#{ $field } ) {
+               $ok = $field->[$i] eq 'key'
+                  ? $code->[$i]( $_, $expr->[$i] )
+                  : $code->[$i]( $data->{$_}{ $field->[$i] }, $expr->[$i] );
+               last if $ok;
+            }
+            return;
+         };
+
+         if ( $params->{'getkeys'} ) {
+            map { $is->(), $ok ? ( $_ ) : () } @_;
+         }
+         elsif ( $params->{'getvals'} ) {
+            map { $is->(), $ok ? ( $data->{$_} ) : () } @_;
+         }
+         else {
+            map { $is->(), $ok ? ( $_ => $data->{$_} ) : () } @_;
+         }
+      }
+
+      elsif ( $params->{'lfind'} ) {                  # Minidb HoA
+         my $is = $aflg ?
+         sub {
+            $ok = 1;
+            for my $i ( 0 .. $#{ $field } ) {
+               $ok = $field->[$i] eq 'key'
+                  ? $code->[$i]( $_, $expr->[$i] )
+                  : $code->[$i]( $data->{$_}[ $field->[$i] ], $expr->[$i] );
+               last unless $ok;
+            }
+            return;
+         } :
+         sub {
+            $ok = 0;
+            for my $i ( 0 .. $#{ $field } ) {
+               $ok = $field->[$i] eq 'key'
+                  ? $code->[$i]( $_, $expr->[$i] )
+                  : $code->[$i]( $data->{$_}[ $field->[$i] ], $expr->[$i] );
+               last if $ok;
+            }
+            return;
+         };
+
+         if ( $params->{'getkeys'} ) {
+            map { $is->(), $ok ? ( $_ ) : () } @_;
+         }
+         elsif ( $params->{'getvals'} ) {
+            map { $is->(), $ok ? ( $data->{$_} ) : () } @_;
+         }
+         else {
+            map { $is->(), $ok ? ( $_ => $data->{$_} ) : () } @_;
+         }
+      }
+
+      else {                                          # Hash/Ordhash
+         my $is = $aflg ?
+         sub {
+            $ok = 1;
+            for my $i ( 0 .. $#{ $field } ) {
+               $ok = $field->[$i] eq 'key'
+                  ? $code->[$i]( $_, $expr->[$i] )
+                  : $code->[$i]( $data->{$_}, $expr->[$i] );
+               last unless $ok;
+            }
+            return;
+         } :
+         sub {
+            $ok = 0;
+            for my $i ( 0 .. $#{ $field } ) {
+               $ok = $field->[$i] eq 'key'
+                  ? $code->[$i]( $_, $expr->[$i] )
+                  : $code->[$i]( $data->{$_}, $expr->[$i] );
+               last if $ok;
+            }
+            return;
+         };
+
+         if ( $params->{'getkeys'} ) {
+            map { $is->(), $ok ? ( $_ ) : () } @_;
+         }
+         elsif ( $params->{'getvals'} ) {
+            map { $is->(), $ok ? ( $data->{$_} ) : () } @_;
+         }
+         else {
+            map { $is->(), $ok ? ( $_ => $data->{$_} ) : () } @_;
+         }
+      }
+   }
+
+   # Not supported
+   else {
+      ();
+   }
+}
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Miscellaneous.
+##
+###############################################################################
+
+# 'overloading.pm' is not available until 5.10.1 so emulate with Scalar::Util.
+# Tip borrowed from Hash::Ordered by David Golden.
 
 BEGIN {
    if ($] gt '5.010000') {
@@ -40,6 +372,8 @@ BEGIN {
       die $@ if $@;
    }
 }
+
+# Croak and die handler.
 
 sub _croak {
    if (defined $MCE::VERSION) {
@@ -80,287 +414,6 @@ sub _die {
    CORE::exit($?);
 }
 
-###############################################################################
-## ----------------------------------------------------------------------------
-## find support for finding items in an array
-##
-###############################################################################
-
-my %_find_vals_array = (
-
-   # pattern
-
-   '=~' => sub {
-      my ( $array, $expr ) = ( shift, shift );
-      local $@; my $re = eval "qr$expr";
-
-      $@ ? () : map {
-         ( !ref( $array->[ $_ ] ) && $array->[ $_ ] =~ $re )
-            ? ( $_ => $array->[ $_ ] ) : () } @_;
-   },
-   '!~' => sub {
-      my ( $array, $expr ) = ( shift, shift );
-      local $@; my $re = eval "qr$expr";
-
-      $@ ? () : map {
-         ( !ref( $array->[ $_ ] ) && $array->[ $_ ] !~ $re )
-            ? ( $_ => $array->[ $_ ] ) : () } @_;
-   },
-
-   # number
-
-   '==' => sub {
-      my ( $array, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $array->[ $_ ] ) && $array->[ $_ ] == $expr )
-            ? ( $_ => $array->[ $_ ] ) : () } @_;
-   },
-   '!=' => sub {
-      my ( $array, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $array->[ $_ ] ) && $array->[ $_ ] != $expr )
-            ? ( $_ => $array->[ $_ ] ) : () } @_;
-   },
-   '<'  => sub {
-      my ( $array, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $array->[ $_ ] ) && $array->[ $_ ] <  $expr )
-            ? ( $_ => $array->[ $_ ] ) : () } @_;
-   },
-   '<=' => sub {
-      my ( $array, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $array->[ $_ ] ) && $array->[ $_ ] <= $expr )
-            ? ( $_ => $array->[ $_ ] ) : () } @_;
-   },
-   '>'  => sub {
-      my ( $array, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $array->[ $_ ] ) && $array->[ $_ ] >  $expr )
-            ? ( $_ => $array->[ $_ ] ) : () } @_;
-   },
-   '>=' => sub {
-      my ( $array, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $array->[ $_ ] ) && $array->[ $_ ] >= $expr )
-            ? ( $_ => $array->[ $_ ] ) : () } @_;
-   },
-
-   # string
-
-   'eq' => sub {
-      my ( $array, $expr ) = ( shift, shift );
-      map { ( !ref( $array->[ $_ ] ) && $array->[ $_ ] eq $expr )
-            ? ( $_ => $array->[ $_ ] ) : () } @_;
-   },
-   'ne' => sub {
-      my ( $array, $expr ) = ( shift, shift );
-      map { ( !ref( $array->[ $_ ] ) && $array->[ $_ ] ne $expr )
-            ? ( $_ => $array->[ $_ ] ) : () } @_;
-   },
-   'lt' => sub {
-      my ( $array, $expr ) = ( shift, shift );
-      map { ( !ref( $array->[ $_ ] ) && $array->[ $_ ] lt $expr )
-            ? ( $_ => $array->[ $_ ] ) : () } @_;
-   },
-   'le' => sub {
-      my ( $array, $expr ) = ( shift, shift );
-      map { ( !ref( $array->[ $_ ] ) && $array->[ $_ ] le $expr )
-            ? ( $_ => $array->[ $_ ] ) : () } @_;
-   },
-   'gt' => sub {
-      my ( $array, $expr ) = ( shift, shift );
-      map { ( !ref( $array->[ $_ ] ) && $array->[ $_ ] gt $expr )
-            ? ( $_ => $array->[ $_ ] ) : () } @_;
-   },
-   'ge' => sub {
-      my ( $array, $expr ) = ( shift, shift );
-      map { ( !ref( $array->[ $_ ] ) && $array->[ $_ ] ge $expr )
-            ? ( $_ => $array->[ $_ ] ) : () } @_;
-   },
-);
-
-sub _find_vals_array { \%_find_vals_array }
-
-###############################################################################
-## ----------------------------------------------------------------------------
-## find support for finding items in a hash
-##
-###############################################################################
-
-my %_find_keys_hash = (
-
-   # pattern
-
-   '=~' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      local $@; my $re = eval "qr$expr";
-
-      $@ ? () : map {
-         ( !ref( $hash->{ $_ } ) && $_ =~ $re )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   '!~' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      local $@; my $re = eval "qr$expr";
-
-      $@ ? () : map {
-         ( !ref( $hash->{ $_ } ) && $_ !~ $re )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-
-   # number
-
-   '==' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $hash->{ $_ } ) && $_ == $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   '!=' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $hash->{ $_ } ) && $_ != $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   '<'  => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $hash->{ $_ } ) && $_ <  $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   '<=' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $hash->{ $_ } ) && $_ <= $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   '>'  => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $hash->{ $_ } ) && $_ >  $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   '>=' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $hash->{ $_ } ) && $_ >= $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-
-   # string
-
-   'eq' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( !ref( $hash->{ $_ } ) && $_ eq $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   'ne' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( !ref( $hash->{ $_ } ) && $_ ne $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   'lt' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( !ref( $hash->{ $_ } ) && $_ lt $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   'le' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( !ref( $hash->{ $_ } ) && $_ le $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   'gt' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( !ref( $hash->{ $_ } ) && $_ gt $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   'ge' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( !ref( $hash->{ $_ } ) && $_ ge $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-);
-
-my %_find_vals_hash = (
-
-   # pattern
-
-   '=~' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      local $@; my $re = eval "qr$expr";
-
-      $@ ? () : map {
-         ( !ref( $hash->{ $_ } ) && $hash->{ $_ } =~ $re )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   '!~' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      local $@; my $re = eval "qr$expr";
-
-      $@ ? () : map {
-         ( !ref( $hash->{ $_ } ) && $hash->{ $_ } !~ $re )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-
-   # number
-
-   '==' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $hash->{ $_ } ) && $hash->{ $_ } == $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   '!=' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $hash->{ $_ } ) && $hash->{ $_ } != $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   '<'  => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $hash->{ $_ } ) && $hash->{ $_ } <  $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   '<=' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $hash->{ $_ } ) && $hash->{ $_ } <= $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   '>'  => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $hash->{ $_ } ) && $hash->{ $_ } >  $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   '>=' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( looks_like_number( $hash->{ $_ } ) && $hash->{ $_ } >= $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-
-   # string
-
-   'eq' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( !ref( $hash->{ $_ } ) && $hash->{ $_ } eq $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   'ne' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( !ref( $hash->{ $_ } ) && $hash->{ $_ } ne $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   'lt' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( !ref( $hash->{ $_ } ) && $hash->{ $_ } lt $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   'le' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( !ref( $hash->{ $_ } ) && $hash->{ $_ } le $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   'gt' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( !ref( $hash->{ $_ } ) && $hash->{ $_ } gt $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-   'ge' => sub {
-      my ( $hash, $expr ) = ( shift, shift );
-      map { ( !ref( $hash->{ $_ } ) && $hash->{ $_ } ge $expr )
-            ? ( $_ => $hash->{ $_ } ) : () } @_;
-   },
-);
-
-sub _find_keys_hash { \%_find_keys_hash }
-sub _find_vals_hash { \%_find_vals_hash }
-
 1;
 
 __END__
@@ -377,7 +430,7 @@ MCE::Shared::Base - Base package for helper classes
 
 =head1 VERSION
 
-This document describes MCE::Shared::Base version 1.699_007
+This document describes MCE::Shared::Base version 1.699_008
 
 =head1 DESCRIPTION
 

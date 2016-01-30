@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_007';
+our $VERSION = '1.699_008';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -19,11 +19,11 @@ use Scalar::Util qw( blessed refaddr );
 use MCE::Shared::Server;
 
 our @CARP_NOT = qw(
-   MCE::Shared::Array   MCE::Shared::Condvar   MCE::Shared::Handle
-   MCE::Shared::Hash    MCE::Shared::Ordhash   MCE::Shared::Queue
-   MCE::Shared::Scalar  MCE::Shared::Sequence  MCE::Shared::Server
+   MCE::Shared::Array   MCE::Shared::Condvar  MCE::Shared::Handle
+   MCE::Shared::Hash    MCE::Shared::Minidb   MCE::Shared::Ordhash
+   MCE::Shared::Queue   MCE::Shared::Scalar   MCE::Shared::Sequence
 
-   MCE::Shared::Object
+   MCE::Shared::Server  MCE::Shared::Object
 );
 
 my $_imported;
@@ -128,16 +128,25 @@ sub condvar {
    require MCE::Shared::Condvar unless $INC{'MCE/Shared/Condvar.pm'};
    &share( MCE::Shared::Condvar->new(@_) );
 }
+
+sub minidb {
+   shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
+   require MCE::Shared::Minidb unless $INC{'MCE/Shared/Minidb.pm'};
+   &share( MCE::Shared::Minidb->new(@_) );
+}
+
 sub queue {
    shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
    require MCE::Shared::Queue unless $INC{'MCE/Shared/Queue.pm'};
    &share( MCE::Shared::Queue->new(@_) );
 }
+
 sub scalar {
    shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
    require MCE::Shared::Scalar unless $INC{'MCE/Shared/Scalar.pm'};
    &share( MCE::Shared::Scalar->new(@_) );
 }
+
 sub sequence {
    shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
    require MCE::Shared::Sequence unless $INC{'MCE/Shared/Sequence.pm'};
@@ -150,28 +159,57 @@ sub sequence {
 sub array {
    shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
    require MCE::Shared::Array unless $INC{'MCE/Shared/Array.pm'};
-   my ( $_item ) = (
-      &share( ref $_[0] eq 'HASH' ? shift : {}, MCE::Shared::Array->new() )
-   );
-   $_item->push(@_) if @_;
+
+   my $_params = ref $_[0] eq 'HASH' ? shift : {};
+   my $_item   = &share( $_params, MCE::Shared::Array->new() );
+
+   if (scalar @_) {
+      if ($_params->{_DEEPLY_}) {
+         for (my $i = 0; $i <= $#_; $i += 1) {
+            &_share($_params, $_item, $_[$i]) if ref($_[$i]);
+         }
+      }
+      $_item->push(@_);
+   }
+
    $_item;
 }
+
 sub hash {
    shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
    require MCE::Shared::Hash unless $INC{'MCE/Shared/Hash.pm'};
-   my ( $_item ) = (
-      &share( ref $_[0] eq 'HASH' ? shift : {}, MCE::Shared::Hash->new() )
-   );
-   $_item->merge(@_) if @_;
+
+   my $_params = ref $_[0] eq 'HASH' ? shift : {};
+   my $_item   = &share( $_params, MCE::Shared::Hash->new() );
+
+   if (scalar @_) {
+      if ($_params->{_DEEPLY_}) {
+         for (my $i = 1; $i <= $#_; $i += 2) {
+            &_share($_params, $_item, $_[$i]) if ref($_[$i]);
+         }
+      }
+      $_item->mset(@_);
+   }
+
    $_item;
 }
+
 sub ordhash {
    shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
    require MCE::Shared::Ordhash unless $INC{'MCE/Shared/Ordhash.pm'};
-   my ( $_item ) = (
-      &share( ref $_[0] eq 'HASH' ? shift : {}, MCE::Shared::Ordhash->new() )
-   );
-   $_item->merge(@_) if @_;
+
+   my $_params = ref $_[0] eq 'HASH' ? shift : {};
+   my $_item   = &share( $_params, MCE::Shared::Ordhash->new() );
+
+   if (scalar @_) {
+      if ($_params->{_DEEPLY_}) {
+         for (my $i = 1; $i <= $#_; $i += 2) {
+            &_share($_params, $_item, $_[$i]) if ref($_[$i]);
+         }
+      }
+      $_item->mset(@_);
+   }
+
    $_item;
 }
 
@@ -250,6 +288,13 @@ sub _incr_count {
    MCE::Shared::Server::_incr_count($_[0]->SHARED_ID);
 }
 
+sub _share {
+   $_[2] = &share($_[0], $_[2]);
+   MCE::Shared::Object::_req2(
+      'M~DEE', $_[1]->SHARED_ID()."\n", $_[2]->SHARED_ID()."\n"
+   );
+}
+
 1;
 
 __END__
@@ -266,7 +311,7 @@ MCE::Shared - MCE extension for sharing data between workers
 
 =head1 VERSION
 
-This document describes MCE::Shared version 1.699_007
+This document describes MCE::Shared version 1.699_008
 
 =head1 SYNOPSIS
 
@@ -278,6 +323,7 @@ This document describes MCE::Shared version 1.699_007
    my $cv = MCE::Shared->condvar( 0 );
    my $fh = MCE::Shared->handle( '>>', \*STDOUT );
    my $ha = MCE::Shared->hash( @pairs );
+   my $db = MCE::Shared->minidb();
    my $oh = MCE::Shared->ordhash( @pairs );
    my $qu = MCE::Shared->queue( await => 1, fast => 0 );
    my $va = MCE::Shared->scalar( $value );
@@ -397,6 +443,8 @@ shared-manager process.
 
 =item hash
 
+=item minidb
+
 =item ordhash
 
 =item queue
@@ -405,8 +453,8 @@ shared-manager process.
 
 =item sequence
 
-C<array>, C<condvar>, C<handle>, C<hash>, C<ordhash>, C<queue>, C<scalar>, and
-C<sequence> are sugar syntax for constructing a shared object.
+C<array>, C<condvar>, C<handle>, C<hash>, C<minidb>, C<ordhash>, C<queue>,
+C<scalar>, and C<sequence> are sugar syntax for constructing a shared object.
 
   # long form
 
@@ -425,6 +473,7 @@ C<sequence> are sugar syntax for constructing a shared object.
   my $cv = MCE::Shared->condvar( 0 );
   my $fh = MCE::Shared->handle( '>>', \*STDOUT );
   my $ha = MCE::Shared->hash( @pairs );
+  my $db = MCE::Shared->minidb();
   my $oh = MCE::Shared->ordhash( @pairs );
   my $qu = MCE::Shared->queue( await => 1, fast => 0 );
   my $va = MCE::Shared->scalar( $value );
@@ -458,7 +507,7 @@ is accessable only through the underlying OO interface.
    $ho_shared = MCE::Shared->share( Hash::Ordered->new() );
 
    $ho_shared->push( @pairs );            # OO interface only
-   $ho_shared->merge( @pairs );
+   $ho_shared->mset( @pairs );
 
    $ho_unshared = $ho_shared->export();   # back to unshared
    $ho_unshared = $ho_shared->destroy();  # including destruction
@@ -585,6 +634,8 @@ shared-manager process.
 
 =item export
 
+=item export ( keys )
+
 Exports the shared object into a non-shared object. One must export when passing
 the shared object into any dump routine. Otherwise, the data C<${ SHARED_ID }>
 is all one will see.
@@ -639,13 +690,15 @@ This applies to shared array, hash, and ordhash.
 
 =item next
 
-=item prev
+=item rewind
 
-=item reset
+=item rewind ( "query string" )
 
-C<next>, C<prev>, and C<reset> enables parallel iteration between workers
-for shared array, hash, ordhash, and sequence. Call C<reset> after running
-to start over. Workers may iterate either direction C<next> or C<prev>.
+=item rewind ( begin, end, [ step, format ] )
+
+C<next> and C<rewind> enable parallel iteration between workers for shared
+array, hash, ordhash, and sequence. Call C<rewind> after running to reset
+the pointer.
 
    use MCE::Hobo;
    use MCE::Shared;
@@ -680,6 +733,8 @@ to start over. Workers may iterate either direction C<next> or C<prev>.
    2: j
 
 There are two forms for iterating through a shared hash or ordhash object.
+The C<next> method is wantarray-aware providing key and value in list
+context and value only in scalar context.
 
    use MCE::Hobo;
    use MCE::Shared;
@@ -698,7 +753,7 @@ There are two forms for iterating through a shared hash or ordhash object.
 
    sub iter2 {
       my ($id) = @_;
-      while ( defined (my $val = $ob->prev) ) {
+      while ( defined (my $val = $ob->next) ) {
          print "$id: $val\n";
          sleep 1;
       }
@@ -707,12 +762,12 @@ There are two forms for iterating through a shared hash or ordhash object.
    MCE::Hobo->new(\&iter1, $_) for 1 .. 3;
    $_->join() for MCE::Hobo->list();
 
-   $ob->reset();
+   $ob->rewind();
 
    MCE::Hobo->new(\&iter2, $_) for 1 .. 3;
    $_->join() for MCE::Hobo->list();
 
-The shared-manager process will iterate orderly, but there is no guarantee for
+Although the shared-manager process iterates orderly, there is no guarantee for
 the amount of time required by workers. Thus, output may not be ordered.
 
    -- Output
@@ -721,36 +776,41 @@ the amount of time required by workers. Thus, output may not be ordered.
    2: key_b => val_b
    3: key_c => val_c
    1: key_d => val_d
-   2: key_f => val_f
-   3: key_e => val_e
+   3: key_f => val_f
+   2: key_e => val_e
+   1: key_g => val_g
    3: key_i => val_i
-   2: key_g => val_g
-   1: key_h => val_h
-   3: key_j => val_j
-   1: val_j
-   2: val_i
+   2: key_h => val_h
+   1: key_j => val_j
+   1: val_a
+   2: val_b
+   3: val_c
+   3: val_f
+   1: val_d
+   2: val_e
    3: val_h
    1: val_g
-   3: val_e
-   2: val_f
-   3: val_d
-   2: val_b
-   1: val_c
-   2: val_a
+   2: val_i
+   3: val_j
 
-=item dset
+=item store ( key, value )
 
-=item dmerge
+Deep-sharing non-blessed structure(s) is possible with C<store> only. C<store>,
+an alias to C<STORE>, converts non-blessed deeply-structures to shared objects
+recursively.
 
-=item dpush
+   use MCE::Shared;
 
-=item dunshift
+   my $h1 = MCE::Shared->hash();
+   my $h2 = MCE::Shared->hash();
 
-Deep-sharing non-blessed structure(s) is possible with C<dset>, C<dmerge>,
-C<dpush>, and C<dunshift>. These do the same thing as their counterparts
-C<set>, C<merge>, C<push>, and C<unshift>. These methods traverse the list
-or hash recursively and covert non-blessed deeply-structures to shared
-objects.
+   # auto-shares deeply
+   $h1->store( 'key', [ 0, 2, 5, { 'foo' => 'bar' } ] );
+   $h2->{key}[3]{foo} = 'baz';   # via auto-vivification
+
+   my $v1 = $h1->get('key')->get(3)->get('foo');  # bar
+   my $v2 = $h2->get('key')->get(3)->get('foo');  # baz
+   my $v3 = $h2->{key}[3]{foo};                   # baz
 
 =back
 

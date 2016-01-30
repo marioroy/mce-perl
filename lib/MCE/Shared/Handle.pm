@@ -11,9 +11,9 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_007';
+our $VERSION = '1.699_008';
 
-## no critic (InputOutput::ProhibitTwoArgOpen)
+# no critic (InputOutput::ProhibitTwoArgOpen)
 
 use MCE::Shared::Base;
 use bytes;
@@ -52,7 +52,7 @@ sub new {
    (@_ && !defined(fileno $fh)) ? undef : $fh;
 }
 
-## Based on Tie::StdHandle.
+# Based on Tie::StdHandle.
 
 sub EOF     { eof($_[0]) }
 sub TELL    { tell($_[0]) }
@@ -127,7 +127,7 @@ MCE::Shared::Handle - Handle helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Handle version 1.699_007
+This document describes MCE::Shared::Handle version 1.699_008
 
 =head1 SYNOPSIS
 

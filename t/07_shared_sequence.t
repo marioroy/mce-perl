@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 8;
+use Test::More tests => 6;
 use MCE::Shared;
                              # beg, end, step, fmt
 my $s1 = MCE::Shared->sequence( 1, 10            );
@@ -50,37 +50,23 @@ cmp_array(
    'shared sequence, check sequence 4: next'
 );
 
-@a1 = (); $s1->reset;
-@a2 = (); $s2->reset;
-@a3 = (); $s3->reset;
-@a4 = (); $s4->reset;
+@a1 = (); $s1->rewind;
+@a2 = (); $s2->rewind( 1, 5 );
+@a3 = (); $s3->rewind;
+@a4 = (); $s4->rewind;
 
-## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
-
-while ( my $num = $s1->prev ) { push @a1, $num; }
-while ( my $num = $s2->prev ) { push @a2, $num; }
-while ( my $num = $s3->prev ) { push @a3, $num; }
-while ( my $num = $s4->prev ) { push @a4, $num; }
+while ( my $num = $s1->next ) { push @a1, $num; }
+while ( my $num = $s2->next ) { push @a2, $num; }
 
 cmp_array(
-   [ @a1 ], [ reverse( 1 .. 10 ) ],
-   'shared sequence, check sequence 1: prev'
+   [ @a1 ], [ 1 .. 10 ],
+   'shared sequence, check sequence 1: rewind'
 );
 cmp_array(
-   [ @a2 ], [ ' 9', ' 7', ' 5', ' 3', ' 1' ],
-   'shared sequence, check sequence 2: prev'
-);
-cmp_array(
-   [ @a3 ], [ 1 .. 10 ],
-   'shared sequence, check sequence 3: prev'
-);
-cmp_array(
-   [ @a4 ], [ ' 2', ' 4', ' 6', ' 8', '10' ],
-   'shared sequence, check sequence 4: prev'
+   [ @a2 ], [ 1 .. 5 ],
+   'shared sequence, check sequence 1: rewind( 1, 5 )'
 );
 
-@a1 = (); $s1->reset;
-@a2 = (); $s2->reset;
-@a3 = (); $s3->reset;
-@a4 = (); $s4->reset;
+@a1 = (); $s1->rewind;
+@a2 = (); $s2->rewind;
 

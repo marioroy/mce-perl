@@ -11,9 +11,9 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_007';
+our $VERSION = '1.699_008';
 
-## no critic (Subroutines::ProhibitExplicitReturnUndef)
+# no critic (Subroutines::ProhibitExplicitReturnUndef)
 
 use Scalar::Util qw( looks_like_number );
 use MCE::Shared::Base;
@@ -86,7 +86,7 @@ sub new {
    $_Q->{_heap} = [];  # Priority heap [ pN, p2, p1 ] in heap order
                        # fyi, _datp will always dequeue before _datq
 
-   ## -------------------------------------------------------------------------
+   # --------------------------------------------------------------------------
 
    $_Q->{_await} = (exists $_argv{await} && defined $_argv{await})
       ? $_argv{await} : $AWAIT;
@@ -115,7 +115,7 @@ sub new {
       $_Q->{_datq} = [];
    }
 
-   ## -------------------------------------------------------------------------
+   # --------------------------------------------------------------------------
 
    $_Q->{_init_pid} = $_has_threads ? $$ .'.'. $_tid : $$;
    $_Q->{_dsem} = 0 if ($_Q->{_fast});
@@ -136,14 +136,14 @@ sub new {
 ##
 ###############################################################################
 
-## Waits until the queue drops down to threshold items.
+# Waits until the queue drops down to threshold items.
 
 sub await {
-   ## Handled by MCE::Shared::Object when shared.
+   # Handled by MCE::Shared::Object when shared.
    return;
 }
 
-## Clear the queue.
+# Clear the queue.
 
 sub clear {
    my $_next; my ($_Q) = @_;
@@ -163,7 +163,7 @@ sub clear {
    return;
 }
 
-## Add items to the tail of the queue.
+# Add items to the tail of the queue.
 
 sub enqueue {
    my $_Q = shift;
@@ -179,7 +179,7 @@ sub enqueue {
    return;
 }
 
-## Add items to the tail of the queue with priority level.
+# Add items to the tail of the queue with priority level.
 
 sub enqueuep {
    my ($_Q, $_p) = (shift, shift);
@@ -198,7 +198,7 @@ sub enqueuep {
    return;
 }
 
-## Return item(s) from the queue.
+# Return item(s) from the queue.
 
 sub dequeue {
    my ($_Q, $_cnt) = @_;
@@ -213,7 +213,7 @@ sub dequeue {
    }
 
    if ($_Q->{_fast}) {
-      ## The 'fast' option may reduce wait time, thus run faster
+      # The 'fast' option may reduce wait time, thus run faster
       if ($_Q->{_dsem} <= 1) {
          $_pending = $_Q->pending();
          $_pending = int($_pending / $_cnt) if (defined $_cnt);
@@ -228,7 +228,7 @@ sub dequeue {
       }
    }
    else {
-      ## Otherwise, never to exceed one byte in the channel
+      # Otherwise, never to exceed one byte in the channel
       if ($_Q->_has_data()) { 1 until syswrite $_Q->{_qw_sock}, $LF }
    }
 
@@ -238,7 +238,7 @@ sub dequeue {
    return $_buf;
 }
 
-## Return item(s) from the queue (non-blocking).
+# Return item(s) from the queue (non-blocking).
 
 sub dequeue_nb {
    my ($_Q, $_cnt) = @_;
@@ -254,7 +254,7 @@ sub dequeue_nb {
    }
 }
 
-## Return the number of items in the queue.
+# Return the number of items in the queue.
 
 sub pending {
    my $_pending = 0; my ($_Q) = @_;
@@ -270,7 +270,7 @@ sub pending {
    return $_pending;
 }
 
-## Insert items anywhere into the queue.
+# Insert items anywhere into the queue.
 
 sub insert {
    my ($_Q, $_i) = (shift, shift);
@@ -312,7 +312,7 @@ sub insert {
    return;
 }
 
-## Insert items anywhere into the queue with priority level.
+# Insert items anywhere into the queue with priority level.
 
 sub insertp {
    my ($_Q, $_p, $_i) = (shift, shift, shift);
@@ -362,7 +362,7 @@ sub insertp {
    return;
 }
 
-## Return an item without removing it from the queue.
+# Return an item without removing it from the queue.
 
 sub peek {
    my ($_Q, $_i) = @_;
@@ -384,7 +384,7 @@ sub peek {
    return $_Q->{_datq}->[$_i];
 }
 
-## Return an item without removing it from the queue with priority level.
+# Return an item without removing it from the queue with priority level.
 
 sub peekp {
    my ($_Q, $_p, $_i) = @_;
@@ -410,7 +410,7 @@ sub peekp {
    return $_Q->{_datp}->{$_p}->[$_i];
 }
 
-## Return a priority level without removing it from the heap.
+# Return a priority level without removing it from the heap.
 
 sub peekh {
    my ($_Q, $_i) = @_;
@@ -425,7 +425,7 @@ sub peekh {
    return $_Q->{_heap}->[$_i];
 }
 
-## Return a list of priority levels in the heap.
+# Return a list of priority levels in the heap.
 
 sub heap {
    return @{ shift->{_heap} };
@@ -437,12 +437,12 @@ sub heap {
 ##
 ###############################################################################
 
-## Add items to the tail of the queue with priority level.
+# Add items to the tail of the queue with priority level.
 
 sub _enqueuep {
    my ($_Q, $_p) = (shift, shift);
 
-   ## Enlist priority into the heap.
+   # Enlist priority into the heap.
    if (!exists $_Q->{_datp}->{$_p} || @{ $_Q->{_datp}->{$_p} } == 0) {
 
       unless (scalar @{ $_Q->{_heap} }) {
@@ -456,13 +456,13 @@ sub _enqueuep {
       }
    }
 
-   ## Append item(s) into the queue.
+   # Append item(s) into the queue.
    push @{ $_Q->{_datp}->{$_p} }, @_;
 
    return;
 }
 
-## Return item(s) from the queue.
+# Return item(s) from the queue.
 
 sub _dequeue {
    my ($_Q, $_cnt) = @_;
@@ -476,7 +476,7 @@ sub _dequeue {
       return @_items;
    }
 
-   ## Return item from the non-priority queue.
+   # Return item from the non-priority queue.
    unless (scalar @{ $_Q->{_heap} }) {
       return ($_Q->{_type})
          ? shift @{ $_Q->{_datq} } : pop @{ $_Q->{_datq} };
@@ -484,16 +484,16 @@ sub _dequeue {
 
    my $_p = $_Q->{_heap}->[0];
 
-   ## Delist priority from the heap when 1 item remains.
+   # Delist priority from the heap when 1 item remains.
    shift @{ $_Q->{_heap} } if (@{ $_Q->{_datp}->{$_p} } == 1);
 
-   ## Return item from the priority queue.
+   # Return item from the priority queue.
    return ($_Q->{_type})
       ? shift @{ $_Q->{_datp}->{$_p} } : pop @{ $_Q->{_datp}->{$_p} };
 }
 
-## Helper method for getting the reference to the underlying array.
-## Use with test scripts for comparing data only (not a public API).
+# Helper method for getting the reference to the underlying array.
+# Use with test scripts for comparing data only (not a public API).
 
 sub _get_aref {
    my ($_Q, $_p) = @_;
@@ -509,7 +509,7 @@ sub _get_aref {
    return $_Q->{_datq};
 }
 
-## A quick method for just wanting to know if the queue has pending data.
+# A quick method for just wanting to know if the queue has pending data.
 
 sub _has_data {
    return (
@@ -517,22 +517,22 @@ sub _has_data {
    ) ? 1 : 0;
 }
 
-## Insert priority into the heap. A lower priority level comes first.
+# Insert priority into the heap. A lower priority level comes first.
 
 sub _heap_insert_low {
    my ($_Q, $_p) = @_;
 
-   ## Insert priority at the head of the heap.
+   # Insert priority at the head of the heap.
    if ($_p < $_Q->{_heap}->[0]) {
       unshift @{ $_Q->{_heap} }, $_p;
    }
 
-   ## Insert priority at the end of the heap.
+   # Insert priority at the end of the heap.
    elsif ($_p > $_Q->{_heap}->[-1]) {
       push @{ $_Q->{_heap} }, $_p;
    }
 
-   ## Insert priority through binary search.
+   # Insert priority through binary search.
    else {
       my $_lower = 0; my $_upper = @{ $_Q->{_heap} };
 
@@ -545,29 +545,29 @@ sub _heap_insert_low {
          }
       }
 
-      ## Insert priority into the heap.
+      # Insert priority into the heap.
       splice @{ $_Q->{_heap} }, $_lower, 0, $_p;
    }
 
    return;
 }
 
-## Insert priority into the heap. A higher priority level comes first.
+# Insert priority into the heap. A higher priority level comes first.
 
 sub _heap_insert_high {
    my ($_Q, $_p) = @_;
 
-   ## Insert priority at the head of the heap.
+   # Insert priority at the head of the heap.
    if ($_p > $_Q->{_heap}->[0]) {
       unshift @{ $_Q->{_heap} }, $_p;
    }
 
-   ## Insert priority at the end of the heap.
+   # Insert priority at the end of the heap.
    elsif ($_p < $_Q->{_heap}->[-1]) {
       push @{ $_Q->{_heap} }, $_p;
    }
 
-   ## Insert priority through binary search.
+   # Insert priority through binary search.
    else {
       my $_lower = 0; my $_upper = @{ $_Q->{_heap} };
 
@@ -580,7 +580,7 @@ sub _heap_insert_high {
          }
       }
 
-      ## Insert priority into the heap.
+      # Insert priority into the heap.
       splice @{ $_Q->{_heap} }, $_lower, 0, $_p;
    }
 
@@ -603,7 +603,7 @@ MCE::Shared::Queue - Hybrid-queue helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Queue version 1.699_007
+This document describes MCE::Shared::Queue version 1.699_008
 
 =head1 SYNOPSIS
 
@@ -666,31 +666,31 @@ To be completed before the final 1.700 release.
 
 =over 3
 
-=item new
+=item new ( [ options ] )
 
-=item await
+=item await ( pending_threshold )
 
 =item clear
 
-=item dequeue
+=item dequeue ( [ count ] )
 
-=item dequeue_nb
+=item dequeue_nb ( [ count ] )
 
-=item enqueue
+=item enqueue ( item [, item, ... ] )
 
-=item enqueuep
+=item enqueuep ( priority, item [, item, ... ] )
 
 =item heap
 
-=item insert
+=item insert ( index, item [, item, ... ] )
 
-=item insertp
+=item insertp ( priority, index, item [, item, ... ] )
 
-=item peek
+=item peek ( [ index ] )
 
-=item peekp
+=item peekp ( priority [, index ] )
 
-=item peekh
+=item peekh ( [ index ] )
 
 =item pending
 

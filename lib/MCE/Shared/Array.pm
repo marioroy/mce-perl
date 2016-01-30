@@ -11,12 +11,11 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_007';
+our $VERSION = '1.699_008';
 
-## no critic (TestingAndDebugging::ProhibitNoStrict)
+# no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use MCE::Shared::Base;
-use base 'MCE::Shared::Base';
 use bytes;
 
 use overload (
@@ -24,10 +23,6 @@ use overload (
    q(0+)    => \&MCE::Shared::Base::_numify,
    fallback => 1
 );
-
-sub _croak {
-   goto &MCE::Shared::Base::_croak;
-}
 
 sub TIEARRAY {
    my $self = bless [], shift;
@@ -37,10 +32,11 @@ sub TIEARRAY {
 
 sub EXTEND { }
 
-## Based on Tie::StdArray from Tie::Array.
+# Based on Tie::StdArray from Tie::Array.
 
 sub FETCHSIZE { scalar @{$_[0]} }
 sub STORESIZE { $#{$_[0]} = $_[1] - 1 }
+
 sub STORE     { $_[0]->[$_[1]] = $_[2] }
 sub FETCH     { $_[0]->[$_[1]] }
 sub DELETE    { delete $_[0]->[$_[1]] }
@@ -50,6 +46,8 @@ sub POP       { pop(@{$_[0]}) }
 sub PUSH      { my $o = shift; push(@$o, @_) }
 sub SHIFT     { shift(@{$_[0]}) }
 sub UNSHIFT   { my $o = shift; unshift(@$o, @_) }
+
+# SPLICE ( offset, length [, list ] )
 
 sub SPLICE {
    my $ob  = shift;
@@ -62,9 +60,43 @@ sub SPLICE {
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## clone, flush, iterator, mget, merge, keys, values, pairs
+## _find, clone, flush, iterator, keys, pairs, values
 ##
 ###############################################################################
+
+#  Query string:
+#
+#  Several methods receive query string as an argument. The string is
+#  quoteless. Any quotes inside the string will be treated literally.
+#
+#  Search capability { =~ !~ eq ne lt le gt ge == != < <= > >= }
+#
+#  "key =~ /pattern/i :AND val =~ /pattern/i"
+#  "key =~ /pattern/i :AND val eq foo bar"     # val eq foo bar
+#  "val eq foo baz :OR key !~ /pattern/i"
+#
+#     key means to match against indices in the array
+#     val means to match against values in the array
+#
+#  Do not mix :AND(s) and :OR(s) together.
+
+# _find ( { getkeys => 1 }, "query string" )
+# _find ( { getvals => 1 }, "query string" )
+#
+# _find ( "query string" ) # pairs
+
+sub _find {
+   my $self   = shift;
+   my $params = ref($_[0]) eq 'HASH' ? shift : {};
+   my $query  = shift;
+
+   MCE::Shared::Base::_find_array(
+      $self, $params, $query, 0 .. $#{ $self }
+   );
+}
+
+# clone ( key [, key, ... ] )
+# clone
 
 sub clone {
    my $self = shift;
@@ -86,13 +118,26 @@ sub clone {
    bless \@data, ref $self;
 }
 
-sub flush  {
+# flush ( key [, key, ... ] )
+# flush
+
+sub flush {
    shift()->clone( { flush => 1 }, @_ );
 }
 
+# iterator ( key [, key, ... ] )
+# iterator ( "query string" )
+# iterator
+
 sub iterator {
    my ( $self, @keys ) = @_;
-   @keys = ( 0 .. $#{ $self } ) unless @keys;
+
+   if ( !scalar @keys ) {
+      @keys = ( 0 .. $#{ $self } );
+   }
+   elsif ( @keys == 1 && $keys[0] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {
+      @keys = $self->keys($keys[0]);
+   }
 
    return sub {
       return unless @keys;
@@ -101,129 +146,233 @@ sub iterator {
    };
 }
 
+# keys ( key [, key, ... ] )
+# keys ( "query string" )
+# keys
+
+sub keys {
+   my $self = shift;
+
+   if ( @_ == 1 && $_[0] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {
+      $self->_find({ getkeys => 1 }, @_);
+   }
+   else {
+      if ( wantarray ) {
+         @_ ? map { exists $self->[ $_ ] ? $_ : undef } @_
+            : ( 0 .. $#{ $self } );
+      }
+      else {
+         scalar @{ $self };
+      }
+   }
+}
+
+# pairs ( key [, key, ... ] )
+# pairs ( "query string" )
+# pairs
+
+sub pairs {
+   my $self = shift;
+
+   if ( @_ == 1 && $_[0] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {
+      $self->_find(@_);
+   }
+   else {
+      if ( wantarray ) {
+         @_ ? map { $_ => $self->[ $_ ] } @_
+            : map { $_ => $self->[ $_ ] } 0 .. $#{ $self };
+      }
+      else {
+         ( scalar @{ $self } ) << 1;
+      }
+   }
+}
+
+# values ( key [, key, ... ] )
+# values ( "query string" )
+# values
+
+sub values {
+   my $self = shift;
+
+   if ( @_ == 1 && $_[0] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {
+      $self->_find({ getvals => 1 }, @_);
+   }
+   else {
+      if ( wantarray ) {
+         @_ ? @{ $self }[ @_ ]
+            : @{ $self }
+      }
+      else {
+         scalar @{ $self };
+      }
+   }
+}
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## mdel, mexists, mget, mset, range, sort
+##
+###############################################################################
+
+# mdel ( index [, index, ... ] )
+
+sub mdel {
+   my $self = shift;
+   my ( $cnt, $key ) = ( 0 );
+
+   while ( @_ ) {
+      $key = shift;
+      $cnt++, delete($self->[ $key ]) if exists($self->[ $key ]);
+   }
+
+   $cnt;
+}
+
+# mexists ( index [, index, ... ] )
+
+sub mexists {
+   my $self = shift;
+   my $key;
+
+   while ( @_ ) {
+      $key = shift;
+      return '' if ( !exists $self->[ $key ] );
+   }
+
+   1;
+}
+
+# mget ( index [, index, ... ] )
+
 sub mget {
    my $self = shift;
 
-   @_ ? @{ $self }[ @_ ]
-      : ();
+   @_ ? @{ $self }[ @_ ] : ();
 }
 
-sub merge {
+# mset ( index, value [, index, value, ... ] )
+
+sub mset {
    my ( $self, $key ) = ( shift );
 
    while ( @_ ) {
       $key = shift, $self->[ $key ] = shift;
    }
 
-   scalar @{ $self };
+   defined wantarray ? scalar @{ $self } : ();
 }
 
-sub keys {
-   my $self = shift;
+# range ( start, stop )
 
-   if ( wantarray ) {
-      @_ ? map { exists $self->[ $_ ] ? $_ : undef } @_
-         : ( 0 .. $#{ $self } );
+sub range {
+   my ( $self, $start, $stop ) = @_;
+
+   if ( $start !~ /^\-?\d+$/ || $stop !~ /^\-?\d+$/ || $start > $#{ $self } ) {
+      return ();
+   }
+
+   if ( $start < 0 ) {
+      $start = @{ $self } + $start;
+      $start = 0 if $start < 0;
+   }
+
+   if ( $stop < 0 ) {
+      $stop = @{ $self } + $stop;
+      $stop = 0 if $stop < 0;
    }
    else {
-      scalar @{ $self };
+      $stop = $#{ $self } if $stop > $#{ $self };
    }
+
+   @{ $self }[ $start .. $stop ];
 }
 
-sub values {
-   my $self = shift;
-
-   if ( wantarray ) {
-      @_ ? @{ $self }[ @_ ]
-         : @{ $self }
-   }
-   else {
-      scalar @{ $self };
-   }
-}
-
-sub pairs {
-   my $self = shift;
-
-   if ( wantarray ) {
-      @_ ? map { $_ => $self->[ $_ ] } @_
-         : map { $_ => $self->[ $_ ] } 0 .. $#{ $self };
-   }
-   else {
-      ( scalar @{ $self } ) << 1;
-   }
-}
-
-###############################################################################
-## ----------------------------------------------------------------------------
-## find, sort
-##
-###############################################################################
-
-sub find {
-   my ( $self, $search ) = @_;
-   my ( $attr, $op, $expr ) = split( /\s+/, $search, 3 );
-
-   ## Returns ( IDX, VALUE ) pairs where VALUE matches expression.
-   if ( $attr eq 'val' || $attr eq 'value' ) {
-      my $_find = $self->_find_vals_array();
-
-      _croak('Find error: invalid OPCODE') unless length $op;
-      _croak('Find error: invalid OPCODE') unless exists $_find->{ $op };
-      _croak('Find error: invalid EXPR'  ) unless length $expr;
-
-      $expr = undef if $expr eq 'undef';
-
-      $_find->{ $op }->( $self, $expr, 0 .. $#{ $self } );
-   }
-   else {
-      _croak('Find error: invalid ATTR');
-   }
-}
+# sort ( "BY val [ ASC | DESC ] [ ALPHA ]" )
+#
+# sort ( "[ ASC | DESC ] [ ALPHA ]" ) # same as "BY val ..."
 
 sub sort {
    my ( $self, $request ) = @_;
    my ( $alpha, $desc ) = ( 0, 0 );
 
    if ( length $request ) {
-      $alpha = 1 if $request =~ /alpha/i;
-      $desc  = 1 if $request =~ /desc/i;
+      $alpha = 1 if $request =~ /\balpha\b/i;
+      $desc  = 1 if $request =~ /\bdesc\b/i;
    }
 
-   if ( $alpha ) { ( $desc )
-      ? CORE::sort { $b cmp $a } @{ $self }
-      : CORE::sort { $a cmp $b } @{ $self };
+   # Return sorted values
+   if ( defined wantarray ) {
+      if ( $alpha ) { ( $desc )
+       ? CORE::sort { $b cmp $a } @{ $self }
+       : CORE::sort { $a cmp $b } @{ $self };
+      }
+      else { ( $desc )
+       ? CORE::sort { $b <=> $a } @{ $self }
+       : CORE::sort { $a <=> $b } @{ $self };
+      }
+   }
+
+   # Sort values in-place
+   elsif ( $alpha ) { ( $desc )
+    ? $self->_reorder( CORE::sort { $b cmp $a } @{ $self } )
+    : $self->_reorder( CORE::sort { $a cmp $b } @{ $self } );
    }
    else { ( $desc )
-      ? CORE::sort { $b <=> $a } @{ $self }
-      : CORE::sort { $a <=> $b } @{ $self };
+    ? $self->_reorder( CORE::sort { $b <=> $a } @{ $self } )
+    : $self->_reorder( CORE::sort { $a <=> $b } @{ $self } );
    }
+}
+
+sub _reorder {
+   my $self = shift; @{ $self } = @_; 
+
+   return;
 }
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## append, decr, decrby, incr, incrby, pdecr, pincr
+## Sugar API, mostly resembles http://redis.io/commands#string primitives.
 ##
 ###############################################################################
 
-sub append {   $_[0]->[ $_[1] ] .= $_[2] || '' ; length $_[0]->[ $_[1] ] }
-sub decr   { --$_[0]->[ $_[1] ]                }
-sub decrby {   $_[0]->[ $_[1] ] -= $_[2] || 0  }
-sub incr   { ++$_[0]->[ $_[1] ]                }
-sub incrby {   $_[0]->[ $_[1] ] += $_[2] || 0  }
-sub pdecr  {   $_[0]->[ $_[1] ]--              }
-sub pincr  {   $_[0]->[ $_[1] ]++              }
+# append ( index, string )
 
-sub length {
+sub append {
+   $_[0]->[ $_[1] ] .= $_[2] || '';
+   length $_[0]->[ $_[1] ];
+}
+
+# decr    ( index )
+# decrby  ( index, number )
+# incr    ( index )
+# incrby  ( index, number )
+# getdecr ( index )
+# getincr ( index )
+
+sub decr    { --$_[0]->[ $_[1] ]               }
+sub decrby  {   $_[0]->[ $_[1] ] -= $_[2] || 0 }
+sub incr    { ++$_[0]->[ $_[1] ]               }
+sub incrby  {   $_[0]->[ $_[1] ] += $_[2] || 0 }
+sub getdecr {   $_[0]->[ $_[1] ]--        || 0 }
+sub getincr {   $_[0]->[ $_[1] ]++        || 0 }
+
+# getset ( index, value )
+
+sub getset { my $old = $_[0]->[ $_[1] ]; $_[0]->[ $_[1] ] = $_[2]; $old }
+
+# len ( index )
+# len
+
+sub len {
    ( defined $_[1] )
-      ? CORE::length( $_[0]->[ $_[1] ] )
+      ? length $_[0]->[ $_[1] ] || 0
       : scalar @{ $_[0] };
 }
 
-## Aliases.
-
 {
    no strict 'refs';
+
    *{ __PACKAGE__.'::new'     } = \&TIEARRAY;
    *{ __PACKAGE__.'::set'     } = \&STORE;
    *{ __PACKAGE__.'::get'     } = \&FETCH;
@@ -235,6 +384,10 @@ sub length {
    *{ __PACKAGE__.'::shift'   } = \&SHIFT;
    *{ __PACKAGE__.'::unshift' } = \&UNSHIFT;
    *{ __PACKAGE__.'::splice'  } = \&SPLICE;
+
+   *{ __PACKAGE__.'::del'     } = \&delete;
+   *{ __PACKAGE__.'::merge'   } = \&mset;
+   *{ __PACKAGE__.'::vals'    } = \&values;
 }
 
 1;
@@ -253,7 +406,7 @@ MCE::Shared::Array - Array helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Array version 1.699_007
+This document describes MCE::Shared::Array version 1.699_008
 
 =head1 SYNOPSIS
 
@@ -268,13 +421,13 @@ This document describes MCE::Shared::Array version 1.699_007
    my $ar = MCE::Shared->array( @list );
 
    # oo interface
-   $val   = $ar->set( $idx, $val );
-   $val   = $ar->get( $idx);
-   $val   = $ar->delete( $idx );
-   $bool  = $ar->exists( $idx );
+   $val   = $ar->set( $index, $val );
+   $val   = $ar->get( $index);
+   $val   = $ar->delete( $index );            # del is an alias for delete
+   $bool  = $ar->exists( $index );
    void   = $ar->clear();
-   $len   = $ar->length();                    # scalar @{ $ar }
-   $len   = $ar->length( $idx );              # length $ar->[ $idx ]
+   $len   = $ar->len();                       # scalar @{ $ar }
+   $len   = $ar->len( $index );               # length $ar->[ $index ]
    $val   = $ar->pop();
    $len   = $ar->push( @list );
    $val   = $ar->shift();
@@ -284,42 +437,56 @@ This document describes MCE::Shared::Array version 1.699_007
    $ar2   = $ar->clone( @indices );           # @indices is optional
    $ar3   = $ar->flush( @indices );
    $iter  = $ar->iterator( @indices );        # ($idx, $val) = $iter->()
-   $len   = $ar->merge( $idx/$val pairs );
-   @vals  = $ar->mget( @indices );
    @keys  = $ar->keys( @indices );
-   @vals  = $ar->values( @indices );
    %pairs = $ar->pairs( @indices );
+   @vals  = $ar->values( @indices );          # vals is an alias for values
+
+   $cnt   = $ar->mdel( @indices );
+   @vals  = $ar->mget( @indices );
+   $bool  = $ar->mexists( @indices );         # true if all indices exists
+   $len   = $ar->mset( $idx/$val pairs );     # merge is an alias for mset
+
+   @vals  = $ar->range( $start, $stop );
 
    @vals  = $ar->sort();                      # $a <=> $b default
    @vals  = $ar->sort( "desc" );              # $b <=> $a
    @vals  = $ar->sort( "alpha" );             # $a cmp $b
    @vals  = $ar->sort( "alpha desc" );        # $b cmp $a
 
-   %pairs = $ar->find( "val =~ /$pattern/i" );
-   %pairs = $ar->find( "val !~ /$pattern/i" );
+   # search capability key/val { =~ !~ eq ne lt le gt ge == != < <= > >= }
+   # query string is quoteless, otherwise quote(s) are treated literally
+   # key/val means to match against actual key/val respectively
+   # do not mix :AND(s) and :OR(s) together
 
-   %pairs = $ar->find( "val eq $string" );
-   %pairs = $ar->find( "val ne $string" );
-   %pairs = $ar->find( "val lt $string" );
-   %pairs = $ar->find( "val le $string" );
-   %pairs = $ar->find( "val gt $string" );
-   %pairs = $ar->find( "val ge $string" );
+   @keys  = $ar->keys( "key =~ /$pattern/i" );
+   @keys  = $ar->keys( "key !~ /$pattern/i" );
+   @keys  = $ar->keys( "val =~ /$pattern/i" );
+   @keys  = $ar->keys( "val !~ /$pattern/i" );
 
-   %pairs = $ar->find( "val == $number" );
-   %pairs = $ar->find( "val != $number" );
-   %pairs = $ar->find( "val <  $number" );
-   %pairs = $ar->find( "val <= $number" );
-   %pairs = $ar->find( "val >  $number" );
-   %pairs = $ar->find( "val >= $number" );
+   %pairs = $ar->pairs( "key == $number" );
+   %pairs = $ar->pairs( "key != $number :AND val > 100" );
+   %pairs = $ar->pairs( "key <  $number :OR key > $number" );
+   %pairs = $ar->pairs( "val <= $number" );
+   %pairs = $ar->pairs( "val >  $number" );
+   %pairs = $ar->pairs( "val >= $number" );
+
+   @vals  = $ar->values( "key eq $string" );
+   @vals  = $ar->values( "key ne $string with space" );
+   @vals  = $ar->values( "key lt $string :OR val =~ /$pat1|$pat2/" );
+   @vals  = $ar->values( "val le $string :AND val eq foo bar" );
+   @vals  = $ar->values( "val gt $string" );
+   @vals  = $ar->values( "val ge $string" );
 
    # sugar methods without having to call set/get explicitly
-   $len   = $ar->append( $idx, $string );     #   $val .= $string
-   $val   = $ar->decr( $idx );                # --$val
-   $val   = $ar->decrby( $idx, $number );     #   $val -= $number
-   $val   = $ar->incr( $idx );                # ++$val
-   $val   = $ar->incrby( $idx, $number );     #   $val += $number
-   $val   = $ar->pdecr( $idx );               #   $val--
-   $val   = $ar->pincr( $idx );               #   $val++
+
+   $len   = $ar->append( $index, $string );   #   $val .= $string
+   $val   = $ar->decr( $index );              # --$val
+   $val   = $ar->decrby( $index, $number );   #   $val -= $number
+   $val   = $ar->getdecr( $index );           #   $val--
+   $val   = $ar->getincr( $index );           #   $val++
+   $val   = $ar->incr( $index );              # ++$val
+   $val   = $ar->incrby( $index, $number );   #   $val += $number
+   $old   = $ar->getset( $index, $new );      #   $o = $v, $v = $n, $o
 
 =head1 DESCRIPTION
 
@@ -331,69 +498,127 @@ To be completed before the final 1.700 release.
 
 =over 3
 
+=item new ( val [, val, ... ] )
+
 =item new
-
-=item set
-
-=item get
-
-=item delete
-
-=item exists
 
 =item clear
 
-=item length
-
-=item pop
-
-=item push
-
-=item shift
-
-=item unshift
-
-=item splice
+=item clone ( index [, index, ... ] )
 
 =item clone
 
+=item delete ( index )
+
+=item exists ( index )
+
+=item flush ( index [, index, ... ] )
+
 =item flush
+
+Same as C<clone>. Clears all existing items before returning.
+
+=item get ( index )
+
+=item iterator ( index [, index, ... ] )
+
+=item iterator ( "query string" )
 
 =item iterator
 
-=item mget
+=item keys ( index [, index, ... ] )
 
-=item merge
+=item keys ( "query string" )
 
 =item keys
 
-=item values
+=item len ( [ index ] )
+
+=item mdel ( indices )
+
+=item mexists ( indices )
+
+=item mget ( indices )
+
+=item mset ( index/value pairs )
+
+=item pairs ( index [, index, ... ] )
+
+=item pairs ( "query string" )
 
 =item pairs
 
-=item find
+=item pop
 
-=item sort
+=item push ( list )
 
-=item append
+=item set ( index, value )
 
-=item decr
+=item shift
 
-=item decrby
+=item range ( start, stop )
 
-=item incr
+=item sort ( "BY val [ ASC | DESC ] [ ALPHA ]" )
 
-=item incrby
+=item sort ( "[ ASC | DESC ] [ ALPHA ]" )
 
-=item pdecr
+=item splice ( offset, length, list )
 
-=item pincr
+=item unshift ( list )
+
+=item values ( index [, index, ... ] )
+
+=item values ( "query string" )
+
+=item values
+
+=back
+
+=head1 SUGAR METHODS
+
+This module is equipped with sugar methods to not have to call C<set>
+and C<get> explicitly. The API resembles a subset of the Redis primitives
+L<http://redis.io/commands#strings> with key representing the array index.
+
+=over 3
+
+=item append ( key, string )
+
+Append a value to a key.
+
+=item decr ( key )
+
+Decrement the value of a key by one and return its new value.
+
+=item decrby ( key, number )
+
+Decrement the value of a key by the given number and return its new value.
+
+=item getdecr ( key )
+
+Decrement the value of a key by one and return its old value.
+
+=item getincr ( key )
+
+Increment the value of a key by one and return its old value.
+
+=item getset ( key, value )
+
+Set the value of a key and return its old value.
+
+=item incr ( key )
+
+Increment the value of a key by one and return its new value.
+
+=item incrby ( key, number )
+
+Increment the value of a key by the given number and return its new value.
 
 =back
 
 =head1 CREDITS
 
-Implementation inspired by L<Tie::StdArray|Tie::StdArray>.
+The implementation is inspired by L<Tie::StdArray|Tie::StdArray>.
 
 =head1 INDEX
 

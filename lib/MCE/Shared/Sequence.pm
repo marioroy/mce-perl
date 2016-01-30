@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_007';
+our $VERSION = '1.699_008';
 
 use Scalar::Util qw( looks_like_number );
 use MCE::Shared::Base;
@@ -34,20 +34,31 @@ sub _croak {
    goto &MCE::Shared::Base::_croak;
 }
 
+# new ( begin, end [, step, format ] )
+# new
+
 sub new {
    my ( $class, @self ) = @_;
 
-   _croak( 'Invalid BEGIN' ) unless looks_like_number( $self[_BEGV] );
-   _croak( 'Invalid END'   ) unless looks_like_number( $self[_ENDV] );
+   if ( @self ) {
+      _croak('invalid begin') unless looks_like_number( $self[_BEGV] );
+      _croak('invalid end'  ) unless looks_like_number( $self[_ENDV] );
 
-   $self[_STEP] = ( $self[_BEGV] <= $self[_ENDV] ) ? 1 : -1
-      unless ( defined $self[_STEP] );
+      $self[_STEP] = ( $self[_BEGV] <= $self[_ENDV] ) ? 1 : -1
+         unless ( defined $self[_STEP] );
 
-   _croak( 'Invalid STEP'  ) unless looks_like_number( $self[_STEP] );
+      _croak('invalid step' ) unless looks_like_number( $self[_STEP] );
 
-   $self[_ITER] = undef;
+      $self[_ITER] = undef;
+   }
+   else {
+      @self = ( 0, 0, 1, '__NOOP__', 1 );
+   }
+
    bless \@self, $class;
 }
+
+# next
 
 sub next {
    my ( $self ) = @_;
@@ -55,7 +66,7 @@ sub next {
 
    if ( defined $iter ) {
       my $seq; my ( $begv, $endv, $step, $fmt ) = @{ $self };
-      ## always compute from _BEGV to not lose precision
+      # always compute from _BEGV value to not lose precision
 
       if ( $begv <= $endv ) {
          $seq = $begv + ( $iter * $step );
@@ -76,37 +87,29 @@ sub next {
    }
 }
 
-sub prev {
-   my ( $self ) = @_;
-   my $iter = $self->[_ITER];
+# rewind ( begin, end [, step, format ] )
+# rewind
 
-   if ( defined $iter ) {
-      my $seq; my ( $begv, $endv, $step, $fmt ) = @{ $self };
-      ## always compute from _BEGV to not lose precision
+sub rewind {
+   my $self = shift;
 
-      if ( $begv <= $endv ) {
-         $seq = $begv + ( $iter * $step );
-         return unless ( $seq >= $begv && $seq <= $endv );
-      }
-      else {
-         $seq = $begv - -( $iter * $step );
-         return unless ( $seq >= $endv && $seq <= $begv );
-      }
+   if ( scalar @_ ) {
+      @{ $self } = @_;
+      _croak('invalid begin') unless looks_like_number( $self->[_BEGV] );
+      _croak('invalid end'  ) unless looks_like_number( $self->[_ENDV] );
 
-      $self->[_ITER]--, ( defined $fmt )
-         ? sprintf( $fmt, $seq )
-         : $seq;
+      $self->[_STEP] = ( $self->[_BEGV] <= $self->[_ENDV] ) ? 1 : -1
+         unless ( defined $self->[_STEP] );
+
+      _croak('invalid step' ) unless looks_like_number( $self->[_STEP] );
+
+      $self->[_ITER] = undef;
    }
    else {
-      $self->[_ITER] = int(
-         ( $self->[_ENDV] - $self->[_BEGV] ) / $self->[_STEP]
-      );
-      $self->prev();
+      $self->[_ITER] = undef  unless ( $self->[_FMT] eq '__NOOP__' );
    }
-}
 
-sub reset {
-   $_[0]->[_ITER] = undef;
+   return;
 }
 
 1;
@@ -125,7 +128,7 @@ MCE::Shared::Sequence - Sequence helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Sequence version 1.699_007
+This document describes MCE::Shared::Sequence version 1.699_008
 
 =head1 SYNOPSIS
 
@@ -161,13 +164,15 @@ To be completed before the final 1.700 release.
 
 =over 3
 
+=item new ( begin, end [, step, format ] )
+
 =item new
 
 =item next
 
-=item prev
+=item rewind ( begin, end [, step, format ] )
 
-=item reset
+=item rewind
 
 =back
 

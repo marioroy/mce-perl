@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 59;
+use Test::More tests => 125;
 use MCE::Flow max_workers => 1;
 use MCE::Shared;
 
@@ -103,89 +103,279 @@ is( $s2, 'moon', 'shared array, check pop' );
 
 $a5->clear();
 
-$a5->merge( qw(
+$a5->mset( qw(
    0 me 1 channel 2 Your 3 Where 4 despair 5 life 6 me 7 hope...
    8 there 9 darkness 10 light... 11 18 12 9 13 3
 ));
 
+## find keys
+
+cmp_array(
+   [ $a5->pairs('key =~ /3/') ], [ qw/ 3 Where 13 3 / ],
+   'shared array, check find keys =~ match (pairs)'
+);
+cmp_array(
+   [ $a5->keys('key =~ /3/') ], [ qw/ 3 13 / ],
+   'shared array, check find keys =~ match (keys)'
+);
+cmp_array(
+   [ $a5->vals('key =~ /3/') ], [ qw/ Where 3 / ],
+   'shared array, check find keys =~ match (vals)'
+);
+
+cmp_array(
+   [ $a5->pairs('key !~ /^[1]/') ],
+   [ qw/ 0 me 2 Your 3 Where 4 despair 5 life 6 me 7 hope... 8 there 9 darkness / ],
+   'shared array, check find keys !~ match (pairs)'
+);
+cmp_array(
+   [ $a5->keys('key !~ /^[1]/') ],
+   [ qw/ 0 2 3 4 5 6 7 8 9 / ],
+   'shared array, check find keys !~ match (keys)'
+);
+cmp_array(
+   [ $a5->vals('key !~ /^[1]/') ],
+   [ qw/ me Your Where despair life me hope... there darkness / ],
+   'shared array, check find keys !~ match (vals)'
+);
+
+cmp_array(
+   [ $a5->pairs('key eq 1') ], [ qw/ 1 channel / ],
+   'shared array, check find keys eq match (pairs)'
+);
+cmp_array(
+   [ $a5->keys('key eq 1') ], [ qw/ 1 / ],
+   'shared array, check find keys eq match (keys)'
+);
+cmp_array(
+   [ $a5->vals('key eq 1') ], [ qw/ channel / ],
+   'shared array, check find keys eq match (vals)'
+);
+
+cmp_array(
+   [ $a5->pairs('key == 1') ], [ qw/ 1 channel / ],
+   'shared array, check find keys == match (pairs)'
+);
+cmp_array(
+   [ $a5->keys('key == 1') ], [ qw/ 1 / ],
+   'shared array, check find keys == match (keys)'
+);
+cmp_array(
+   [ $a5->vals('key == 1') ], [ qw/ channel / ],
+   'shared array, check find keys == match (vals)'
+);
+
+cmp_array(
+   [ $a5->pairs('key < 2 :AND val eq me') ], [ qw/ 0 me / ],
+   'shared array, check find keys && match (pairs)'
+);
+cmp_array(
+   [ $a5->keys('key < 2 :AND val eq me') ], [ qw/ 0 / ],
+   'shared array, check find keys && match (keys)'
+);
+cmp_array(
+   [ $a5->vals('key < 2 :AND val eq me') ], [ qw/ me / ],
+   'shared array, check find keys && match (vals)'
+);
+
 ## find vals
 
 cmp_array(
-   [ $a5->find('val =~ /\.\.\./') ],
+   [ $a5->pairs('val =~ /\.\.\./') ],
    [ qw/ 7 hope... 10 light... / ],
-   'shared array, check find vals =~ match'
+   'shared array, check find vals =~ match (pairs)'
 );
 cmp_array(
-   [ $a5->find('val !~ /^[a-z]/') ],
+   [ $a5->keys('val =~ /\.\.\./') ],
+   [ qw/ 7 10 / ],
+   'shared array, check find vals =~ match (keys)'
+);
+cmp_array(
+   [ $a5->vals('val =~ /\.\.\./') ],
+   [ qw/ hope... light... / ],
+   'shared array, check find vals =~ match (vals)'
+);
+
+cmp_array(
+   [ $a5->pairs('val !~ /^[a-z]/') ],
    [ qw/ 2 Your 3 Where 11 18 12 9 13 3 / ],
-   'shared array, check find vals !~ match'
+   'shared array, check find vals !~ match (pairs)'
 );
 cmp_array(
-   [ $a5->find('val eq life') ], [ qw/ 5 life / ],
-   'shared array, check find vals eq match'
+   [ $a5->keys('val !~ /^[a-z]/') ],
+   [ qw/ 2 3 11 12 13 / ],
+   'shared array, check find vals !~ match (keys)'
 );
-
-is( $a5->find('val ne despair'), 26, 'shared array, check find vals ne match' );
-is( $a5->find('val lt hope...'), 16, 'shared array, check find vals lt match' );
-is( $a5->find('val le hope...'), 18, 'shared array, check find vals le match' );
-is( $a5->find('val gt hope...'), 10, 'shared array, check find vals gt match' );
-is( $a5->find('val ge hope...'), 12, 'shared array, check find vals ge match' );
+cmp_array(
+   [ $a5->vals('val !~ /^[a-z]/') ],
+   [ qw/ Your Where 18 9 3 / ],
+   'shared array, check find vals !~ match (vals)'
+);
 
 cmp_array(
-   [ $a5->find('val == 9') ], [ qw/ 12 9 / ],
-   'shared array, check find vals == match'
+   [ $a5->pairs('val =~ /\.\.\./ :OR key >= 12') ],
+   [ qw/ 7 hope... 10 light... 12 9 13 3 / ],
+   'shared array, check find vals || match (pairs)'
+);
+cmp_array(
+   [ $a5->keys('val =~ /\.\.\./ :OR key >= 12') ],
+   [ qw/ 7 10 12 13 / ],
+   'shared array, check find vals || match (keys)'
+);
+cmp_array(
+   [ $a5->vals('val =~ /\.\.\./ :OR key >= 12') ],
+   [ qw/ hope... light... 9 3 / ],
+   'shared array, check find vals || match (vals)'
 );
 
-is( $a5->find('val !=  9'), 4, 'shared array, check find vals != match' );
-is( $a5->find('val <   9'), 2, 'shared array, check find vals <  match' );
-is( $a5->find('val <=  9'), 4, 'shared array, check find vals <= match' );
-is( $a5->find('val >  18'), 0, 'shared array, check find vals >  match' );
-is( $a5->find('val >= 18'), 2, 'shared array, check find vals >= match' );
+cmp_array(
+   [ $a5->pairs('val eq life') ], [ qw/ 5 life / ],
+   'shared array, check find vals eq match (pairs)'
+);
+cmp_array(
+   [ $a5->keys('val eq life') ], [ qw/ 5 / ],
+   'shared array, check find vals eq match (keys)'
+);
+cmp_array(
+   [ $a5->vals('val eq life') ], [ qw/ life / ],
+   'shared array, check find vals eq match (vals)'
+);
+
+is( $a5->pairs('val ne despair'), 26, 'shared array, check find vals ne match (pairs)' );
+is( $a5->keys('val ne despair'), 13, 'shared array, check find vals ne match (keys)' );
+is( $a5->vals('val ne despair'), 13, 'shared array, check find vals ne match (vals)' );
+
+is( $a5->pairs('val lt hope...'), 16, 'shared array, check find vals lt match (pairs)' );
+is( $a5->keys('val lt hope...'),  8, 'shared array, check find vals lt match (keys)' );
+is( $a5->vals('val lt hope...'),  8, 'shared array, check find vals lt match (vals)' );
+
+is( $a5->pairs('val le hope...'), 18, 'shared array, check find vals le match (pairs)' );
+is( $a5->keys('val le hope...'),  9, 'shared array, check find vals le match (keys)' );
+is( $a5->vals('val le hope...'),  9, 'shared array, check find vals le match (vals)' );
+
+is( $a5->pairs('val gt hope...'), 10, 'shared array, check find vals gt match (pairs)' );
+is( $a5->keys('val gt hope...'),  5, 'shared array, check find vals gt match (keys)' );
+is( $a5->vals('val gt hope...'),  5, 'shared array, check find vals gt match (vals)' );
+
+is( $a5->pairs('val ge hope...'), 12, 'shared array, check find vals ge match (pairs)' );
+is( $a5->keys('val ge hope...'),  6, 'shared array, check find vals ge match (keys)' );
+is( $a5->vals('val ge hope...'),  6, 'shared array, check find vals ge match (vals)' );
+
+cmp_array(
+   [ $a5->pairs('val == 9') ], [ qw/ 12 9 / ],
+   'shared array, check find vals == match (pairs)'
+);
+cmp_array(
+   [ $a5->keys('val == 9') ], [ qw/ 12 / ],
+   'shared array, check find vals == match (keys)'
+);
+cmp_array(
+   [ $a5->vals('val == 9') ], [ qw/ 9 / ],
+   'shared array, check find vals == match (vals)'
+);
+
+is( $a5->pairs('val !=  9'), 4, 'shared array, check find vals != match (pairs)' );
+is( $a5->keys('val !=  9'), 2, 'shared array, check find vals != match (keys)' );
+is( $a5->vals('val !=  9'), 2, 'shared array, check find vals != match (vals)' );
+
+is( $a5->pairs('val <   9'), 2, 'shared array, check find vals <  match (pairs)' );
+is( $a5->keys('val <   9'), 1, 'shared array, check find vals <  match (keys)' );
+is( $a5->vals('val <   9'), 1, 'shared array, check find vals <  match (vals)' );
+
+is( $a5->pairs('val <=  9'), 4, 'shared array, check find vals <= match (pairs)' );
+is( $a5->keys('val <=  9'), 2, 'shared array, check find vals <= match (keys)' );
+is( $a5->vals('val <=  9'), 2, 'shared array, check find vals <= match (vals)' );
+
+is( $a5->pairs('val >  18'), 0, 'shared array, check find vals >  match (pairs)' );
+is( $a5->keys('val >  18'), 0, 'shared array, check find vals >  match (keys)' );
+is( $a5->vals('val >  18'), 0, 'shared array, check find vals >  match (vals)' );
+
+is( $a5->pairs('val >= 18'), 2, 'shared array, check find vals >= match (pairs)' );
+is( $a5->keys('val >= 18'), 1, 'shared array, check find vals >= match (keys)' );
+is( $a5->vals('val >= 18'), 1, 'shared array, check find vals >= match (vals)' );
 
 ## find undef
 
 $a5->clear();
 
-$a5->merge( qw/ 0 summer 1 winter / );
+$a5->mset( qw/ 0 summer 1 winter / );
 $a5->set( 2, undef );
 
 cmp_array(
-   [ $a5->find('val eq undef') ], [ 2, undef ],
-   'shared array, check find vals eq undef'
+   [ $a5->pairs('val eq undef') ], [ 2, undef ],
+   'shared array, check find vals eq undef (pairs)'
 );
 cmp_array(
-   [ $a5->find('val ne undef') ], [ qw/ 0 summer 1 winter / ],
-   'shared array, check find vals ne undef'
+   [ $a5->keys('val eq undef') ], [ 2 ],
+   'shared array, check find vals eq undef (keys)'
+);
+cmp_array(
+   [ $a5->vals('val eq undef') ], [ undef ],
+   'shared array, check find vals eq undef (vals)'
+);
+
+cmp_array(
+   [ $a5->pairs('val ne undef') ], [ qw/ 0 summer 1 winter / ],
+   'shared array, check find vals ne undef (pairs)'
+);
+cmp_array(
+   [ $a5->keys('val ne undef') ], [ qw/ 0 1 / ],
+   'shared array, check find vals ne undef (keys)'
+);
+cmp_array(
+   [ $a5->vals('val ne undef') ], [ qw/ summer winter / ],
+   'shared array, check find vals ne undef (vals)'
 );
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
 $a5->clear(); $a5->push( 1, 2, 3, 6, 5, 4, 10 );
 
+## sorted vals
+
 cmp_array(
    [ $a5->sort() ], [ qw/ 1 2 3 4 5 6 10 / ],
-   'shared array, check sort'
+   'shared array, check sorted vals'
 );
 cmp_array(
    [ $a5->sort("desc") ], [ qw/ 10 6 5 4 3 2 1 / ],
-   'shared array, check sort desc'
+   'shared array, check sorted vals desc'
 );
 cmp_array(
    [ $a5->sort("alpha") ], [ qw/ 1 10 2 3 4 5 6 / ],
-   'shared array, check sort alpha'
+   'shared array, check sorted vals alpha'
 );
 cmp_array(
    [ $a5->sort("alpha desc") ], [ qw/ 6 5 4 3 2 10 1 / ],
-   'shared array, check sort alpha desc'
+   'shared array, check sorted vals alpha desc'
+);
+
+## sort vals in-place
+
+$a5->sort(), cmp_array(
+   [ $a5->vals() ], [ qw/ 1 2 3 4 5 6 10 / ],
+   'shared array, check in-place sort'
+);
+$a5->sort("desc"), cmp_array(
+   [ $a5->vals() ], [ qw/ 10 6 5 4 3 2 1 / ],
+   'shared array, check in-place sort desc'
+);
+$a5->sort("alpha"), cmp_array(
+   [ $a5->vals() ], [ qw/ 1 10 2 3 4 5 6 / ],
+   'shared array, check in-place sort alpha'
+);
+$a5->sort("alpha desc"), cmp_array(
+   [ $a5->vals() ], [ qw/ 6 5 4 3 2 10 1 / ],
+   'shared array, check in-place sort alpha desc'
 );
 
 ## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
-$a5->clear(); $a5->merge( 0, 'over', 1, 'the', 2, 'rainbow', 3, 77 );
+$a5->clear(); $a5->mset( 0, 'over', 1, 'the', 2, 'rainbow', 3, 77 );
 
 cmp_array(
    [ $a5->pairs() ], [ qw/ 0 over 1 the 2 rainbow 3 77 / ],
-   'shared array, check merge'
+   'shared array, check mset'
 );
 cmp_array(
    [ $a5->mget(0, 2) ], [ qw/ over rainbow / ],
@@ -196,7 +386,7 @@ cmp_array(
    'shared array, check keys'
 );
 cmp_array(
-   [ $a5->values() ], [ qw/ over the rainbow 77 / ],
+   [ $a5->vals() ], [ qw/ over the rainbow 77 / ],
    'shared array, check values'
 );
 cmp_array(
@@ -204,18 +394,20 @@ cmp_array(
    'shared array, check pairs'
 );
 
-is( $a5->length(), 4, 'shared array, check length' );
-is( $a5->length(2), 7, 'shared array, check length( idx )' );
+is( $a5->len(), 4, 'shared array, check length' );
+is( $a5->len(2), 7, 'shared array, check length( idx )' );
 is( $a5->incr(3), 78, 'shared array, check incr' );
 is( $a5->decr(3), 77, 'shared array, check decr' );
 is( $a5->incrby(3, 4), 81, 'shared array, check incrby' );
 is( $a5->decrby(3, 4), 77, 'shared array, check decrby' );
-is( $a5->pincr(3), 77, 'shared array, check pincr' );
-is( $a5->get(3), 78, 'shared array, check value after pincr' );
-is( $a5->pdecr(3), 78, 'shared array, check pdecr' );
-is( $a5->get(3), 77, 'shared array, check value after pdecr' );
+is( $a5->getincr(3), 77, 'shared array, check getincr' );
+is( $a5->get(3), 78, 'shared array, check value after getincr' );
+is( $a5->getdecr(3), 78, 'shared array, check getdecr' );
+is( $a5->get(3), 77, 'shared array, check value after getdecr' );
 is( $a5->append(3, 'ba'), 4, 'shared array, check append' );
 is( $a5->get(3), '77ba', 'shared array, check value after append' );
+is( $a5->getset('3', '77bc'), '77ba', 'shared array, check getset' );
+is( $a5->get(3), '77bc', 'shared array, check value after getset' );
 
 my $a6 = $a5->clone();
 my $a7 = $a5->clone(2, 3);
@@ -224,19 +416,19 @@ my $a8 = $a5->flush();
 is( ref($a7), 'MCE::Shared::Array', 'shared array, check ref' );
 
 cmp_array(
-   [ $a6->pairs() ], [ qw/ 0 over 1 the 2 rainbow 3 77ba / ],
+   [ $a6->pairs() ], [ qw/ 0 over 1 the 2 rainbow 3 77bc / ],
    'shared array, check clone'
 );
 cmp_array(
-   [ $a7->pairs() ], [ qw/ 0 rainbow 1 77ba / ],
+   [ $a7->pairs() ], [ qw/ 0 rainbow 1 77bc / ],
    'shared array, check clone( indices )'
 );
 cmp_array(
-   [ $a8->pairs() ], [ qw/ 0 over 1 the 2 rainbow 3 77ba / ],
+   [ $a8->pairs() ], [ qw/ 0 over 1 the 2 rainbow 3 77bc / ],
    'shared array, check flush'
 );
 
-is( $a5->length(), 0, 'shared array, check emptied' );
+is( $a5->len(), 0, 'shared array, check emptied' );
 
 my $iter  = $a7->iterator();
 my $count = 0;
@@ -257,7 +449,59 @@ while ( my $val = $iter->() ) {
 is( $count, 4, 'shared array, check iterator count' );
 
 cmp_array(
-   [ @check ], [ qw/ 0 rainbow 1 77ba rainbow 77ba / ],
+   [ @check ], [ qw/ 0 rainbow 1 77bc rainbow 77bc / ],
    'shared array, check iterator results'
+);
+
+## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+
+my @list;
+
+$a5->clear(); $a5->mset( 0, 'over', 1, 'the', 2, 'rainbow', 3, 77 );
+
+while ( my $val = $a5->next ) { push @list, $val; }
+
+cmp_array(
+   [ sort @list ], [ sort qw/ over the rainbow 77 / ],
+   'shared array, check next'
+);
+
+@list = (); $a5->rewind('val =~ /[a-z]/');
+
+while ( my ($key, $val) = $a5->next ) { push @list, $key, $val; }
+
+cmp_array(
+   [ sort @list ], [ sort qw/ 0 over 1 the 2 rainbow / ],
+   'shared array, check rewind'
+);
+
+is( $a5->mexists(qw/ 0 2 3 /),  1, 'shared array, check mexists 1' );
+is( $a5->mexists(qw/ 0 8 3 /), '', 'shared array, check mexists 2' );
+
+is( $a5->mdel(qw/ 3 2 1 0 /), 4, 'shared array, check mdel' );
+
+##
+
+$a5->push( qw/ one two three / );
+
+cmp_array(
+   [ $a5->range(0, 0) ], [ 'one' ],
+   'shared array, check range 1'
+);
+cmp_array(
+   [ $a5->range(-3, 2) ], [ 'one', 'two', 'three' ],
+   'shared array, check range 2'
+);
+cmp_array(
+   [ $a5->range(-100, 100) ], [ 'one', 'two', 'three' ],
+   'shared array, check range 3'
+);
+cmp_array(
+   [ $a5->range(5, 10) ], [ ],
+   'shared array, check range 4'
+);
+cmp_array(
+   [ $a5->range(-1, -1) ], [ 'three' ],
+   'shared array, check range 5'
 );
 

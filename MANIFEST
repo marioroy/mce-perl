@@ -34,6 +34,7 @@ lib/MCE/Shared/Base.pm
 lib/MCE/Shared/Condvar.pm
 lib/MCE/Shared/Handle.pm
 lib/MCE/Shared/Hash.pm
+lib/MCE/Shared/Minidb.pm
 lib/MCE/Shared/Ordhash.pm
 lib/MCE/Shared/Queue.pm
 lib/MCE/Shared/Scalar.pm
@@ -73,6 +74,7 @@ t/07_shared_array.t
 t/07_shared_condvar.t
 t/07_shared_handle.t
 t/07_shared_hash.t
+t/07_shared_minidb.t
 t/07_shared_ordhash.t
 t/07_shared_queue_norm.t
 t/07_shared_queue_prio.t
