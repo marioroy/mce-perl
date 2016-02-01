@@ -132,7 +132,7 @@ To install this module type the following:
     make test
     make install
 
-This module requires Perl 5.8.0 or later to run. By default, MCE spawns threads
+This module requires Perl 5.10.1 or later to run. By default, MCE spawns threads
 on Windows and child processes otherwise for Cygwin and Unix platforms. The use
 of threads requires that you include threads support prior to loading MCE.
 

@@ -9,7 +9,7 @@ package MCE::Shared::Minidb;
 use strict;
 use warnings;
 
-no warnings qw( threads recursion uninitialized );
+no warnings qw( threads recursion uninitialized numeric );
 
 our $VERSION = '1.699_008';
 
@@ -20,7 +20,7 @@ use MCE::Shared::Hash;
 use bytes;
 
 use overload (
-   q("")    => \&MCE::Shared::Base::_stringify_a,
+   q("")    => \&MCE::Shared::Base::_stringify,
    q(0+)    => \&MCE::Shared::Base::_numify,
    fallback => 1
 );
@@ -41,10 +41,10 @@ sub new {
 
 #  Query string:
 #
-#  Several methods receive query string as an argument. The string is
-#  quoteless. Any quotes inside the string will be treated literally.
+#  Several methods receive a query string argument. The string is quoteless.
+#  Basically, any quotes inside the string will be treated literally.
 #
-#  Search capability { =~ !~ eq ne lt le gt ge == != < <= > >= }
+#  Search capability: =~ !~ eq ne lt le gt ge == != < <= > >=
 #
 #  "key =~ /pattern/i :AND field =~ /pattern/i"
 #  "key =~ /pattern/i :AND index =~ /pattern/i"
@@ -56,7 +56,7 @@ sub new {
 #     index means to match against HoA->{key}->[index]; e.g. 9
 #
 #  Keys in hash may have spaces, but not field names Ho(H).
-#  Do not mix :AND(s) and :OR(s) together.
+#  :AND(s) and :OR(s) mixed together is not supported.
 
 # _hfind ( { getkeys => 1 }, "query string" )
 # _hfind ( { getvals => 1 }, "query string" )
@@ -118,19 +118,25 @@ sub _new_list {
    MCE::Shared::Array->new();
 }
 
-# The hget_aref, hget_href, lget_aref, and lget_href methods receive an
-# enhanced query string allowing one to specify field names and sorting
-# directives. The shorter form is supported as well.
+# The select_aref and select_href methods receive a select string
+# allowing one to specify field names and sort directives.
 #
 # "f1 f2 f3 :WHERE f4 > 20 :AND key =~ /foo/ :ORDER BY f5 DESC ALPHA"
-# "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/ :ORDER BY key ALPHA"
-#
 # "f1 f2 f3 :where f4 > 20 :and key =~ /foo/ :order by f5 desc alpha"
+#
+# "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/ :ORDER BY key ALPHA"
 # "f5 f1 f2 :where fN > 40 :and key =~ /bar/ :order by key alpha"
 #
-# "f4 > 20 :and key =~ /baz/"
+# "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/"
+# "f5 f1 f2 :where fN > 40 :and key =~ /bar/"
+#
+# "f5 f1 f2"
+#
+# The shorter form without field names is allowed for HoA.
+#
+# "4 > 20 :and key =~ /baz/"  4 is the array index 
 
-# _qparse ( "enhanced query string" )
+# _qparse ( "select string" )
 
 sub _qparse {
    my ( $q ) = @_;
@@ -155,6 +161,161 @@ sub _qparse {
    $f =~ s/[ ]+$//, $w =~ s/[ ]+$//, $o =~ s/[ ]+$//;
 
    return ( $f, $w, $o );
+}
+
+# _hselect_aref ( "select string" ) see _qparse
+# returns array containing [ key, aref ] pairs
+
+sub _hselect_aref {
+   my ( $self, $query ) = @_;
+   my ( $f, $w, $o ) = _qparse($query);
+
+   my @fields = split(' ', $f);
+   my $data   = $self->[0][0];
+
+   unless ( @fields ) {
+      warn("_hselect_aref: must specify fieldname(s)");
+      return ();
+   }
+
+   if ( length $w ) {
+      my %match = map { $_ => 1 } ( $self->hkeys($w) );
+      map { !exists $match{$_} ? () : do {
+               my ( $k, @ret ) = ( $_ );
+               push @ret, $data->{$k}{$_} for @fields;
+               [ $k, \@ret ];
+            };
+          } ( length $o ? $self->hsort($o) : $self->hkeys() );
+   }
+   else {
+      map { my ( $k, @ret ) = ( $_ );
+            push @ret, $data->{$k}{$_} for @fields;
+            [ $k, \@ret ];
+          } ( length $o ? $self->hsort($o) : $self->hkeys() );
+   }
+}
+
+# _hselect_href ( "select string" ) see _qparse
+# returns array containing [ key, href ] pairs
+
+sub _hselect_href {
+   my ( $self, $query ) = @_;
+   my ( $f, $w, $o ) = _qparse($query);
+
+   my @fields = split(' ', $f);
+   my $data   = $self->[0][0];
+
+   if ( length $w ) {
+      my %match = map { $_ => 1 } ( $self->hkeys($w) );
+      if ( @fields ) {
+         map { !exists $match{$_} ? () : do {
+                  my ( $k, %ret ) = ( $_ );
+                  $ret{$_} = $data->{$k}{$_} for @fields;
+                  [ $k, \%ret ];
+               };
+             } ( length $o ? $self->hsort($o) : $self->hkeys() );
+      }
+      else {
+         map { !exists $match{$_} ? () : [ $_, { %{ $data->{$_} } } ];
+             } ( length $o ? $self->hsort($o) : $self->hkeys() );
+      }
+   }
+   else {
+      if ( @fields ) {
+         map { my ( $k, %ret ) = ( $_ );
+               $ret{$_} = $data->{$k}{$_} for @fields;
+               [ $k, \%ret ];
+             } ( length $o ? $self->hsort($o) : $self->hkeys() );
+      }
+      else {
+         map { [ $_, { %{ $data->{$_} } } ];
+             } ( length $o ? $self->hsort($o) : $self->hkeys() );
+      }
+   }
+}
+
+# _lselect_aref ( "select string" ) see _qparse
+# returns array containing [ key, aref ] pairs
+
+sub _lselect_aref {
+   my ( $self, $query ) = @_;
+   my ( $f, $w, $o ) = _qparse($query);
+
+   my @fields = split(' ', $f);
+   my $data   = $self->[1][0];
+
+   if ( length $w ) {
+      my %match = map { $_ => 1 } ( $self->lkeys($w) );
+      if ( @fields ) {
+         map { !exists $match{$_} ? () : do {
+                  my ( $k, @ret ) = ( $_ );
+                  push @ret, $data->{$k}[$_] for @fields;
+                  [ $k, \@ret ];
+               };
+             } ( length $o ? $self->lsort($o) : $self->lkeys() );
+      }
+      else {
+         map { !exists $match{$_} ? () : [ $_, [ @{ $data->{$_} } ] ];
+             } ( length $o ? $self->lsort($o) : $self->lkeys() );
+      }
+   }
+   else {
+      if ( @fields ) {
+         map { my ( $k, @ret ) = ( $_ );
+               push @ret, $data->{$k}[$_] for @fields;
+               [ $k, \@ret ];
+             } ( length $o ? $self->lsort($o) : $self->lkeys() );
+      }
+      else {
+         map { [ $_, [ @{ $data->{$_} } ] ];
+             } ( length $o ? $self->lsort($o) : $self->lkeys() );
+      }
+   }
+}
+
+# _lselect_href ( "select string" ) see _qparse
+# returns array containing [ key, href ] pairs
+
+sub _lselect_href {
+   my ( $self, $query ) = @_;
+   my ( $f, $w, $o ) = _qparse($query);
+
+   my @fields = split(' ', $f);
+   my $data = $self->[1][0];
+
+   if ( length $w ) {
+      my %match = map { $_ => 1 } ( $self->lkeys($w) );
+      if ( @fields ) {
+         map { !exists $match{$_} ? () : do {
+                  my ( $k, %ret ) = ( $_ );
+                  $ret{$_} = $data->{$k}[$_] foreach @fields;
+                  [ $k, \%ret ];
+               };
+             } ( length $o ? $self->lsort($o) : $self->lkeys() );
+      }
+      else {
+         map { !exists $match{$_} ? () : do {
+                  my ( $k, %ret ) = ( $_ );
+                  $ret{$_} = $data->{$k}[$_] for 0 .. $#{ $data->{$k} };
+                  [ $k, \%ret ];
+               };
+             } ( length $o ? $self->lsort($o) : $self->lkeys() );
+      }
+   }
+   else {
+      if ( @fields ) {
+         map { my ( $k, %ret ) = ( $_ );
+               $ret{$_} = $data->{$k}[$_] foreach @fields;
+               [ $k, \%ret ];
+             } ( length $o ? $self->lsort($o) : $self->lkeys() );
+      }
+      else {
+         map { my ( $k, %ret ) = ( $_ );
+               $ret{$_} = $data->{$k}[$_] for 0 .. $#{ $data->{$k} };
+               [ $k, \%ret ];
+             } ( length $o ? $self->lsort($o) : $self->lkeys() );
+      }
+   }
 }
 
 # _sort ( HoH, 0, "BY key   [ ASC | DESC ] [ ALPHA ]" )
@@ -250,6 +411,156 @@ sub _sort {
    }
    else {
       ();
+   }
+}
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Common methods.
+##
+###############################################################################
+
+# dump ( "file.dat" )
+
+sub dump {
+   my ( $self, $file ) = @_;
+
+   if ( length $file ) {
+      require Storable unless $INC{'Storable.pm'};
+
+      # purge tombstones
+      $self->[0]->purge(), $self->[1]->purge();
+
+      local ( $SIG{__DIE__}, $@ ) = ( sub { } );
+      eval { Storable::nstore($self, $file) };
+
+      warn($@), return if $@;
+   }
+   else {
+      warn('Usage: $obj->dump("file.dat")');
+      return;
+   }
+
+   1;
+}
+
+# restore ( "file.dat" )
+
+sub restore {
+   my ( $self, $file ) = @_;
+
+   if ( length $file ) {
+      require Storable unless $INC{'Storable.pm'};
+
+      local ( $SIG{__DIE__}, $@ ) = ( sub { } );
+      my $obj = eval { Storable::retrieve($file) };
+      warn($@), return if $@;
+
+      if ( ref($obj) ne 'MCE::Shared::Minidb' ) {
+         warn("$file isn't serialized Minidb data: ".ref($obj));
+         return;
+      }
+      $self->[1]->clear(), $self->[1] = delete $obj->[1];
+      $self->[0]->clear(), $self->[0] = delete $obj->[0];
+   }
+   else {
+      warn('Usage: $obj->restore("file.dat")');
+      return;
+   }
+
+   1;
+}
+
+# iterator ( ":lists" )
+# iterator ( ":lists", "query string" )
+# iterator ( ":lists", key, "query string" )
+# iterator ( ":lists", key [, key, ... ] )
+#
+# iterator ( ":hashes" )
+# iterator ( ":hashes", "query string" )
+# iterator ( ":hashes", key, "query string" )
+# iterator ( ":hashes", key [, key, ... ] )
+#
+# iterator  same as ":hashes"
+
+sub iterator {
+   my ( $self, @keys ) = @_;
+   my $data;
+
+   if ( $keys[0] =~ /^:lists$/i ) {
+      $data = $self->[1][0];
+      shift @keys;
+      if ( !scalar @keys ) {
+         @keys = $self->lkeys();
+      }
+      elsif ( @keys == 1 && $keys[0] =~ /^(?:key|\S+)[ ]+\S\S?[ ]+\S/ ) {
+         @keys = $self->lkeys(@keys);
+      }
+      elsif ( @keys == 2 && $keys[1] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {
+         $data = $self->[1][0]->{ $keys[0] };
+         @keys = $self->lkeys(@keys);
+         return sub {
+            return unless @keys;
+            my $key = shift(@keys);
+            return ( $key => $data->[ $key ] );
+         };
+      }
+   }
+   else {
+      $data = $self->[0][0];
+      shift @keys if ( $keys[0] =~ /^:hashes$/i );
+      if ( !scalar @keys ) {
+         @keys = $self->hkeys();
+      }
+      elsif ( @keys == 1 && $keys[0] =~ /^(?:key|\S+)[ ]+\S\S?[ ]+\S/ ) {
+         @keys = $self->hkeys(@keys);
+      }
+      elsif ( @keys == 2 && $keys[1] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {
+         $data = $self->[0][0]->{ $keys[0] };
+         @keys = $self->hkeys(@keys);
+      }
+   }
+
+   return sub {
+      return unless @keys;
+      my $key = shift(@keys);
+      return ( $key => $data->{ $key } );
+   };
+}
+
+# select_aref ( ":lists", "select string" )
+# select_aref ( ":hashes", "select string" )
+#
+# select_aref ( "select string" )  same as ":hashes"
+
+sub select_aref {
+   my ( $self, @query ) = @_;
+
+   if ( $query[0] =~ /^:lists$/i ) {
+      shift @query;
+      $self->_lselect_aref($query[0]);
+   }
+   else {
+      shift @query if ( $query[0] =~ /^:hashes$/i );
+      $self->_hselect_aref($query[0]);
+   }
+}
+
+# select_href ( ":lists", "select string" )
+# select_href ( ":hashes", "select string" )
+#
+# select_href ( "select string" )  same as ":hashes"
+
+sub select_href {
+   my ( $self, @query ) = @_;
+
+   if ( $query[0] =~ /^:lists$/i ) {
+      shift @query;
+      $self->_lselect_href($query[0]);
+   }
+   else {
+      shift @query if ( $query[0] =~ /^:hashes$/i );
+      $self->_hselect_href($query[0]);
    }
 }
 
@@ -494,77 +805,6 @@ sub hlen {
    }
    else {
       $self->[0]->len();
-   }
-}
-
-# hget_aref ( "enhanced query string" ) see _qparse
-# array containing [ key, aref ] pairs
-
-sub hget_aref {
-   my ( $self, $query ) = @_;
-   my ( $f, $w, $o ) = _qparse($query);
-
-   my @fields = split(' ', $f);
-   my $data   = $self->[0][0];
-
-   unless ( @fields ) {
-      warn("hget_aref: must specify fieldname(s)");
-      return ();
-   }
-
-   if ( length $w ) {
-      my %match = map { $_ => 1 } ( $self->hkeys($w) );
-      map { !exists $match{$_} ? () : do {
-               my ( $k, @ret ) = ( $_ );
-               push @ret, $data->{$k}{$_} for @fields;
-               [ $k, \@ret ];
-            };
-          } ( length $o ? $self->hsort($o) : $self->hkeys() );
-   }
-   else {
-      map { my ( $k, @ret ) = ( $_ );
-            push @ret, $data->{$k}{$_} for @fields;
-            [ $k, \@ret ];
-          } ( length $o ? $self->hsort($o) : $self->hkeys() );
-   }
-}
-
-# hget_href ( "enhanced query string" ) see _qparse
-# array containing [ key, href ] pairs
-
-sub hget_href {
-   my ( $self, $query ) = @_;
-   my ( $f, $w, $o ) = _qparse($query);
-
-   my @fields = split(' ', $f);
-   my $data   = $self->[0][0];
-
-   if ( length $w ) {
-      my %match = map { $_ => 1 } ( $self->hkeys($w) );
-      if ( @fields ) {
-         map { !exists $match{$_} ? () : do {
-                  my ( $k, %ret ) = ( $_ );
-                  $ret{$_} = $data->{$k}{$_} for @fields;
-                  [ $k, \%ret ];
-               };
-             } ( length $o ? $self->hsort($o) : $self->hkeys() );
-      }
-      else {
-         map { !exists $match{$_} ? () : [ $_, { %{ $data->{$_} } } ];
-             } ( length $o ? $self->hsort($o) : $self->hkeys() );
-      }
-   }
-   else {
-      if ( @fields ) {
-         map { my ( $k, %ret ) = ( $_ );
-               $ret{$_} = $data->{$k}{$_} for @fields;
-               [ $k, \%ret ];
-             } ( length $o ? $self->hsort($o) : $self->hkeys() );
-      }
-      else {
-         map { [ $_, { %{ $data->{$_} } } ];
-             } ( length $o ? $self->hsort($o) : $self->hkeys() );
-      }
    }
 }
 
@@ -871,204 +1111,6 @@ sub llen {
    }
 }
 
-# lget_aref ( "enhanced query string" ) see _qparse
-# array containing [ key, aref ] pairs
-
-sub lget_aref {
-   my ( $self, $query ) = @_;
-   my ( $f, $w, $o ) = _qparse($query);
-
-   my @fields = split(' ', $f);
-   my $data   = $self->[1][0];
-
-   if ( length $w ) {
-      my %match = map { $_ => 1 } ( $self->lkeys($w) );
-      if ( @fields ) {
-         map { !exists $match{$_} ? () : do {
-                  my ( $k, @ret ) = ( $_ );
-                  push @ret, $data->{$k}[$_] for @fields;
-                  [ $k, \@ret ];
-               };
-             } ( length $o ? $self->lsort($o) : $self->lkeys() );
-      }
-      else {
-         map { !exists $match{$_} ? () : [ $_, [ @{ $data->{$_} } ] ];
-             } ( length $o ? $self->lsort($o) : $self->lkeys() );
-      }
-   }
-   else {
-      if ( @fields ) {
-         map { my ( $k, @ret ) = ( $_ );
-               push @ret, $data->{$k}[$_] for @fields;
-               [ $k, \@ret ];
-             } ( length $o ? $self->lsort($o) : $self->lkeys() );
-      }
-      else {
-         map { [ $_, [ @{ $data->{$_} } ] ];
-             } ( length $o ? $self->lsort($o) : $self->lkeys() );
-      }
-   }
-}
-
-# lget_href ( "enhanced query string" ) see _qparse
-# array containing [ key, href ] pairs
-
-sub lget_href {
-   my ( $self, $query ) = @_;
-   my ( $f, $w, $o ) = _qparse($query);
-
-   my @fields = split(' ', $f);
-   my $data = $self->[1][0];
-
-   if ( length $w ) {
-      my %match = map { $_ => 1 } ( $self->lkeys($w) );
-      if ( @fields ) {
-         map { !exists $match{$_} ? () : do {
-                  my ( $k, %ret ) = ( $_ );
-                  $ret{$_} = $data->{$k}[$_] foreach @fields;
-                  [ $k, \%ret ];
-               };
-             } ( length $o ? $self->lsort($o) : $self->lkeys() );
-      }
-      else {
-         map { !exists $match{$_} ? () : do {
-                  my ( $k, %ret ) = ( $_ );
-                  $ret{$_} = $data->{$k}[$_] for 0 .. $#{ $data->{$k} };
-                  [ $k, \%ret ];
-               };
-             } ( length $o ? $self->lsort($o) : $self->lkeys() );
-      }
-   }
-   else {
-      if ( @fields ) {
-         map { my ( $k, %ret ) = ( $_ );
-               $ret{$_} = $data->{$k}[$_] foreach @fields;
-               [ $k, \%ret ];
-             } ( length $o ? $self->lsort($o) : $self->lkeys() );
-      }
-      else {
-         map { my ( $k, %ret ) = ( $_ );
-               $ret{$_} = $data->{$k}[$_] for 0 .. $#{ $data->{$k} };
-               [ $k, \%ret ];
-             } ( length $o ? $self->lsort($o) : $self->lkeys() );
-      }
-   }
-}
-
-###############################################################################
-## ----------------------------------------------------------------------------
-## Common methods.
-##
-###############################################################################
-
-# iterator ( ":lists" )
-# iterator ( ":lists", "query string" )
-# iterator ( ":lists", key, "query string" )
-# iterator ( ":lists", key [, key, ... ] )
-#
-# iterator ( ":hashes" )
-# iterator ( ":hashes", "query string" )
-# iterator ( ":hashes", key, "query string" )
-# iterator ( ":hashes", key [, key, ... ] )
-#
-# iterator  same as ":hashes"
-
-sub iterator {
-   my ( $self, @keys ) = @_;
-   my $data;
-
-   if ( $keys[0] =~ /^:lists$/i ) {
-      $data = $self->[1][0];
-      shift @keys;
-      if ( !scalar @keys ) {
-         @keys = $self->lkeys();
-      }
-      elsif ( @keys == 1 && $keys[0] =~ /^(?:key|\S+)[ ]+\S\S?[ ]+\S/ ) {
-         @keys = $self->lkeys(@keys);
-      }
-      elsif ( @keys == 2 && $keys[1] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {
-         $data = $self->[1][0]->{ $keys[0] };
-         @keys = $self->lkeys(@keys);
-         return sub {
-            return unless @keys;
-            my $key = shift(@keys);
-            return ( $key => $data->[ $key ] );
-         };
-      }
-   }
-   else {
-      $data = $self->[0][0];
-      shift @keys if ( $keys[0] =~ /^:hashes$/i );
-      if ( !scalar @keys ) {
-         @keys = $self->hkeys();
-      }
-      elsif ( @keys == 1 && $keys[0] =~ /^(?:key|\S+)[ ]+\S\S?[ ]+\S/ ) {
-         @keys = $self->hkeys(@keys);
-      }
-      elsif ( @keys == 2 && $keys[1] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {
-         $data = $self->[0][0]->{ $keys[0] };
-         @keys = $self->hkeys(@keys);
-      }
-   }
-
-   return sub {
-      return unless @keys;
-      my $key = shift(@keys);
-      return ( $key => $data->{ $key } );
-   };
-}
-
-# dump ( "file.dat" )
-
-sub dump {
-   my ( $self, $file ) = @_;
-
-   if ( length $file ) {
-      require Storable unless $INC{'Storable.pm'};
-
-      # purge tombstones
-      $self->[0]->purge(), $self->[1]->purge();
-
-      local ( $SIG{__DIE__}, $@ ) = ( sub { } );
-      eval { Storable::nstore($self, $file) };
-
-      warn($@), return if $@;
-   }
-   else {
-      warn('Usage: $obj->dump("file.dat")');
-      return;
-   }
-
-   1;
-}
-
-# restore ( "file.dat" )
-
-sub restore {
-   my ( $self, $file ) = @_;
-
-   if ( length $file ) {
-      require Storable unless $INC{'Storable.pm'};
-
-      local ( $SIG{__DIE__}, $@ ) = ( sub { } );
-      my $obj = eval { Storable::retrieve($file) };
-      warn($@), return if $@;
-
-      if ( ref($obj) ne 'MCE::Shared::Minidb' ) {
-         warn("$file isn't serialized Minidb data: ".ref($obj));
-         return;
-      }
-      $self->[1]->clear(), $self->[1] = delete $obj->[1];
-      $self->[0]->clear(), $self->[0] = delete $obj->[0];
-   }
-   else {
-      warn('Usage: $obj->restore("file.dat")');
-      return;
-   }
-
-   1;
-}
-
 1;
 
 __END__
@@ -1091,32 +1133,37 @@ This document describes MCE::Shared::Minidb version 1.699_008
 
    # non-shared
    use MCE::Shared::Minidb;
-
    my $db = MCE::Shared::Minidb->new();
 
    # shared
    use MCE::Shared;
-
    my $db = MCE::Shared->minidb();
 
-   TODO, more more info :)
+   # HoH
+   $db->hset('key1', 'f1', 'foo');
+   $db->hset('key2', 'f1', 'bar', 'f2', 'baz');
 
-      It has taken a long time, but all of this is coming together.
-      MCE::Shared::Server is fully completed and quite fast.
-      I'm going through and completing the documentation.
-      The ETA for MCE 1.7 is Feb 2016.
+   $val = $db->hget('key2', 'f2');  # 'baz'
 
+   # HoA
+   $db->lset('key1', 0, 'foo');
+   $db->lset('key2', 0, 'bar', 1, 'baz');
+
+   $val = $db->lget('key2', 1);     # 'baz'
 
 =head1 DESCRIPTION
 
 A simplistic In-Memory NoSQL DB for use with L<MCE::Shared|MCE::Shared>.
+Although, many methods resemble the C<Redis> API, it is not the intention
+for this module to become 100% compatible.
 
-=head1 NOTE on QUERY STRING
+=head1 QUERY STRING
 
-Several methods in C<MCE::Shared::Minidb> receive query string as an argument.
-The string is quoteless. Any quotes inside the string will be treated literally.
+Several methods in C<MCE::Shared::Minidb> receive a query string argument.
+The string is quoteless. Basically, any quotes inside the string will be
+treated literally.
 
-   Search capability { =~ !~ eq ne lt le gt ge == != < <= > >= }
+   Search capability: =~ !~ eq ne lt le gt ge == != < <= > >=
   
    "key =~ /pattern/i :AND field =~ /pattern/i"
    "key =~ /pattern/i :AND index =~ /pattern/i"
@@ -1127,22 +1174,30 @@ The string is quoteless. Any quotes inside the string will be treated literally.
       field means to match against HoH->{key}->{field}; e.g. address
       index means to match against HoA->{key}->[index]; e.g. 9
 
-   Keys in hash may have spaces, but not field names Ho(H).
-   Do not mix :AND(s) and :OR(s) together.
+   Keys in hash may have spaces, but not in field names Ho(H).
+   :AND(s) and :OR(s) mixed together is not supported.
 
-The C<hget_aref>, C<hget_href>, C<lget_aref>, and C<lget_href> methods receive
-an enhanced query string allowing one to specify field names and sorting
-directives. The shorter form is supported as well.
+The C<select_aref> and C<select_href> methods receive a select string
+allowing one to specify field names and sort directives.
 
    "f1 f2 f3 :WHERE f4 > 20 :AND key =~ /foo/ :ORDER BY f5 DESC ALPHA"
-   "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/ :ORDER BY key ALPHA"
-
    "f1 f2 f3 :where f4 > 20 :and key =~ /foo/ :order by f5 desc alpha"
+
+   "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/ :ORDER BY key ALPHA"
    "f5 f1 f2 :where fN > 40 :and key =~ /bar/ :order by key alpha"
 
-   "f4 > 20 :and key =~ /baz/"
+   "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/"
+   "f5 f1 f2 :where fN > 40 :and key =~ /bar/"
+
+   "f5 f1 f2"
+
+The shorter form without field names is allowed for HoA.
+
+   "4 > 20 :and key =~ /baz/"  4 is the array index
   
-=head1 API DOCUMENTATION - HASHES HoH
+=head1 API DOCUMENTATION - HASHES ( HoH )
+
+To be completed before the final 1.700 release.
 
 =over 3
 
@@ -1208,17 +1263,9 @@ directives. The shorter form is supported as well.
 
 =item hlen
 
-=item hget_aref ( "enhanced query string" )
-
-   returns [ key, aref ] pairs
-
-=item hget_href ( "enhanced query string" )
-
-   returns [ key, href ] pairs
-
 =back
 
-=head1 API DOCUMENTATION - LISTS HoA
+=head1 API DOCUMENTATION - LISTS ( HoA )
 
 =over 3
 
@@ -1300,49 +1347,55 @@ directives. The shorter form is supported as well.
 
 =item llen
 
-=item lget_aref ( "enhanced query string" )
-
-This returns [ key, aref ] pairs.
-
-=item lget_href ( "enhanced query string" )
-
-This returns [ key, href ] pairs.
-
 =back
 
 =head1 COMMON API
 
 =over 3
 
-=item iterator ( ":hashes" )
+=item dump ( "file.dat" )
+
+Dumps the content to a file.
+
+=item restore ( "file.dat" )
+
+Restores the content from a file.
 
 =item iterator ( ":hashes", "query string" )
+
+=item iterator ( ":hashes" )
+
+Returns a code reference that returns a single key => href pair.
 
 =item iterator ( ":hashes", key, "query string" )
 
 =item iterator ( ":hashes", key [, key, ... ] )
 
-=item iterator
+Returns a code reference that returns a single key => value pair.
 
-Returns a code reference that returns a single key => href/value pair.
+=item iterator ( ":lists", "query string" )
 
 =item iterator ( ":lists" )
 
-=item iterator ( ":lists", "query string" )
+Returns a code reference that returns a single key => aref pair.
 
 =item iterator ( ":lists", key, "query string" )
 
 =item iterator ( ":lists", key [, key, ... ] )
 
-Returns a code reference that returns a single key => aref/value pair.
+Returns a code reference that returns a single key => value pair.
 
-=item dump ( "file.dat" )
+=item select_aref ( ":hashes", "select string" )
 
-Dump the contents to a file.
+=item select_aref ( ":lists", "select string" )
 
-=item restore ( "file.dat" )
+Returns [ key, aref ] pairs.
 
-Restore contents from a file.
+=item select_href ( ":hashes", "select string" )
+
+=item select_href ( ":lists", "select string" )
+
+Returns [ key, href ] pairs.
 
 =back
 

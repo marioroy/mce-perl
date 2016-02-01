@@ -9,13 +9,13 @@ package MCE::Shared::Base;
 use strict;
 use warnings;
 
-no warnings qw( threads recursion uninitialized );
+no warnings qw( threads recursion uninitialized numeric );
 
 our $VERSION = '1.699_008';
 
 # no critic (BuiltinFunctions::ProhibitStringyEval)
 
-use Scalar::Util qw( looks_like_number refaddr );
+use Scalar::Util qw( looks_like_number );
 use bytes;
 
 ###############################################################################
@@ -54,9 +54,11 @@ sub _compile {
    my ( $query ) = @_;
    my ( @f,@c,@e, $aflg );
 
-   # Quoteless string. Quotes are treated literally inside string.
-   # Do not mix :AND and :OR together; not supported at this time.
-
+   # Search capability { =~ !~ eq ne lt le gt ge == != < <= > >= }
+   #
+   # Any quotes inside the string are treated literally
+   # :AND(s) and :OR(s) mixed together is not supported
+   #
    # "key =~ /$pattern/i :AND field =~ /$pattern/i"
    # "key =~ /$pattern/i :AND val eq foo bar"     # val eq 'foo bar'
    # "val eq foo bar :OR key !~ /$pattern/i"
@@ -349,29 +351,8 @@ sub _find_hash {
 ##
 ###############################################################################
 
-# 'overloading.pm' is not available until 5.10.1 so emulate with Scalar::Util.
-# Tip borrowed from Hash::Ordered by David Golden.
-
-BEGIN {
-   if ($] gt '5.010000') {
-      local $@; eval q{
-      sub _stringify_a { no overloading;    "$_[0]" }
-      sub _stringify_h { no overloading;    "$_[0]" }
-      sub _stringify_s { no overloading;    "$_[0]" }
-      sub _numify      { no overloading; 0 + $_[0]  }
-      }; 
-      die $@ if $@;
-   }
-   else {
-      local $@; eval q{
-      sub _stringify_a { sprintf "%s=ARRAY(0x%x)",  ref($_[0]), refaddr($_[0]) }
-      sub _stringify_h { sprintf "%s=HASH(0x%x)",   ref($_[0]), refaddr($_[0]) }
-      sub _stringify_s { sprintf "%s=SCALAR(0x%x)", ref($_[0]), refaddr($_[0]) }
-      sub _numify      { refaddr($_[0]) }
-      };
-      die $@ if $@;
-   }
-}
+sub _stringify { no overloading;    "$_[0]" }
+sub _numify    { no overloading; 0 + $_[0]  }
 
 # Croak and die handler.
 

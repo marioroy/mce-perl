@@ -21,7 +21,7 @@ requires:
     Getopt::Long:  0
     IO::Handle:    0
     overload:      0
-    perl:          5.008
+    perl:          5.010001
     POSIX:         0
     Scalar::Util:  0
     Socket:        0

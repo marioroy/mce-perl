@@ -9,7 +9,7 @@ package MCE::Shared::Sequence;
 use strict;
 use warnings;
 
-no warnings qw( threads recursion uninitialized );
+no warnings qw( threads recursion uninitialized numeric );
 
 our $VERSION = '1.699_008';
 
@@ -25,7 +25,7 @@ use constant {
 };
 
 use overload (
-   q("")    => \&MCE::Shared::Base::_stringify_a,
+   q("")    => \&MCE::Shared::Base::_stringify,
    q(0+)    => \&MCE::Shared::Base::_numify,
    fallback => 1
 );
@@ -134,13 +134,11 @@ This document describes MCE::Shared::Sequence version 1.699_008
 
    # non-shared
    use MCE::Shared::Sequence;
-
    my $s = MCE::Shared::Sequence->new( $begin, $end, $step, $fmt );
 
    # shared
    use MCE::Hobo;
    use MCE::Shared Sereal => 1;
-
    my $s = MCE::Shared->sequence( 1, 100 );
 
    sub parallel {

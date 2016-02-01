@@ -9,7 +9,7 @@ package MCE::Shared::Handle;
 use strict;
 use warnings;
 
-no warnings qw( threads recursion uninitialized );
+no warnings qw( threads recursion uninitialized numeric );
 
 our $VERSION = '1.699_008';
 
@@ -133,12 +133,10 @@ This document describes MCE::Shared::Handle version 1.699_008
 
    # non-shared
    use MCE::Shared::Handle;
-
    my $fh = MCE::Shared::Handle->new( "<", "sample.fasta" );
 
    # shared
    use MCE::Shared;
-
    my $fh = MCE::Shared->handle( "<", "sample.fasta" );
 
    # demo

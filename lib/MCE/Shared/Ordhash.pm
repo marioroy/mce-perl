@@ -17,7 +17,7 @@ package MCE::Shared::Ordhash;
 use strict;
 use warnings;
 
-no warnings qw( threads recursion uninitialized );
+no warnings qw( threads recursion uninitialized numeric );
 
 our $VERSION = '1.699_008';
 
@@ -39,7 +39,7 @@ use constant {
 };
 
 use overload (
-   q("")    => \&MCE::Shared::Base::_stringify_a,
+   q("")    => \&MCE::Shared::Base::_stringify,
    q(0+)    => \&MCE::Shared::Base::_numify,
    q(%{})   => sub {
       $_[0]->[_HREF] || do {
@@ -156,7 +156,7 @@ sub FIRSTKEY {
 # NEXTKEY
 
 sub NEXTKEY {
-   exists $_[0]->[_ITER] ? $_[0]->[_ITER]->() : ();
+   defined $_[0]->[_ITER] ? $_[0]->[_ITER]->() : ();
 }
 
 # EXISTS ( key )
@@ -174,8 +174,8 @@ sub CLEAR {
       $self->[_BEGI]   =    $self->[_GCNT]   =   0  ,
       $self->[_INDX]   = undef;
 
-   delete $self->[_HREF] if exists $self->[_HREF];
-   delete $self->[_ITER] if exists $self->[_ITER];
+   delete $self->[_HREF] if defined $self->[_HREF];
+   delete $self->[_ITER] if defined $self->[_ITER];
 
    ();
 }
@@ -350,8 +350,8 @@ sub _fill_indx {
 
 #  Query string:
 #
-#  Several methods receive query string as an argument. The string is
-#  quoteless. Any quotes inside the string will be treated literally.
+#  Several methods receive a query string argument. The string is quoteless.
+#  Basically, any quotes inside the string will be treated literally.
 #
 #  Search capability { =~ !~ eq ne lt le gt ge == != < <= > >= }
 #
@@ -360,9 +360,9 @@ sub _fill_indx {
 #  "val eq foo baz :OR key !~ /pattern/i"
 #
 #     key means to match against keys in the hash
-#     val means to match against values in the hash
+#     likewise, val means to match against values
 #
-#  Do not mix :AND(s) and :OR(s) together.
+#  :AND(s) and :OR(s) mixed together is not supported
 
 # _find ( { getkeys => 1 }, "query string" )
 # _find ( { getvals => 1 }, "query string" )
@@ -654,7 +654,6 @@ sub _reorder {
    my $self = shift; @{ $self->[_KEYS] } = @_;
    $self->[_INDX] = undef, $self->[_BEGI] = $self->[_GCNT] = 0;
 
-   delete $self->[_HREF] if exists $self->[_HREF];
    delete $self->[_ITER] if exists $self->[_ITER];
 
    return;
@@ -756,12 +755,10 @@ This document describes MCE::Shared::Ordhash version 1.699_008
 
    # non-shared
    use MCE::Shared::Ordhash;
-
    my $oh = MCE::Shared::Ordhash->new( @pairs );
 
    # shared
    use MCE::Shared;
-
    my $oh = MCE::Shared->ordhash( @pairs );
 
    # oo interface
@@ -837,7 +834,24 @@ This document describes MCE::Shared::Ordhash version 1.699_008
 
 =head1 DESCRIPTION
 
-Helper class for L<MCE::Shared|MCE::Shared>.
+An ordered-hash helper class for use with L<MCE::Shared|MCE::Shared>.
+
+=head1 QUERY STRING
+
+Several methods in C<MCE::Shared::Ordhash> receive a query string argument.
+The string is quoteless. Basically, any quotes inside the string will be
+treated literally.
+
+   Search capability: =~ !~ eq ne lt le gt ge == != < <= > >=
+
+   "key =~ /pattern/i :AND val =~ /pattern/i"
+   "key =~ /pattern/i :AND val eq foo bar"     # val eq foo bar
+   "val eq foo baz :OR key !~ /pattern/i"
+
+      key means to match against keys in the hash
+      likewise, val means to match against values
+
+   :AND(s) and :OR(s) mixed together is not supported
 
 =head1 API DOCUMENTATION
 

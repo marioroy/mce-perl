@@ -9,7 +9,7 @@ package MCE::Shared::Queue;
 use strict;
 use warnings;
 
-no warnings qw( threads recursion uninitialized );
+no warnings qw( threads recursion uninitialized numeric );
 
 our $VERSION = '1.699_008';
 
@@ -24,7 +24,7 @@ use constant {
 };
 
 use overload (
-   q("")    => \&MCE::Shared::Base::_stringify_h,
+   q("")    => \&MCE::Shared::Base::_stringify,
    q(0+)    => \&MCE::Shared::Base::_numify,
    fallback => 1
 );
@@ -607,10 +607,15 @@ This document describes MCE::Shared::Queue version 1.699_008
 
 =head1 SYNOPSIS
 
+   # non-shared
    use MCE::Shared;
+   use MCE::Shared::Queue;
 
-   my $qu = MCE::Shared->queue( await => 1, fast => 0, queue => [ "." ] );
+   my $qu = MCE::Shared::Queue->new(
+      await => 1, fast => 0, queue => [ "." ]
+   );
 
+   # shared
    use MCE::Shared;
    use MCE::Shared::Queue;
 

@@ -812,6 +812,13 @@ recursively.
    my $v2 = $h2->get('key')->get(3)->get('foo');  # baz
    my $v3 = $h2->{key}[3]{foo};                   # baz
 
+Each level in a deeply structure requires a separate trip to the shared-manager
+processs. There is a faster way if the app calls for just C<HoH> and/or C<HoA>.
+The included C<MCE::Shared::Minidb> module provides optimized methods for
+working with C<HoH> and C<HoA> structures.
+
+See L<MCE::Shared::Minidb|MCE::Shared::Minidb>.
+
 =back
 
 =head1 SERVER API
@@ -827,7 +834,7 @@ Starts the shared-manager process. This is done automatically.
 =item stop
 
 Stops the shared-manager process wiping all shared data content. This is not
-typically done by the user, but rather by END automatically when the script
+typically done by the user, but rather by C<END> automatically when the script
 terminates.
 
    MCE::Shared->stop();
@@ -835,12 +842,11 @@ terminates.
 =item init
 
 This is called automatically by each MCE/Hobo worker immediately after being
-spawned for selection of 1 of 8 data channels. The effect is extra parallelism
-during inter-process communication. The ID (optionally - must be an integer)
-is modded with 8 in a round-robin fashion.
+spawned. The effect is extra parallelism during inter-process communication.
+The optional ID (an integer) is modded in a round-robin fashion.
 
-   MCE::Shared->init();
    MCE::Shared->init( ID );
+   MCE::Shared->init();
 
 =back
 

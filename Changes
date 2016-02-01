@@ -1,17 +1,17 @@
 
 Revision history for Perl module MCE.
 
-1.699 Sat Jan 30 14:00:00 EST 2016
+1.699 Mon Feb 01 16:30:00 EST 2016
 
   # 1.699_008 changes.
 
     * Added MCE::Shared::Minidb.
 
-    * Find makeover for MCE::Shared::{ Array, Hash, Minidb, Ordhash }.
-      Added support for multiple rules.
+    * Find refactored for MCE::Shared::{ Array, Hash, Minidb, Ordhash }.
+      Added support for multiple search criteria.
 
     * API changes in MCE::Shared::Object.
-      Added new method store for deeply sharing non-blessed objects
+      Added *store* method for sharing deeply structures
       Removed dset, dmerge, dpush, and dunshift
       Updated demonstration in MCE::Shared POD
 
@@ -39,6 +39,9 @@ Revision history for Perl module MCE.
     This addresses RT#105557 and RT#105559. Thank you, Benjamin McKeown.
 
   [ENHANCEMENTS]
+
+  * Perl 5.10.1 or later is required to run MCE 1.7. Perl < 5.10.1 lacks
+    'overloading.pm'.
 
   * Added code in MCE::Grep's documentation for parsing huge files.
   * Added support for running MCE with Perl under MobaXterm on Windows.

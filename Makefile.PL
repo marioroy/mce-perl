@@ -1,7 +1,7 @@
 
 # Module makefile for MCE (using ExtUtils::MakeMaker)
 
-use 5.008;
+use 5.010001;
 
 use strict;
 use warnings;
@@ -213,7 +213,7 @@ WriteMakefile(
       } ) : () ),
 
    (( eval { ExtUtils::MakeMaker->VERSION(6.48) } ) ?
-      ( MIN_PERL_VERSION => 5.008 ) : () ),
+      ( MIN_PERL_VERSION => 5.010001 ) : () ),
 
    INSTALLDIRS => ( ($] < 5.011) ? 'perl' : 'site' )
 );

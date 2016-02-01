@@ -19,7 +19,7 @@ use MCE::Shared::Base;
 use bytes;
 
 use overload (
-   q("")    => \&MCE::Shared::Base::_stringify_a,
+   q("")    => \&MCE::Shared::Base::_stringify,
    q(0+)    => \&MCE::Shared::Base::_numify,
    fallback => 1
 );
@@ -66,8 +66,8 @@ sub SPLICE {
 
 #  Query string:
 #
-#  Several methods receive query string as an argument. The string is
-#  quoteless. Any quotes inside the string will be treated literally.
+#  Several methods receive a query string argument. The string is quoteless.
+#  Basically, any quotes inside the string will be treated literally.
 #
 #  Search capability { =~ !~ eq ne lt le gt ge == != < <= > >= }
 #
@@ -76,9 +76,9 @@ sub SPLICE {
 #  "val eq foo baz :OR key !~ /pattern/i"
 #
 #     key means to match against indices in the array
-#     val means to match against values in the array
+#     likewise, val means to match against values
 #
-#  Do not mix :AND(s) and :OR(s) together.
+#  :AND(s) and :OR(s) mixed together is not supported
 
 # _find ( { getkeys => 1 }, "query string" )
 # _find ( { getvals => 1 }, "query string" )
@@ -412,12 +412,10 @@ This document describes MCE::Shared::Array version 1.699_008
 
    # non-shared
    use MCE::Shared::Array;
-
    my $ar = MCE::Shared::Array->new( @list );
 
    # shared
    use MCE::Shared;
-
    my $ar = MCE::Shared->array( @list );
 
    # oo interface
@@ -490,7 +488,24 @@ This document describes MCE::Shared::Array version 1.699_008
 
 =head1 DESCRIPTION
 
-Helper class for L<MCE::Shared|MCE::Shared>.
+An array helper class for use with L<MCE::Shared|MCE::Shared>.
+
+=head1 QUERY STRING
+
+Several methods in C<MCE::Shared::Array> receive a query string argument.
+The string is quoteless. Basically, any quotes inside the string will be
+treated literally.
+
+   Search capability { =~ !~ eq ne lt le gt ge == != < <= > >= }
+
+   "key =~ /pattern/i :AND val =~ /pattern/i"
+   "key =~ /pattern/i :AND val eq foo bar"     # val eq foo bar
+   "val eq foo baz :OR key !~ /pattern/i"
+
+      key means to match against indices in the array
+      likewise, val means to match against values
+
+   :AND(s) and :OR(s) mixed together is not supported
 
 =head1 API DOCUMENTATION
 

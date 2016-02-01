@@ -9,7 +9,7 @@ package MCE::Shared::Condvar;
 use strict;
 use warnings;
 
-no warnings qw( threads recursion uninitialized );
+no warnings qw( threads recursion uninitialized numeric );
 
 our $VERSION = '1.699_008';
 
@@ -19,7 +19,7 @@ use MCE::Mutex;
 use bytes;
 
 use overload (
-   q("")    => \&MCE::Shared::Base::_stringify_h,
+   q("")    => \&MCE::Shared::Base::_stringify,
    q(0+)    => \&MCE::Shared::Base::_numify,
    fallback => 1
 );
@@ -130,7 +130,6 @@ This document describes MCE::Shared::Condvar version 1.699_008
 =head1 SYNOPSIS
 
    use MCE::Shared;
-
    my $cv = MCE::Shared->condvar( 0 );
 
    # oo interface

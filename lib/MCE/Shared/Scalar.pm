@@ -9,7 +9,7 @@ package MCE::Shared::Scalar;
 use strict;
 use warnings;
 
-no warnings qw( threads recursion uninitialized );
+no warnings qw( threads recursion uninitialized numeric );
 
 our $VERSION = '1.699_008';
 
@@ -19,7 +19,7 @@ use MCE::Shared::Base;
 use bytes;
 
 use overload (
-   q("")    => \&MCE::Shared::Base::_stringify_s,
+   q("")    => \&MCE::Shared::Base::_stringify,
    q(0+)    => \&MCE::Shared::Base::_numify,
    fallback => 1
 );
@@ -99,12 +99,10 @@ This document describes MCE::Shared::Scalar version 1.699_008
 
    # non-shared
    use MCE::Shared::Scalar;
-
    my $var = MCE::Shared::Scalar->new( $val );
 
    # shared
    use MCE::Shared;
-
    my $var = MCE::Shared->scalar( $val );
 
    # oo interface
