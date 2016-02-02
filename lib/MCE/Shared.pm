@@ -261,9 +261,20 @@ if ($INC{'PDL.pm'}) {
 ##
 ###############################################################################
 
-sub TIEARRAY  { shift; MCE::Shared->array(@_)  }
-sub TIEHASH   { shift; MCE::Shared->hash(@_)   }
+sub TIEARRAY  { shift; MCE::Shared->array (@_) }
 sub TIESCALAR { shift; MCE::Shared->scalar(@_) }
+
+sub TIEHASH {
+   shift;
+   if ( ref $_[0] eq 'HASH' && exists $_[0]->{'ordered'} ) {
+      shift()->{'ordered'}
+         ? MCE::Shared->ordhash(@_)
+         : MCE::Shared->hash(@_);
+   }
+   else {
+      MCE::Shared->hash(@_);
+   }
+}
 
 sub TIEHANDLE {
    require MCE::Shared::Handle unless $INC{'MCE/Shared/Handle.pm'};
@@ -337,8 +348,9 @@ This document describes MCE::Shared version 1.699_008
    use feature 'say';
 
    tie my $var, 'MCE::Shared', 'initial value';
-   tie my @ary, 'MCE::Shared', qw(a list of values);
-   tie my %has, 'MCE::Shared', (key1 => 'value', key2 => 'value');
+   tie my @ary, 'MCE::Shared', qw( a list of values );
+   tie my %has, 'MCE::Shared', ( key1 => 'value', key2 => 'value' );
+   tie my %oha, 'MCE::Shared', { ordered => 1 }, ( key1 => 'value' );
 
    tie my $cnt, 'MCE::Shared', 0;
    tie my @foo, 'MCE::Shared';

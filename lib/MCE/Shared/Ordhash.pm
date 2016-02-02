@@ -156,7 +156,7 @@ sub FIRSTKEY {
 # NEXTKEY
 
 sub NEXTKEY {
-   defined $_[0]->[_ITER] ? $_[0]->[_ITER]->() : ();
+   $_[0]->[_ITER]->();
 }
 
 # EXISTS ( key )
