@@ -196,17 +196,21 @@ sub SCALAR {
 
 sub POP {
    my ( $self ) = @_;
+   my $keys = $self->[_KEYS];
+   my $key  = pop @{ $keys };
+
+   return unless defined $key;
 
    if ( $self->[_INDX] ) {
-      my $key = $self->[_KEYS][-1];
-      return unless defined $key;
-      return $key, $self->DELETE($key);
+      if ( ref $keys->[-1] ) {
+         my $i = 0; # GC end of list
+         $i++, pop @{ $keys } while ref( $keys->[-1] );
+         $self->[_GCNT] -= $i;
+      }
+      $self->[_BEGI] = 0, $self->[_INDX] = undef unless scalar @{ $keys };
    }
-   else {
-      my $key = pop @{ $self->[_KEYS] };
-      return unless defined $key;
-      return $key, delete $self->[_DATA]{$key};
-   }
+
+   return $key, delete $self->[_DATA]{$key};
 }
 
 # PUSH ( key, value [, key, value, ... ] )
@@ -229,17 +233,21 @@ sub PUSH {
 
 sub SHIFT {
    my ( $self ) = @_;
+   my $keys = $self->[_KEYS];
+   my $key  = shift @{ $keys };
+
+   return unless defined $key;
 
    if ( $self->[_INDX] ) {
-      my $key = $self->[_KEYS][0];
-      return unless defined $key;
-      return $key, $self->DELETE($key);
+      if ( ref $keys->[0] ) {
+         my $i = 0; # GC start of list
+         $i++, shift @{ $keys } while ref( $keys->[0] );
+         $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
+      }
+      $self->[_BEGI] = 0, $self->[_INDX] = undef unless scalar @{ $keys };
    }
-   else {
-      my $key = shift @{ $self->[_KEYS] };
-      return unless defined $key;
-      return $key, delete $self->[_DATA]{$key};
-   }
+
+   return $key, delete $self->[_DATA]{$key};
 }
 
 # UNSHIFT ( key, value [, key, value, ... ] )
