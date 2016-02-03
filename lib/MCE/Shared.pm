@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_008';
+our $VERSION = '1.699_009';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -322,7 +322,7 @@ MCE::Shared - MCE extension for sharing data between workers
 
 =head1 VERSION
 
-This document describes MCE::Shared version 1.699_008
+This document describes MCE::Shared version 1.699_009
 
 =head1 SYNOPSIS
 
@@ -644,9 +644,9 @@ shared-manager process.
 
    $shared_ob; # becomes undef
 
-=item export
-
 =item export ( keys )
+
+=item export
 
 Exports the shared object into a non-shared object. One must export when passing
 the shared object into any dump routine. Otherwise, the data C<${ SHARED_ID }>
@@ -700,17 +700,60 @@ This applies to shared array, hash, and ordhash.
      'The' => 'Bluebirds'
    }, 'MCE::Shared::Hash' );
 
-=item next
+=item rewind ( begin, end, [ step, format ] )
 
-=item rewind
+Resets the parallel iterator for C<MCE::Shared::Sequence>.
+
+=item rewind ( ":hashes", key, "query string" )
+
+=item rewind ( ":hashes", key [, key, ... ] )
+
+=item rewind ( ":hashes", "query string" )
+
+=item rewind ( ":hashes" )
+
+Resets the parallel iterator for C<MCE::Shared::Minidb> Hashes (HoH).
+
+=item rewind ( ":lists", key, "query string" )
+
+=item rewind ( ":lists", key [, key, ... ] )
+
+=item rewind ( ":lists", "query string" )
+
+=item rewind ( ":lists" )
+
+Resets the parallel iterator for C<MCE::Shared::Minidb> Lists (HoA).
+
+=item rewind ( index, [, index, ... ] )
+
+=item rewind ( key, [, key, ... ] )
 
 =item rewind ( "query string" )
 
-=item rewind ( begin, end, [ step, format ] )
+Resets the parallel iterator for C<Array or (Ord)Hash>.
 
-C<next> and C<rewind> enable parallel iteration between workers for shared
-array, hash, ordhash, and sequence. Call C<rewind> after running to reset
-the pointer.
+=item rewind
+
+=item next
+
+C<rewind> and C<next> enable parallel iteration between workers for shared
+array, hash, minidb, ordhash, and sequence. Calling C<rewind> without an
+argument rewinds the iterator.
+
+The syntax for C<query string> is described in respective class module.
+For sequence, the construction for C<rewind> is the same as C<new>.
+
+L<MCE::Shared::Array|MCE::Shared::Array>
+
+L<MCE::Shared::Hash|MCE::Shared::Hash>
+
+L<MCE::Shared::Minidb|MCE::Shared::Minidb>
+
+L<MCE::Shared::Ordhash|MCE::Shared::Ordhash>
+
+L<MCE::Shared::Sequence|MCE::Shared::Sequence>
+
+Below is a demonstration for iterating through a shared list between workers.
 
    use MCE::Hobo;
    use MCE::Shared;
@@ -746,7 +789,7 @@ the pointer.
 
 There are two forms for iterating through a shared hash or ordhash object.
 The C<next> method is wantarray-aware providing key and value in list
-context and value only in scalar context.
+context and value in scalar context.
 
    use MCE::Hobo;
    use MCE::Shared;
@@ -780,7 +823,8 @@ context and value only in scalar context.
    $_->join() for MCE::Hobo->list();
 
 Although the shared-manager process iterates orderly, there is no guarantee for
-the amount of time required by workers. Thus, output may not be ordered.
+the amount of time required by workers. Basically, do not expect for output to
+be ordered.
 
    -- Output
 

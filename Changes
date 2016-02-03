@@ -1,7 +1,13 @@
 
 Revision history for Perl module MCE.
 
-1.699 Mon Feb 01 16:30:00 EST 2016
+1.699 Tue Feb 02 14:00:00 EST 2016
+
+  # 1.699_009 changes.
+
+    * Documentation updates for various MCE::Shared modules.
+    * Inlined code inside POP/SHIFT in MCE::Shared::Ordhash.
+    * Fix for MCE::Shared on Windows platform (MSWin32).
 
   # 1.699_008 changes.
 

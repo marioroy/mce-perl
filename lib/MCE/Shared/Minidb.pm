@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Minidb helper class.
+## A fast, pure-Perl in-memory data structure store.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_008';
+our $VERSION = '1.699_009';
 
 use MCE::Shared::Base;
 use MCE::Shared::Ordhash;
@@ -60,7 +60,6 @@ sub new {
 
 # _hfind ( { getkeys => 1 }, "query string" )
 # _hfind ( { getvals => 1 }, "query string" )
-#
 # _hfind ( "query string" ) # pairs
 
 sub _hfind {
@@ -84,7 +83,6 @@ sub _hfind {
 
 # _lfind ( { getkeys => 1 }, "query string" )
 # _lfind ( { getvals => 1 }, "query string" )
-#
 # _lfind ( "query string" ) # pairs
 
 sub _lfind {
@@ -106,13 +104,13 @@ sub _lfind {
    }
 }
 
-# _new_hash () applies to HoH
+# _new_hash ( ) applies to HoH
 
 sub _new_hash {
    MCE::Shared::Hash->new();
 }
 
-# _new_list () applies to HoA
+# _new_list ( ) applies to HoA
 
 sub _new_list {
    MCE::Shared::Array->new();
@@ -164,7 +162,7 @@ sub _qparse {
 }
 
 # _hselect_aref ( "select string" ) see _qparse
-# returns array containing [ key, aref ] pairs
+# this returns array containing [ key, aref ] pairs
 
 sub _hselect_aref {
    my ( $self, $query ) = @_;
@@ -196,7 +194,7 @@ sub _hselect_aref {
 }
 
 # _hselect_href ( "select string" ) see _qparse
-# returns array containing [ key, href ] pairs
+# this returns array containing [ key, href ] pairs
 
 sub _hselect_href {
    my ( $self, $query ) = @_;
@@ -235,7 +233,7 @@ sub _hselect_href {
 }
 
 # _lselect_aref ( "select string" ) see _qparse
-# returns array containing [ key, aref ] pairs
+# this returns array containing [ key, aref ] pairs
 
 sub _lselect_aref {
    my ( $self, $query ) = @_;
@@ -274,7 +272,7 @@ sub _lselect_aref {
 }
 
 # _lselect_href ( "select string" ) see _qparse
-# returns array containing [ key, href ] pairs
+# this returns array containing [ key, href ] pairs
 
 sub _lselect_href {
    my ( $self, $query ) = @_;
@@ -335,7 +333,8 @@ sub _sort {
       $alpha = 1 if $modifiers =~ /\balpha\b/i;
       $desc  = 1 if $modifiers =~ /\bdesc\b/i;
 
-      # Return sorted keys
+      # Return sorted keys, leaving the data intact.
+
       if ( defined wantarray ) {
          if ( $f eq 'key' ) {                         # by key
             if ( $alpha ) { ( $desc )
@@ -372,7 +371,8 @@ sub _sort {
          }
       }
 
-      # Sort in-place
+      # Sort in-place otherwise, in void context.
+
       elsif ( $f eq 'key' ) {                         # by key
          if ( $alpha ) { ( $desc )
           ? $o->_reorder( sort { $b cmp $a } $o->keys )
@@ -383,8 +383,6 @@ sub _sort {
           : $o->_reorder( sort { $a <=> $b } $o->keys );
          }
       }
-
-      # Sort in-place
       else {                                          # by field
          my $d = $o->[0];
          if ( $is_list ) {
@@ -530,7 +528,6 @@ sub iterator {
 
 # select_aref ( ":lists", "select string" )
 # select_aref ( ":hashes", "select string" )
-#
 # select_aref ( "select string" )  same as ":hashes"
 
 sub select_aref {
@@ -548,7 +545,6 @@ sub select_aref {
 
 # select_href ( ":lists", "select string" )
 # select_href ( ":hashes", "select string" )
-#
 # select_href ( "select string" )  same as ":hashes"
 
 sub select_href {
@@ -638,7 +634,7 @@ sub hexists {
 }
 
 # hclear ( key )
-# hclear
+# hclear ( )
 
 sub hclear {
    my ( $self, $key ) = @_;
@@ -653,7 +649,7 @@ sub hclear {
 
 # hkeys ( key, field [, field, ... ] )
 # hkeys ( "query string" )
-# hkeys
+# hkeys ( )
 
 sub hkeys {
    my $self = shift;
@@ -673,7 +669,7 @@ sub hkeys {
 
 # hvals ( key, field [, field, ... ] )
 # hvals ( "query string" )
-# hvals
+# hvals ( )
 
 sub hvals {
    my $self = shift;
@@ -693,7 +689,7 @@ sub hvals {
 
 # hpairs ( key, field [, field, ... ] )
 # hpairs ( "query string" )
-# hpairs
+# hpairs ( )
 
 sub hpairs {
    my $self = shift;
@@ -794,7 +790,7 @@ sub hgetset {
 
 # hlen ( key, field )
 # hlen ( key )
-# hlen
+# hlen ( )
 
 sub hlen {
    my $self = shift;
@@ -882,7 +878,7 @@ sub lexists {
 }
 
 # lclear ( key )
-# lclear
+# lclear ( )
 
 sub lclear {
    my ( $self, $key ) = @_;
@@ -948,7 +944,7 @@ sub rpush {
 
 # lkeys ( key, index [, index, ... ] )
 # lkeys ( "query string" )
-# lkeys
+# lkeys ( )
 
 sub lkeys {
    my $self = shift;
@@ -968,7 +964,7 @@ sub lkeys {
 
 # lvals ( key, index [, index, ... ] )
 # lvals ( "query string" )
-# lvals
+# lvals ( )
 
 sub lvals {
    my $self = shift;
@@ -988,7 +984,7 @@ sub lvals {
 
 # lpairs ( key, index [, index, ... ] )
 # lpairs ( "query string" )
-# lpairs
+# lpairs ( )
 
 sub lpairs {
    my $self = shift;
@@ -1097,7 +1093,7 @@ sub lgetset {
 
 # llen ( key, index )
 # llen ( key )
-# llen
+# llen ( )
 
 sub llen {
    my $self = shift;
@@ -1123,20 +1119,22 @@ __END__
 
 =head1 NAME
 
-MCE::Shared::Minidb - Minidb helper class
+MCE::Shared::Minidb - A fast, pure-Perl in-memory data structure store
 
 =head1 VERSION
 
-This document describes MCE::Shared::Minidb version 1.699_008
+This document describes MCE::Shared::Minidb version 1.699_009
 
 =head1 SYNOPSIS
 
    # non-shared
    use MCE::Shared::Minidb;
+
    my $db = MCE::Shared::Minidb->new();
 
    # shared
    use MCE::Shared;
+
    my $db = MCE::Shared->minidb();
 
    # HoH
@@ -1153,9 +1151,9 @@ This document describes MCE::Shared::Minidb version 1.699_008
 
 =head1 DESCRIPTION
 
-A simplistic In-Memory NoSQL DB for use with L<MCE::Shared|MCE::Shared>.
-Although, many methods resemble the C<Redis> API, it is not the intention
-for this module to become 100% compatible.
+A simplistic in-memory NoSQL-like DB for use with L<MCE::Shared|MCE::Shared>.
+Although several methods resemble the C<Redis> API, it is not the intent for
+this module to become 100% compatible with it.
 
 =head1 QUERY STRING
 
@@ -1352,6 +1350,10 @@ To be completed before the final 1.700 release.
 =head1 COMMON API
 
 =over 3
+
+=item new
+
+Constructs an empty C<Minidb> object.
 
 =item dump ( "file.dat" )
 

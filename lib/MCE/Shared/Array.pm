@@ -11,9 +11,9 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_008';
+our $VERSION = '1.699_009';
 
-# no critic (TestingAndDebugging::ProhibitNoStrict)
+## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use MCE::Shared::Base;
 use bytes;
@@ -82,7 +82,6 @@ sub SPLICE {
 
 # _find ( { getkeys => 1 }, "query string" )
 # _find ( { getvals => 1 }, "query string" )
-#
 # _find ( "query string" ) # pairs
 
 sub _find {
@@ -96,7 +95,7 @@ sub _find {
 }
 
 # clone ( key [, key, ... ] )
-# clone
+# clone ( )
 
 sub clone {
    my $self = shift;
@@ -119,7 +118,7 @@ sub clone {
 }
 
 # flush ( key [, key, ... ] )
-# flush
+# flush ( )
 
 sub flush {
    shift()->clone( { flush => 1 }, @_ );
@@ -127,7 +126,7 @@ sub flush {
 
 # iterator ( key [, key, ... ] )
 # iterator ( "query string" )
-# iterator
+# iterator ( )
 
 sub iterator {
    my ( $self, @keys ) = @_;
@@ -148,7 +147,7 @@ sub iterator {
 
 # keys ( key [, key, ... ] )
 # keys ( "query string" )
-# keys
+# keys ( )
 
 sub keys {
    my $self = shift;
@@ -169,7 +168,7 @@ sub keys {
 
 # pairs ( key [, key, ... ] )
 # pairs ( "query string" )
-# pairs
+# pairs ( )
 
 sub pairs {
    my $self = shift;
@@ -190,7 +189,7 @@ sub pairs {
 
 # values ( key [, key, ... ] )
 # values ( "query string" )
-# values
+# values ( )
 
 sub values {
    my $self = shift;
@@ -289,7 +288,6 @@ sub range {
 }
 
 # sort ( "BY val [ ASC | DESC ] [ ALPHA ]" )
-#
 # sort ( "[ ASC | DESC ] [ ALPHA ]" ) # same as "BY val ..."
 
 sub sort {
@@ -301,7 +299,8 @@ sub sort {
       $desc  = 1 if $request =~ /\bdesc\b/i;
    }
 
-   # Return sorted values
+   # Return sorted values, leaving the data intact.
+
    if ( defined wantarray ) {
       if ( $alpha ) { ( $desc )
        ? CORE::sort { $b cmp $a } @{ $self }
@@ -313,7 +312,8 @@ sub sort {
       }
    }
 
-   # Sort values in-place
+   # Sort values in-place otherwise, in void context.
+
    elsif ( $alpha ) { ( $desc )
     ? $self->_reorder( CORE::sort { $b cmp $a } @{ $self } )
     : $self->_reorder( CORE::sort { $a cmp $b } @{ $self } );
@@ -362,7 +362,7 @@ sub getincr {   $_[0]->[ $_[1] ]++        || 0 }
 sub getset { my $old = $_[0]->[ $_[1] ]; $_[0]->[ $_[1] ] = $_[2]; $old }
 
 # len ( index )
-# len
+# len ( )
 
 sub len {
    ( defined $_[1] )
@@ -406,16 +406,18 @@ MCE::Shared::Array - Array helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Array version 1.699_008
+This document describes MCE::Shared::Array version 1.699_009
 
 =head1 SYNOPSIS
 
    # non-shared
    use MCE::Shared::Array;
+
    my $ar = MCE::Shared::Array->new( @list );
 
    # shared
    use MCE::Shared;
+
    my $ar = MCE::Shared->array( @list );
 
    # oo interface
@@ -525,6 +527,10 @@ To be completed before the final 1.700 release.
 
 =item delete ( index )
 
+=item del
+
+C<del> is an alias for C<delete>.
+
 =item exists ( index )
 
 =item flush ( index [, index, ... ] )
@@ -547,15 +553,21 @@ Same as C<clone>. Clears all existing items before returning.
 
 =item keys
 
-=item len ( [ index ] )
+=item len ( index )
 
-=item mdel ( indices )
+=item len
 
-=item mexists ( indices )
+=item mdel ( index [, index, ... ] )
 
-=item mget ( indices )
+=item mexists ( index [, index, ... ] )
 
-=item mset ( index/value pairs )
+=item mget ( index [, index, ... ] )
+
+=item mset ( index, value [, index, value, ... ] )
+
+=item merge
+
+C<merge> is an alias for C<mset>.
 
 =item pairs ( index [, index, ... ] )
 
@@ -586,6 +598,10 @@ Same as C<clone>. Clears all existing items before returning.
 =item values ( "query string" )
 
 =item values
+
+=item vals
+
+C<vals> is an alias for C<values>.
 
 =back
 

@@ -12,12 +12,12 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric once );
 
-our $VERSION = '1.699_008';
+our $VERSION = '1.699_009';
 
-# no critic (BuiltinFunctions::ProhibitStringyEval)
-# no critic (Subroutines::ProhibitExplicitReturnUndef)
-# no critic (TestingAndDebugging::ProhibitNoStrict)
-# no critic (InputOutput::ProhibitTwoArgOpen)
+## no critic (BuiltinFunctions::ProhibitStringyEval)
+## no critic (Subroutines::ProhibitExplicitReturnUndef)
+## no critic (TestingAndDebugging::ProhibitNoStrict)
+## no critic (InputOutput::ProhibitTwoArgOpen)
 
 use Carp ();
 use Time::HiRes qw( sleep );
@@ -53,7 +53,9 @@ use MCE::Util ();
 use MCE::Mutex;
 
 use constant {
-   DATA_CHANNELS =>  12,  # Max data channels
+   # Do not go higher than 8 on MSWin32 or it will fail.
+   DATA_CHANNELS =>  ($^O eq 'MSWin32') ? 8 : 12,
+
    MAX_DQ_DEPTH  => 192,  # Maximum dequeue notifications
    WA_ARRAY      =>   1,  # Wants list
 
@@ -1712,9 +1714,13 @@ sub AUTOLOAD {
    _auto(substr($MCE::Shared::Object::AUTOLOAD, 21), @_);
 }
 
+# blessed ( )
+
 sub blessed {
    _req1('M~BLE', $_[0]->[0].$LF);
 }
+
+# destroy ( )
 
 sub destroy {
    my $_id   = $_[0]->[0];
@@ -1730,6 +1736,9 @@ sub destroy {
    $_[0] = undef;
    $_item;
 }
+
+# export ( key [, key, ... ] )
+# export ( )
 
 sub export {
    my $_id   = shift()->[0];
@@ -1771,6 +1780,21 @@ sub export {
 
    $_item;
 }
+
+# iterator ( ":hashes", key, "query string" )  # Minidb HoH
+# iterator ( ":hashes", key [, key, ... ] )
+# iterator ( ":hashes", "query string" )
+# iterator ( ":hashes" )
+#
+# iterator ( ":lists", key, "query string" )   # Minidb HoA
+# iterator ( ":lists", key [, key, ... ] )
+# iterator ( ":lists", "query string" )
+# iterator ( ":lists" )
+#
+# iterator ( index, [, index, ... ] )          # Array/(Ord)Hash
+# iterator ( key, [, key, ... ] )
+# iterator ( "query string" )
+# iterator ( )
 
 sub iterator {
    my ( $self, @keys ) = @_;
@@ -1848,6 +1872,33 @@ sub iterator {
    }
 }
 
+# rewind ( begin, end, [ step, format ] )      # Sequence
+#
+# rewind ( ":hashes", key, "query string" )    # Minidb HoH
+# rewind ( ":hashes", key [, key, ... ] )
+# rewind ( ":hashes", "query string" )
+# rewind ( ":hashes" )
+#
+# rewind ( ":lists", key, "query string" )     # Minidb HoA
+# rewind ( ":lists", key [, key, ... ] )
+# rewind ( ":lists", "query string" )
+# rewind ( ":lists" )
+#
+# rewind ( index [, index, ... ] )             # Array/(Ord)Hash
+# rewind ( key [, key, ... ] )
+# rewind ( "query string" )
+# rewind ( )
+
+sub rewind {
+   my $_id  = shift()->[0];
+   my $_buf = $_freeze->([ @_ ]);
+   _req1('M~IRW', $_id.$LF . length($_buf).$LF . $_buf);
+
+   return;
+}
+
+# next ( )
+
 sub next {
    local $\ = undef if (defined $\);
    local $/ = $LF if (!$/ || $/ ne $LF);
@@ -1865,19 +1916,13 @@ sub next {
    wantarray ? @{ $_thaw->($_buf) } : $_thaw->($_buf)[-1];
 }
 
-sub rewind {
-   my $_id  = shift()->[0];
-   my $_buf = $_freeze->([ @_ ]);
-   _req1('M~IRW', $_id.$LF . length($_buf).$LF . $_buf);
-
-   return;
-}
-
 ###############################################################################
 ## ----------------------------------------------------------------------------
 ## Methods optimized for Condvar.
 ##
 ###############################################################################
+
+# lock ( )
 
 sub lock {
    my $_id = $_[0]->[0];
@@ -1887,6 +1932,8 @@ sub lock {
    $_CV->{_mutex}->lock;
 }
 
+# unlock ( )
+
 sub unlock {
    my $_id = $_[0]->[0];
    return unless ( my $_CV = $_obj{ $_id } );
@@ -1894,6 +1941,9 @@ sub unlock {
 
    $_CV->{_mutex}->unlock;
 }
+
+# broadcast ( floating_seconds )
+# broadcast ( )
 
 sub broadcast {
    my $_id = $_[0]->[0];
@@ -1906,6 +1956,9 @@ sub broadcast {
    $_CV->{_mutex}->unlock;
 }
 
+# signal ( floating_seconds )
+# signal ( )
+
 sub signal {
    my $_id = $_[0]->[0];
    return unless ( my $_CV = $_obj{ $_id } );
@@ -1916,6 +1969,8 @@ sub signal {
    _req1('O~CVS', $_id.$LF);
    $_CV->{_mutex}->unlock;
 }
+
+# timedwait ( floating_seconds )
 
 sub timedwait {
    my $_id = $_[0]->[0];
@@ -1954,6 +2009,8 @@ sub timedwait {
 
    return '';
 }
+
+# wait ( )
 
 sub wait {
    my $_id = $_[0]->[0];
@@ -2289,7 +2346,7 @@ MCE::Shared::Server - Server/Object packages for MCE::Shared
 
 =head1 VERSION
 
-This document describes MCE::Shared::Server version 1.699_008
+This document describes MCE::Shared::Server version 1.699_009
 
 =head1 DESCRIPTION
 

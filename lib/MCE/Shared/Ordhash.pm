@@ -19,9 +19,9 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_008';
+our $VERSION = '1.699_009';
 
-# no critic (TestingAndDebugging::ProhibitNoStrict)
+## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use MCE::Shared::Base;
 use bytes;
@@ -57,7 +57,7 @@ use overload (
 ###############################################################################
 
 # TIEHASH ( key, value [, key, value, ... ] )
-# TIEHASH
+# TIEHASH ( )
 
 sub TIEHASH {
    my ( $class ) = ( shift );
@@ -139,7 +139,7 @@ sub DELETE {
    }
 }
 
-# FIRSTKEY
+# FIRSTKEY ( )
 
 sub FIRSTKEY {
    my ( $self ) = @_;
@@ -153,7 +153,7 @@ sub FIRSTKEY {
    $self->[_ITER]->();
 }
 
-# NEXTKEY
+# NEXTKEY ( )
 
 sub NEXTKEY {
    $_[0]->[_ITER]->();
@@ -165,7 +165,7 @@ sub EXISTS {
    exists $_[0]->[_DATA]{ $_[1] };
 }
 
-# CLEAR
+# CLEAR ( )
 
 sub CLEAR {
    my ( $self ) = @_;
@@ -180,7 +180,7 @@ sub CLEAR {
    ();
 }
 
-# SCALAR
+# SCALAR ( )
 
 sub SCALAR {
    @{ $_[0]->[_KEYS] } - $_[0]->[_GCNT];
@@ -192,7 +192,7 @@ sub SCALAR {
 ##
 ###############################################################################
 
-# POP
+# POP ( )
 
 sub POP {
    my ( $self ) = @_;
@@ -229,7 +229,7 @@ sub PUSH {
    @{ $keys } - $self->[_GCNT];
 }
 
-# SHIFT
+# SHIFT ( )
 
 sub SHIFT {
    my ( $self ) = @_;
@@ -374,7 +374,6 @@ sub _fill_indx {
 
 # _find ( { getkeys => 1 }, "query string" )
 # _find ( { getvals => 1 }, "query string" )
-#
 # _find ( "query string" ) # pairs
 
 sub _find {
@@ -388,7 +387,7 @@ sub _find {
 }
 
 # clone ( key [, key, ... ] )
-# clone
+# clone ( )
 
 sub clone {
    my $self = shift;
@@ -417,7 +416,7 @@ sub clone {
 }
 
 # flush ( key [, key, ... ] )
-# flush
+# flush ( )
 
 sub flush {
    shift()->clone( { flush => 1 }, @_ );
@@ -425,7 +424,7 @@ sub flush {
 
 # iterator ( key [, key, ... ] )
 # iterator ( "query string" )
-# iterator
+# iterator ( )
 
 sub iterator {
    my ( $self, @keys ) = @_;
@@ -447,7 +446,7 @@ sub iterator {
 
 # keys ( key [, key, ... ] )
 # keys ( "query string" )
-# keys
+# keys ( )
 
 sub keys {
    my $self = shift;
@@ -469,7 +468,7 @@ sub keys {
 
 # pairs ( key [, key, ... ] )
 # pairs ( "query string" )
-# pairs
+# pairs ( )
 
 sub pairs {
    my $self = shift;
@@ -492,7 +491,7 @@ sub pairs {
 
 # values ( key [, key, ... ] )
 # values ( "query string" )
-# values
+# values ( )
 
 sub values {
    my $self = shift;
@@ -569,7 +568,7 @@ sub mset {
    defined wantarray ? @{ $keys } - $self->[_GCNT] : ();
 }
 
-# purge
+# purge ( )
 
 sub purge {
    my ( $self ) = @_;
@@ -596,7 +595,6 @@ sub purge {
 
 # sort ( "BY key [ ASC | DESC ] [ ALPHA ]" )
 # sort ( "BY val [ ASC | DESC ] [ ALPHA ]" )
-#
 # sort ( "[ ASC | DESC ] [ ALPHA ]" ) # same as "BY val ..."
 
 sub sort {
@@ -609,7 +607,8 @@ sub sort {
       $desc   = 1 if $request =~ /\bdesc\b/i;
    }
 
-   # Return sorted keys
+   # Return sorted keys, leaving the data intact.
+
    if ( defined wantarray ) {
       if ( $by_key ) {                                # by key
          if ( $alpha ) { ( $desc )
@@ -634,7 +633,8 @@ sub sort {
       }
    }
 
-   # Sort keys in-place
+   # Sort keys in-place otherwise, in void context.
+
    elsif ( $by_key ) {                                # by key
       if ( $alpha ) { ( $desc )
        ? $self->_reorder( CORE::sort { $b cmp $a } $self->keys )
@@ -707,7 +707,7 @@ sub getset {
 }
 
 # len ( key )
-# len
+# len ( )
 
 sub len {
    ( defined $_[1] )
@@ -757,16 +757,18 @@ MCE::Shared::Ordhash - Ordered-hash helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Ordhash version 1.699_008
+This document describes MCE::Shared::Ordhash version 1.699_009
 
 =head1 SYNOPSIS
 
    # non-shared
    use MCE::Shared::Ordhash;
+
    my $oh = MCE::Shared::Ordhash->new( @pairs );
 
    # shared
    use MCE::Shared;
+
    my $oh = MCE::Shared->ordhash( @pairs );
 
    # oo interface
@@ -879,6 +881,10 @@ To be completed before the final 1.700 release.
 
 =item delete ( key )
 
+=item del
+
+C<del> is an alias for C<delete>.
+
 =item exists ( key )
 
 =item flush ( key [, key, ... ] )
@@ -901,15 +907,21 @@ Same as C<clone>. Clears all existing items before returning.
 
 =item keys
 
-=item len ( [ key ] )
+=item len ( key )
 
-=item mdel ( keys )
+=item len
 
-=item mexists ( keys )
+=item mdel ( key [, key, ... ] )
 
-=item mget ( keys )
+=item mexists ( key [, key, ... ] )
 
-=item mset ( key/value pairs )
+=item mget ( key [, key, ... ] )
+
+=item mset ( key, value [, key, value, ... ] )
+
+=item merge
+
+C<merge> is an alias for C<mset>.
 
 =item pairs ( key [, key, ... ] )
 
@@ -942,6 +954,10 @@ Same as C<clone>. Clears all existing items before returning.
 =item values ( "query string" )
 
 =item values
+
+=item vals
+
+C<vals> is an alias for C<values>.
 
 =back
 

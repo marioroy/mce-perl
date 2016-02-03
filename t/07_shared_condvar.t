@@ -6,6 +6,7 @@ use warnings;
 use Test::More tests => 21;
 use MCE::Hobo;
 use MCE::Shared;
+use Time::HiRes qw( sleep time );
 
 my $cv = MCE::Shared->condvar();
 

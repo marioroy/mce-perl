@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_008';
+our $VERSION = '1.699_009';
 
 use MCE::Shared::Base;
 use MCE::Util ();
@@ -105,7 +105,7 @@ sub getincr {   $_[0]->{_value}++        || 0 }
 
 sub getset { my $old = $_[0]->{_value}; $_[0]->{_value} = $_[1]; $old }
 
-# len
+# len ( )
 
 sub len { length($_[0]->{_value}) || 0 }
 
@@ -125,11 +125,12 @@ MCE::Shared::Condvar - Condvar helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Condvar version 1.699_008
+This document describes MCE::Shared::Condvar version 1.699_009
 
 =head1 SYNOPSIS
 
    use MCE::Shared;
+
    my $cv = MCE::Shared->condvar( 0 );
 
    # oo interface
@@ -233,9 +234,17 @@ To be completed before the final 1.700 release.
 
 =item unlock
 
+=item broadcast ( floating_seconds )
+
 =item broadcast
 
+Optionally, delay C<floating_seconds> before broadcasting.
+
+=item signal ( floating_seconds )
+
 =item signal
+
+Optionally, delay C<floating_seconds> before signaling.
 
 =item timedwait ( floating_seconds )
 

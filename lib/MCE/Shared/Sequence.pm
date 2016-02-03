@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_008';
+our $VERSION = '1.699_009';
 
 use Scalar::Util qw( looks_like_number );
 use MCE::Shared::Base;
@@ -35,7 +35,7 @@ sub _croak {
 }
 
 # new ( begin, end [, step, format ] )
-# new
+# new ( )
 
 sub new {
    my ( $class, @self ) = @_;
@@ -58,7 +58,7 @@ sub new {
    bless \@self, $class;
 }
 
-# next
+# next ( )
 
 sub next {
    my ( $self ) = @_;
@@ -88,7 +88,7 @@ sub next {
 }
 
 # rewind ( begin, end [, step, format ] )
-# rewind
+# rewind ( )
 
 sub rewind {
    my $self = shift;
@@ -128,17 +128,19 @@ MCE::Shared::Sequence - Sequence helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Sequence version 1.699_008
+This document describes MCE::Shared::Sequence version 1.699_009
 
 =head1 SYNOPSIS
 
    # non-shared
    use MCE::Shared::Sequence;
+
    my $s = MCE::Shared::Sequence->new( $begin, $end, $step, $fmt );
 
    # shared
    use MCE::Hobo;
    use MCE::Shared Sereal => 1;
+
    my $s = MCE::Shared->sequence( 1, 100 );
 
    sub parallel {

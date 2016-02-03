@@ -5,6 +5,7 @@ use warnings;
 
 use Test::More tests => 18;
 use MCE::Hobo;
+use Time::HiRes qw( sleep );
 
 {
    my ( $cnt, @procs, @list, %ret );

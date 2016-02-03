@@ -11,9 +11,9 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_008';
+our $VERSION = '1.699_009';
 
-# no critic (TestingAndDebugging::ProhibitNoStrict)
+## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use MCE::Shared::Base;
 use bytes;
@@ -65,7 +65,7 @@ sub getincr {   ${ $_[0] }++        || 0 }
 
 sub getset { my $old = ${ $_[0] }; ${ $_[0] } = $_[1]; $old }
 
-# len
+# len ( )
 
 sub len { length ${ $_[0] } || 0 }
 
@@ -93,16 +93,18 @@ MCE::Shared::Scalar - Scalar helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Scalar version 1.699_008
+This document describes MCE::Shared::Scalar version 1.699_009
 
 =head1 SYNOPSIS
 
    # non-shared
    use MCE::Shared::Scalar;
+
    my $var = MCE::Shared::Scalar->new( $val );
 
    # shared
    use MCE::Shared;
+
    my $var = MCE::Shared->scalar( $val );
 
    # oo interface

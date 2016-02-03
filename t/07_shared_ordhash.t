@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 162;
+use Test::More tests => 163;
 use MCE::Flow max_workers => 1;
 use MCE::Shared;
 
@@ -581,6 +581,15 @@ while ( my $val = $h5->next ) { push @list, $val; }
 cmp_array(
    [ @list ], [ qw/ over the rainbow 77 / ],
    'shared ordhash, check rewind 2'
+);
+
+@list = (); $h5->rewind(qw/ 1 2 /);
+
+while ( my $val = $h5->next ) { push @list, $val; }
+
+cmp_array(
+   [ sort @list ], [ sort qw/ the rainbow / ],
+   'shared ordhash, check rewind 3'
 );
 
 is( $h5->mexists(qw/ 0 2 3 /),  1, 'shared hash, check mexists 1' );

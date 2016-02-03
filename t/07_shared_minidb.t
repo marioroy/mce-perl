@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 189;
+use Test::More tests => 197;
 use MCE::Shared;
 
 my (@keys, @vals, @rows, $iter);
@@ -115,7 +115,7 @@ is(
    'shared minidb hash, check hkeys("query3")'
 );
 
-## rewind/next, parallel iteration, available in shared context
+## rewind/next, parallel iteration; available in shared context
 
 @keys = (), @vals = (); $db->rewind(':hashes');
 
@@ -133,6 +133,22 @@ cmp_array(
    'shared minidb hash, check rewind/next 2'
 );
 
+@keys = (), @vals = (); $db->rewind(':hashes', qw/ k1 k2 /);
+
+while ( my ($key, $val) = $db->next ) {
+   push @keys, $key;
+   push @vals, $val->{'peace...'};
+}
+
+cmp_array(
+   [ @keys ], [ qw/ k1 k2 / ],
+   'shared minidb hash, check rewind/next 3'
+);
+cmp_array(
+   [ @vals ], [ qw/ Where where / ],
+   'shared minidb hash, check rewind/next 4'
+);
+
 @keys = (), @vals = (); $db->rewind(':hashes', 'baz == 20');
 
 while ( my ($key, $val) = $db->next ) {
@@ -142,11 +158,11 @@ while ( my ($key, $val) = $db->next ) {
 
 cmp_array(
    [ @keys ], [ qw/ k2 / ],
-   'shared minidb hash, check rewind/next 3'
+   'shared minidb hash, check rewind/next 5'
 );
 cmp_array(
    [ @vals ], [ qw/ 20 / ],
-   'shared minidb hash, check rewind/next 4'
+   'shared minidb hash, check rewind/next 6'
 );
 
 @keys = (), @vals = (); $db->rewind(':hashes', 'k2', 'val =~ /e/');
@@ -158,11 +174,11 @@ while ( my ($key, $val) = $db->next ) {
 
 cmp_array(
    [ sort @keys ], [ sort qw/ make f2 peace... there's f6 let bring where is / ],
-   'shared minidb hash, check rewind/next 5'
+   'shared minidb hash, check rewind/next 7'
 );
 cmp_array(
    [ sort @vals ], [ sort qw/ me channel where despair life me hope... there darkness / ],
-   'shared minidb hash, check rewind/next 6'
+   'shared minidb hash, check rewind/next 8'
 );
 
 ## iterator, non-parallel iteration
@@ -183,6 +199,22 @@ cmp_array(
    'shared minidb hash, check iterator 2'
 );
 
+@keys = (), @vals = (); $iter = $db->iterator(':hashes', qw/ k1 k2 /);
+
+while ( my ($key, $val) = $iter->() ) {
+   push @keys, $key;
+   push @vals, $val->{'peace...'};
+}
+
+cmp_array(
+   [ @keys ], [ qw/ k1 k2 / ],
+   'shared minidb hash, check iterator 3'
+);
+cmp_array(
+   [ @vals ], [ qw/ Where where / ],
+   'shared minidb hash, check iterator 4'
+);
+
 @keys = (), @vals = (); $iter = $db->iterator(':hashes', 'baz == 20');
 
 while ( my ($key, $val) = $iter->() ) {
@@ -192,11 +224,11 @@ while ( my ($key, $val) = $iter->() ) {
 
 cmp_array(
    [ @keys ], [ qw/ k2 / ],
-   'shared minidb hash, check iterator 3'
+   'shared minidb hash, check iterator 5'
 );
 cmp_array(
    [ @vals ], [ qw/ 20 / ],
-   'shared minidb hash, check iterator 4'
+   'shared minidb hash, check iterator 6'
 );
 
 @keys = (), @vals = (); $iter = $db->iterator(':hashes', 'k2', 'val =~ /e/');
@@ -208,11 +240,11 @@ while ( my ($key, $val) = $iter->() ) {
 
 cmp_array(
    [ sort @keys ], [ sort qw/ make f2 peace... there's f6 let bring where is / ],
-   'shared minidb hash, check iterator 5'
+   'shared minidb hash, check iterator 7'
 );
 cmp_array(
    [ sort @vals ], [ sort qw/ me channel where despair life me hope... there darkness / ],
-   'shared minidb hash, check iterator 6'
+   'shared minidb hash, check iterator 8'
 );
 
 ## select_aref ( ':hashes', 'query string' )
@@ -524,7 +556,7 @@ is(
    'shared minidb list, check lvals("query3")'
 );
 
-## rewind/next, parallel iteration, available in shared context
+## rewind/next, parallel iteration; available in shared context
 
 @keys = (), @vals = (); $db->rewind(':lists');
 
@@ -542,6 +574,22 @@ cmp_array(
    'shared minidb list, check rewind/next 2'
 );
 
+@keys = (), @vals = (); $db->rewind(':lists', qw/ k1 k2 /);
+
+while ( my ($key, $val) = $db->next ) {
+   push @keys, $key;
+   push @vals, $val->[3];
+}
+
+cmp_array(
+   [ @keys ], [ qw/ k1 k2 / ],
+   'shared minidb list, check rewind/next 3'
+);
+cmp_array(
+   [ @vals ], [ qw/ Where where / ],
+   'shared minidb list, check rewind/next 4'
+);
+
 @keys = (), @vals = (); $db->rewind(':lists', '11 == 20');
 
 while ( my ($key, $val) = $db->next ) {
@@ -551,11 +599,11 @@ while ( my ($key, $val) = $db->next ) {
 
 cmp_array(
    [ @keys ], [ qw/ k2 / ],
-   'shared minidb list, check rewind/next 3'
+   'shared minidb list, check rewind/next 5'
 );
 cmp_array(
    [ @vals ], [ qw/ 20 / ],
-   'shared minidb list, check rewind/next 4'
+   'shared minidb list, check rewind/next 6'
 );
 
 @keys = (), @vals = (); $db->rewind(':lists', 'k2', 'val =~ /e/');
@@ -567,11 +615,11 @@ while ( my ($key, $val) = $db->next ) {
 
 cmp_array(
    [ @keys ], [ qw/ 0 1 3 4 5 6 7 8 9 / ],
-   'shared minidb list, check rewind/next 5'
+   'shared minidb list, check rewind/next 7'
 );
 cmp_array(
    [ @vals ], [ qw/ me channel where despair life me hope... there darkness / ],
-   'shared minidb list, check rewind/next 6'
+   'shared minidb list, check rewind/next 8'
 );
 
 ## iterator, non-parallel iteration
@@ -592,6 +640,22 @@ cmp_array(
    'shared minidb list, check iterator 2'
 );
 
+@keys = (), @vals = (); $iter = $db->iterator(':lists', qw/ k1 k2 /);
+
+while ( my ($key, $val) = $iter->() ) {
+   push @keys, $key;
+   push @vals, $val->[3];
+}
+
+cmp_array(
+   [ @keys ], [ qw/ k1 k2 / ],
+   'shared minidb list, check iterator 3'
+);
+cmp_array(
+   [ @vals ], [ qw/ Where where / ],
+   'shared minidb list, check iterator 4'
+);
+
 @keys = (), @vals = (); $iter = $db->iterator(':lists', '11 == 20');
 
 while ( my ($key, $val) = $iter->() ) {
@@ -601,11 +665,11 @@ while ( my ($key, $val) = $iter->() ) {
 
 cmp_array(
    [ @keys ], [ qw/ k2 / ],
-   'shared minidb list, check iterator 3'
+   'shared minidb list, check iterator 5'
 );
 cmp_array(
    [ @vals ], [ qw/ 20 / ],
-   'shared minidb list, check iterator 4'
+   'shared minidb list, check iterator 6'
 );
 
 @keys = (), @vals = (); $iter = $db->iterator(':lists', 'k2', 'val =~ /e/');
@@ -617,11 +681,11 @@ while ( my ($key, $val) = $iter->() ) {
 
 cmp_array(
    [ @keys ], [ qw/ 0 1 3 4 5 6 7 8 9 / ],
-   'shared minidb list, check iterator 5'
+   'shared minidb list, check iterator 7'
 );
 cmp_array(
    [ @vals ], [ qw/ me channel where despair life me hope... there darkness / ],
-   'shared minidb list, check iterator 6'
+   'shared minidb list, check iterator 8'
 );
 
 ## select_aref ( ':lists', 'query string' )

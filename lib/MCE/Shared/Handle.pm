@@ -11,9 +11,9 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_008';
+our $VERSION = '1.699_009';
 
-# no critic (InputOutput::ProhibitTwoArgOpen)
+## no critic (InputOutput::ProhibitTwoArgOpen)
 
 use MCE::Shared::Base;
 use bytes;
@@ -127,16 +127,18 @@ MCE::Shared::Handle - Handle helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Handle version 1.699_008
+This document describes MCE::Shared::Handle version 1.699_009
 
 =head1 SYNOPSIS
 
    # non-shared
    use MCE::Shared::Handle;
+
    my $fh = MCE::Shared::Handle->new( "<", "sample.fasta" );
 
    # shared
    use MCE::Shared;
+
    my $fh = MCE::Shared->handle( "<", "sample.fasta" );
 
    # demo
