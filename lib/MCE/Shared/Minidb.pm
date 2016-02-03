@@ -573,9 +573,11 @@ sub hset {
    return unless length($key);
    if ( @_ ) {
       $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-      @_ == 2
-         ? $self->[0][0]{ $key }->set(@_)
-         : $self->[0][0]{ $key }->mset(@_);
+      if ( @_ == 2 ) {
+         $self->[0][0]{ $key }{ $_[0] } = $_[1];
+      } else {
+         $self->[0][0]{ $key }->mset(@_);
+      }
    }
    else {
       return;
@@ -590,9 +592,11 @@ sub hget {
    return unless length($key);
    if ( @_ ) {
       return unless exists($self->[0][0]{ $key });
-      @_ == 1
-         ? $self->[0][0]{ $key }->get(@_)
-         : $self->[0][0]{ $key }->mget(@_);
+      if ( @_ == 1 ) {
+         $self->[0][0]{ $key }{ $_[0] };
+      } else {
+         $self->[0][0]{ $key }->mget(@_);
+      }
    }
    else {
       $self->[0][0]{ $key };
@@ -607,9 +611,11 @@ sub hdel {
    return unless length($key);
    if ( @_ ) {
       return unless exists($self->[0][0]{ $key });
-      @_ == 1
-         ? $self->[0][0]{ $key }->del(@_)
-         : $self->[0][0]{ $key }->mdel(@_);
+      if ( @_ == 1 ) {
+         delete $self->[0][0]{ $key }{ $_[0] };
+      } else {
+         $self->[0][0]{ $key }->mdel(@_);
+      }
    }
    else {
       $self->[0]->del($key);
@@ -624,9 +630,11 @@ sub hexists {
    return '' unless length($key);
    if ( @_ ) {
       return '' unless exists($self->[0][0]{ $key });
-      @_ == 1
-         ? $self->[0][0]{ $key }->exists(@_)
-         : $self->[0][0]{ $key }->mexists(@_);
+      if ( @_ == 1 ) {
+         exists $self->[0][0]{ $key }{ $_[0] };
+      } else {
+         $self->[0][0]{ $key }->mexists(@_);
+      }
    }
    else {
       exists $self->[0][0]{ $key };
@@ -640,7 +648,7 @@ sub hclear {
    my ( $self, $key ) = @_;
    if ( @_ > 1 ) {
       return unless exists($self->[0][0]{ $key });
-      $self->[0][0]{ $key }->clear();
+      %{ $self->[0][0]{ $key } } = ();
    }
    else {
       $self->[0]->clear();
@@ -707,6 +715,12 @@ sub hpairs {
    }
 }
 
+# hshift ( )
+
+sub hshift {
+   $_[0]->[0]->shift();
+}
+
 # hsort ( "BY key   [ ASC | DESC ] [ ALPHA ]" )
 # hsort ( "BY field [ ASC | DESC ] [ ALPHA ]" )
 
@@ -719,73 +733,73 @@ sub hsort {
 # happend ( key, field, string )
 
 sub happend {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = ( shift, shift );
+   return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   $self->[0][0]{ $key }->append($field, $_[3]);
+   $self->[0][0]{ $key }->append(@_);
 }
 
 # hdecr ( key, field )
 
 sub hdecr {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = @_;
+   return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   $self->[0][0]{ $key }->decr($field);
+   --$self->[0][0]{ $key }{ $_[2] };
 }
 
 # hdecrby ( key, field, number )
 
 sub hdecrby {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = @_;
+   return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   $self->[0][0]{ $key }->decrby($field, $_[3]);
+   $self->[0][0]{ $key }{ $_[2] } -= $_[3] || 0;
 }
 
 # hincr ( key, field )
 
 sub hincr {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = @_;
+   return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   $self->[0][0]{ $key }->incr($field);
+   ++$self->[0][0]{ $key }{ $_[2] };
 }
 
 # hincrby ( key, field, number )
 
 sub hincrby {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = @_;
+   return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   $self->[0][0]{ $key }->incrby($field, $_[3]);
+   $self->[0][0]{ $key }{ $_[2] } += $_[3] || 0;
 }
 
 # hgetdecr ( key, field )
 
 sub hgetdecr {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = @_;
+   return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   $self->[0][0]{ $key }->getdecr($field);
+   $self->[0][0]{ $key }{ $_[2] }-- || 0;
 }
 
 # hgetincr ( key, field )
 
 sub hgetincr {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = @_;
+   return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   $self->[0][0]{ $key }->getincr($field);
+   $self->[0][0]{ $key }{ $_[2] }++ || 0;
 }
 
 # hgetset ( key, field, value )
 
 sub hgetset {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = ( shift, shift );
+   return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   $self->[0][0]{ $key }->getset($field, $_[3]);
+   $self->[0][0]{ $key }->getset(@_);
 }
 
 # hlen ( key, field )
@@ -797,7 +811,9 @@ sub hlen {
    if ( @_ ) {
       my $key = shift;
       return 0 unless exists($self->[0][0]{ $key });
-      $self->[0][0]{ $key }->len(@_);
+      ( defined $_[0] )
+         ? length $self->[0][0]{ $key }{ $_[0] } || 0
+         : scalar keys %{ $self->[0][0]{ $key } };
    }
    else {
       $self->[0]->len();
@@ -817,9 +833,11 @@ sub lset {
    return unless length($key);
    if ( @_ ) {
       $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-      @_ == 2
-         ? $self->[1][0]{ $key }->set(@_)
-         : $self->[1][0]{ $key }->mset(@_);
+      if ( @_ == 2 ) {
+         $self->[1][0]{ $key }[ $_[0] ] = $_[1];
+      } else {
+         $self->[1][0]{ $key }->mset(@_);
+      }
    }
    else {
       return;
@@ -834,9 +852,11 @@ sub lget {
    return unless length($key);
    if ( @_ ) {
       return unless exists($self->[1][0]{ $key });
-      @_ == 1
-         ? $self->[1][0]{ $key }->get(@_)
-         : $self->[1][0]{ $key }->mget(@_);
+      if ( @_ == 1 ) {
+         $self->[1][0]{ $key }[ $_[0] ];
+      } else {
+         $self->[1][0]{ $key }->mget(@_);
+      }
    }
    else {
       $self->[1][0]{ $key };
@@ -851,9 +871,11 @@ sub ldel {
    return unless length($key);
    if ( @_ ) {
       return unless exists($self->[1][0]{ $key });
-      @_ == 1
-         ? $self->[1][0]{ $key }->del(@_)
-         : $self->[1][0]{ $key }->mdel(@_);
+      if ( @_ == 1 ) {
+         delete $self->[1][0]{ $key }[ $_[0] ];
+      } else {
+         $self->[1][0]{ $key }->mdel(@_);
+      }
    }
    else {
       $self->[1]->del($key);
@@ -868,9 +890,11 @@ sub lexists {
    return '' unless length($key);
    if ( @_ ) {
       return '' unless exists($self->[1][0]{ $key });
-      @_ == 1
-         ? $self->[1][0]{ $key }->exists(@_)
-         : $self->[1][0]{ $key }->mexists(@_);
+      if ( @_ == 1 ) {
+         exists $self->[1][0]{ $key }[ $_[0] ];
+      } else {
+         $self->[1][0]{ $key }->mexists(@_);
+      }
    }
    else {
       exists $self->[1][0]{ $key };
@@ -884,7 +908,7 @@ sub lclear {
    my ( $self, $key ) = @_;
    if ( @_ > 1 ) {
       return unless exists($self->[1][0]{ $key });
-      $self->[1][0]{ $key }->clear();
+      @{ $self->[1][0]{ $key } } = ();
    }
    else {
       $self->[1]->clear();
@@ -913,7 +937,7 @@ sub lsplice {
 sub lpop {
    my ( $self, $key ) = ( shift, shift );
    return unless length($key) && exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }->shift();
+   shift @{ $self->[1][0]{ $key } };
 }
 
 # lpush ( key, value [, value, ... ] )
@@ -922,7 +946,7 @@ sub lpush {
    my ( $self, $key ) = ( shift, shift );
    return unless length($key) && scalar(@_);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }->unshift(@_);
+   unshift @{ $self->[1][0]{ $key } }, @_;
 }
 
 # rpop ( key )
@@ -930,7 +954,7 @@ sub lpush {
 sub rpop {
    my ( $self, $key ) = ( shift, shift );
    return unless length($key) && exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }->pop();
+   pop @{ $self->[1][0]{ $key } };
 }
 
 # rpush ( key, value [, value, ... ] )
@@ -939,7 +963,7 @@ sub rpush {
    my ( $self, $key ) = ( shift, shift );
    return unless length($key) && scalar(@_);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }->push(@_);
+   push @{ $self->[1][0]{ $key } }, @_;
 }
 
 # lkeys ( key, index [, index, ... ] )
@@ -1002,6 +1026,12 @@ sub lpairs {
    }
 }
 
+# lshift ( )
+
+sub lshift {
+   $_[0]->[1]->shift();
+}
+
 # lsort ( "BY key   [ ASC | DESC ] [ ALPHA ]" )
 # lsort ( "BY index [ ASC | DESC ] [ ALPHA ]" )
 #
@@ -1022,73 +1052,73 @@ sub lsort {
 # lappend ( key, index, string )
 
 sub lappend {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = ( shift, shift );
+   return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }->append($field, $_[3]);
+   $self->[1][0]{ $key }->append(@_);
 }
 
 # ldecr ( key, index )
 
 sub ldecr {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = @_;
+   return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }->decr($field);
+   --$self->[1][0]{ $key }[ $_[2] ];
 }
 
 # ldecrby ( key, index, number )
 
 sub ldecrby {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = @_;
+   return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }->decrby($field, $_[3]);
+   $self->[1][0]{ $key }[ $_[2] ] -= $_[3] || 0;
 }
 
 # lincr ( key, index )
 
 sub lincr {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = @_;
+   return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }->incr($field);
+   ++$self->[1][0]{ $key }[ $_[2] ];
 }
 
 # lincrby ( key, index, number )
 
 sub lincrby {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = @_;
+   return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }->incrby($field, $_[3]);
+   $self->[1][0]{ $key }[ $_[2] ] += $_[3] || 0;
 }
 
 # lgetdecr ( key, index )
 
 sub lgetdecr {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = @_;
+   return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }->getdecr($field);
+   $self->[1][0]{ $key }[ $_[2] ]-- || 0;
 }
 
 # lgetincr ( key, index )
 
 sub lgetincr {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = @_;
+   return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }->getincr($field);
+   $self->[1][0]{ $key }[ $_[2] ]++ || 0;
 }
 
 # lgetset ( key, index, value )
 
 sub lgetset {
-   my ( $self, $key, $field ) = @_;
-   return unless length($key) && length($field);
+   my ( $self, $key ) = ( shift, shift );
+   return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }->getset($field, $_[3]);
+   $self->[1][0]{ $key }->getset(@_);
 }
 
 # llen ( key, index )
@@ -1100,7 +1130,9 @@ sub llen {
    if ( @_ ) {
       my $key = shift;
       return 0 unless exists($self->[1][0]{ $key });
-      $self->[1][0]{ $key }->len(@_);
+      ( defined $_[0] )
+         ? length $self->[1][0]{ $key }[ $_[0] ] || 0
+         : scalar @{ $self->[1][0]{ $key } };
    }
    else {
       $self->[1]->len();
@@ -1235,6 +1267,8 @@ To be completed before the final 1.700 release.
 
 =item hpairs
 
+=item hshift
+
 =item hsort ( "BY key [ ASC | DESC ] [ ALPHA ]" )
 
 =item hsort ( "BY field [ ASC | DESC ] [ ALPHA ]" )
@@ -1314,6 +1348,8 @@ To be completed before the final 1.700 release.
 =item lpairs ( "query string" )
 
 =item lpairs
+
+=item lshift
 
 =item lsort ( "BY key [ ASC | DESC ] [ ALPHA ]" )
 

@@ -130,7 +130,7 @@ sub DELETE {
          $self->purge() if ++$self->[_GCNT] > ( @{ $keys } >> 1 );
       }
 
-      $self->[_BEGI] = 0, $self->[_INDX] = undef unless scalar @{ $keys };
+      $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
 
       delete $self->[_DATA]{ $key };
    }
@@ -207,10 +207,10 @@ sub POP {
          $i++, pop @{ $keys } while ref( $keys->[-1] );
          $self->[_GCNT] -= $i;
       }
-      $self->[_BEGI] = 0, $self->[_INDX] = undef unless scalar @{ $keys };
+      $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
    }
 
-   return $key, delete $self->[_DATA]{$key};
+   return $key, delete $self->[_DATA]{ $key };
 }
 
 # PUSH ( key, value [, key, value, ... ] )
@@ -244,10 +244,10 @@ sub SHIFT {
          $i++, shift @{ $keys } while ref( $keys->[0] );
          $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
       }
-      $self->[_BEGI] = 0, $self->[_INDX] = undef unless scalar @{ $keys };
+      $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
    }
 
-   return $key, delete $self->[_DATA]{$key};
+   return $key, delete $self->[_DATA]{ $key };
 }
 
 # UNSHIFT ( key, value [, key, value, ... ] )
