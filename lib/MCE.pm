@@ -87,14 +87,14 @@ BEGIN {
       flush_file flush_stderr flush_stdout stderr_file stdout_file use_slurpio
       interval user_args user_begin user_end user_func user_error user_output
       bounds_only gather init_relay on_post_exit on_post_run parallel_io
-      max_retries posix_exit
+      loop_timeout max_retries posix_exit
    );
    %_params_allowed_args = map { $_ => 1 } qw(
       chunk_size input_data sequence job_delay spawn_delay submit_delay RS
       flush_file flush_stderr flush_stdout stderr_file stdout_file use_slurpio
       interval user_args user_begin user_end user_func user_error user_output
       bounds_only gather init_relay on_post_exit on_post_run parallel_io
-      max_retries
+      loop_timeout max_retries
    );
    %_valid_fields_task = map { $_ => 1 } qw(
       max_workers chunk_size input_data interval sequence task_end task_name
@@ -345,13 +345,12 @@ sub new {
    bless(\%self, ref($class) || $class);
 
    ## Public options.
-   $self{max_workers} ||= $MAX_WORKERS;
-   $self{chunk_size}  ||= $CHUNK_SIZE;
-   $self{tmp_dir}     ||= $TMP_DIR;
-   $self{freeze}      ||= $FREEZE;
-   $self{thaw}        ||= $THAW;
-   $self{task_name}   ||= 'MCE';
-   $self{max_retries} ||= 0;
+   $self{max_workers}  ||= $MAX_WORKERS;
+   $self{chunk_size}   ||= $CHUNK_SIZE;
+   $self{tmp_dir}      ||= $TMP_DIR;
+   $self{freeze}       ||= $FREEZE;
+   $self{thaw}         ||= $THAW;
+   $self{task_name}    ||= 'MCE';
 
    if (exists $self{_module_instance}) {
       $self{_init_total_workers} = $self{max_workers};
@@ -384,8 +383,10 @@ sub new {
    $self{flush_file}   ||= 0;
    $self{flush_stderr} ||= 0;
    $self{flush_stdout} ||= 0;
-   $self{use_slurpio}  ||= 0;
+   $self{loop_timeout} ||= 0;
+   $self{max_retries}  ||= 0;
    $self{parallel_io}  ||= 0;
+   $self{use_slurpio}  ||= 0;
 
    ## -------------------------------------------------------------------------
    ## Validation.
@@ -1418,6 +1419,8 @@ sub exit {
       else {
          print {$_DAU_W_SOCK} '0' . $LF;
       }
+
+      <$_DAU_W_SOCK>;
 
       $_DAT_LOCK->unlock() if $_lock_chn;
    }

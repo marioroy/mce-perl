@@ -79,6 +79,9 @@ sub _validate_args {
    _croak("$_tag: (flush_stdout) is not 0 or 1")
       if ($_s->{flush_stdout} && $_s->{flush_stdout} !~ /\A[01]\z/);
 
+   _croak("$_tag: (loop_timeout) is not valid")
+      if ($_s->{loop_timeout} && !looks_like_number($_s->{loop_timeout}));
+
    _validate_args_s($_s);
 
    if (defined $_s->{user_tasks}) {

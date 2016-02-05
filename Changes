@@ -1,7 +1,7 @@
 
 Revision history for Perl module MCE.
 
-1.699 Tue Feb 02 14:00:00 EST 2016
+1.699 Thu Feb 04 19:30:00 EST 2016
 
   # 1.699_009 changes.
 
@@ -43,6 +43,11 @@ Revision history for Perl module MCE.
 
   * Updated MCE Models to not fail when running inside an eval statement.
     This addresses RT#105557 and RT#105559. Thank you, Benjamin McKeown.
+
+  * Added new MCE option loop_timeout to prevent the MCE Manager process
+    from hanging perpetually. The manager process wrongly assumes a worker
+    is still running when the worker died in an uncontrollable manner.
+    This resolves RT#111780. Thank you, Benjamin McKeown.
 
   [ENHANCEMENTS]
 

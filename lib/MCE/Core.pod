@@ -148,6 +148,16 @@ Below, a new instance is configured with all available options.
          #    Record 3:  seq3  ... \n>          >seq3 ... \n
          #    Last Rec:  seqN  ... \n           >seqN ... \n
 
+      loop_timeout => 5,                  ## Default 0
+
+         # Added in 1.7, enables the manager process to timeout of a read
+         # on channel 0. The manager process decrements the total workers
+         # running for any worker which have died in an uncontrollable
+         # manner. Specify this option if on occassion a worker runs out
+         # of memory or dies due to an error from an XS module.
+         #
+         # A number smaller than 5 is silently increased to 5.
+
       max_retries => 2,                   ## Default 0
 
          # This option, added in 1.7, causes MCE to retry a failed

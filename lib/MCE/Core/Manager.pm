@@ -207,6 +207,8 @@ sub _output_loop {
             $self->{_wrk_status} = $_exit_status;
          }
 
+         print {$_DAU_R_SOCK} $LF;
+
          ## Reap child/thread. Note: Win32 uses negative PIDs.
 
          if ($_exit_pid =~ /^PID_(-?\d+)/) {
@@ -745,6 +747,7 @@ sub _output_loop {
    }
 
    ## Set STDOUT/STDERR to user parameters.
+
    if (defined $self->{stdout_file}) {
       open $_MCE_STDOUT, '>>', $self->{stdout_file}
          or die $self->{stdout_file} . ": $!\n";
@@ -767,6 +770,7 @@ sub _output_loop {
 
    ## Make MCE_STDOUT the default handle.
    ## Flush STDERR/STDOUT handles if requested.
+
    my $_old_hndl = select $_MCE_STDOUT;
 
    if ($self->{flush_stdout}) {
@@ -777,6 +781,7 @@ sub _output_loop {
    }
 
    ## -------------------------------------------------------------------------
+
    ## Output event loop.
 
    my $_func; my $_channels = $self->{_dat_r_sock};
@@ -794,33 +799,81 @@ sub _output_loop {
    $_I_FLG  = (!$_I_SEP || $_I_SEP ne $LF) ? 1 : 0;
 
    ## Call module's loop_begin routine for modules plugged into MCE.
+
    for my $_p (@{ $_plugin_loop_begin }) {
       $_p->($self, \$_DAU_R_SOCK);
    }
 
-   ## Call on hash function; exit loop when workers have completed.
-   while (1) {
-      $_func = <$_DAT_R_SOCK>;
-      $_DAU_R_SOCK = $_channels->[ <$_DAT_R_SOCK> ];
+   ## Wait on requests *with* timeout capability. Exit loop when all workers
+   ## have completed processing or exited prematurely.
 
-      if (exists $_core_output_function{$_func}) {
-         $_core_output_function{$_func}();
-      } elsif (exists $_plugin_function->{$_func}) {
-         $_plugin_function->{$_func}();
+   if ($self->{loop_timeout} && $self->{_pids} && $^O ne 'MSWin32') {
+      my ($_list, $_timeout) = ($self->{_pids}, $self->{loop_timeout});
+      my ($_DAT_W_SOCK, $_pid) = ($self->{_dat_w_sock}->[0]);
+
+      $_timeout = 5 if $_timeout < 5;
+
+      local $SIG{ALRM} = sub {
+         alarm 0;
+         for my $i (0 .. @{ $_list }) {
+            if ($_pid = $_list->[$i]) {
+               if (waitpid($_pid, 1)) {
+                  $self->{_total_exited}  += 1;
+                  $self->{_total_running} -= 1;
+                  $self->{_total_workers} -= 1;
+                  $_list->[$i] = undef;
+               }
+            }
+         }
+         print {$_DAT_W_SOCK} 'NOOP'.$LF . '0'.$LF;
+      };
+
+      while (1) {
+         alarm $_timeout;
+         $_func = <$_DAT_R_SOCK>;
+         $_DAU_R_SOCK = $_channels->[ <$_DAT_R_SOCK> ];
+
+         alarm 0;
+         if (exists $_core_output_function{$_func}) {
+            $_core_output_function{$_func}();
+         } elsif (exists $_plugin_function->{$_func}) {
+            $_plugin_function->{$_func}();
+         }
+
+         last unless $self->{_total_running};
       }
+   }
 
-      last unless $self->{_total_running};
+   ## Otherwise, wait on requests *without* timeout capability.
+   ## Exit loop when all workers have completed processing.
+
+   else {
+      while (1) {
+         $_func = <$_DAT_R_SOCK>;
+         $_DAU_R_SOCK = $_channels->[ <$_DAT_R_SOCK> ];
+
+         if (exists $_core_output_function{$_func}) {
+            $_core_output_function{$_func}();
+         } elsif (exists $_plugin_function->{$_func}) {
+            $_plugin_function->{$_func}();
+         }
+
+         last unless $self->{_total_running};
+      }
    }
 
    ## Call module's loop_end routine for modules plugged into MCE.
+
    for my $_p (@{ $_plugin_loop_end }) {
       $_p->($self);
    }
 
    ## Call on_post_run callback.
+
    $_on_post_run->($self, $self->{_status}) if (defined $_on_post_run);
 
    ## Close opened sendto file handles.
+
    for my $_p (keys %_sendto_fhs) {
       close  $_sendto_fhs{$_p};
       undef  $_sendto_fhs{$_p};
@@ -828,6 +881,7 @@ sub _output_loop {
    }
 
    ## Restore the default handle. Close MCE STDOUT/STDERR handles.
+
    select $_old_hndl;
 
    close $_MCE_STDOUT; undef $_MCE_STDOUT;
