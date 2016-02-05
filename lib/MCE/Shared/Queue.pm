@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_009';
+our $VERSION = '1.699_010';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 
@@ -71,6 +71,8 @@ sub DESTROY {
 ## Instance instantiation.
 ##
 ###############################################################################
+
+# new ( options )
 
 sub new {
    my ($_class, %_argv) = @_;
@@ -136,14 +138,14 @@ sub new {
 ##
 ###############################################################################
 
-# Waits until the queue drops down to threshold items.
+# await ( pending_threshold )
 
 sub await {
    # Handled by MCE::Shared::Object when shared.
    return;
 }
 
-# Clear the queue.
+# clear ( ) 
 
 sub clear {
    my $_next; my ($_Q) = @_;
@@ -163,7 +165,7 @@ sub clear {
    return;
 }
 
-# Add items to the tail of the queue.
+# enqueue ( item [, item, ... ] )
 
 sub enqueue {
    my $_Q = shift;
@@ -179,7 +181,7 @@ sub enqueue {
    return;
 }
 
-# Add items to the tail of the queue with priority level.
+# enqueuep ( priority, item [, item, ... ] )
 
 sub enqueuep {
    my ($_Q, $_p) = (shift, shift);
@@ -198,7 +200,8 @@ sub enqueuep {
    return;
 }
 
-# Return item(s) from the queue.
+# dequeue ( count )
+# dequeue ( )
 
 sub dequeue {
    my ($_Q, $_cnt) = @_;
@@ -238,7 +241,8 @@ sub dequeue {
    return $_buf;
 }
 
-# Return item(s) from the queue (non-blocking).
+# dequeue_nb ( count )
+# dequeue_nb ( )
 
 sub dequeue_nb {
    my ($_Q, $_cnt) = @_;
@@ -254,7 +258,7 @@ sub dequeue_nb {
    }
 }
 
-# Return the number of items in the queue.
+# pending ( )
 
 sub pending {
    my $_pending = 0; my ($_Q) = @_;
@@ -270,7 +274,7 @@ sub pending {
    return $_pending;
 }
 
-# Insert items anywhere into the queue.
+# insert ( index, item [, item, ... ] )
 
 sub insert {
    my ($_Q, $_i) = (shift, shift);
@@ -312,7 +316,7 @@ sub insert {
    return;
 }
 
-# Insert items anywhere into the queue with priority level.
+# insertp ( priority, index, item [, item, ... ] )
 
 sub insertp {
    my ($_Q, $_p, $_i) = (shift, shift, shift);
@@ -362,7 +366,8 @@ sub insertp {
    return;
 }
 
-# Return an item without removing it from the queue.
+# peek ( index )
+# peek ( )
 
 sub peek {
    my ($_Q, $_i) = @_;
@@ -384,7 +389,8 @@ sub peek {
    return $_Q->{_datq}->[$_i];
 }
 
-# Return an item without removing it from the queue with priority level.
+# peekp ( priority, index )
+# peekp ( priority )
 
 sub peekp {
    my ($_Q, $_p, $_i) = @_;
@@ -410,7 +416,8 @@ sub peekp {
    return $_Q->{_datp}->{$_p}->[$_i];
 }
 
-# Return a priority level without removing it from the heap.
+# peekh ( index )
+# peekh ( )
 
 sub peekh {
    my ($_Q, $_i) = @_;
@@ -425,7 +432,7 @@ sub peekh {
    return $_Q->{_heap}->[$_i];
 }
 
-# Return a list of priority levels in the heap.
+# heap ( )
 
 sub heap {
    return @{ shift->{_heap} };
@@ -603,12 +610,11 @@ MCE::Shared::Queue - Hybrid-queue helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Queue version 1.699_009
+This document describes MCE::Shared::Queue version 1.699_010
 
 =head1 SYNOPSIS
 
    # non-shared
-   use MCE::Shared;
    use MCE::Shared::Queue;
 
    my $qu = MCE::Shared::Queue->new(
@@ -662,44 +668,292 @@ This document describes MCE::Shared::Queue version 1.699_009
 
 Helper class for L<MCE::Shared|MCE::Shared>.
 
-This module is compatible with L<MCE::Queue|MCE::Queue> except for the
-C<gather> option which is not supported in this context.
+This module is mostly compatible with L<MCE::Queue|MCE::Queue> except for the
+C<gather> option which is not supported in this context. It provides a queue
+interface supporting normal and priority queues.
+
+Data from shared queues reside under the shared-manager process, otherwise
+locally.
 
 =head1 API DOCUMENTATION
-
-To be completed before the final 1.700 release.
 
 =over 3
 
 =item new ( [ options ] )
 
+Constructs a new object. Supported options are queue, porder, type, await, and
+fast.
+
+   # non-shared
+   use MCE::Shared::Queue;
+
+   $q1 = MCE::Shared::Queue->new();
+   $q2 = MCE::Shared::Queue->new( queue  => [ 0, 1, 2 ] );
+
+   $q3 = MCE::Shared::Queue->new( porder => $MCE::Shared::Queue::HIGHEST );
+   $q4 = MCE::Shared::Queue->new( porder => $MCE::Shared::Queue::LOWEST  );
+
+   $q5 = MCE::Shared::Queue->new( type   => $MCE::Shared::Queue::FIFO );
+   $q6 = MCE::Shared::Queue->new( type   => $MCE::Shared::Queue::LIFO );
+
+   $q7 = MCE::Shared::Queue->new( await  => 1 );
+   $q8 = MCE::Shared::Queue->new( fast   => 1 );
+
+   # shared;
+   use MCE::Shared;
+   use MCE::Shared::Queue;
+
+   $q1 = MCE::Shared->queue();
+   $q2 = MCE::Shared->queue( queue  => [ 0, 1, 2 ] );
+
+   $q3 = MCE::Shared->queue( porder => $MCE::Shared::Queue::HIGHEST );
+   $q4 = MCE::Shared->queue( porder => $MCE::Shared::Queue::LOWEST  );
+
+   $q5 = MCE::Shared->queue( type   => $MCE::Shared::Queue::FIFO );
+   $q6 = MCE::Shared->queue( type   => $MCE::Shared::Queue::LIFO );
+
+   $q7 = MCE::Shared->queue( await  => 1 );
+   $q8 = MCE::Shared->queue( fast   => 1 );
+
+The C<await> option, when enabled, allows workers to block (semaphore-like)
+until the number of items pending is equal or less than a threshold value.
+The C<await> method is described below.
+
+The C<fast> option speeds up dequeues and is not enabled by default. It is
+beneficial for queues not calling (->clear or ->dequeue_nb) and not altering
+the optional count value while running; e.g. ->dequeue($count). Basically,
+do not enable 'fast' if varying the count dynamically.
+
 =item await ( pending_threshold )
 
-=item clear
+Waits until the queue drops down to threshold items. The C<await> method is
+beneficial when wanting to throttle worker(s) appending to the queue. Perhaps,
+consumers are running a bit behind and wanting prevent memory consumption from
+increasing too high. Below, the number of items pending will never go above 20.
 
-=item dequeue ( [ count ] )
+   use Time::HiRes qw( sleep );
 
-=item dequeue_nb ( [ count ] )
+   use MCE::Flow;
+   use MCE::Shared;
+
+   my $q = MCE::Shared->queue( await => 1, fast => 1 );
+   my ( $producers, $consumers ) = ( 1, 8 );
+
+   mce_flow {
+      task_name   => [ 'producer', 'consumer' ],
+      max_workers => [ $producers, $consumers ],
+   },
+   sub {
+      ## producer
+      for my $item ( 1 .. 100 ) {
+         $q->enqueue($item);
+
+         ## blocks until the # of items pending reaches <= 10
+         if ($item % 10 == 0) {
+            MCE->say( 'pending: '.$q->pending() );
+            $q->await(10);
+         }
+      }
+
+      ## notify consumers no more work
+      $q->enqueue( (undef) x $consumers );
+
+   },
+   sub {
+      ## consumers
+      while (defined (my $next = $q->dequeue())) {
+         MCE->say( MCE->task_wid().': '.$next );
+         sleep 0.100;
+      }
+   };
+
+=item clear ( )
+
+Clears the queue of any items.
+
+   $q->clear;
 
 =item enqueue ( item [, item, ... ] )
 
+Appends a list of items onto the end of the normal queue.
+
+   $q->enqueue( 'foo' );
+   $q->enqueue( 'bar', 'baz' );
+
 =item enqueuep ( priority, item [, item, ... ] )
 
-=item heap
+Appends a list of items onto the end of the priority queue with priority.
+
+   $q->enqueue( $priority, 'foo' );
+   $q->enqueue( $priority, 'bar', 'baz' );
+
+=item dequeue ( [ count ] )
+
+Returns the requested number of items (default 1) from the queue. Priority
+data will always dequeue first before any data from the normal queue.
+
+   $q->dequeue( 2 );
+   $q->dequeue; # default 1
+
+The method will block if the queue contains zero items. If the queue contains
+fewer than the requested number of items, the method will not block, but
+return the remaining items and C<undef> for up to the count requested.
+
+The $count, used for requesting the number of items, is beneficial when workers
+are passing parameters through the queue. For this reason, always remember to
+dequeue using the same multiple for the count. This is unlike Thread::Queue
+which will block until the requested number of items are available.
+
+=item dequeue_nb ( [ count ] )
+
+Returns the requested number of items (default 1) from the queue. Like with
+dequeue, priority data will always dequeue first. This method is non-blocking
+and will return C<undef> in the absence of data from the queue.
+
+   $q->dequeue_nb( 2 );
+   $q->dequeue_nb; # default 1
 
 =item insert ( index, item [, item, ... ] )
 
+Adds the list of items to the queue at the specified index position (0 is the
+head of the list). The head of the queue is that item which would be removed
+by a call to dequeue.
+
+   $q = MCE::Shared->queue( type => $MCE::Shared::Queue::FIFO );
+   $q->enqueue(1, 2, 3, 4);
+   $q->insert(1, 'foo', 'bar');
+   # Queue now contains: 1, foo, bar, 2, 3, 4
+
+   $q = MCE::Shared->queue( type => $MCE::Shared::Queue::LIFO );
+   $q->enqueue(1, 2, 3, 4);
+   $q->insert(1, 'foo', 'bar');
+   # Queue now contains: 1, 2, 3, 'foo', 'bar', 4
+
 =item insertp ( priority, index, item [, item, ... ] )
+
+Adds the list of items to the queue at the specified index position with
+priority. The behavior is similarly to C<$q->insert> otherwise.
+
+=item pending ( )
+
+Returns the number of items in the queue. The count includes both normal
+and priority data.
+
+   $q = MCE::Shared->queue();
+   $q->enqueuep(5, 'foo', 'bar');
+   $q->enqueue('sunny', 'day');
+
+   print $q->pending(), "\n";
+   # Output: 4
 
 =item peek ( [ index ] )
 
+Returns an item from the normal queue, at the specified index, without
+dequeuing anything. It defaults to the head of the queue if index is not
+specified. The head of the queue is that item which would be removed by a
+call to dequeue. Negative index values are supported, similarly to arrays.
+
+   $q = MCE::Shared->queue( type => $MCE::Shared::Queue::FIFO );
+   $q->enqueue(1, 2, 3, 4, 5);
+
+   print $q->peek(1), ' ', $q->peek(-2), "\n";
+   # Output: 2 4
+
+   $q = MCE::Shared->queue( type => $MCE::Shared::Queue::LIFO );
+   $q->enqueue(1, 2, 3, 4, 5);
+
+   print $q->peek(1), ' ', $q->peek(-2), "\n";
+   # Output: 4 2
+
 =item peekp ( priority [, index ] )
+
+Returns an item from the queue with priority, at the specified index, without
+dequeuing anything. It defaults to the head of the queue if index is not
+specified. The behavior is similarly to C<$q->peek> otherwise.
 
 =item peekh ( [ index ] )
 
-=item pending
+Returns an item from the head of the heap or at the specified index.
+
+   $q = MCE::Shared->queue( porder => $MCE::Shared::Queue::HIGHEST );
+   $q->enqueuep(5, 'foo');
+   $q->enqueuep(6, 'bar');
+   $q->enqueuep(4, 'sun');
+
+   print $q->peekh(0), "\n";
+   # Output: 6
+
+   $q = MCE::Shared->queue( porder => $MCE::Shared::Queue::LOWEST );
+   $q->enqueuep(5, 'foo');
+   $q->enqueuep(6, 'bar');
+   $q->enqueuep(4, 'sun');
+
+   print $q->peekh(0), "\n";
+   # Output: 4
+
+=item heap ( )
+
+Returns an array containing the heap data. Heap data consists of priority
+numbers, not the data.
+
+   @h = $q->heap;   # $MCE::Shared::Queue::HIGHEST
+   # Heap contains: 6, 5, 4
+
+   @h = $q->heap;   # $MCE::Shared::Queue::LOWEST
+   # Heap contains: 4, 5, 6
 
 =back
+
+=head1 ACKNOWLEDGEMENTS
+
+=over 3
+
+=item L<List::BinarySearch|List::BinarySearch>
+
+The bsearch_num_pos method was helpful for accommodating the highest and lowest
+order in MCE::Shared::Queue.
+
+=item L<POE::Queue::Array|POE::Queue::Array>
+
+For extra optimization, two if statements were adopted for checking if the item
+belongs at the end or head of the queue.
+
+=item L<List::Priority|List::Priority>
+
+MCE::Shared::Queue supports both normal and priority queues.
+
+=item L<Thread::Queue|Thread::Queue>
+
+Thread::Queue is used as a template for identifying and documenting the methods.
+
+MCE::Shared::Queue is not fully compatible due to supporting normal and priority
+queues simultaneously; e.g.
+
+   $q->enqueue( $item [, $item, ... ] );         # normal queue
+   $q->enqueuep( $p, $item [, $item, ... ] );    # priority queue
+
+   $q->dequeue( [ $count ] );      # priority data dequeues first
+   $q->dequeue_nb( [ $count ] );
+
+   $q->pending();                  # counts both normal/priority queues
+
+=back
+
+=head1 LIMITATION
+
+Perl must have the L<IO::FDPass|IO::FDPass> module installed for constructing
+a shared C<queue> or C<condvar> while the shared-manager process is running.
+
+For platforms where C<IO::FDPass> is not feasible, construct C<queues> or
+C<condvars> first before other classes. The shared-manager process is delayed
+until sharing other classes or explictly starting the process.
+
+   use MCE::Shared;
+
+   my $q1 = MCE::Shared->queue();
+   my $cv = MCE::Shared->condvar();
+
+   MCE::Shared->start();
 
 =head1 INDEX
 

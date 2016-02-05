@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_009';
+our $VERSION = '1.699_010';
 
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
@@ -406,7 +406,7 @@ MCE::Shared::Array - Array helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Array version 1.699_009
+This document describes MCE::Shared::Array version 1.699_010
 
 =head1 SYNOPSIS
 
@@ -517,7 +517,19 @@ To be completed before the final 1.700 release.
 
 =item new ( val [, val, ... ] )
 
-=item new
+Constructs a new object, with an optional list of values.
+
+   # non-shared
+   use MCE::Shared::Array;
+
+   $ar = MCE::Shared::Array->new( @list );
+   $ar = MCE::Shared::Array->new( );
+
+   # shared
+   use MCE::Shared;
+
+   $ar = MCE::Shared->array( @list );
+   $ar = MCE::Shared->array( );
 
 =item clear
 

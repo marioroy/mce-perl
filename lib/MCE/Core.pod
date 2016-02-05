@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.699_009
+This document describes MCE::Core version 1.699_010
 
 =head1 SYNOPSIS
 
@@ -281,7 +281,7 @@ Below, a new instance is configured with all available options.
          # STEP, if omitted, defaults to 1 if BEGIN is smaller than
          # END or -1 if BEGIN is greater than END. The FORMAT string
          # is passed to sprintf behind the scene (% may be omitted).
-         # e.g. $seq_n_formated = sprintf("%4.1f", $seq_n);
+         # e.g. $seq_n_formatted = sprintf("%4.1f", $seq_n);
 
          # Do not specify both options; input_data and sequence.
          # Release 1.4 allows one to specify an array reference.

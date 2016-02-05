@@ -5,7 +5,7 @@ MCE - Many-Core Engine for Perl providing parallel processing capabilities
 
 =head1 VERSION
 
-This document describes MCE version 1.699_009
+This document describes MCE version 1.699_010
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
@@ -182,7 +182,7 @@ involvement by the manager process while running.
 =item L<MCE::Shared|MCE::Shared>
 
 An extension for sharing data or objects supporting threads and processes.
-Eight classes are included for use with MCE::Shared.
+Nine classes are included for use with MCE::Shared.
 
 L<MCE::Shared::Array|MCE::Shared::Array>
 
@@ -191,6 +191,8 @@ L<MCE::Shared::Condvar|MCE::Shared::Condvar>
 L<MCE::Shared::Handle|MCE::Shared::Handle>
 
 L<MCE::Shared::Hash|MCE::Shared::Hash>
+
+L<MCE::Shared::Minidb|MCE::Shared::Minidb>
 
 L<MCE::Shared::Ordhash|MCE::Shared::Ordhash>
 

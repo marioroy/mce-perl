@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_009';
+our $VERSION = '1.699_010';
 
 ## no critic (InputOutput::ProhibitTwoArgOpen)
 
@@ -127,14 +127,9 @@ MCE::Shared::Handle - Handle helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Handle version 1.699_009
+This document describes MCE::Shared::Handle version 1.699_010
 
 =head1 SYNOPSIS
-
-   # non-shared
-   use MCE::Shared::Handle;
-
-   my $fh = MCE::Shared::Handle->new( "<", "sample.fasta" );
 
    # shared
    use MCE::Shared;
@@ -187,13 +182,43 @@ Helper class for L<MCE::Shared|MCE::Shared>.
 
 =head1 API DOCUMENTATION
 
-To be completed before the final 1.700 release.
-
 =over 3
 
-=item new
+=item new ( expr )
+
+=item new ( mode, expr )
+
+=item new ( mode, reference )
+
+Constructs a new object by opening the file whose filename is given by C<expr>,
+and returns a C<filehandle>. Unlike C<open>, MCE::Shared will emit an error
+message and stop if an error occurs during opening of the file.
+
+   use MCE::Shared;
+
+Simple examples to open a shared file for reading:
+
+   $fh = MCE::Shared->handle( "< input.txt" );
+   $fh = MCE::Shared->handle( "<", "input.txt" );
+   $fh = MCE::Shared->handle( "<", \*STDIN );
+
+and for writing:
+
+   $fh = MCE::Shared->handle( "> output.txt" );
+   $fh = MCE::Shared->handle( ">", "output.txt" );
+   $fh = MCE::Shared->handle( ">", \*STDOUT );
 
 =back
+
+=head1 LIMITATION
+
+When passing a C<reference>, be sure to construct its C<file handle> associated
+with C<reference> prior to starting the shared-manager process. Constructing a
+shared object spawns the manager process.
+
+In addition, Perl must have the L<IO::FDPass|IO::FDPass> module installed for
+MCE::Shared to pass a C<file_descriptor> higher than 2 to the shared-manager
+process.
 
 =head1 CREDITS
 

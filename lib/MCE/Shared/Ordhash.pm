@@ -7,8 +7,20 @@
 ## -- Added SPLICE, sorting, plus extra capabilities for use with MCE::Hobo.
 ## -- Keys garbage collection is done in-place for minimum memory consumption.
 ## -- Revised tombstone deletion to ensure safety with varied usage patterns.
-## -- The indexed hash is filled on-demand to not impact subsequent stores.
+## -- The indexed hash is filled on-demand to not impact subsequent calls.
 ## -- Provides support for hash-like dereferencing, also on-demand.
+##
+## The reason for the optimization is that there is a single shared-manager  
+## process. Therefore, all was done in ensuring the various helper classes
+## MCE::Shared::{ Array, Hash, Minidb, Ordhash, and Scalar } run optimally.
+##
+## Unfortunately, the present of [_INDX] in HO v0.009/0.010 impacts the rest
+## of the library. That is not the case with MCE::Shared::Ordhash. This is
+## reason for why MCE::Shared::Ordhash is not based off of Hash::Ordered.
+##
+## With that being said, ensure Hash::Ordered v0.010 or later if wanting to
+## share HO via MCE::Shared. Both Hash::Ordered and MCE::Shared::Ordhash are
+## fully supported.
 ##
 ###############################################################################
 
@@ -19,7 +31,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_009';
+our $VERSION = '1.699_010';
 
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
@@ -95,7 +107,7 @@ sub DELETE {
    if ( exists $self->[_DATA]{ $key } ) {
       my $keys = $self->[_KEYS];
 
-      # check first key
+      # check the first key
       if ( $key eq $keys->[0] ) {
          $self->[_BEGI]++, delete $self->[_INDX]{ $key } if $self->[_INDX];
          shift @{ $keys };
@@ -106,7 +118,7 @@ sub DELETE {
          }
       }
 
-      # check last key
+      # or maybe the last key
       elsif ( $key eq $keys->[-1] ) {
          delete $self->[_INDX]{ $key } if $self->[_INDX];
          pop @{ $keys };
@@ -117,7 +129,7 @@ sub DELETE {
          }
       }
 
-      # otherwise, key is in the middle
+      # otherwise, the key is in the middle
       else {
          my $indx = $self->[_INDX] || $self->_make_indx();
          my $id   = delete $indx->{ $key };
@@ -170,8 +182,8 @@ sub EXISTS {
 sub CLEAR {
    my ( $self ) = @_;
 
-   %{ $self->[_DATA] } = @{ $self->[_KEYS] } = (   ),
-      $self->[_BEGI]   =    $self->[_GCNT]   =   0  ,
+   %{ $self->[_DATA] } = @{ $self->[_KEYS] } = ( ),
+      $self->[_BEGI]   =    $self->[_GCNT]   =  0 ,
       $self->[_INDX]   = undef;
 
    delete $self->[_HREF] if defined $self->[_HREF];
@@ -662,8 +674,6 @@ sub _reorder {
    my $self = shift; @{ $self->[_KEYS] } = @_;
    $self->[_INDX] = undef, $self->[_BEGI] = $self->[_GCNT] = 0;
 
-   delete $self->[_ITER] if exists $self->[_ITER];
-
    return;
 }
 
@@ -757,7 +767,7 @@ MCE::Shared::Ordhash - Ordered-hash helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Ordhash version 1.699_009
+This document describes MCE::Shared::Ordhash version 1.699_010
 
 =head1 SYNOPSIS
 
@@ -871,7 +881,19 @@ To be completed before the final 1.700 release.
 
 =item new ( key, value [, key, value, ... ] )
 
-=item new
+Constructs a new object, with an optional list of key-value pairs.
+
+   # non-shared
+   use MCE::Shared::Ordhash;
+
+   $ha = MCE::Shared::Ordhash->new( @pairs );
+   $ha = MCE::Shared::Ordhash->new( );
+
+   # shared
+   use MCE::Shared;
+
+   $ha = MCE::Shared->ordhash( @pairs );
+   $ha = MCE::Shared->ordhash( );
 
 =item clear
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_009';
+our $VERSION = '1.699_010';
 
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
@@ -93,7 +93,7 @@ MCE::Shared::Scalar - Scalar helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Scalar version 1.699_009
+This document describes MCE::Shared::Scalar version 1.699_010
 
 =head1 SYNOPSIS
 
@@ -130,24 +130,44 @@ Helper class for L<MCE::Shared|MCE::Shared>.
 
 =over 3
 
-=item new ( value )
+=item new ( [ value ] )
 
-=item new
+Constructs a new object. Its value is undefined when C<value> is not specified.
 
-Construct a new scalar object. The value defaults to C<undef> unless value is
-specified.
+   # non-shared
+   use MCE::Shared::Scalar;
+
+   $var = MCE::Shared::Scalar->new( 'foo' );
+   $var = MCE::Shared::Scalar->new;
+
+   # shared
+   use MCE::Shared;
+
+   $var = MCE::Shared->scalar( 'bar' );
+   $var = MCE::Shared->scalar;
 
 =item set ( value )
 
-Set scalar to value.
+Preferably, set the value via the OO interface. Otherwise, C<TIE> is activated
+on-demand for setting the value. The new value is returned in scalar context.
+
+   $val = $var->set( 'baz' );
+   $var->set( 'baz' );
+   $$var = 'baz';
 
 =item get
 
-Get the scalar value.
+Likewise, obtain the value via the OO interface. C<TIE> is utilized for
+retrieving the value otherwise.
+
+   $val = $var->get;
+   $val = $$var;
 
 =item len
 
-Get the length of the scalar value.
+Returns the number of physical bytes held by the value.
+
+   $len = $var->len;
 
 =back
 
@@ -161,35 +181,51 @@ L<http://redis.io/commands#strings> without the key argument.
 
 =item append ( value )
 
-Append the value at the end of the scalar value.
+Append the new value at the end of the value and return the new length.
+
+   $len = $var->append( 'foo' );
 
 =item decr
 
 Decrement the value by one and return its new value.
 
+   $num = $var->decr;
+
 =item decrby ( number )
 
 Decrement the value by the given number and return its new value.
+
+   $num = $var->decrby( 2 );
 
 =item getdecr
 
 Decrement the value by one and return its old value.
 
+   $old = $var->getdecr;
+
 =item getincr
 
 Increment the value by one and return its old value.
 
+   $old = $var->getincr;
+
 =item getset ( value )
 
-Set to value and return its old value.
+Set the value to a new value and return its old value.
+
+   $old = $var->getset( 'baz' );
 
 =item incr
 
 Increment the value by one and return its new value.
 
+   $num = $var->incr;
+
 =item incrby ( number )
 
 Increment the value by the given number and return its new value.
+
+   $num = $var->incrby( 2 );
 
 =back
 

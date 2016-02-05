@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## A fast, pure-Perl threads-like parallelization module.
+## A threads-like parallelization module.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized redefine );
 
-our $VERSION = '1.699_009';
+our $VERSION = '1.699_010';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -464,11 +464,11 @@ __END__
 
 =head1 NAME
 
-MCE::Hobo - A fast, pure-Perl threads-like parallelization module
+MCE::Hobo - A threads-like parallelization module
 
 =head1 VERSION
 
-This document describes MCE::Hobo version 1.699_009
+This document describes MCE::Hobo version 1.699_010
 
 =head1 SYNOPSIS
 

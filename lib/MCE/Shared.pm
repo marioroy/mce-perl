@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_009';
+our $VERSION = '1.699_010';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -175,6 +175,19 @@ sub array {
    $_item;
 }
 
+sub handle {
+   shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
+   require MCE::Shared::Handle unless $INC{'MCE/Shared/Handle.pm'};
+
+   my $_item = &share( MCE::Shared::Handle->TIEHANDLE([]) );
+   my $_fh   = \do { local *HANDLE };
+
+   tie *{ $_fh }, 'MCE::Shared::Object', $_item;
+   $_item->OPEN(@_) if @_;
+
+   $_fh;
+}
+
 sub hash {
    shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
    require MCE::Shared::Hash unless $INC{'MCE/Shared/Hash.pm'};
@@ -213,19 +226,6 @@ sub ordhash {
    $_item;
 }
 
-sub handle {
-   shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
-   require MCE::Shared::Handle unless $INC{'MCE/Shared/Handle.pm'};
-
-   my $_item = &share( MCE::Shared::Handle->TIEHANDLE([]) );
-   my $_fh   = \do { local *HANDLE };
-
-   tie *{ $_fh }, 'MCE::Shared::Object', $_item;
-   $_item->OPEN(@_) if @_;
-
-   $_fh;
-}
-
 ###############################################################################
 ## ----------------------------------------------------------------------------
 ## PDL sharing -- construction takes place under the shared server-process.
@@ -261,8 +261,17 @@ if ($INC{'PDL.pm'}) {
 ##
 ###############################################################################
 
-sub TIEARRAY  { shift; MCE::Shared->array (@_) }
-sub TIESCALAR { shift; MCE::Shared->scalar(@_) }
+sub TIEARRAY {
+   shift;
+   MCE::Shared->array(@_);
+}
+
+sub TIEHANDLE {
+   require MCE::Shared::Handle unless $INC{'MCE/Shared/Handle.pm'};
+   my $_item = &share( MCE::Shared::Handle->TIEHANDLE([]) ); shift;
+   $_item->OPEN(@_) if @_;
+   $_item;
+}
 
 sub TIEHASH {
    shift;
@@ -276,11 +285,9 @@ sub TIEHASH {
    }
 }
 
-sub TIEHANDLE {
-   require MCE::Shared::Handle unless $INC{'MCE/Shared/Handle.pm'};
-   my $_item = &share( MCE::Shared::Handle->TIEHANDLE([]) ); shift;
-   $_item->OPEN(@_) if @_;
-   $_item;
+sub TIESCALAR {
+   shift;
+   MCE::Shared->scalar(@_);
 }
 
 sub _croak {
@@ -322,7 +329,7 @@ MCE::Shared - MCE extension for sharing data between workers
 
 =head1 VERSION
 
-This document describes MCE::Shared version 1.699_009
+This document describes MCE::Shared version 1.699_010
 
 =head1 SYNOPSIS
 

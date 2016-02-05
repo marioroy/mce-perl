@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_009';
+our $VERSION = '1.699_010';
 
 use MCE::Shared::Base;
 use MCE::Util ();
@@ -125,7 +125,7 @@ MCE::Shared::Condvar - Condvar helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Condvar version 1.699_009
+This document describes MCE::Shared::Condvar version 1.699_010
 
 =head1 SYNOPSIS
 
@@ -134,18 +134,19 @@ This document describes MCE::Shared::Condvar version 1.699_009
    my $cv = MCE::Shared->condvar( 0 );
 
    # oo interface
-   $cv->lock();
-   $cv->unlock();
-   $cv->broadcast();
-   $cv->broadcast(0.05);        # yield some time before broadcast
-   $cv->signal();
-   $cv->signal(0.05);           # yield some time before signal
-   $cv->timedwait(2.5);
-   $cv->wait();
-
    $val = $cv->set( $val );
    $val = $cv->get();
    $len = $cv->len();
+
+   # conditional locking primitives
+   $cv->lock();
+   $cv->unlock();
+   $cv->broadcast();
+   $cv->broadcast(0.05);        # delay before broadcasting
+   $cv->signal();
+   $cv->signal(0.05);           # delay before signaling
+   $cv->timedwait(2.5);
+   $cv->wait();
 
    # sugar methods without having to call set/get explicitly
    $val = $cv->append( $string );             #   $val .= $string
@@ -159,7 +160,8 @@ This document describes MCE::Shared::Condvar version 1.699_009
 
 =head1 DESCRIPTION
 
-Helper class for L<MCE::Shared|MCE::Shared>.
+This helper class for L<MCE::Shared|MCE::Shared> provides a C<Scalar>, C<Mutex>,
+and primitives for conditional locking.
 
 The following demonstrates barrier synchronization.
 
@@ -171,12 +173,12 @@ The following demonstrates barrier synchronization.
    my $count = MCE::Shared->condvar(0);
    my $state = MCE::Shared->scalar('ready');
 
-   # Sleeping with a small value is expensive on Cygwin (imo).
    my $microsecs = ($^O eq 'cygwin') ? 0 : 200;
 
-   # Lock is released when calling ->broadcast, ->signal, ->timedwait,
-   # or ->wait. Thus, re-obtain the lock for synchronization afterwards
-   # if desired.
+   # The lock is released upon calling ->broadcast, ->signal, ->timedwait,
+   # or ->wait. For performance reasons, the variable is *not* re-locked
+   # after the call. Therefore, re-lock the variable for synchronization
+   # afterwards if necessary.
 
    sub barrier_sync {
       usleep($microsecs) until $state->get eq 'ready' or $state->get eq 'up';
@@ -222,45 +224,94 @@ The following demonstrates barrier synchronization.
 
 =head1 API DOCUMENTATION
 
-To be completed before the final 1.700 release.
-
 =over 3
 
-=item new ( value )
+=item new ( [ value ] )
 
-=item new
+Constructs a new condition variable. Its value defaults to C<0> when C<value>
+is not specified.
 
-=item lock
+   # shared
+   use MCE::Shared;
 
-=item unlock
-
-=item broadcast ( floating_seconds )
-
-=item broadcast
-
-Optionally, delay C<floating_seconds> before broadcasting.
-
-=item signal ( floating_seconds )
-
-=item signal
-
-Optionally, delay C<floating_seconds> before signaling.
-
-=item timedwait ( floating_seconds )
-
-=item wait
+   $cv = MCE::Shared->condvar( 100 );
+   $cv = MCE::Shared->condvar;
 
 =item set ( value )
 
-Set scalar to value.
+Sets the value associated with the C<cv> object to the new value. The new value
+is returned in scalar context.
+
+   $val = $cv->set( 10 );
+   $cv->set( 10 );
 
 =item get
 
-Get the scalar value.
+Returns the value associated with the C<cv> object.
+
+   $val = $cv->get;
 
 =item len
 
-Get the length of the scalar value.
+Returns the number of physical bytes held by the value.
+
+   $len = $var->len;
+
+=item lock
+
+Attempts to grab the lock and waits if not available. Multiple calls to
+C<$cv->lock> by the same process or thread is safe. The mutex will remain
+locked until C<$cv->unlock> is called.
+
+   $cv->lock;
+
+=item unlock
+
+Releases the lock. A held lock by an exiting process or thread is released
+automatically.
+
+   $cv->unlock;
+
+=item signal ( [ floating_seconds ] )
+
+Releases a held lock on the variable. Then, unblocks one process or thread
+that's C<wait>ing on that variable. The variable is *not* locked upon return.
+
+Optionally, delay C<floating_seconds> before signaling.
+
+   $count->signal;
+   $count->signal( 0.5 );
+
+=item broadcast ( [ floating_seconds ] )
+
+The C<broadcast> method works similarly to C<signal>. It releases a held lock
+on the variable. Then, unblocks all the processes or threads that are blocked
+in a condition C<wait> on the variable, rather than only one. The variable is
+*not* locked upon return.
+
+Optionally, delay C<floating_seconds> before broadcasting.
+
+   $count->broadcast;
+   $count->broadcast( 0.5 );
+
+=item wait
+
+Releases a held lock on the variable. Then, waits until another thread does a
+C<signal> or C<broadcast> for the same variable. The variable is *not* locked
+upon return.
+
+   $count->wait() while $state->get() eq 'bar';
+
+=item timedwait ( floating_seconds )
+
+Releases a held lock on the variable. Then, waits until another thread does a
+C<signal> or C<broadcast> for the same variable or if the timeout exceeds
+C<floating_seconds>.
+
+A false value is returned if the timeout is reached, and a true value otherwise.
+In either case, the variable is *not* locked upon return.
+
+   $count->timedwait( 10 ) while $state->get() eq 'foo';
 
 =back
 
@@ -274,41 +325,73 @@ L<http://redis.io/commands#strings> without the key argument.
 
 =item append ( value )
 
-Append the value at the end of the scalar value.
+Append the new value at the end of the value and return the new length.
+
+   $len = $cv->append( 'foo' );
 
 =item decr
 
 Decrement the value by one and return its new value.
 
+   $num = $cv->decr;
+
 =item decrby ( number )
 
 Decrement the value by the given number and return its new value.
+
+   $num = $cv->decrby( 2 );
 
 =item getdecr
 
 Decrement the value by one and return its old value.
 
+   $old = $cv->getdecr;
+
 =item getincr
 
 Increment the value by one and return its old value.
 
+   $old = $cv->getincr;
+
 =item getset ( value )
 
-Set to value and return its old value.
+Set the value to a new value and return its old value.
+
+   $old = $cv->getset( 'baz' );
 
 =item incr
 
 Increment the value by one and return its new value.
 
+   $num = $cv->incr;
+
 =item incrby ( number )
 
 Increment the value by the given number and return its new value.
+
+   $num = $cv->incrby( 2 );
 
 =back
 
 =head1 CREDITS
 
-The implementation is inspired by L<threads|threads>.
+The conditonal locking aspect is inspired by L<threads::shared|threads::shared>.
+
+=head1 LIMITATION
+
+Perl must have the L<IO::FDPass|IO::FDPass> module installed for constructing
+a shared C<queue> or C<condvar> while the shared-manager process is running.
+
+For platforms where C<IO::FDPass> is not feasible, construct C<queues> or
+C<condvars> first before other classes. The shared-manager process is delayed
+until sharing other classes or explictly starting the process.
+
+   use MCE::Shared;
+
+   my $q1 = MCE::Shared->queue();
+   my $cv = MCE::Shared->condvar();
+
+   MCE::Shared->start();
 
 =head1 INDEX
 

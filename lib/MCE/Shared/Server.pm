@@ -12,7 +12,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric once );
 
-our $VERSION = '1.699_009';
+our $VERSION = '1.699_010';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -2004,10 +2004,10 @@ sub timedwait {
       chomp($@), _croak($@) unless $@ eq "alarm clock restart\n";
       _req1('O~CVT', $_id.$LF);
 
-      return 1;
+      return '';
    }
 
-   return '';
+   return 1;
 }
 
 # wait ( )
@@ -2023,7 +2023,7 @@ sub wait {
    $_ready->($_CV->{_cr_sock}) if $_is_MSWin32;
    1 until sysread $_CV->{_cr_sock}, my($_next), 1;  # block
 
-   return '';
+   return 1;
 }
 
 ###############################################################################
@@ -2346,7 +2346,7 @@ MCE::Shared::Server - Server/Object packages for MCE::Shared
 
 =head1 VERSION
 
-This document describes MCE::Shared::Server version 1.699_009
+This document describes MCE::Shared::Server version 1.699_010
 
 =head1 DESCRIPTION
 

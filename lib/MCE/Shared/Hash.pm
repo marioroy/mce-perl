@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_009';
+our $VERSION = '1.699_010';
 
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
@@ -316,7 +316,7 @@ MCE::Shared::Hash - Hash helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Hash version 1.699_009
+This document describes MCE::Shared::Hash version 1.699_010
 
 =head1 SYNOPSIS
 
@@ -415,7 +415,19 @@ To be completed before the final 1.700 release.
 
 =item new ( key, value [, key, value, ... ] )
 
-=item new
+Constructs a new object, with an optional list of key-value pairs.
+
+   # non-shared
+   use MCE::Shared::Hash;
+
+   $ha = MCE::Shared::Hash->new( @pairs );
+   $ha = MCE::Shared::Hash->new( );
+
+   # shared
+   use MCE::Shared;
+
+   $ha = MCE::Shared->hash( @pairs );
+   $ha = MCE::Shared->hash( );
 
 =item clear
 

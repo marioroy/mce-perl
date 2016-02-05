@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## A fast, pure-Perl in-memory data structure store.
+## A pure-Perl in-memory data store.
 ##
 ###############################################################################
 
@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_009';
+our $VERSION = '1.699_010';
 
 use MCE::Shared::Base;
 use MCE::Shared::Ordhash;
@@ -1151,11 +1151,11 @@ __END__
 
 =head1 NAME
 
-MCE::Shared::Minidb - A fast, pure-Perl in-memory data structure store
+MCE::Shared::Minidb - A pure-Perl in-memory data store
 
 =head1 VERSION
 
-This document describes MCE::Shared::Minidb version 1.699_009
+This document describes MCE::Shared::Minidb version 1.699_010
 
 =head1 SYNOPSIS
 
@@ -1269,6 +1269,13 @@ To be completed before the final 1.700 release.
 
 =item hshift
 
+Removes and returns the first key-value pair from the first-level hash (H)oH.
+In scalar context, only the value is returned. If the C<HASH> is empty, returns
+the undefined value.
+
+   ( $key, $href ) = $db->hshift;
+   $href = $db->hshift;
+
 =item hsort ( "BY key [ ASC | DESC ] [ ALPHA ]" )
 
 =item hsort ( "BY field [ ASC | DESC ] [ ALPHA ]" )
@@ -1325,6 +1332,11 @@ To be completed before the final 1.700 release.
 
 =item lpop ( key )
 
+Removes and return the first value of the second-level array Ho(A). If there
+are no elements in the array, returns the undefined value.
+
+   $value = $db->lpop( $key );
+
 =item lpush ( key, value [, value, ... ] )
 
 =item rpop ( key )
@@ -1350,6 +1362,14 @@ To be completed before the final 1.700 release.
 =item lpairs
 
 =item lshift
+
+Removes and returns the first key-value pair from the first-level hash (H)oA.
+In scalar context, only the value is returned. If the C<HASH> is empty, returns
+the undefined value. See C<lpop> to shift the first value of the second-level
+array Ho(A).
+
+   ( $key, $aref ) = $db->lshift;
+   $aref = $db->lshift;
 
 =item lsort ( "BY key [ ASC | DESC ] [ ALPHA ]" )
 
@@ -1389,7 +1409,17 @@ To be completed before the final 1.700 release.
 
 =item new
 
-Constructs an empty C<Minidb> object.
+Constructs an empty object.
+
+   # non-shared
+   use MCE::Shared::Minidb;
+
+   $db = MCE::Shared::Minidb->new();
+
+   # shared
+   use MCE::Shared;
+
+   $db = MCE::Shared->minidb();
 
 =item dump ( "file.dat" )
 

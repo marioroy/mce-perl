@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_009';
+our $VERSION = '1.699_010';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -411,7 +411,7 @@ MCE::Shared::Base - Base package for helper classes
 
 =head1 VERSION
 
-This document describes MCE::Shared::Base version 1.699_009
+This document describes MCE::Shared::Base version 1.699_010
 
 =head1 DESCRIPTION
 

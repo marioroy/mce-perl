@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_009';
+our $VERSION = '1.699_010';
 
 use Scalar::Util qw( looks_like_number );
 use MCE::Shared::Base;
@@ -34,28 +34,39 @@ sub _croak {
    goto &MCE::Shared::Base::_croak;
 }
 
+sub _reset {
+   my $self   = shift;
+   @{ $self } = @_;
+
+   _croak('invalid begin') unless looks_like_number( $self->[_BEGV] );
+   _croak('invalid end'  ) unless looks_like_number( $self->[_ENDV] );
+
+   $self->[_STEP] = ( $self->[_BEGV] <= $self->[_ENDV] ) ? 1 : -1
+      unless ( defined $self->[_STEP] );
+
+   $self->[_FMT] =~ s/%// if ( defined $self->[_FMT] );
+
+   _croak('invalid step' ) unless looks_like_number( $self->[_STEP] );
+
+   $self->[_ITER] = undef;
+
+   return;
+}
+
 # new ( begin, end [, step, format ] )
 # new ( )
 
 sub new {
-   my ( $class, @self ) = @_;
+   my ( $class, $self ) = ( shift, [] );
 
-   if ( @self ) {
-      _croak('invalid begin') unless looks_like_number( $self[_BEGV] );
-      _croak('invalid end'  ) unless looks_like_number( $self[_ENDV] );
-
-      $self[_STEP] = ( $self[_BEGV] <= $self[_ENDV] ) ? 1 : -1
-         unless ( defined $self[_STEP] );
-
-      _croak('invalid step' ) unless looks_like_number( $self[_STEP] );
-
-      $self[_ITER] = undef;
+   if ( @_ ) {
+      _reset( $self, @_ );
    }
    else {
-      @self = ( 0, 0, 1, '__NOOP__', 1 );
+      @{ $self } = ( 0, 0, 1, '__NOOP__', 1 );
    }
 
-   bless \@self, $class;
+   bless $self, $class;
 }
 
 # next ( )
@@ -78,7 +89,7 @@ sub next {
       }
 
       $self->[_ITER]++, ( defined $fmt )
-         ? sprintf( $fmt, $seq )
+         ? sprintf( "%$fmt", $seq )
          : $seq;
    }
    else {
@@ -94,19 +105,10 @@ sub rewind {
    my $self = shift;
 
    if ( scalar @_ ) {
-      @{ $self } = @_;
-      _croak('invalid begin') unless looks_like_number( $self->[_BEGV] );
-      _croak('invalid end'  ) unless looks_like_number( $self->[_ENDV] );
-
-      $self->[_STEP] = ( $self->[_BEGV] <= $self->[_ENDV] ) ? 1 : -1
-         unless ( defined $self->[_STEP] );
-
-      _croak('invalid step' ) unless looks_like_number( $self->[_STEP] );
-
-      $self->[_ITER] = undef;
+      _reset( $self, @_ );
    }
    else {
-      $self->[_ITER] = undef  unless ( $self->[_FMT] eq '__NOOP__' );
+      $self->[_ITER] = undef unless ( $self->[_FMT] eq '__NOOP__' );
    }
 
    return;
@@ -128,25 +130,25 @@ MCE::Shared::Sequence - Sequence helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Sequence version 1.699_009
+This document describes MCE::Shared::Sequence version 1.699_010
 
 =head1 SYNOPSIS
 
    # non-shared
    use MCE::Shared::Sequence;
 
-   my $s = MCE::Shared::Sequence->new( $begin, $end, $step, $fmt );
+   my $seq = MCE::Shared::Sequence->new( $begin, $end, $step, $fmt );
 
    # shared
    use MCE::Hobo;
    use MCE::Shared Sereal => 1;
 
-   my $s = MCE::Shared->sequence( 1, 100 );
+   my $seq = MCE::Shared->sequence( 1, 100 );
 
    sub parallel {
       my ( $id ) = @_;
-      while ( my $seq = $s->next ) {
-         print "$id: $seq\n";
+      while ( my $num = $seq->next ) {
+         print "$id: $num\n";
       }
    }
 
@@ -156,23 +158,53 @@ This document describes MCE::Shared::Sequence version 1.699_009
 
 =head1 DESCRIPTION
 
-Helper class for L<MCE::Shared|MCE::Shared>.
+A number sequence class for L<MCE::Shared|MCE::Shared>.
 
 =head1 API DOCUMENTATION
-
-To be completed before the final 1.700 release.
 
 =over 3
 
 =item new ( begin, end [, step, format ] )
 
-=item new
+Constructs a new object. C<step>, if omitted, defaults to C<1> if C<begin> is
+smaller than C<end> or C<-1> if C<begin> is greater than C<end>. The C<format>
+string is passed to C<sprintf> behind the scene (% may be omitted).
+
+   $seq_n_formatted = sprintf( "%4.1f", $seq_n );
+
+Options may be specified later with C<rewind> before calling C<next>.
+
+   # non-shared
+   use MCE::Shared::Sequence;
+
+   $seq = MCE::Shared::Sequence->new( -1, 1, 0.1, "%4.1f" );
+   $seq = MCE::Shared::Sequence->new( );
+   $seq->rewind( -1, 1, 0.1, "%4.1f" );
+
+   # shared
+   use MCE::Shared;
+
+   $seq = MCE::Shared->sequence( 1, 100 );
+   $seq = MCE::Shared->sequence( );
+   $seq->rewind( 1, 100 );
 
 =item next
 
+Returns the next computed sequence. An undefined value is returned when the
+computed value exceeds the value held by C<end>.
+
+   $num = $seq->next;
+
 =item rewind ( begin, end [, step, format ] )
 
-=item rewind
+Resets parameters internally when options are specified. Otherwise, sets the
+initial value back to the value held by C<begin>.
+
+   $seq->rewind( 10, 1, -1 );
+   $seq->next; # repeatedly
+
+   $seq->rewind;
+   $seq->next; # repeatedly
 
 =back
 

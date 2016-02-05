@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_009';
+our $VERSION = '1.699_010';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -1634,7 +1634,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.699_009
+This document describes MCE::Queue version 1.699_010
 
 =head1 SYNOPSIS
 
@@ -1864,7 +1864,7 @@ simply a demonstration of the gather option in the context of a queue.
 
    print "@squares\n";
 
-=head2 $q->await ( [ $pending_threshold ] )
+=head2 $q->await ( $pending_threshold )
 
 The await method is beneficial when wanting to throttle worker(s) appending
 to the queue. Perhaps, consumers are running a bit behind and wanting to keep
@@ -1921,18 +1921,27 @@ the socket used for blocking.
 
 Appends a list of items onto the end of the normal queue.
 
+   $q->enqueue( 'foo' );
+   $q->enqueue( 'bar', 'baz' );
+
 =head2 $q->enqueuep ( $p, $item [, $item, ... ] )
 
 Appends a list of items onto the end of the priority queue with priority.
+
+   $q->enqueue( $priority, 'foo' );
+   $q->enqueue( $priority, 'bar', 'baz' );
 
 =head2 $q->dequeue ( [ $count ] )
 
 Returns the requested number of items (default 1) from the queue. Priority
 data will always dequeue first before any data from the normal queue.
 
+   $q->dequeue( 2 );
+   $q->dequeue; # default 1
+
 The method will block if the queue contains zero items. If the queue contains
 fewer than the requested number of items, the method will not block, but
-return the remaining items and undef for up to the count requested.
+return the remaining items and C<undef> for up to the count requested.
 
 The $count, used for requesting the number of items, is beneficial when workers
 are passing parameters through the queue. For this reason, always remember to
@@ -1943,7 +1952,10 @@ which will block until the requested number of items are available.
 
 Returns the requested number of items (default 1) from the queue. Like with
 dequeue, priority data will always dequeue first. This method is non-blocking
-and will return undef in the absence of data from the queue.
+and will return C<undef> in the absence of data from the queue.
+
+   $q->dequeue_nb( 2 );
+   $q->dequeue_nb; # default 1
 
 =head2 $q->insert ( $index, $item [, $item, ... ] )
 
@@ -1964,7 +1976,7 @@ by a call to dequeue.
 =head2 $q->insertp ( $p, $index, $item [, $item, ... ] )
 
 Adds the list of items to the queue at the specified index position with
-priority. The behavior is similarly to insert otherwise.
+priority. The behavior is similarly to C<$q->insert> otherwise.
 
 =head2 $q->pending ( void )
 
@@ -2001,11 +2013,11 @@ call to dequeue. Negative index values are supported, similarly to arrays.
 
 Returns an item from the queue with priority, at the specified index, without
 dequeuing anything. It defaults to the head of the queue if index is not
-specified. The behavior is similarly to peek otherwise.
+specified. The behavior is similarly to C<$q->peek> otherwise.
 
 =head2 $q->peekh ( [ $index ] )
 
-Returns an item from the heap, at the specified index.
+Returns an item from the head of the heap or at the specified index.
 
    $q = MCE::Queue->new( porder => $MCE::Queue::HIGHEST );
    $q->enqueuep(5, 'foo');
@@ -2038,15 +2050,15 @@ numbers, not the data.
 
 =over 3
 
-=item L<POE::Queue::Array|POE::Queue::Array>
-
-Two if statements were adopted for checking if the item belongs at the end or
-head of the queue.
-
 =item L<List::BinarySearch|List::BinarySearch>
 
 The bsearch_num_pos method was helpful for accommodating the highest and lowest
 order in MCE::Queue.
+
+=item L<POE::Queue::Array|POE::Queue::Array>
+
+For extra optimization, two if statements were adopted for checking if the item
+belongs at the end or head of the queue.
 
 =item L<List::Priority|List::Priority>
 
@@ -2055,17 +2067,17 @@ MCE::Queue supports both normal and priority queues.
 =item L<Thread::Queue|Thread::Queue>
 
 Thread::Queue is used as a template for identifying and documenting the methods.
+
 MCE::Queue is not fully compatible due to supporting normal and priority queues
 simultaneously; e.g.
 
-   $q->enqueuep( $p, $item [, $item, ... ] );    ## Priority queue
-   $q->enqueue( $item [, $item, ... ] );         ## Normal queue
+   $q->enqueue( $item [, $item, ... ] );         # normal queue
+   $q->enqueuep( $p, $item [, $item, ... ] );    # priority queue
 
-   $q->dequeue( [ $count ] );      ## Priority data dequeues first
-   $q->dequeue_nb( [ $count ] );   ## Behavior is not the same
+   $q->dequeue( [ $count ] );      # priority data dequeues first
+   $q->dequeue_nb( [ $count ] );
 
-   $q->pending();                  ## Counts both normal/priority data
-                                   ## in the queue
+   $q->pending();                  # counts both normal/priority queues
 
 =item L<Parallel::DataPipe|Parallel::DataPipe>
 
