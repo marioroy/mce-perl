@@ -239,8 +239,8 @@ is not specified.
 
 =item set ( value )
 
-Sets the value associated with the C<cv> object to the new value. The new value
-is returned in scalar context.
+Sets the value associated with the C<cv> object. The new value is returned
+in scalar context.
 
    $val = $cv->set( 10 );
    $cv->set( 10 );
@@ -253,7 +253,7 @@ Returns the value associated with the C<cv> object.
 
 =item len
 
-Returns the number of physical bytes held by the value.
+Returns the length of the value.
 
    $len = $var->len;
 
@@ -325,49 +325,49 @@ L<http://redis.io/commands#strings> without the key argument.
 
 =item append ( value )
 
-Append the new value at the end of the value and return the new length.
+Appends a value at the end of the current value and returns its new length.
 
    $len = $cv->append( 'foo' );
 
 =item decr
 
-Decrement the value by one and return its new value.
+Decrements the value by one and returns its new value.
 
    $num = $cv->decr;
 
 =item decrby ( number )
 
-Decrement the value by the given number and return its new value.
+Decrements the value by the given number and returns its new value.
 
    $num = $cv->decrby( 2 );
 
 =item getdecr
 
-Decrement the value by one and return its old value.
+Decrements the value by one and returns its old value.
 
    $old = $cv->getdecr;
 
 =item getincr
 
-Increment the value by one and return its old value.
+Increments the value by one and returns its old value.
 
    $old = $cv->getincr;
 
 =item getset ( value )
 
-Set the value to a new value and return its old value.
+Sets the value and returns its old value.
 
    $old = $cv->getset( 'baz' );
 
 =item incr
 
-Increment the value by one and return its new value.
+Increments the value by one and returns its new value.
 
    $num = $cv->incr;
 
 =item incrby ( number )
 
-Increment the value by the given number and return its new value.
+Increments the value by the given number and returns its new value.
 
    $num = $cv->incrby( 2 );
 

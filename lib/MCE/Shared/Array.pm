@@ -567,7 +567,15 @@ Same as C<clone>. Clears all existing items before returning.
 
 =item len ( index )
 
+Returns the length of the value stored at index.
+
+   $len = $ar->len( 0 );
+
 =item len
+
+Returns the length of the list.
+
+   $len = $ar->len;
 
 =item mdel ( index [, index, ... ] )
 
@@ -627,35 +635,51 @@ L<http://redis.io/commands#strings> with key representing the array index.
 
 =item append ( key, string )
 
-Append a value to a key.
+Appends a value to a key and returns its new length.
+
+   $len = $ar->append( 0, 'foo' );
 
 =item decr ( key )
 
-Decrement the value of a key by one and return its new value.
+Decrements the value of a key by one and returns its new value.
+
+   $num = $ar->decr( 0 );
 
 =item decrby ( key, number )
 
-Decrement the value of a key by the given number and return its new value.
+Decrements the value of a key by the given number and returns its new value.
+
+   $num = $ar->decrby( 0, 2 );
 
 =item getdecr ( key )
 
-Decrement the value of a key by one and return its old value.
+Decrements the value of a key by one and returns its old value.
+
+   $old = $ar->getdecr( 0 );
 
 =item getincr ( key )
 
-Increment the value of a key by one and return its old value.
+Increments the value of a key by one and returns its old value.
+
+   $old = $ar->getincr( 0 );
 
 =item getset ( key, value )
 
-Set the value of a key and return its old value.
+Sets the value of a key and returns its old value.
+
+   $old = $ar->getset( 0, 'baz' );
 
 =item incr ( key )
 
-Increment the value of a key by one and return its new value.
+Increments the value of a key by one and returns its new value.
+
+   $num = $ar->incr( 0 );
 
 =item incrby ( key, number )
 
-Increment the value of a key by the given number and return its new value.
+Increments the value of a key by the given number and returns its new value.
+
+   $num = $ar->incrby( 0, 2 );
 
 =back
 

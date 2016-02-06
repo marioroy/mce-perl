@@ -214,11 +214,11 @@ and for writing:
 
 When passing a C<reference>, be sure to construct its C<file handle> associated
 with C<reference> prior to starting the shared-manager process. Constructing a
-shared object spawns the manager process.
+shared object C<{ Array, Handle, Hash, Minidb, Ordhash, Scalar, Sequence }>
+starts the manager process automatically.
 
-In addition, Perl must have the L<IO::FDPass|IO::FDPass> module installed for
-MCE::Shared to pass a C<file_descriptor> higher than 2 to the shared-manager
-process.
+Perl must have the L<IO::FDPass|IO::FDPass> module installed for MCE::Shared to
+pass a C<file_descriptor> higher than 2 to the shared-manager process.
 
 =head1 CREDITS
 

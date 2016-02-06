@@ -931,7 +931,15 @@ Same as C<clone>. Clears all existing items before returning.
 
 =item len ( key )
 
+Returns the length of the value stored at key.
+
+   $len = $oh->len( $key );
+
 =item len
+
+Returns the number of keys stored in the hash.
+
+   $len = $oh->len;
 
 =item mdel ( key [, key, ... ] )
 
@@ -993,35 +1001,51 @@ L<http://redis.io/commands#strings> with key representing the hash key.
 
 =item append ( key, string )
 
-Append a value to a key.
+Appends a value to a key and returns its new length.
+
+   $len = $oh->append( $key, 'foo' );
 
 =item decr ( key )
 
-Decrement the value of a key by one and return its new value.
+Decrements the value of a key by one and returns its new value.
+
+   $num = $oh->decr( $key );
 
 =item decrby ( key, number )
 
-Decrement the value of a key by the given number and return its new value.
+Decrements the value of a key by the given number and returns its new value.
+
+   $num = $oh->decrby( $key, 2 );
 
 =item getdecr ( key )
 
-Decrement the value of a key by one and return its old value.
+Decrements the value of a key by one and returns its old value.
+
+   $old = $oh->getdecr( $key );
 
 =item getincr ( key )
 
-Increment the value of a key by one and return its old value.
+Increments the value of a key by one and returns its old value.
+
+   $old = $oh->getincr( $key );
 
 =item getset ( key, value )
 
-Set the value of a key and return its old value.
+Sets the value of a key and returns its old value.
+
+   $old = $oh->getset( $key, 'baz' );
 
 =item incr ( key )
 
-Increment the value of a key by one and return its new value.
+Increments the value of a key by one and returns its new value.
+
+   $num = $oh->incr( $key );
 
 =item incrby ( key, number )
 
-Increment the value of a key by the given number and return its new value.
+Increments the value of a key by the given number and returns its new value.
+
+   $num = $oh->incrby( $key, 2 );
 
 =back
 

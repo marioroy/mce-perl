@@ -1183,9 +1183,25 @@ This document describes MCE::Shared::Minidb version 1.699_010
 
 =head1 DESCRIPTION
 
-A simplistic in-memory NoSQL-like DB for use with L<MCE::Shared|MCE::Shared>.
+A tiny in-memory NoSQL-like database for use with L<MCE::Shared|MCE::Shared>.
 Although several methods resemble the C<Redis> API, it is not the intent for
 this module to become 100% compatible with it.
+
+This module was created mainly for having an efficient manner in which to
+manipulate hashes-of-hashes (HoH) and hashes-of-arrays (HoA) structures with
+MCE::Shared. Both are supported simulatenously due to being unique objects
+inside the C<$db> object.
+
+   sub new {
+      # Parallel Hashes: [ HoH, HoA ]
+      bless [
+         MCE::Shared::Ordhash->new(),  # Hash of Hashes (HoH)
+         MCE::Shared::Ordhash->new(),  # Hash of Arrays (HoA)
+      ], shift;
+   }
+
+   # (H)oH key => MCE::Shared::Hash->new();
+   # (H)oA key => MCE::Shared::Array->new()
 
 =head1 QUERY STRING
 
@@ -1225,6 +1241,70 @@ The shorter form without field names is allowed for HoA.
 
    "4 > 20 :and key =~ /baz/"  4 is the array index
   
+=head1 API DOCUMENTATION - DB
+
+=over 3
+
+=item new
+
+Constructs an empty in-memory C<HoH> and C<HoA> key-store database structure.
+
+   # non-shared
+   use MCE::Shared::Minidb;
+
+   $db = MCE::Shared::Minidb->new();
+
+   # shared
+   use MCE::Shared;
+
+   $db = MCE::Shared->minidb();
+
+=item dump ( "file.dat" )
+
+Dumps the in-memory content to a file.
+
+=item restore ( "file.dat" )
+
+Restores the in-memory content from a file.
+
+=item iterator ( ":hashes", "query string" )
+
+=item iterator ( ":hashes" )
+
+Returns a code reference that returns a single key => href pair.
+
+=item iterator ( ":hashes", key, "query string" )
+
+=item iterator ( ":hashes", key [, key, ... ] )
+
+Returns a code reference that returns a single key => value pair.
+
+=item iterator ( ":lists", "query string" )
+
+=item iterator ( ":lists" )
+
+Returns a code reference that returns a single key => aref pair.
+
+=item iterator ( ":lists", key, "query string" )
+
+=item iterator ( ":lists", key [, key, ... ] )
+
+Returns a code reference that returns a single key => value pair.
+
+=item select_aref ( ":hashes", "select string" )
+
+=item select_aref ( ":lists", "select string" )
+
+Returns [ key, aref ] pairs.
+
+=item select_href ( ":hashes", "select string" )
+
+=item select_href ( ":lists", "select string" )
+
+Returns [ key, href ] pairs.
+
+=back
+
 =head1 API DOCUMENTATION - HASHES ( HoH )
 
 To be completed before the final 1.700 release.
@@ -1282,25 +1362,69 @@ the undefined value.
 
 =item happend ( key, field, string )
 
+Appends a value to key-field and returns its new length.
+
+   $len = $db->happend( $key, $field, 'foo' );
+
 =item hdecr ( key, field )
+
+Decrements the value of key-field by one and returns its new value.
+
+   $num = $db->hdecr( $key, $field );
 
 =item hdecrby ( key, field, number )
 
+Decrements the value of key-field by the given number and returns its new value.
+
+   $num = $db->hdecrby( $key, $field, 2 );
+
 =item hincr ( key, field )
+
+Increments the value of key-field by one and returns its new value.
+
+   $num = $db->hincr( $key, $field );
 
 =item hincrby ( key, field, number )
 
+Increments the value of key-field by the given number and returns its new value.
+
+   $num = $db->hincrby( $key, $field, 2 );
+
 =item hgetdecr ( key, field )
+
+Decrements the value of key-field by one and returns its old value.
+
+   $old = $db->hgetdecr( $key, $field );
 
 =item hgetincr ( key, field )
 
+Increments the value of key-field by one and returns its old value.
+
+   $old = $db->hgetincr( $key, $field );
+
 =item hgetset ( key, field, value )
+
+Sets the value of key-field and returns its old value.
+
+   $old = $db->hgetset( $key, $field, 'baz' );
 
 =item hlen ( key, field )
 
+Returns the length for the value stored at key-field.
+
+   $len = $db->hlen( $key, $field );
+
 =item hlen ( key )
 
+Returns the number of fields stored at key.
+
+   $len = $db->hlen( $key );
+
 =item hlen
+
+Returns the number of keys stored at the first-level hash (H)oH.
+
+   $len = $db->hlen;
 
 =back
 
@@ -1381,89 +1505,69 @@ array Ho(A).
 
 =item lappend ( key, index, string )
 
+Appends a value to key-index and returns its new length.
+
+   $len = $db->lappend( $key, 0, 'foo' );
+
 =item ldecr ( key, index )
+
+Decrements the value of key-index by one and returns its new value.
+
+   $num = $db->ldecr( $key, 0 );
 
 =item ldecrby ( key, index, number )
 
+Decrements the value of key-index by the given number and returns its new value.
+
+   $num = $db->ldecrby( $key, 0, 2 );
+
 =item lincr ( key, index )
+
+Increments the value of key-index by one and returns its new value.
+
+   $num = $db->lincr( $key, 0 );
 
 =item lincrby ( key, index, number )
 
+Increments the value of key-index by the given number and returns its new value.
+
+   $num = $db->lincrby( $key, 0, 2 );
+
 =item lgetdecr ( key, index )
+
+Decrements the value of key-index by one and returns its old value.
+
+   $old = $db->lgetdecr( $key, 0 );
 
 =item lgetincr ( key, index )
 
+Increments the value of key-index by one and returns its old value.
+
+   $old = $db->lgetincr( $key, 0 );
+
 =item lgetset ( key, index, value )
+
+Sets the value of key-index and return its old value.
+
+   $old = $db->lgetset( $key, 0, 'baz' );
 
 =item llen ( key, index )
 
+Returns the length for the value stored at key-index.
+
+   $len = $db->llen( $key, $index );
+
 =item llen ( key )
+
+Returns the the size of the list stored at key.
+
+   $len = $db->llen( $key );
 
 =item llen
 
-=back
+Returns the number of keys stored at the first-level hash (H)oA.
 
-=head1 COMMON API
-
-=over 3
-
-=item new
-
-Constructs an empty object.
-
-   # non-shared
-   use MCE::Shared::Minidb;
-
-   $db = MCE::Shared::Minidb->new();
-
-   # shared
-   use MCE::Shared;
-
-   $db = MCE::Shared->minidb();
-
-=item dump ( "file.dat" )
-
-Dumps the content to a file.
-
-=item restore ( "file.dat" )
-
-Restores the content from a file.
-
-=item iterator ( ":hashes", "query string" )
-
-=item iterator ( ":hashes" )
-
-Returns a code reference that returns a single key => href pair.
-
-=item iterator ( ":hashes", key, "query string" )
-
-=item iterator ( ":hashes", key [, key, ... ] )
-
-Returns a code reference that returns a single key => value pair.
-
-=item iterator ( ":lists", "query string" )
-
-=item iterator ( ":lists" )
-
-Returns a code reference that returns a single key => aref pair.
-
-=item iterator ( ":lists", key, "query string" )
-
-=item iterator ( ":lists", key [, key, ... ] )
-
-Returns a code reference that returns a single key => value pair.
-
-=item select_aref ( ":hashes", "select string" )
-
-=item select_aref ( ":lists", "select string" )
-
-Returns [ key, aref ] pairs.
-
-=item select_href ( ":hashes", "select string" )
-
-=item select_href ( ":lists", "select string" )
-
-Returns [ key, href ] pairs.
+   $len = $db->llen;
 
 =back
 

@@ -197,7 +197,7 @@ computed value exceeds the value held by C<end>.
 
 =item rewind ( begin, end [, step, format ] )
 
-Resets parameters internally when options are specified. Otherwise, sets the
+When options are specified, resets parameters internally. Otherwise, sets the
 initial value back to the value held by C<begin>.
 
    $seq->rewind( 10, 1, -1 );

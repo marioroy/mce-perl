@@ -165,7 +165,7 @@ retrieving the value otherwise.
 
 =item len
 
-Returns the number of physical bytes held by the value.
+Returns the length of the value.
 
    $len = $var->len;
 
@@ -181,49 +181,49 @@ L<http://redis.io/commands#strings> without the key argument.
 
 =item append ( value )
 
-Append the new value at the end of the value and return the new length.
+Appends a value at the end of the current value and returns its new length.
 
    $len = $var->append( 'foo' );
 
 =item decr
 
-Decrement the value by one and return its new value.
+Decrements the value by one and returns its new value.
 
    $num = $var->decr;
 
 =item decrby ( number )
 
-Decrement the value by the given number and return its new value.
+Decrements the value by the given number and returns its new value.
 
    $num = $var->decrby( 2 );
 
 =item getdecr
 
-Decrement the value by one and return its old value.
+Decrements the value by one and returns its old value.
 
    $old = $var->getdecr;
 
 =item getincr
 
-Increment the value by one and return its old value.
+Increments the value by one and returns its old value.
 
    $old = $var->getincr;
 
 =item getset ( value )
 
-Set the value to a new value and return its old value.
+Sets the value and returns its old value.
 
    $old = $var->getset( 'baz' );
 
 =item incr
 
-Increment the value by one and return its new value.
+Increments the value by one and returns its new value.
 
    $num = $var->incr;
 
 =item incrby ( number )
 
-Increment the value by the given number and return its new value.
+Increments the value by the given number and returns its new value.
 
    $num = $var->incrby( 2 );
 
