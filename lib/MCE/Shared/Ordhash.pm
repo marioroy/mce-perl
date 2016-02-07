@@ -4,23 +4,14 @@
 ##
 ## An optimized ordered-hash implementation inspired by Hash::Ordered v0.009.
 ##
-## -- Added SPLICE, sorting, plus extra capabilities for use with MCE::Hobo.
-## -- Keys garbage collection is done in-place for minimum memory consumption.
-## -- Revised tombstone deletion to ensure safety with varied usage patterns.
-## -- The indexed hash is filled on-demand to not impact subsequent calls.
-## -- Provides support for hash-like dereferencing, also on-demand.
+## 1. Added SPLICE, sorting, plus extra capabilities for use with MCE::Hobo
+##    and MCE::Shared::Minidb.
 ##
-## The reason for the optimization is that there is a single shared-manager  
-## process. Therefore, all was done in ensuring the various helper classes
-## MCE::Shared::{ Array, Hash, Minidb, Ordhash, and Scalar } run optimally.
+## 2. Revised tombstone deletion to not impact STORE, PUSH, UNSHIFT, and merge.
+##    Likewise, lesser impact to POP and SHIFT when [_INDX] is present.
+##    Ditto for forward and reverse deletes.
 ##
-## Unfortunately, the present of [_INDX] in HO v0.009/0.010 impacts the rest
-## of the library. That is not the case with MCE::Shared::Ordhash. This is
-## reason for why MCE::Shared::Ordhash is not based off of Hash::Ordered.
-##
-## With that being said, ensure Hash::Ordered v0.010 or later if wanting to
-## share HO via MCE::Shared. Both Hash::Ordered and MCE::Shared::Ordhash are
-## fully supported.
+## 3. Purges TOMBSTONES in-place for lesser memory consumption.
 ##
 ###############################################################################
 
@@ -103,52 +94,60 @@ sub FETCH {
 
 sub DELETE {
    my ( $self, $key ) = @_;
+   return undef unless exists $self->[_DATA]{ $key };
 
-   if ( exists $self->[_DATA]{ $key } ) {
-      my $keys = $self->[_KEYS];
+   my $keys = $self->[_KEYS];
 
-      # check the first key
-      if ( $key eq $keys->[0] ) {
-         $self->[_BEGI]++, delete $self->[_INDX]{ $key } if $self->[_INDX];
-         shift @{ $keys };
+   # check the first key
+   if ( $key eq $keys->[0] ) {
+      shift @{ $keys };
+
+      if ( $self->[_INDX] ) {
+         $self->[_BEGI]++, delete $self->[_INDX]{ $key };
+
+         # GC start of list
          if ( ref $keys->[0] ) {
-            my $i = 0; # GC start of list
-            $i++, shift @{ $keys } while ref( $keys->[0] );
+            my $i = 1; $i++ while ( ref $keys->[$i] );
             $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
+            splice @{ $keys }, 0, $i;
          }
-      }
 
-      # or maybe the last key
-      elsif ( $key eq $keys->[-1] ) {
-         delete $self->[_INDX]{ $key } if $self->[_INDX];
-         pop @{ $keys };
+         $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
+      }
+   }
+
+   # or maybe the last key
+   elsif ( $key eq $keys->[-1] ) {
+      pop @{ $keys };
+
+      if ( $self->[_INDX] ) {
+         delete $self->[_INDX]{ $key };
+
+         # GC end of list
          if ( ref $keys->[-1] ) {
-            my $i = 0; # GC end of list
-            $i++, pop @{ $keys } while ref( $keys->[-1] );
-            $self->[_GCNT] -= $i;
+            my $i = $#{ $keys } - 1; $i-- while ( ref $keys->[$i] );
+            $self->[_GCNT] -= $#{ $keys } - $i;
+            splice @{ $keys }, $i + 1;
          }
+
+         $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
       }
-
-      # otherwise, the key is in the middle
-      else {
-         my $indx = $self->[_INDX] || $self->_make_indx();
-         my $id   = delete $indx->{ $key };
-
-         # fill index on-demand; tombstone
-         $self->_fill_indx(), $id = delete $indx->{ $key } if !defined $id;
-         $keys->[ $id - $self->[_BEGI] ] = _TOMBSTONE;
-
-         # GC keys if more than half are tombstone
-         $self->purge() if ++$self->[_GCNT] > ( @{ $keys } >> 1 );
-      }
-
-      $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
-
-      delete $self->[_DATA]{ $key };
    }
+
+   # otherwise, the key is in the middle
    else {
-      undef;
+      my $indx = $self->[_INDX] || $self->_make_indx();
+      my $id   = delete $indx->{ $key };
+
+      # fill index on-demand; place tombstone
+      $self->_fill_indx(), $id = delete $indx->{ $key } if !defined $id;
+      $keys->[ $id - $self->[_BEGI] ] = _TOMBSTONE;
+
+      # GC keys if more than half are tombstone
+      $self->purge() if ++$self->[_GCNT] > ( @{ $keys } >> 1 );
    }
+
+   delete $self->[_DATA]{ $key };
 }
 
 # FIRSTKEY ( )
@@ -210,15 +209,18 @@ sub POP {
    my ( $self ) = @_;
    my $keys = $self->[_KEYS];
    my $key  = pop @{ $keys };
-
    return unless defined $key;
 
    if ( $self->[_INDX] ) {
+      delete $self->[_INDX]{ $key };
+
+      # GC end of list
       if ( ref $keys->[-1] ) {
-         my $i = 0; # GC end of list
-         $i++, pop @{ $keys } while ref( $keys->[-1] );
-         $self->[_GCNT] -= $i;
+         my $i = $#{ $keys } - 1; $i-- while ( ref $keys->[$i] );
+         $self->[_GCNT] -= $#{ $keys } - $i;
+         splice @{ $keys }, $i + 1;
       }
+
       $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
    }
 
@@ -247,15 +249,18 @@ sub SHIFT {
    my ( $self ) = @_;
    my $keys = $self->[_KEYS];
    my $key  = shift @{ $keys };
-
    return unless defined $key;
 
    if ( $self->[_INDX] ) {
+      $self->[_BEGI]++, delete $self->[_INDX]{ $key };
+
+      # GC start of list
       if ( ref $keys->[0] ) {
-         my $i = 0; # GC start of list
-         $i++, shift @{ $keys } while ref( $keys->[0] );
+         my $i = 1; $i++ while ( ref $keys->[$i] );
          $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
+         splice @{ $keys }, 0, $i;
       }
+
       $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
    }
 
@@ -283,12 +288,11 @@ sub UNSHIFT {
 sub SPLICE {
    my ( $self, $off ) = ( shift, shift );
    my ( $data, $keys, $indx ) = @$self;
-   my ( $key, @ret );
-
-   return @ret unless defined $off;
+   return () unless defined $off;
 
    $self->purge() if $indx;
 
+   my ( $key, @ret );
    my $size = scalar @{ $keys };
    my $len  = @_ ? shift : $size - $off;
 
@@ -416,7 +420,7 @@ sub clone {
    }
    else {
       for my $key ( @{ $self->[_KEYS] } ) {
-         next if ref $key;
+         next if ( ref $key );
          push @keys, "$key" unless exists $data{ $key };
          $data{ $key } = $DATA->{ $key };
       }
@@ -585,22 +589,19 @@ sub mset {
 sub purge {
    my ( $self ) = @_;
 
-   # @{ $self->[_KEYS] } = grep !ref($_), @{ $self->[_KEYS] };
-   # Purging is done in-place for lesser memory consumption.
+   # Purges TOMBSTONES in-place for lesser memory consumption.
 
-   if ( $self->[_GCNT] ) {
+   if ( $self->[_INDX] ) {
       my ( $i, $keys ) = ( 0, $self->[_KEYS] );
+      $self->[_INDX] = undef, $self->[_BEGI] = $self->[_GCNT] = 0;
 
-      if ( @{ $keys } ) {
-         for ( 0 .. @{ $keys } - 1 ) {
-            next if ref( $keys->[$_] );
-            $keys->[ $i++ ] = $keys->[$_];
-         }
-         splice @{ $keys }, $i;
+      for ( 0 .. @{ $keys } - 1 ) {
+         next if ( ref $keys->[$_] );
+         $keys->[ $i++ ] = $keys->[$_];
       }
-   }
 
-   $self->[_INDX] = undef, $self->[_BEGI] = $self->[_GCNT] = 0;
+      splice @{ $keys }, $i;
+   }
 
    return;
 }
@@ -913,7 +914,7 @@ C<del> is an alias for C<delete>.
 
 =item flush
 
-Same as C<clone>. Clears all existing items before returning.
+Same as C<clone>. Though, clears all existing items before returning.
 
 =item get ( key )
 
