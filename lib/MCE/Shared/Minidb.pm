@@ -25,6 +25,8 @@ use overload (
    fallback => 1
 );
 
+no overloading;
+
 sub new {
    # Parallel Hashes: [ HoH, HoA ]
    bless [
@@ -573,11 +575,9 @@ sub hset {
    return unless length($key);
    if ( @_ ) {
       $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-      if ( @_ == 2 ) {
-         $self->[0][0]{ $key }{ $_[0] } = $_[1];
-      } else {
-         $self->[0][0]{ $key }->mset(@_);
-      }
+      ( @_ == 2 )
+         ? $self->[0][0]{ $key }->set(@_)
+         : $self->[0][0]{ $key }->mset(@_);
    }
    else {
       return;
@@ -592,11 +592,9 @@ sub hget {
    return unless length($key);
    if ( @_ ) {
       return unless exists($self->[0][0]{ $key });
-      if ( @_ == 1 ) {
-         $self->[0][0]{ $key }{ $_[0] };
-      } else {
-         $self->[0][0]{ $key }->mget(@_);
-      }
+      ( @_ == 1 )
+         ? $self->[0][0]{ $key }->get(@_)
+         : $self->[0][0]{ $key }->mget(@_);
    }
    else {
       $self->[0][0]{ $key };
@@ -611,11 +609,9 @@ sub hdel {
    return unless length($key);
    if ( @_ ) {
       return unless exists($self->[0][0]{ $key });
-      if ( @_ == 1 ) {
-         delete $self->[0][0]{ $key }{ $_[0] };
-      } else {
-         $self->[0][0]{ $key }->mdel(@_);
-      }
+      ( @_ == 1 )
+         ? $self->[0][0]{ $key }->del(@_)
+         : $self->[0][0]{ $key }->mdel(@_);
    }
    else {
       $self->[0]->del($key);
@@ -630,11 +626,9 @@ sub hexists {
    return '' unless length($key);
    if ( @_ ) {
       return '' unless exists($self->[0][0]{ $key });
-      if ( @_ == 1 ) {
-         exists $self->[0][0]{ $key }{ $_[0] };
-      } else {
-         $self->[0][0]{ $key }->mexists(@_);
-      }
+      ( @_ == 1 )
+         ? $self->[0][0]{ $key }->exists(@_)
+         : $self->[0][0]{ $key }->mexists(@_);
    }
    else {
       exists $self->[0][0]{ $key };
@@ -648,7 +642,7 @@ sub hclear {
    my ( $self, $key ) = @_;
    if ( @_ > 1 ) {
       return unless exists($self->[0][0]{ $key });
-      %{ $self->[0][0]{ $key } } = ();
+      $self->[0][0]{ $key }->clear();
    }
    else {
       $self->[0]->clear();
@@ -742,55 +736,55 @@ sub happend {
 # hdecr ( key, field )
 
 sub hdecr {
-   my ( $self, $key ) = @_;
+   my ( $self, $key ) = ( shift, shift );
    return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   --$self->[0][0]{ $key }{ $_[2] };
+   $self->[0][0]{ $key }->decr(@_);
 }
 
 # hdecrby ( key, field, number )
 
 sub hdecrby {
-   my ( $self, $key ) = @_;
+   my ( $self, $key ) = ( shift, shift );
    return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   $self->[0][0]{ $key }{ $_[2] } -= $_[3] || 0;
+   $self->[0][0]{ $key }->decrby(@_);
 }
 
 # hincr ( key, field )
 
 sub hincr {
-   my ( $self, $key ) = @_;
+   my ( $self, $key ) = ( shift, shift );
    return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   ++$self->[0][0]{ $key }{ $_[2] };
+   $self->[0][0]{ $key }->incr(@_);
 }
 
 # hincrby ( key, field, number )
 
 sub hincrby {
-   my ( $self, $key ) = @_;
+   my ( $self, $key ) = ( shift, shift );
    return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   $self->[0][0]{ $key }{ $_[2] } += $_[3] || 0;
+   $self->[0][0]{ $key }->incrby(@_);
 }
 
 # hgetdecr ( key, field )
 
 sub hgetdecr {
-   my ( $self, $key ) = @_;
+   my ( $self, $key ) = ( shift, shift );
    return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   $self->[0][0]{ $key }{ $_[2] }-- || 0;
+   $self->[0][0]{ $key }->getdecr(@_);
 }
 
 # hgetincr ( key, field )
 
 sub hgetincr {
-   my ( $self, $key ) = @_;
+   my ( $self, $key ) = ( shift, shift );
    return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   $self->[0][0]{ $key }{ $_[2] }++ || 0;
+   $self->[0][0]{ $key }->getincr(@_);
 }
 
 # hgetset ( key, field, value )
@@ -811,9 +805,7 @@ sub hlen {
    if ( @_ ) {
       my $key = shift;
       return 0 unless exists($self->[0][0]{ $key });
-      ( defined $_[0] )
-         ? length $self->[0][0]{ $key }{ $_[0] } || 0
-         : scalar keys %{ $self->[0][0]{ $key } };
+      $self->[0][0]{ $key }->len(@_);
    }
    else {
       $self->[0]->len();
@@ -833,11 +825,9 @@ sub lset {
    return unless length($key);
    if ( @_ ) {
       $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-      if ( @_ == 2 ) {
-         $self->[1][0]{ $key }[ $_[0] ] = $_[1];
-      } else {
-         $self->[1][0]{ $key }->mset(@_);
-      }
+      ( @_ == 2 )
+         ? $self->[1][0]{ $key }->set(@_)
+         : $self->[1][0]{ $key }->mset(@_);
    }
    else {
       return;
@@ -852,11 +842,9 @@ sub lget {
    return unless length($key);
    if ( @_ ) {
       return unless exists($self->[1][0]{ $key });
-      if ( @_ == 1 ) {
-         $self->[1][0]{ $key }[ $_[0] ];
-      } else {
-         $self->[1][0]{ $key }->mget(@_);
-      }
+      ( @_ == 1 )
+         ? $self->[1][0]{ $key }->get(@_)
+         : $self->[1][0]{ $key }->mget(@_);
    }
    else {
       $self->[1][0]{ $key };
@@ -871,11 +859,9 @@ sub ldel {
    return unless length($key);
    if ( @_ ) {
       return unless exists($self->[1][0]{ $key });
-      if ( @_ == 1 ) {
-         delete $self->[1][0]{ $key }[ $_[0] ];
-      } else {
-         $self->[1][0]{ $key }->mdel(@_);
-      }
+      ( @_ == 1 )
+         ? $self->[1][0]{ $key }->del(@_)
+         : $self->[1][0]{ $key }->mdel(@_);
    }
    else {
       $self->[1]->del($key);
@@ -890,11 +876,9 @@ sub lexists {
    return '' unless length($key);
    if ( @_ ) {
       return '' unless exists($self->[1][0]{ $key });
-      if ( @_ == 1 ) {
-         exists $self->[1][0]{ $key }[ $_[0] ];
-      } else {
-         $self->[1][0]{ $key }->mexists(@_);
-      }
+      ( @_ == 1 )
+         ? $self->[1][0]{ $key }->exists(@_)
+         : $self->[1][0]{ $key }->mexists(@_);
    }
    else {
       exists $self->[1][0]{ $key };
@@ -908,7 +892,7 @@ sub lclear {
    my ( $self, $key ) = @_;
    if ( @_ > 1 ) {
       return unless exists($self->[1][0]{ $key });
-      @{ $self->[1][0]{ $key } } = ();
+      $self->[1][0]{ $key }->clear();
    }
    else {
       $self->[1]->clear();
@@ -937,7 +921,7 @@ sub lsplice {
 sub lpop {
    my ( $self, $key ) = ( shift, shift );
    return unless length($key) && exists($self->[1][0]{ $key });
-   shift @{ $self->[1][0]{ $key } };
+   $self->[1][0]{ $key }->shift();
 }
 
 # lpush ( key, value [, value, ... ] )
@@ -946,7 +930,7 @@ sub lpush {
    my ( $self, $key ) = ( shift, shift );
    return unless length($key) && scalar(@_);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   unshift @{ $self->[1][0]{ $key } }, @_;
+   $self->[1][0]{ $key }->unshift(@_);
 }
 
 # rpop ( key )
@@ -954,7 +938,7 @@ sub lpush {
 sub rpop {
    my ( $self, $key ) = ( shift, shift );
    return unless length($key) && exists($self->[1][0]{ $key });
-   pop @{ $self->[1][0]{ $key } };
+   $self->[1][0]{ $key }->pop();
 }
 
 # rpush ( key, value [, value, ... ] )
@@ -963,7 +947,7 @@ sub rpush {
    my ( $self, $key ) = ( shift, shift );
    return unless length($key) && scalar(@_);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   push @{ $self->[1][0]{ $key } }, @_;
+   $self->[1][0]{ $key }->push(@_);
 }
 
 # lkeys ( key, index [, index, ... ] )
@@ -1061,55 +1045,55 @@ sub lappend {
 # ldecr ( key, index )
 
 sub ldecr {
-   my ( $self, $key ) = @_;
+   my ( $self, $key ) = ( shift, shift );
    return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   --$self->[1][0]{ $key }[ $_[2] ];
+   $self->[1][0]{ $key }->decr(@_);
 }
 
 # ldecrby ( key, index, number )
 
 sub ldecrby {
-   my ( $self, $key ) = @_;
+   my ( $self, $key ) = ( shift, shift );
    return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }[ $_[2] ] -= $_[3] || 0;
+   $self->[1][0]{ $key }->decrby(@_);
 }
 
 # lincr ( key, index )
 
 sub lincr {
-   my ( $self, $key ) = @_;
+   my ( $self, $key ) = ( shift, shift );
    return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   ++$self->[1][0]{ $key }[ $_[2] ];
+   $self->[1][0]{ $key }->incr(@_);
 }
 
 # lincrby ( key, index, number )
 
 sub lincrby {
-   my ( $self, $key ) = @_;
+   my ( $self, $key ) = ( shift, shift );
    return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }[ $_[2] ] += $_[3] || 0;
+   $self->[1][0]{ $key }->incrby(@_);
 }
 
 # lgetdecr ( key, index )
 
 sub lgetdecr {
-   my ( $self, $key ) = @_;
+   my ( $self, $key ) = ( shift, shift );
    return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }[ $_[2] ]-- || 0;
+   $self->[1][0]{ $key }->getdecr(@_);
 }
 
 # lgetincr ( key, index )
 
 sub lgetincr {
-   my ( $self, $key ) = @_;
+   my ( $self, $key ) = ( shift, shift );
    return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }[ $_[2] ]++ || 0;
+   $self->[1][0]{ $key }->getincr(@_);
 }
 
 # lgetset ( key, index, value )
@@ -1130,9 +1114,7 @@ sub llen {
    if ( @_ ) {
       my $key = shift;
       return 0 unless exists($self->[1][0]{ $key });
-      ( defined $_[0] )
-         ? length $self->[1][0]{ $key }[ $_[0] ] || 0
-         : scalar @{ $self->[1][0]{ $key } };
+      $self->[1][0]{ $key }->len(@_);
    }
    else {
       $self->[1]->len();

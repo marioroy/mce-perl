@@ -24,8 +24,23 @@ use overload (
    fallback => 1
 );
 
+no overloading;
+
 my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
 my $_tid = $_has_threads ? threads->tid() : 0;
+
+sub new {
+   my ($_class, $_cv) = (shift, {});
+
+   $_cv->{_init_pid} = $_has_threads ? $$ .'.'. $_tid : $$;
+   $_cv->{_mutex}    = MCE::Mutex->new;
+   $_cv->{_value}    = shift || 0;
+   $_cv->{_count}    = 0;
+
+   MCE::Util::_sock_pair($_cv, qw(_cr_sock _cw_sock));
+
+   bless $_cv, $_class;
+}
 
 sub CLONE {
    $_tid = threads->tid();
@@ -39,19 +54,6 @@ sub DESTROY {
       if $_cv->{_init_pid} eq $_pid;
 
    return;
-}
-
-sub new {
-   my ($_class, $_cv) = (shift, {});
-
-   $_cv->{_init_pid} = $_has_threads ? $$ .'.'. $_tid : $$;
-   $_cv->{_mutex}    = MCE::Mutex->new;
-   $_cv->{_value}    = shift || 0;
-   $_cv->{_count}    = 0;
-
-   MCE::Util::_sock_pair($_cv, qw(_cr_sock _cw_sock));
-
-   bless $_cv, $_class;
 }
 
 ###############################################################################

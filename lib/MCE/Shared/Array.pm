@@ -24,27 +24,34 @@ use overload (
    fallback => 1
 );
 
+no overloading;
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Based on Tie::StdArray from Tie::Array.
+##
+###############################################################################
+
 sub TIEARRAY {
    my $self = bless [], shift;
-   $self->PUSH(@_) if @_;
+   @{ $self } = @_ if @_;
+
    $self;
 }
 
 sub EXTEND { }
 
-# Based on Tie::StdArray from Tie::Array.
+sub FETCHSIZE { scalar @{ $_[0] } }
+sub STORESIZE { $#{ $_[0] } = $_[1] - 1 }
 
-sub FETCHSIZE { scalar @{$_[0]} }
-sub STORESIZE { $#{$_[0]} = $_[1] - 1 }
-
-sub STORE     { $_[0]->[$_[1]] = $_[2] }
-sub FETCH     { $_[0]->[$_[1]] }
-sub DELETE    { delete $_[0]->[$_[1]] }
-sub EXISTS    { exists $_[0]->[$_[1]] }
-sub CLEAR     { @{$_[0]} = () }
-sub POP       { pop(@{$_[0]}) }
+sub STORE     { $_[0]->[ $_[1] ] = $_[2] }
+sub FETCH     { $_[0]->[ $_[1] ] }
+sub DELETE    { delete $_[0]->[ $_[1] ] }
+sub EXISTS    { exists $_[0]->[ $_[1] ] }
+sub CLEAR     { @{ $_[0] } = () }
+sub POP       { pop(@{ $_[0] }) }
 sub PUSH      { my $o = shift; push(@$o, @_) }
-sub SHIFT     { shift(@{$_[0]}) }
+sub SHIFT     { shift(@{ $_[0] }) }
 sub UNSHIFT   { my $o = shift; unshift(@$o, @_) }
 
 # SPLICE ( offset, length [, list ] )
@@ -549,7 +556,7 @@ C<del> is an alias for C<delete>.
 
 =item flush
 
-Same as C<clone>. Clears all existing items before returning.
+Same as C<clone>. Though, clears all existing items before returning.
 
 =item get ( index )
 

@@ -128,25 +128,21 @@ sub condvar {
    require MCE::Shared::Condvar unless $INC{'MCE/Shared/Condvar.pm'};
    &share( MCE::Shared::Condvar->new(@_) );
 }
-
 sub minidb {
    shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
    require MCE::Shared::Minidb unless $INC{'MCE/Shared/Minidb.pm'};
    &share( MCE::Shared::Minidb->new(@_) );
 }
-
 sub queue {
    shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
    require MCE::Shared::Queue unless $INC{'MCE/Shared/Queue.pm'};
    &share( MCE::Shared::Queue->new(@_) );
 }
-
 sub scalar {
    shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
    require MCE::Shared::Scalar unless $INC{'MCE/Shared/Scalar.pm'};
    &share( MCE::Shared::Scalar->new(@_) );
 }
-
 sub sequence {
    shift if (defined $_[0] && $_[0] eq 'MCE::Shared');
    require MCE::Shared::Sequence unless $INC{'MCE/Shared/Sequence.pm'};
@@ -261,9 +257,16 @@ if ($INC{'PDL.pm'}) {
 ##
 ###############################################################################
 
-sub TIEARRAY {
+sub TIEARRAY { shift; MCE::Shared->array(@_) }
+sub TIESCALAR { shift; MCE::Shared->scalar(@_) }
+
+sub TIEHASH {
    shift;
-   MCE::Shared->array(@_);
+   if ( ref $_[0] eq 'HASH' && exists $_[0]->{'ordered'} ) {
+      shift()->{'ordered'} ? MCE::Shared->ordhash(@_) : MCE::Shared->hash(@_);
+   } else {
+      MCE::Shared->hash(@_);
+   }
 }
 
 sub TIEHANDLE {
@@ -273,29 +276,11 @@ sub TIEHANDLE {
    $_item;
 }
 
-sub TIEHASH {
-   shift;
-   if ( ref $_[0] eq 'HASH' && exists $_[0]->{'ordered'} ) {
-      shift()->{'ordered'}
-         ? MCE::Shared->ordhash(@_)
-         : MCE::Shared->hash(@_);
-   }
-   else {
-      MCE::Shared->hash(@_);
-   }
-}
-
-sub TIESCALAR {
-   shift;
-   MCE::Shared->scalar(@_);
-}
-
 sub _croak {
    $_count = 0, %_lkup = ();
    if (defined $MCE::VERSION) {
       goto &MCE::_croak;
-   }
-   else {
+   } else {
       require MCE::Shared::Base unless $INC{'MCE/Shared/Base.pm'};
       goto &MCE::Shared::Base::_croak;
    }

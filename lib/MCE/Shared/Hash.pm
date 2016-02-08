@@ -24,22 +24,29 @@ use overload (
    fallback => 1
 );
 
+no overloading;
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Based on Tie::StdHash from Tie::Hash.
+##
+###############################################################################
+
 sub TIEHASH {
    my $self = bless {}, shift;
-   $self->mset(@_) if @_;
+   %{ $self } = @_ if @_;
+
    $self;
 }
 
-# Based on Tie::StdHash from Tie::Hash.
-
-sub STORE    { $_[0]->{$_[1]} = $_[2] }
-sub FETCH    { $_[0]->{$_[1]} }
-sub DELETE   { delete $_[0]->{$_[1]} }
-sub FIRSTKEY { my $a = keys %{$_[0]}; each %{$_[0]} }
-sub NEXTKEY  { each %{$_[0]} }
-sub EXISTS   { exists $_[0]->{$_[1]} }
-sub CLEAR    { %{$_[0]} = () }
-sub SCALAR   { scalar keys %{$_[0]} }
+sub STORE    { $_[0]->{ $_[1] } = $_[2] }
+sub FETCH    { $_[0]->{ $_[1] } }
+sub DELETE   { delete $_[0]->{ $_[1] } }
+sub FIRSTKEY { my $a = keys %{ $_[0] }; each %{ $_[0] } }
+sub NEXTKEY  { each %{ $_[0] } }
+sub EXISTS   { exists $_[0]->{ $_[1] } }
+sub CLEAR    { %{ $_[0] } = () }
+sub SCALAR   { scalar keys %{ $_[0] } }
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -447,7 +454,7 @@ C<del> is an alias for C<delete>.
 
 =item flush
 
-Same as C<clone>. Clears all existing items before returning.
+Same as C<clone>. Though, clears all existing items before returning.
 
 =item get ( key )
 

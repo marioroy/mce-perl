@@ -1,7 +1,7 @@
 
 Revision history for Perl module MCE.
 
-1.699 Fri Feb 05 22:30:00 EST 2016
+1.699 Mon Feb 08 13:30:00 EST 2016
 
   # 1.699_010 changes.
 
@@ -10,7 +10,7 @@ Revision history for Perl module MCE.
     * Completed documentation for several MCE::Shared classes:
       MCE::Shared::{ Condvar, Handle, Queue, Scalar, Sequence }
 
-    * Began work on documentation for the other classes:
+    * Began work on documenting the remaining classes:
       MCE::Shared::{ Array, Hash, Minidb, Ordhash }
 
   # 1.699_009 changes.

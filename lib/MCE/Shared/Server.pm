@@ -26,6 +26,8 @@ use Socket qw( SOL_SOCKET SO_RCVBUF );
 use Storable ();
 use bytes;
 
+no overloading;
+
 my ($_freeze, $_thaw, $_has_threads);
 
 BEGIN {
@@ -69,7 +71,6 @@ use constant {
    SHR_M_OB1 => 'M~OB1',  # Object request - thaw'less
    SHR_M_OB2 => 'M~OB2',  # Object request - thaw'less
    SHR_M_OB3 => 'M~OB3',  # Object request - thaw'less
-   SHR_M_BLE => 'M~BLE',  # Blessed request
    SHR_M_DES => 'M~DES',  # Destroy request
    SHR_M_EXP => 'M~EXP',  # Export request
    SHR_M_INX => 'M~INX',  # Iterator next
@@ -93,8 +94,6 @@ use constant {
    SHR_O_FCH => 'O~FCH',  # A,H,OH,S FETCH
    SHR_O_CLR => 'O~CLR',  # A,H,OH CLEAR
 };
-
-no overloading;
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -296,7 +295,7 @@ sub _share {
       $_obj{ $_id } = $_item;
    }
 
-   my $self = bless [ $_id ], 'MCE::Shared::Object';
+   my $self = bless [ $_id, $_class ], 'MCE::Shared::Object';
    $_ob2{ $_id } = $_freeze->($self);
 
    return $self;
@@ -831,14 +830,6 @@ sub _loop {
          else {
             $_code->($_var, $_arg1, $_arg2, $_arg3);
          }
-
-         return;
-      },
-
-      SHR_M_BLE.$LF => sub {                      # Blessed request
-         chomp($_id = <$_DAU_R_SOCK>);
-
-         print {$_DAU_R_SOCK} $_all{ $_id }.$LF;
 
          return;
       },
@@ -1379,8 +1370,8 @@ my %_hash_supported = (qw/
 /);
 
 use constant {
-   _UNDEF => 0, _ARRAY => 1, _SCALAR => 2,
-   _DREF  => 1, _ITER  => 2,
+   _UNDEF => 0, _ARRAY => 1, _SCALAR => 2,  # wantarray
+   _CLASS => 1, _DREF  => 2, _ITER   => 3,  # shared object
 };
 
 use overload (
@@ -1389,24 +1380,24 @@ use overload (
    q(@{})   => sub {
       no overloading;
       $_[0]->[_DREF] || do {
-         return $_[0] if $_[0]->blessed ne 'MCE::Shared::Array';
-         tie my @a, ref($_[0]), bless([ $_[0]->[0] ], ref($_[0]));
+         return $_[0] if $_[0]->[_CLASS] ne 'MCE::Shared::Array';
+         tie my @a, 'MCE::Shared::Object', bless([ $_[0]->[0] ], __PACKAGE__);
          $_[0]->[_DREF] = \@a;
       };
    },
    q(%{})   => sub {
       no overloading;
       $_[0]->[_DREF] || do {
-         return $_[0] if !exists $_hash_supported{ $_[0]->blessed };
-         tie my %h, ref($_[0]), bless([ $_[0]->[0] ], ref($_[0]));
+         return $_[0] if !exists $_hash_supported{ $_[0]->[_CLASS] };
+         tie my %h, 'MCE::Shared::Object', bless([ $_[0]->[0] ], __PACKAGE__);
          $_[0]->[_DREF] = \%h;
       };
    },
    q(${})   => sub {
       no overloading;
       $_[0]->[_DREF] || do {
-         return $_[0] if $_[0]->blessed ne 'MCE::Shared::Scalar';
-         tie my $s, ref($_[0]), bless([ $_[0]->[0] ], ref($_[0]));
+         return $_[0] if $_[0]->[_CLASS] ne 'MCE::Shared::Scalar';
+         tie my $s, 'MCE::Shared::Object', bless([ $_[0]->[0] ], __PACKAGE__);
          $_[0]->[_DREF] = \$s;
       };
    },
@@ -1568,7 +1559,7 @@ sub _auto {
    }
 }
 
-# Called by broadcast, signal, timedwait, blessed, and rewind.
+# Called by broadcast, signal, timedwait, and rewind.
 
 sub _req1 {
    local $\ = undef if (defined $\);
@@ -1717,7 +1708,7 @@ sub AUTOLOAD {
 # blessed ( )
 
 sub blessed {
-   _req1('M~BLE', $_[0]->[0].$LF);
+   $_[0]->[_CLASS];
 }
 
 # destroy ( )
@@ -2293,33 +2284,38 @@ sub STORE {
    }
    else {
       if (ref $_[2]) {
-         my $_id = $_[0]->[0];
          $_[2] = MCE::Shared::share({ _DEEPLY_ => 1 }, $_[2]);
-         _req2('M~DEE', $_id.$LF, $_[2]->SHARED_ID().$LF);
+         _req2('M~DEE', $_[0]->[0].$LF, $_[2]->SHARED_ID().$LF);
       }
       _auto('STORE', @_);
       $_[2];
    }
 }
 
+sub set {
+   if (ref($_[2]) && $_blessed->($_[2]) && $_[2]->can('SHARED_ID')) {
+      _req2('M~DEE', $_[0]->[0].$LF, $_[2]->SHARED_ID().$LF);
+      delete $_new{ $_[2]->SHARED_ID() };
+   }
+   _auto('set', @_);
+}
+
 sub FETCH { _req6('FETCH', @_) }
 sub CLEAR { _req7('CLEAR', @_) }
 sub clear { _req7('clear', @_) }
+sub decr  { _auto('decr' , @_) }
+sub incr  { _auto('incr' , @_) }
 
-sub  decr { _auto( 'decr', @_) }
-sub  incr { _auto( 'incr', @_) }
+sub hset  { _auto('hset' , @_) }
+sub lset  { _auto('lset' , @_) }
 
-sub   get { _req6(  'get', @_) }
-sub  hget { _auto( 'hget', @_) }
-sub  lget { _auto( 'lget', @_) }
+sub  get  { _req6( 'get' , @_) }
+sub hget  { _auto('hget' , @_) }
+sub lget  { _auto('lget' , @_) }
 
-sub   len { _auto(  'len', @_) }
-sub  hlen { _auto( 'hlen', @_) }
-sub  llen { _auto( 'llen', @_) }
-
-sub   set { _auto(  'set', @_) }
-sub  hset { _auto( 'hset', @_) }
-sub  lset { _auto( 'lset', @_) }
+sub  len  { _auto( 'len' , @_) }
+sub hlen  { _auto('hlen' , @_) }
+sub llen  { _auto('llen' , @_) }
 
 sub lpush { _auto('lpush', @_) }
 sub rpush { _auto('rpush', @_) }

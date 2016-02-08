@@ -24,12 +24,14 @@ use overload (
    fallback => 1
 );
 
+no overloading;
+
+# Based on Tie::StdScalar from Tie::Scalar.
+
 sub TIESCALAR {
    my $class = shift;
    bless \do{ my $o = defined $_[0] ? shift : undef }, $class;
 }
-
-# Based on Tie::StdScalar from Tie::Scalar.
 
 sub STORE { ${ $_[0] } = $_[1] }
 sub FETCH { ${ $_[0] } }

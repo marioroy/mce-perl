@@ -8,7 +8,7 @@
 ##    and MCE::Shared::Minidb.
 ##
 ## 2. Revised tombstone deletion to not impact STORE, PUSH, UNSHIFT, and merge.
-##    Likewise, lesser impact to POP and SHIFT when [_INDX] is present.
+##    Likewise, lesser impact in POP and SHIFT when [_INDX] is present.
 ##    Ditto for forward and reverse deletes.
 ##
 ## 3. Purges TOMBSTONES in-place for lesser memory consumption.
@@ -38,20 +38,19 @@ use constant {
    _BEGI => 3,  # begin ordered id for optimized shift/unshift
    _GCNT => 4,  # garbage count
    _ITER => 5,  # for tied hash support
-   _HREF => 6,  # for hash-like dereferencing
 };
 
 use overload (
    q("")    => \&MCE::Shared::Base::_stringify,
    q(0+)    => \&MCE::Shared::Base::_numify,
    q(%{})   => sub {
-      $_[0]->[_HREF] || do {
-         tie my %h, 'MCE::Shared::Ordhash::_href', $_[0];
-         $_[0]->[_HREF] = \%h;
-      };
+      tie my %h, 'MCE::Shared::Ordhash::_href', $_[0];
+      \%h;
    },
    fallback => 1
 );
+
+no overloading;
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -185,7 +184,6 @@ sub CLEAR {
       $self->[_BEGI]   =    $self->[_GCNT]   =  0 ,
       $self->[_INDX]   = undef;
 
-   delete $self->[_HREF] if defined $self->[_HREF];
    delete $self->[_ITER] if defined $self->[_ITER];
 
    ();

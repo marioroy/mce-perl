@@ -30,6 +30,8 @@ use overload (
    fallback => 1
 );
 
+no overloading;
+
 sub _croak {
    goto &MCE::Shared::Base::_croak;
 }
