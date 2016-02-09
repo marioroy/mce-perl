@@ -96,9 +96,7 @@ sub _find {
    my $params = ref($_[0]) eq 'HASH' ? shift : {};
    my $query  = shift;
 
-   MCE::Shared::Base::_find_array(
-      $self, $params, $query, 0 .. $#{ $self }
-   );
+   MCE::Shared::Base::_find_array( $self, $params, $query );
 }
 
 # clone ( key [, key, ... ] )

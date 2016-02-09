@@ -78,7 +78,7 @@ sub _hfind {
       $params->{'hfind'} = 1;
 
       MCE::Shared::Base::_find_hash(
-         $self->[0][0], $params, $query, $self->[0]->keys()
+         $self->[0][0], $params, $query, $self->[0]
       );
    }
 }
@@ -101,7 +101,7 @@ sub _lfind {
       $params->{'lfind'} = 1;
 
       MCE::Shared::Base::_find_hash(
-         $self->[1][0], $params, $query, $self->[1]->keys()
+         $self->[1][0], $params, $query, $self->[1]
       );
    }
 }

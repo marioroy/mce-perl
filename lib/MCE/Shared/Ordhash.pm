@@ -396,7 +396,7 @@ sub _find {
    my $query  = shift;
 
    MCE::Shared::Base::_find_hash(
-      $self->[_DATA], $params, $query, grep(!ref($_), @{ $self->[_KEYS] })
+      $self->[_DATA], $params, $query, $self
    );
 }
 

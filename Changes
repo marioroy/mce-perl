@@ -1,11 +1,12 @@
 
 Revision history for Perl module MCE.
 
-1.699 Mon Feb 08 13:30:00 EST 2016
+1.699 Mon Feb 08 20:00:00 EST 2016
 
   # 1.699_010 changes.
 
     * Applied fix for RT#111780 mentioned below.
+    * Completed 360 for MCE::Shared and helper classes.
 
     * Completed documentation for several MCE::Shared classes:
       MCE::Shared::{ Condvar, Handle, Queue, Scalar, Sequence }

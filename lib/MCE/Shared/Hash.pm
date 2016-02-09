@@ -80,7 +80,7 @@ sub _find {
    my $query  = shift;
 
    MCE::Shared::Base::_find_hash(
-      $self, $params, $query, CORE::keys %{ $self }
+      $self, $params, $query, $self
    );
 }
 

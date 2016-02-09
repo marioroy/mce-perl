@@ -22,7 +22,7 @@ no overloading;
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Find support.
+## Find.     ** do not remove *numeric* from no warnings above **
 ##
 ###############################################################################
 
@@ -33,12 +33,12 @@ my %rules = (                         ##
                   #///P///#///E///#///  \\\#\\\R\\\#\\\L\\\#
          #///////#//// //#//// //#/////\\\\\#\\ \\\\#\\ \\\\#\\\\\\\#
         #//// //#///////#///////#//////\\\\\\#\\\\\\\#\\\\\\\#\\ \\\\#
-         '==' => sub { looks_like_number ($_[0]) && $_[0] == $_[1] },
-         '!=' => sub { looks_like_number ($_[0]) && $_[0] != $_[1] },
-         '<'  => sub { looks_like_number ($_[0]) && $_[0] <  $_[1] },
-         '<=' => sub { looks_like_number ($_[0]) && $_[0] <= $_[1] },
-         '>'  => sub { looks_like_number ($_[0]) && $_[0] >  $_[1] },
-         '>=' => sub { looks_like_number ($_[0]) && $_[0] >= $_[1] },
+         '==' => sub { $_[0] == $_[1] && looks_like_number ($_[0]) },
+         '!=' => sub { $_[0] != $_[1] && looks_like_number ($_[0]) },
+         '<'  => sub { $_[0] <  $_[1] && looks_like_number ($_[0]) },
+         '<=' => sub { $_[0] <= $_[1] && looks_like_number ($_[0]) },
+         '>'  => sub { $_[0] >  $_[1] && looks_like_number ($_[0]) },
+         '>=' => sub { $_[0] >= $_[1] && looks_like_number ($_[0]) },
          'eq' => sub {              !ref ($_[0]) && $_[0] eq $_[1] },
          'ne' => sub {              !ref ($_[0]) && $_[0] ne $_[1] },
          'lt' => sub {              !ref ($_[0]) && $_[0] lt $_[1] },
@@ -97,7 +97,7 @@ sub _compile {
 ###############################################################################
 
 sub _find_array {
-   my ( $data, $params, $query ) = ( shift, shift, shift );
+   my ( $data, $params, $query ) = @_;
    my ( $field, $code, $expr, $aflg ) = _compile( $query );
 
    # Single rule
@@ -106,24 +106,28 @@ sub _find_array {
 
       if ( $f eq 'key' ) {
          if ( $params->{'getkeys'} ) {
-            map { $c->( $_, $e ) ? ( $_ ) : () } @_;
+            grep $c->( $_, $e ), 0 .. $#{ $data };
          }
          elsif ( $params->{'getvals'} ) {
-            map { $c->( $_, $e ) ? ( $data->[$_] ) : () } @_;
+            map { $c->( $_, $e ) ? ( $data->[$_] ) : ()
+                } 0 .. $#{ $data };
          }
          else {
-            map { $c->( $_, $e ) ? ( $_ => $data->[$_] ) : () } @_;
+            map { $c->( $_, $e ) ? ( $_ => $data->[$_] ) : ()
+                } 0 .. $#{ $data };
          }
       }
       else {
          if ( $params->{'getkeys'} ) {
-            map { $c->( $data->[$_], $e ) ? ( $_ ) : () } @_;
+            map { $c->( $data->[$_], $e ) ? ( $_ ) : ()
+                } 0 .. $#{ $data };
          }
          elsif ( $params->{'getvals'} ) {
-            map { $c->( $data->[$_], $e ) ? ( $data->[$_] ) : () } @_;
+            grep $c->( $_, $e ), @{ $data };
          }
          else {
-            map { $c->( $data->[$_], $e ) ? ( $_ => $data->[$_] ) : () } @_;
+            map { $c->( $data->[$_], $e ) ? ( $_ => $data->[$_] ) : ()
+                } 0 .. $#{ $data };
          }
       }
    }
@@ -155,13 +159,16 @@ sub _find_array {
       };
 
       if ( $params->{'getkeys'} ) {
-         map { $is->(), $ok ? ( $_ ) : () } @_;
+         map { $is->(), $ok ? ( $_ ) : ()
+             } 0 .. $#{ $data };
       }
       elsif ( $params->{'getvals'} ) {
-         map { $is->(), $ok ? ( $data->[$_] ) : () } @_;
+         map { $is->(), $ok ? ( $data->[$_] ) : ()
+             } 0 .. $#{ $data };
       }
       else {
-         map { $is->(), $ok ? ( $_ => $data->[$_] ) : () } @_;
+         map { $is->(), $ok ? ( $_ => $data->[$_] ) : ()
+             } 0 .. $#{ $data };
       }
    }
 
@@ -178,7 +185,7 @@ sub _find_array {
 ###############################################################################
 
 sub _find_hash {
-   my ( $data, $params, $query ) = ( shift, shift, shift );
+   my ( $data, $params, $query, $obj ) = @_;
    my ( $field, $code, $expr, $aflg ) = _compile( $query );
 
    # Single rule
@@ -187,49 +194,59 @@ sub _find_hash {
 
       if ( $f eq 'key' ) {
          if ( $params->{'getkeys'} ) {
-            map { $c->( $_, $e ) ? ( $_ ) : () } @_;
+            grep $c->( $_, $e ), $obj->keys;
          }
          elsif ( $params->{'getvals'} ) {
-            map { $c->( $_, $e ) ? ( $data->{$_} ) : () } @_;
+            map { $c->( $_, $e ) ? ( $data->{$_} ) : ()
+                } $obj->keys;
          }
          else {
-            map { $c->( $_, $e ) ? ( $_ => $data->{$_} ) : () } @_;
+            map { $c->( $_, $e ) ? ( $_ => $data->{$_} ) : ()
+                } $obj->keys;
          }
       }
 
       elsif ( $params->{'hfind'} ) {                  # Minidb HoH
          if ( $params->{'getkeys'} ) {
-            map { $c->( $data->{$_}{$f}, $e ) ? ( $_ ) : () } @_;
+            map { $c->( $data->{$_}{$f}, $e ) ? ( $_ ) : ()
+                } $obj->keys;
          }
          elsif ( $params->{'getvals'} ) {
-            map { $c->( $data->{$_}{$f}, $e ) ? ( $data->{$_} ) : () } @_;
+            map { $c->( $data->{$_}{$f}, $e ) ? ( $data->{$_} ) : ()
+                } $obj->keys;
          }
          else {
-            map { $c->( $data->{$_}{$f}, $e ) ? ( $_ => $data->{$_} ) : () } @_;
+            map { $c->( $data->{$_}{$f}, $e ) ? ( $_ => $data->{$_} ) : ()
+                } $obj->keys;
          }
       }
 
       elsif ( $params->{'lfind'} ) {                  # Minidb HoA
          if ( $params->{'getkeys'} ) {
-            map { $c->( $data->{$_}[$f], $e ) ? ( $_ ) : () } @_;
+            map { $c->( $data->{$_}[$f], $e ) ? ( $_ ) : ()
+                } $obj->keys;
          }
          elsif ( $params->{'getvals'} ) {
-            map { $c->( $data->{$_}[$f], $e ) ? ( $data->{$_} ) : () } @_;
+            map { $c->( $data->{$_}[$f], $e ) ? ( $data->{$_} ) : ()
+                } $obj->keys;
          }
          else {
-            map { $c->( $data->{$_}[$f], $e ) ? ( $_ => $data->{$_} ) : () } @_;
+            map { $c->( $data->{$_}[$f], $e ) ? ( $_ => $data->{$_} ) : ()
+                } $obj->keys;
          }
       }
 
       else {                                          # Hash/Ordhash
          if ( $params->{'getkeys'} ) {
-            map { $c->( $data->{$_}, $e ) ? ( $_ ) : () } @_;
+            map { $c->( $data->{$_}, $e ) ? ( $_ ) : ()
+                } $obj->keys;
          }
          elsif ( $params->{'getvals'} ) {
-            map { $c->( $data->{$_}, $e ) ? ( $data->{$_} ) : () } @_;
+            grep $c->( $_, $e ), $obj->vals;
          }
          else {
-            map { $c->( $data->{$_}, $e ) ? ( $_ => $data->{$_} ) : () } @_;
+            map { $c->( $data->{$_}, $e ) ? ( $_ => $data->{$_} ) : ()
+                } $obj->keys;
          }
       }
    }
@@ -262,13 +279,16 @@ sub _find_hash {
          };
 
          if ( $params->{'getkeys'} ) {
-            map { $is->(), $ok ? ( $_ ) : () } @_;
+            map { $is->(), $ok ? ( $_ ) : ()
+                } $obj->keys;
          }
          elsif ( $params->{'getvals'} ) {
-            map { $is->(), $ok ? ( $data->{$_} ) : () } @_;
+            map { $is->(), $ok ? ( $data->{$_} ) : ()
+                } $obj->keys;
          }
          else {
-            map { $is->(), $ok ? ( $_ => $data->{$_} ) : () } @_;
+            map { $is->(), $ok ? ( $_ => $data->{$_} ) : ()
+                } $obj->keys;
          }
       }
 
@@ -296,13 +316,16 @@ sub _find_hash {
          };
 
          if ( $params->{'getkeys'} ) {
-            map { $is->(), $ok ? ( $_ ) : () } @_;
+            map { $is->(), $ok ? ( $_ ) : ()
+                } $obj->keys;
          }
          elsif ( $params->{'getvals'} ) {
-            map { $is->(), $ok ? ( $data->{$_} ) : () } @_;
+            map { $is->(), $ok ? ( $data->{$_} ) : ()
+                } $obj->keys;
          }
          else {
-            map { $is->(), $ok ? ( $_ => $data->{$_} ) : () } @_;
+            map { $is->(), $ok ? ( $_ => $data->{$_} ) : ()
+                } $obj->keys;
          }
       }
 
@@ -330,13 +353,16 @@ sub _find_hash {
          };
 
          if ( $params->{'getkeys'} ) {
-            map { $is->(), $ok ? ( $_ ) : () } @_;
+            map { $is->(), $ok ? ( $_ ) : ()
+                } $obj->keys;
          }
          elsif ( $params->{'getvals'} ) {
-            map { $is->(), $ok ? ( $data->{$_} ) : () } @_;
+            map { $is->(), $ok ? ( $data->{$_} ) : ()
+                } $obj->keys;
          }
          else {
-            map { $is->(), $ok ? ( $_ => $data->{$_} ) : () } @_;
+            map { $is->(), $ok ? ( $_ => $data->{$_} ) : ()
+                } $obj->keys;
          }
       }
    }
