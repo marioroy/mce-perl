@@ -1,7 +1,11 @@
 
 Revision history for Perl module MCE.
 
-1.699 Mon Feb 08 20:00:00 EST 2016
+1.699 Wed Feb 10 16:00:00 EST 2016
+
+  # 1.699_011 changes.
+
+    * Completed code optimizations for MCE::Shared::{ Minidb, Ordhash }
 
   # 1.699_010 changes.
 

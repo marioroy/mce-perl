@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_010';
+our $VERSION = '1.699_011';
 
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
@@ -79,9 +79,7 @@ sub _find {
    my $params = ref($_[0]) eq 'HASH' ? shift : {};
    my $query  = shift;
 
-   MCE::Shared::Base::_find_hash(
-      $self, $params, $query, $self
-   );
+   MCE::Shared::Base::_find_hash( $self, $params, $query, $self );
 }
 
 # clone ( key [, key, ... ] )
@@ -323,7 +321,7 @@ MCE::Shared::Hash - Hash helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Hash version 1.699_010
+This document describes MCE::Shared::Hash version 1.699_011
 
 =head1 SYNOPSIS
 
