@@ -75,6 +75,15 @@ Goethebier, Karl
   Threads From Hell #2: http://www.perlmonks.org/?node_id=1127540
   Threads From Hell #3: http://www.perlmonks.org/?node_id=1128332
 
+Golden, David
+
+  For the Hash::Ordered module. I learned a lot from this *gem* on CPAN.
+  Particularly, the use of overload. I did not know that was possible
+  at the time.
+
+  This resulted in MCE::Shared providing array-like and hash-like behavior
+  for MCE::Shared::{ Array, Hash, Ordhash } shared objects.
+
 Gorwits, Oliver
 
   For reporting on a couple issues with MCE along with a solution for each.
@@ -96,7 +105,8 @@ Hedden, Jerry
 Hluchan, Yary
 
   For providing a benchmark script which I used to compare IPC performance
-  between 1.6 and 1.7.
+  between 1.6 and 1.7. For many kind words near the end of the development
+  cycle for MCE 1.7 and MCE::Shared.
 
 ###############################################################################
 #  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
@@ -130,6 +140,11 @@ Kulow, Stephan
 Mabon, Philip
 
   For reporting on a couple issues with MCE in particular bug RT#92627.
+
+McKeown, Benjamin
+
+  For reporting several edge cases with MCE in particular bugs RT#105557,
+  RT#105559, and RT#111780.
 
 Mertens, David
 
@@ -170,7 +185,7 @@ Rowe, Jillian
 
 Roy, Sylvia (spouse)
 
-  For supporting me from v1.000, especially during later 1.6 revisions and 1.7.
+  For supporting me from v1.0, especially during later 1.6 revisions and 1.7.
 
 Šabata, Petr
 
