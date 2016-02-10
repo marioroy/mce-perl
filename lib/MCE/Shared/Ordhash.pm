@@ -4,14 +4,15 @@
 ##
 ## An optimized ordered-hash implementation inspired by Hash::Ordered v0.009.
 ##
-## 1. Added SPLICE, sorting, plus extra capabilities for use with MCE::Hobo
+## 1. Added splice, sorting, plus extra capabilities for use with MCE::Hobo
 ##    and MCE::Shared::Minidb.
 ##
-## 2. Revised tombstone deletion to not impact STORE, PUSH, UNSHIFT, and merge.
-##    Likewise, lesser impact in POP and SHIFT when [_INDX] is present.
+## 2. Revised tombstone deletion to not impact store, push, unshift, and merge.
+##    Tombstones are purged in-place for overall lesser memory consumption.
+##    Also, minimized overhead in pop and shift when an index is present.
 ##    Ditto for forward and reverse deletes.
 ##
-## 3. Purges TOMBSTONES in-place for lesser memory consumption.
+## 3. Provides support for hash-like dereferencing, for Perlish behavior.
 ##
 ###############################################################################
 
@@ -22,7 +23,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_010';
+our $VERSION = '1.699_011';
 
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
@@ -93,9 +94,9 @@ sub FETCH {
 
 sub DELETE {
    my ( $self, $key ) = @_;
-   return undef unless exists $self->[_DATA]{ $key };
-
    my $keys = $self->[_KEYS];
+
+   return undef if ( !exists $self->[_DATA]{ $key } );
 
    # check the first key
    if ( $key eq $keys->[0] ) {
@@ -106,16 +107,19 @@ sub DELETE {
 
          # GC start of list
          if ( ref $keys->[0] ) {
-            my $i = 1; $i++ while ( ref $keys->[$i] );
+            my $i = 1;
+            $i++ while ( ref $keys->[$i] );
             $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
             splice @{ $keys }, 0, $i;
          }
 
          $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
       }
+
+      return delete $self->[_DATA]{ $key };
    }
 
-   # or maybe the last key
+   # perhaps the last key
    elsif ( $key eq $keys->[-1] ) {
       pop @{ $keys };
 
@@ -124,26 +128,66 @@ sub DELETE {
 
          # GC end of list
          if ( ref $keys->[-1] ) {
-            my $i = $#{ $keys } - 1; $i-- while ( ref $keys->[$i] );
+            my $i = $#{ $keys } - 1;
+            $i-- while ( ref $keys->[$i] );
             $self->[_GCNT] -= $#{ $keys } - $i;
             splice @{ $keys }, $i + 1;
          }
 
          $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
       }
+
+      return delete $self->[_DATA]{ $key };
    }
 
-   # otherwise, the key is in the middle
-   else {
-      my $indx = $self->[_INDX] || $self->_make_indx();
-      my $id   = delete $indx->{ $key };
+   # make an index, on-demand
+   my $indx = $self->[_INDX] ||
+   do {
+      my ( $i, %indx ) = ( 0 );
+      $indx{ $_ } = $i++ for @{ $self->[_KEYS] };
+      $self->[_INDX] = \%indx;
+   };
 
-      # fill index on-demand; place tombstone
-      $self->_fill_indx(), $id = delete $indx->{ $key } if !defined $id;
-      $keys->[ $id - $self->[_BEGI] ] = _TOMBSTONE;
+   # fill the index, on-demand
+   my $id = delete $indx->{ $key } //
+   do {
+      # from end of list
+      ( exists $indx->{ $keys->[-1] } ) ? undef : do {
+         my $i = $self->[_BEGI] + $#{ $keys };
+         for my $k ( reverse @{ $keys } ) {
+            if ( !ref $k ) {
+               last if exists $indx->{ $k };
+               $indx->{ $k } = $i;
+            }
+            $i--;
+         }
+         delete $indx->{ $key };
+      };
+   } //
+   do {
+      # from start of list
+      my $i = $self->[_BEGI];
+      for my $k ( @{ $keys } ) {
+         if ( !ref $k ) {
+            last if exists $indx->{ $k };
+            $indx->{ $k } = $i;
+         }
+         $i++;
+      }
+      delete $indx->{ $key };
+   };
 
-      # GC keys if more than half are tombstone
-      $self->purge() if ++$self->[_GCNT] > ( @{ $keys } >> 1 );
+   # place tombstone
+   $keys->[ $id - $self->[_BEGI] ] = _TOMBSTONE;
+
+   # GC keys/indx if more than half are tombstone
+   if ( ++$self->[_GCNT] > ( @{ $keys } >> 1 ) ) {
+      my $i = 0;
+      for my $k ( @{ $keys } ) {
+         $keys->[ $i ] = $k, $indx->{ $k } = $i++ unless ref($k);
+      }
+      $self->[_BEGI] = $self->[_GCNT] = 0;
+      splice @{ $keys }, $i;
    }
 
    delete $self->[_DATA]{ $key };
@@ -180,8 +224,8 @@ sub EXISTS {
 sub CLEAR {
    my ( $self ) = @_;
 
-   %{ $self->[_DATA] } = @{ $self->[_KEYS] } = ( ),
-      $self->[_BEGI]   =    $self->[_GCNT]   =  0 ,
+   %{ $self->[_DATA] } = @{ $self->[_KEYS] } = ( );
+      $self->[_BEGI]   =    $self->[_GCNT]   =  0 ;
       $self->[_INDX]   = undef;
 
    delete $self->[_ITER] if defined $self->[_ITER];
@@ -204,9 +248,10 @@ sub SCALAR {
 # POP ( )
 
 sub POP {
-   my ( $self ) = @_;
+   my $self = shift;
    my $keys = $self->[_KEYS];
    my $key  = pop @{ $keys };
+
    return unless defined $key;
 
    if ( $self->[_INDX] ) {
@@ -214,7 +259,8 @@ sub POP {
 
       # GC end of list
       if ( ref $keys->[-1] ) {
-         my $i = $#{ $keys } - 1; $i-- while ( ref $keys->[$i] );
+         my $i = $#{ $keys } - 1;
+         $i-- while ( ref $keys->[$i] );
          $self->[_GCNT] -= $#{ $keys } - $i;
          splice @{ $keys }, $i + 1;
       }
@@ -244,9 +290,10 @@ sub PUSH {
 # SHIFT ( )
 
 sub SHIFT {
-   my ( $self ) = @_;
+   my $self = shift;
    my $keys = $self->[_KEYS];
    my $key  = shift @{ $keys };
+
    return unless defined $key;
 
    if ( $self->[_INDX] ) {
@@ -254,7 +301,8 @@ sub SHIFT {
 
       # GC start of list
       if ( ref $keys->[0] ) {
-         my $i = 1; $i++ while ( ref $keys->[$i] );
+         my $i = 1;
+         $i++ while ( ref $keys->[$i] );
          $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
          splice @{ $keys }, 0, $i;
       }
@@ -315,57 +363,6 @@ sub SPLICE {
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Private methods.
-##
-###############################################################################
-
-# Create / fill index with ( key => id ) pairs.
-
-sub _make_indx {
-   my ( $self, $i, %indx ) = ( shift, 0 );
-
-   $indx{ $_ } = $i++ for @{ $self->[_KEYS] };
-
-   $self->[_BEGI] = 0;
-   $self->[_INDX] = \%indx;
-}
-
-sub _fill_indx {
-   my ( $self ) = @_;
-   my ( $keys, $indx ) = ( $self->[_KEYS], $self->[_INDX] );
-   return $self->_make_indx() unless defined $indx;
-
-   my ( $left, $right ) = @{ $indx }{ @{ $keys }[ 0, -1 ] };
-
-   if ( !defined $left ) {
-      my ( $pos, $id, $key ) = ( 0, $self->[_BEGI] );
-      for ( 1 .. @{ $keys } ) {
-         $key = $keys->[ $pos ];
-         if ( !ref $key ) {
-            last if exists $indx->{ $key };
-            $indx->{ $key } = $id;
-         }
-         $pos++, $id++;
-      }
-   }
-
-   if ( !defined $right ) {
-      my ( $pos, $id, $key ) = ( -1, $self->[_BEGI] + $#{ $keys } );
-      for ( 1 .. @{ $keys } ) {
-         $key = $keys->[ $pos ];
-         if ( !ref $key ) {
-            last if exists $indx->{ $key };
-            $indx->{ $key } = $id;
-         }
-         $pos--, $id--;
-      }
-   }
-
-   return;
-}
-
-###############################################################################
-## ----------------------------------------------------------------------------
 ## _find, clone, flush, iterator, keys, pairs, values
 ##
 ###############################################################################
@@ -395,9 +392,7 @@ sub _find {
    my $params = ref($_[0]) eq 'HASH' ? shift : {};
    my $query  = shift;
 
-   MCE::Shared::Base::_find_hash(
-      $self->[_DATA], $params, $query, $self
-   );
+   MCE::Shared::Base::_find_hash( $self->[_DATA], $params, $query, $self );
 }
 
 # clone ( key [, key, ... ] )
@@ -586,20 +581,19 @@ sub mset {
 
 sub purge {
    my ( $self ) = @_;
+   my ( $i, $keys ) = ( 0, $self->[_KEYS] );
 
-   # Purges TOMBSTONES in-place for lesser memory consumption.
+   # TOMBSTONES, purge in-place to minimize memory consumption.
 
-   if ( $self->[_INDX] ) {
-      my ( $i, $keys ) = ( 0, $self->[_KEYS] );
-      $self->[_INDX] = undef, $self->[_BEGI] = $self->[_GCNT] = 0;
-
-      for ( 0 .. @{ $keys } - 1 ) {
-         next if ( ref $keys->[$_] );
-         $keys->[ $i++ ] = $keys->[$_];
+   if ( $self->[_GCNT] ) {
+      for my $key ( @{ $keys } ) {
+         $keys->[ $i++ ] = $key unless ref($key);
       }
-
       splice @{ $keys }, $i;
    }
+
+   $self->[_BEGI] = $self->[_GCNT] = 0;
+   $self->[_INDX] = undef;
 
    return;
 }
@@ -670,8 +664,11 @@ sub sort {
 }
 
 sub _reorder {
-   my $self = shift; @{ $self->[_KEYS] } = @_;
-   $self->[_INDX] = undef, $self->[_BEGI] = $self->[_GCNT] = 0;
+   my $self = shift;
+   @{ $self->[_KEYS] } = @_;
+
+   $self->[_BEGI] = $self->[_GCNT] = 0;
+   $self->[_INDX] = undef;
 
    return;
 }
@@ -685,28 +682,72 @@ sub _reorder {
 # append ( key, string )
 
 sub append {
-   $_[0]->[_DATA]{ $_[1] } .= $_[2] || '';
-   length $_[0]->[_DATA]{ $_[1] };
+   my ( $self, $key ) = @_;
+   push @{ $self->[_KEYS] }, "$key" unless exists $self->[_DATA]{ $key };
+
+   $self->[_DATA]{ $key } .= $_[2] || '';
+
+   length $self->[_DATA]{ $key };
 }
 
-# decr    ( key )
-# decrby  ( key, number )
-# incr    ( key )
-# incrby  ( key, number )
+# decr ( key )
+
+sub decr {
+   my ( $self, $key ) = @_;
+   push @{ $self->[_KEYS] }, "$key" unless exists $self->[_DATA]{ $key };
+
+   --$self->[_DATA]{ $key };
+}
+
+# decrby ( key, number )
+
+sub decrby {
+   my ( $self, $key ) = @_;
+   push @{ $self->[_KEYS] }, "$key" unless exists $self->[_DATA]{ $key };
+
+   $self->[_DATA]{ $key } -= $_[2] || 0;
+}
+
+# incr ( key )
+
+sub incr {
+   my ( $self, $key ) = @_;
+   push @{ $self->[_KEYS] }, "$key" unless exists $self->[_DATA]{ $key };
+
+   ++$self->[_DATA]{ $key };
+}
+
+# incrby ( key, number )
+
+sub incrby {
+   my ( $self, $key ) = @_;
+   push @{ $self->[_KEYS] }, "$key" unless exists $self->[_DATA]{ $key };
+
+   $self->[_DATA]{ $key } += $_[2] || 0;
+}
+
 # getdecr ( key )
+
+sub getdecr {
+   my ( $self, $key ) = @_;
+   push @{ $self->[_KEYS] }, "$key" unless exists $self->[_DATA]{ $key };
+
+   $self->[_DATA]{ $key }-- || 0;
+}
+
 # getincr ( key )
 
-sub decr    { --$_[0]->[_DATA]{ $_[1] }               }
-sub decrby  {   $_[0]->[_DATA]{ $_[1] } -= $_[2] || 0 }
-sub incr    { ++$_[0]->[_DATA]{ $_[1] }               }
-sub incrby  {   $_[0]->[_DATA]{ $_[1] } += $_[2] || 0 }
-sub getdecr {   $_[0]->[_DATA]{ $_[1] }--        || 0 }
-sub getincr {   $_[0]->[_DATA]{ $_[1] }++        || 0 }
+sub getincr {
+   my ( $self, $key ) = @_;
+   push @{ $self->[_KEYS] }, "$key" unless exists $self->[_DATA]{ $key };
+
+   $self->[_DATA]{ $key }++ || 0;
+}
 
 # getset ( key, value )
 
 sub getset {
-   my ( $self, $key ) = @_;  # $_[2] is not copied in case it's large
+   my ( $self, $key ) = @_;
    push @{ $self->[_KEYS] }, "$key" unless exists $self->[_DATA]{ $key };
 
    my $old = $self->[_DATA]{ $key };
@@ -766,7 +807,7 @@ MCE::Shared::Ordhash - Ordered-hash helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Ordhash version 1.699_010
+This document describes MCE::Shared::Ordhash version 1.699_011
 
 =head1 SYNOPSIS
 
@@ -1050,7 +1091,28 @@ Increments the value of a key by the given number and returns its new value.
 
 =head1 CREDITS
 
-The implementation is inspired by L<Hash::Ordered|Hash::Ordered>.
+This ordered hash implementation is inspired by L<Hash::Ordered> v0.009.
+
+It adds C<splice>, sorting, plus extra capabilities for use with L<MCE::Hobo>
+and L<MCE::Shared::Minidb>. The tombstone deletion is further optimized to not
+impact C<store>, C<push>, C<unshift>, and C<merge>. Tombstones are purged
+in-place for overall lesser memory consumption.
+
+Finally, minimized overhead in C<pop> and C<shift> when an index is present.
+This optimization also applies to forward and reverse deletes.
+
+Both C<Hash::Ordered> and C<MCE::Shared::Ordhash> are supported for use with
+C<MCE::Shared>.
+
+=head1 MOTIVATION
+
+I wanted an ordered hash implementation for use with MCE::Shared without
+any side effects such as linear scans, slow deletes, or excessive memory
+consumption. The L<Hash::Ordered> module passes. Thank you, David Golden.
+
+MCE::Shared has one shared-manager process which is by design. Therefore,
+extra measures were taken to further reduce or eradicate remaining side
+effects. This resulted in C<MCE::Shared::Ordhash>.
 
 =head1 INDEX
 
