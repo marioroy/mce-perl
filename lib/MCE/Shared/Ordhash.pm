@@ -51,8 +51,6 @@ use overload (
    fallback => 1
 );
 
-no overloading;
-
 ###############################################################################
 ## ----------------------------------------------------------------------------
 ## TIEHASH, STORE, FETCH, DELETE, FIRSTKEY, NEXTKEY, EXISTS, CLEAR, SCALAR
@@ -101,20 +99,17 @@ sub DELETE {
    # check the first key
    if ( $key eq $keys->[0] ) {
       shift @{ $keys };
+      $self->[_BEGI]++, delete $self->[_INDX]{ $key } if $self->[_INDX];
 
-      if ( $self->[_INDX] ) {
-         $self->[_BEGI]++, delete $self->[_INDX]{ $key };
-
-         # GC start of list
-         if ( ref $keys->[0] ) {
-            my $i = 1;
-            $i++ while ( ref $keys->[$i] );
-            $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
-            splice @{ $keys }, 0, $i;
-         }
-
-         $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
+      # GC start of list
+      if ( ref $keys->[0] ) {
+         my $i = 1;
+         $i++ while ( ref $keys->[$i] );
+         $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
+         splice @{ $keys }, 0, $i;
       }
+
+      $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
 
       return delete $self->[_DATA]{ $key };
    }
@@ -122,20 +117,17 @@ sub DELETE {
    # perhaps the last key
    elsif ( $key eq $keys->[-1] ) {
       pop @{ $keys };
+      delete $self->[_INDX]{ $key } if $self->[_INDX];
 
-      if ( $self->[_INDX] ) {
-         delete $self->[_INDX]{ $key };
-
-         # GC end of list
-         if ( ref $keys->[-1] ) {
-            my $i = $#{ $keys } - 1;
-            $i-- while ( ref $keys->[$i] );
-            $self->[_GCNT] -= $#{ $keys } - $i;
-            splice @{ $keys }, $i + 1;
-         }
-
-         $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
+      # GC end of list
+      if ( ref $keys->[-1] ) {
+         my $i = $#{ $keys } - 1;
+         $i-- while ( ref $keys->[$i] );
+         $self->[_GCNT] -= $#{ $keys } - $i;
+         splice @{ $keys }, $i + 1;
       }
+
+      $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
 
       return delete $self->[_DATA]{ $key };
    }
@@ -275,7 +267,7 @@ sub POP {
 
 sub PUSH {
    my $self = shift;
-   my ( $data, $keys ) = @$self;
+   my ( $data, $keys ) = @{ $self };
 
    while ( @_ ) {
       my ( $key, $val ) = splice( @_, 0, 2 );
@@ -317,7 +309,7 @@ sub SHIFT {
 
 sub UNSHIFT {
    my $self = shift;
-   my ( $data, $keys ) = @$self;
+   my ( $data, $keys ) = @{ $self };
 
    while ( @_ ) {
       my ( $key, $val ) = splice( @_, -2, 2 );
@@ -333,7 +325,7 @@ sub UNSHIFT {
 
 sub SPLICE {
    my ( $self, $off ) = ( shift, shift );
-   my ( $data, $keys, $indx ) = @$self;
+   my ( $data, $keys, $indx ) = @{ $self };
    return () unless defined $off;
 
    $self->purge() if $indx;
