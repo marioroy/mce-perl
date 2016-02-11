@@ -18,8 +18,6 @@ our $VERSION = '1.699_011';
 use Scalar::Util qw( looks_like_number );
 use bytes;
 
-no overloading;
-
 ###############################################################################
 ## ----------------------------------------------------------------------------
 ## Find.     ** do not remove *numeric* from no warnings above **

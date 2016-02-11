@@ -24,8 +24,6 @@ use overload (
    fallback => 1
 );
 
-no overloading;
-
 # Based on Tie::StdScalar from Tie::Scalar.
 
 sub TIESCALAR {

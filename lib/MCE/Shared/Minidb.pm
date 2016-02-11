@@ -25,8 +25,6 @@ use overload (
    fallback => 1
 );
 
-no overloading;
-
 sub new {
    # Parallel Hashes: [ HoH, HoA ]
    bless [
