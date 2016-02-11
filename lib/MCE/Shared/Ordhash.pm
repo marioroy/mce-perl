@@ -133,7 +133,7 @@ sub DELETE {
       return delete $self->[_DATA]{ $key };
    }
 
-   # make an index, on-demand
+   # make index, on-demand
    my $indx = $self->[_INDX] ||
    do {
       my ( $i, %indx ) = ( 0 );
@@ -141,7 +141,7 @@ sub DELETE {
       $self->[_INDX] = \%indx;
    };
 
-   # fill the index, on-demand
+   # fill index, on-demand
    my $id = delete $indx->{ $key } //
    do {
       ( exists $indx->{ $keys->[-1] } ) ? undef : do {
