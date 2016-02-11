@@ -92,9 +92,10 @@ sub FETCH {
 
 sub DELETE {
    my ( $self, $key ) = @_;
-   my $keys = $self->[_KEYS];
 
    return undef if ( !exists $self->[_DATA]{ $key } );
+
+   my $keys = $self->[_KEYS];
 
    # check the first key
    if ( $key eq $keys->[0] ) {
@@ -143,15 +144,13 @@ sub DELETE {
    # fill the index, on-demand
    my $id = delete $indx->{ $key } //
    do {
-      # from end of list
       ( exists $indx->{ $keys->[-1] } ) ? undef : do {
+         # from end of list
          my $i = $self->[_BEGI] + $#{ $keys };
          for my $k ( reverse @{ $keys } ) {
-            if ( !ref $k ) {
-               last if exists $indx->{ $k };
-               $indx->{ $k } = $i;
-            }
-            $i--;
+            $i--, next if ref( $k );
+            last if exists $indx->{ $k };
+            $indx->{ $k } = $i--;
          }
          delete $indx->{ $key };
       };
@@ -160,11 +159,9 @@ sub DELETE {
       # from start of list
       my $i = $self->[_BEGI];
       for my $k ( @{ $keys } ) {
-         if ( !ref $k ) {
-            last if exists $indx->{ $k };
-            $indx->{ $k } = $i;
-         }
-         $i++;
+         $i++, next if ref( $k );
+         last if exists $indx->{ $k };
+         $indx->{ $k } = $i++;
       }
       delete $indx->{ $key };
    };
@@ -176,7 +173,7 @@ sub DELETE {
    if ( ++$self->[_GCNT] > ( @{ $keys } >> 1 ) ) {
       my $i = 0;
       for my $k ( @{ $keys } ) {
-         $keys->[ $i ] = $k, $indx->{ $k } = $i++ unless ref($k);
+         $keys->[ $i ] = $k, $indx->{ $k } = $i++ unless ref( $k );
       }
       $self->[_BEGI] = $self->[_GCNT] = 0;
       splice @{ $keys }, $i;
@@ -579,7 +576,7 @@ sub purge {
 
    if ( $self->[_GCNT] ) {
       for my $key ( @{ $keys } ) {
-         $keys->[ $i++ ] = $key unless ref($key);
+         $keys->[ $i++ ] = $key unless ref( $key );
       }
       splice @{ $keys }, $i;
    }
