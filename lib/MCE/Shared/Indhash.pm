@@ -894,15 +894,21 @@ This document describes MCE::Shared::Indhash version 1.699_011
 
 =head1 DESCRIPTION
 
+MCE::Shared provides two ordered hash implementations.
+
 This module implements an ordered hash featuring a doubly-linked list,
-inspired by the L<Tie::Hash::Indexed> (XS) module. Key insertion order is
-preserved.
+inspired by the L<Tie::Hash::Indexed> (XS) module. An ordered hash means
+that the key insertion order is preserved.
 
-It provides extra capabilities for use with L<MCE::Hobo>. The usage pattern
-in C<MCE::Hobo> involving random hash deletion performs better with this
-module when compared to L<MCE::Shared::Ordhash>.
+An ordered hash sensitive to hash deletion will likely run faster from a
+doubly-linked list implementation. That is the case seen with L<MCE::Hobo>.
 
-The two ordered hash implementations are 100% compatible otherwise.
+The nature of maintaining a circular list means extra memory consumption
+by Perl itself. Typically, this is not a problem for thousands of key-value
+pairs. See L<MCE::Shared::Ordhash> if lesser memory consumption is desired.
+
+Both this module and C<MCE::Shared::Ordhash> may be used interchangeably.
+Only the underlying implementation differs between the two.
 
 =head1 QUERY STRING
 
@@ -1100,20 +1106,6 @@ Increments the value of a key by the given number and returns its new value.
 =head1 CREDITS
 
 The implementation is inspired by L<Tie::Hash::Indexed>.
-
-=head1 MOTIVATION
-
-Not all usage patterns are the same. Applications sensitive to hash deletion
-will run faster with a doubly-linked list implementation when compared to
-tombstone deletion in L<MCE::Shared::Ordhash>. That was the case seen with
-L<MCE::Hobo>.
-
-Use C<MCE::Shared::Ordhash> if storing 100,000 or more key-value pairs for
-lesser memory consumption. Use C<MCE::Shared::Indhash> for lesser overhead
-involving hash deletion.
-
-To this day do not know which I like better. Thus, the reason for including
-both with C<MCE::Shared>.
 
 =head1 INDEX
 

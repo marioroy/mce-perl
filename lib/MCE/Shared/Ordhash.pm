@@ -884,17 +884,25 @@ This document describes MCE::Shared::Ordhash version 1.699_011
 
 =head1 DESCRIPTION
 
-This module implements an ordered hash featuring tombstone deletion, inspired
-by the L<Hash::Ordered> module. Key insertion order is preserved.
+MCE::Shared provides two ordered hash implementations.
 
-It provides extra capabilities for use with L<MCE::Shared::Minidb>. Tombstone
-deletion is further optimized to not impact C<store>, C<push>, C<unshift>, and
-C<merge>. Tombstones are purged in-place for lesser memory consumption.
+This module implements an ordered hash featuring tombstone deletion,
+inspired by the L<Hash::Ordered> module. An ordered hash means that
+the key insertion order is preserved.
 
-In addition, minimized overhead around C<pop> and C<shift> when an index is
-present. The optimization also applies to forward and reverse deletes.
+It provides C<splice>, sorting, plus extra capabilities for use with
+L<MCE::Shared::Minidb>. Tombstone deletion is further optimized to not
+impact C<store>, C<push>, C<unshift>, and C<merge>. Tombstones are
+purged in-place for lesser memory consumption.
 
-This class is 100% compatible with L<MCE::Shared::Indhash>.
+In addition, C<pop> and C<shift> run optimally when an index is present.
+The optimization also applies to forward and reverse deletes.
+
+Applications sensitive to hash deletion may prefer L<MCE::Shared::Indhash>,
+a doubly-linked list implementation.
+
+Both this module and C<MCE::Shared::Indhash> may be used interchangeably.
+Only the underlying implementation differs between the two.
 
 =head1 QUERY STRING
 
@@ -1097,15 +1105,15 @@ The implementation is inspired by L<Hash::Ordered> v0.009.
 
 I wanted an ordered hash implementation for use with MCE::Shared without
 any side effects such as linear scans, slow deletes, or excessive memory
-consumption. The closest module on CPAN to pass in this regard is
-L<Hash::Ordered> by David Golden.
+consumption. A module on CPAN to pass in this regard is L<Hash::Ordered>
+by David Golden.
 
 MCE::Shared has one shared-manager process which is by design. Therefore,
-extra measures were taken to further reduce or eradicate any remaining side
-effects. This resulted in C<MCE::Shared::Ordhash>.
+extra measures were taken to further reduce any remaining side effects.
+I forwarded all findings along the way to David.
 
-Applications sensitive to hash deletion may prefer L<MCE::Shared::Indhash>,
-a doubly-linked list implementation.
+This module differs in personality mainly for compatibilty with other
+C<hash> classes included with MCE::Shared.
 
 =head1 INDEX
 
