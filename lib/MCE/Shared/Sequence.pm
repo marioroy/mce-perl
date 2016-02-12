@@ -158,7 +158,7 @@ This document describes MCE::Shared::Sequence version 1.699_011
 
 =head1 DESCRIPTION
 
-A number sequence class for L<MCE::Shared|MCE::Shared>.
+A number sequence class for L<MCE::Shared>.
 
 =head1 API DOCUMENTATION
 
@@ -210,7 +210,7 @@ initial value back to the value held by C<begin>.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

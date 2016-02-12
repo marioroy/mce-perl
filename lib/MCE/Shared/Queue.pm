@@ -666,11 +666,11 @@ This document describes MCE::Shared::Queue version 1.699_011
 
 =head1 DESCRIPTION
 
-Helper class for L<MCE::Shared|MCE::Shared>.
+Helper class for L<MCE::Shared>.
 
-This module is mostly compatible with L<MCE::Queue|MCE::Queue> except for the
-C<gather> option which is not supported in this context. It provides a queue
-interface supporting normal and priority queues.
+This module is mostly compatible with L<MCE::Queue> except for the C<gather>
+option which is not supported in this context. It provides a queue interface
+supporting normal and priority queues.
 
 Data from shared queues reside under the shared-manager process, otherwise
 locally.
@@ -908,21 +908,21 @@ numbers, not the data.
 
 =over 3
 
-=item L<List::BinarySearch|List::BinarySearch>
+=item L<List::BinarySearch>
 
 The bsearch_num_pos method was helpful for accommodating the highest and lowest
 order in MCE::Shared::Queue.
 
-=item L<POE::Queue::Array|POE::Queue::Array>
+=item L<POE::Queue::Array>
 
 For extra optimization, two if statements were adopted for checking if the item
 belongs at the end or head of the queue.
 
-=item L<List::Priority|List::Priority>
+=item L<List::Priority>
 
 MCE::Shared::Queue supports both normal and priority queues.
 
-=item L<Thread::Queue|Thread::Queue>
+=item L<Thread::Queue>
 
 Thread::Queue is used as a template for identifying and documenting the methods.
 
@@ -941,7 +941,7 @@ queues simultaneously; e.g.
 
 =head1 LIMITATION
 
-Perl must have the L<IO::FDPass|IO::FDPass> module installed for constructing
+Perl must have the L<IO::FDPass> module installed for constructing
 a shared C<queue> or C<condvar> while the shared-manager process is running.
 
 For platforms where C<IO::FDPass> is not feasible, construct C<queues> or
@@ -957,7 +957,7 @@ until sharing other classes or explictly starting the process.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

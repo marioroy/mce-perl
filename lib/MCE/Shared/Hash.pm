@@ -391,7 +391,7 @@ This document describes MCE::Shared::Hash version 1.699_011
 
 =head1 DESCRIPTION
 
-A hash helper class for use with L<MCE::Shared|MCE::Shared>.
+A hash helper class for use with L<MCE::Shared>.
 
 =head1 QUERY STRING
 
@@ -570,11 +570,11 @@ Increments the value of a key by the given number and returns its new value.
 
 =head1 CREDITS
 
-The implementation is inspired by L<Tie::StdHash|Tie::StdHash>.
+The implementation is inspired by L<Tie::StdHash>.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

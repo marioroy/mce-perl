@@ -178,7 +178,7 @@ This document describes MCE::Shared::Handle version 1.699_011
 
 =head1 DESCRIPTION
 
-Helper class for L<MCE::Shared|MCE::Shared>.
+Helper class for L<MCE::Shared>.
 
 =head1 API DOCUMENTATION
 
@@ -217,16 +217,16 @@ with C<reference> prior to starting the shared-manager process. Constructing a
 shared object C<{ Array, Handle, Hash, Minidb, Ordhash, Scalar, Sequence }>
 starts the manager process automatically.
 
-Perl must have the L<IO::FDPass|IO::FDPass> module installed for MCE::Shared to
-pass a C<file_descriptor> higher than 2 to the shared-manager process.
+Perl must have the L<IO::FDPass> module installed for C<MCE::Shared> to pass a
+C<file_descriptor> higher than 2 to the shared-manager process.
 
 =head1 CREDITS
 
-Implementation inspired by L<Tie::StdHandle|Tie::StdHandle>.
+Implementation inspired by L<Tie::StdHandle>.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

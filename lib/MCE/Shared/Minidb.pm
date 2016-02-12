@@ -1179,9 +1179,9 @@ This document describes MCE::Shared::Minidb version 1.699_011
 
 =head1 DESCRIPTION
 
-A tiny in-memory NoSQL-like database for use with L<MCE::Shared|MCE::Shared>.
-Although several methods resemble the C<Redis> API, it is not the intent for
-this module to become 100% compatible with it.
+A tiny in-memory NoSQL-like database for use with L<MCE::Shared>. Although
+several methods resemble the C<Redis> API, it is not the intent for this
+module to become 100% compatible with it.
 
 This module was created mainly for having an efficient manner in which to
 manipulate hashes-of-hashes (HoH) and hashes-of-arrays (HoA) structures with
@@ -1574,7 +1574,7 @@ L<http://redis.io/commands>.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

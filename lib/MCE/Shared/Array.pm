@@ -493,7 +493,7 @@ This document describes MCE::Shared::Array version 1.699_011
 
 =head1 DESCRIPTION
 
-An array helper class for use with L<MCE::Shared|MCE::Shared>.
+An array helper class for use with L<MCE::Shared>.
 
 =head1 QUERY STRING
 
@@ -688,11 +688,11 @@ Increments the value of a key by the given number and returns its new value.
 
 =head1 CREDITS
 
-The implementation is inspired by L<Tie::StdArray|Tie::StdArray>.
+The implementation is inspired by L<Tie::StdArray>.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

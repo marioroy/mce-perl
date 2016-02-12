@@ -124,7 +124,7 @@ This document describes MCE::Shared::Scalar version 1.699_011
 
 =head1 DESCRIPTION
 
-Helper class for L<MCE::Shared|MCE::Shared>.
+Helper class for L<MCE::Shared>.
 
 =head1 API DOCUMENTATION
 
@@ -231,11 +231,11 @@ Increments the value by the given number and returns its new value.
 
 =head1 CREDITS
 
-The implementation is inspired by L<Tie::StdScalar|Tie::StdScalar>.
+The implementation is inspired by L<Tie::StdScalar>.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

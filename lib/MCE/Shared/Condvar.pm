@@ -160,8 +160,8 @@ This document describes MCE::Shared::Condvar version 1.699_011
 
 =head1 DESCRIPTION
 
-This helper class for L<MCE::Shared|MCE::Shared> provides a C<Scalar>, C<Mutex>,
-and primitives for conditional locking.
+This helper class for L<MCE::Shared> provides a C<Scalar>, C<Mutex>, and
+primitives for conditional locking.
 
 The following demonstrates barrier synchronization.
 
@@ -375,12 +375,12 @@ Increments the value by the given number and returns its new value.
 
 =head1 CREDITS
 
-The conditonal locking aspect is inspired by L<threads::shared|threads::shared>.
+The conditonal locking aspect is inspired by L<threads::shared>.
 
 =head1 LIMITATION
 
-Perl must have the L<IO::FDPass|IO::FDPass> module installed for constructing
-a shared C<queue> or C<condvar> while the shared-manager process is running.
+Perl must have the L<IO::FDPass> module installed for constructing a shared
+C<queue> or C<condvar> while the shared-manager process is running.
 
 For platforms where C<IO::FDPass> is not feasible, construct C<queues> or
 C<condvars> first before other classes. The shared-manager process is delayed
@@ -395,7 +395,7 @@ until sharing other classes or explictly starting the process.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 
