@@ -2,10 +2,10 @@
 ## ----------------------------------------------------------------------------
 ## Ordered-hash helper class.
 ##
-## An optimized ordered hash implementation inspired by Hash::Ordered v0.009.
+## An optimized, pure-Perl ordered hash implementation featuring tombstone
+## deletion, inspired by the Hash::Ordered v0.009 module.
 ##
-## 1. Added splice, sorting, plus extra capabilities for use with MCE::Hobo
-##    and MCE::Shared::Minidb.
+## 1. Added splice, sorting, plus extra capabilities for use with MCE::Shared.
 ##
 ## 2. Revised tombstone deletion to not impact store, push, unshift, and merge.
 ##    Tombstones are purged in-place for overall lesser memory consumption.
@@ -93,9 +93,7 @@ sub FETCH {
 
 sub DELETE {
    my ( $self, $key ) = @_;
-
    return undef if ( !exists $self->[_DATA]{ $key } );
-
    my $keys = $self->[_KEYS];
 
    # check the first key
@@ -103,9 +101,8 @@ sub DELETE {
       shift @{ $keys };
       $self->[_BEGI]++, delete $self->[_INDX]{ $key } if $self->[_INDX];
 
-      # GC start of list
       if ( ref $keys->[0] ) {
-         my $i = 1;
+         my $i = 1;                 # GC start of list
          $i++ while ( ref $keys->[$i] );
          $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
          splice @{ $keys }, 0, $i;
@@ -121,9 +118,8 @@ sub DELETE {
       pop @{ $keys };
       delete $self->[_INDX]{ $key } if $self->[_INDX];
 
-      # GC end of list
       if ( ref $keys->[-1] ) {
-         my $i = $#{ $keys } - 1;
+         my $i = $#{ $keys } - 1;   # GC end of list
          $i-- while ( ref $keys->[$i] );
          $self->[_GCNT] -= $#{ $keys } - $i;
          splice @{ $keys }, $i + 1;
@@ -134,43 +130,43 @@ sub DELETE {
       return delete $self->[_DATA]{ $key };
    }
 
-   # make index, on-demand
+   # make an index, on-demand
    my $indx = $self->[_INDX] ||
-   do {
-      my ( $i, %indx ) = ( 0 );
-      $indx{ $_ } = $i++ for @{ $self->[_KEYS] };
-      $self->[_INDX] = \%indx;
-   };
-
-   # fill index, on-demand
-   my $id = delete $indx->{ $key } //
-   do {
-      ( exists $indx->{ $keys->[-1] } ) ? undef : do {
-         # from end of list
-         my $i = $self->[_BEGI] + $#{ $keys };
-         for my $k ( reverse @{ $keys } ) {
-            $i--, next if ref( $k );
-            last if exists $indx->{ $k };
-            $indx->{ $k } = $i--;
-         }
-         delete $indx->{ $key };
+      do {
+         my ( $i, %indx ) = ( 0 );
+         $indx{ $_ } = $i++ for @{ $self->[_KEYS] };
+         $self->[_INDX] = \%indx;
       };
-   } //
-   do {
-      # from start of list
-      my $i = $self->[_BEGI];
-      for my $k ( @{ $keys } ) {
-         $i++, next if ref( $k );
-         last if exists $indx->{ $k };
-         $indx->{ $k } = $i++;
-      }
-      delete $indx->{ $key };
-   };
+
+   # fill the index, on-demand
+   my $id = delete $indx->{ $key } //
+      do {
+         ( exists $indx->{ $keys->[-1] } ) ? undef : do {
+            # from end of list
+            my $i = $self->[_BEGI] + $#{ $keys };
+            for my $k ( reverse @{ $keys } ) {
+               $i--, next if ref( $k );
+               last if exists $indx->{ $k };
+               $indx->{ $k } = $i--;
+            }
+            delete $indx->{ $key };
+         };
+      } //
+         do {
+            # from start of list
+            my $i = $self->[_BEGI];
+            for my $k ( @{ $keys } ) {
+               $i++, next if ref( $k );
+               last if exists $indx->{ $k };
+               $indx->{ $k } = $i++;
+            }
+            delete $indx->{ $key };
+         };
 
    # place tombstone
    $keys->[ $id - $self->[_BEGI] ] = _TOMBSTONE;
 
-   # GC keys/indx if more than half are tombstone
+   # GC keys and indx if more than half are tombstone
    if ( ++$self->[_GCNT] > ( @{ $keys } >> 1 ) ) {
       my $i = 0;
       for my $k ( @{ $keys } ) {
@@ -247,9 +243,8 @@ sub POP {
    if ( $self->[_INDX] ) {
       delete $self->[_INDX]{ $key };
 
-      # GC end of list
       if ( ref $keys->[-1] ) {
-         my $i = $#{ $keys } - 1;
+         my $i = $#{ $keys } - 1;   # GC end of list
          $i-- while ( ref $keys->[$i] );
          $self->[_GCNT] -= $#{ $keys } - $i;
          splice @{ $keys }, $i + 1;
@@ -289,9 +284,8 @@ sub SHIFT {
    if ( $self->[_INDX] ) {
       $self->[_BEGI]++, delete $self->[_INDX]{ $key };
 
-      # GC start of list
       if ( ref $keys->[0] ) {
-         my $i = 1;
+         my $i = 1;                 # GC start of list
          $i++ while ( ref $keys->[$i] );
          $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
          splice @{ $keys }, 0, $i;
