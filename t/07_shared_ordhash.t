@@ -592,8 +592,8 @@ cmp_array(
    'shared ordhash, check rewind 3'
 );
 
-is( $h5->mexists(qw/ 0 2 3 /),  1, 'shared hash, check mexists 1' );
-is( $h5->mexists(qw/ 0 8 3 /), '', 'shared hash, check mexists 2' );
+is( $h5->mexists(qw/ 0 2 3 /),  1, 'shared ordhash, check mexists 1' );
+is( $h5->mexists(qw/ 0 8 3 /), '', 'shared ordhash, check mexists 2' );
 
-is( $h5->mdel(qw/ 3 2 1 0 /), 4, 'shared hash, check mdel' );
+is( $h5->mdel(qw/ 3 2 1 0 /), 4, 'shared ordhash, check mdel' );
 

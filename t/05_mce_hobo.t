@@ -3,42 +3,44 @@
 use strict;
 use warnings;
 
-use Test::More tests => 18;
+use Test::More tests => 19;
 use MCE::Hobo;
 use Time::HiRes qw( sleep );
 
 {
    my ( $cnt, @procs, @list, %ret );
 
-   ok( 1, "ditto, spawning asynchronously" );
+   ok( 1, "spawning asynchronously" );
 
    push @procs, MCE::Hobo->new( sub { sleep 2; MCE::Hobo->tid } ) for 1 .. 3;
 
    @list = MCE::Hobo->list_running;
-   is ( scalar @list, 3, 'ditto, check list_running' );
+   is ( scalar @list, 3, 'check list_running' );
 
    @list = MCE::Hobo->list_joinable;
-   is ( scalar @list, 0, 'ditto, check list_joinable' );
+   is ( scalar @list, 0, 'check list_joinable' );
 
    @list = MCE::Hobo->list;
-   is ( scalar @list, 3, 'ditto, check list' );
+   is ( scalar @list, 3, 'check list' );
+
+   is ( MCE::Hobo->pending, 3, 'check pending' );
 
    $cnt = 0;
 
    for ( @list ) {
       ++$cnt;
-      is ( $_->is_running, 1, 'ditto, check is_running process'.$cnt );
-      is ( $_->is_joinable, '', 'ditto, check is_joinable process'.$cnt );
+      is ( $_->is_running, 1, 'check is_running process'.$cnt );
+      is ( $_->is_joinable, '', 'check is_joinable process'.$cnt );
    }
 
    $cnt = 0;
 
    for ( @list ) {
       ++$cnt; $ret{ $_->join } = 1;
-      is ( $_->error, undef, 'ditto, check error process'.$cnt );
+      is ( $_->error, undef, 'check error process'.$cnt );
    }
 
-   is ( scalar keys %ret, 3, 'ditto, check unique tid value' );
+   is ( scalar keys %ret, 3, 'check unique tid value' );
 }
 
 {
@@ -54,9 +56,9 @@ use Time::HiRes qw( sleep );
 
    for ( @procs ) {
       ++$cnt;
-      is ( $_->join, undef, 'ditto, check exit process'.$cnt );
+      is ( $_->join, undef, 'check exit process'.$cnt );
    }
 }
 
-is ( MCE::Hobo->finish(), undef, 'ditto, check finish' );
+is ( MCE::Hobo->finish(), undef, 'check finish' );
 
