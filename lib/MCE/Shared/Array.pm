@@ -692,7 +692,7 @@ The implementation is inspired by L<Tie::StdArray>.
 
 =head1 INDEX
 
-L<MCE>, L<MCE::Core>, L<MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

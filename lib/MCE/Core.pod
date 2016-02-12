@@ -1350,8 +1350,7 @@ Methods listed below are callable by the main process only.
 =head2 $mce->forseq ( $sequence_spec [, { options } ], sub { ... } )
 
 Forchunk, foreach, and forseq are sugar methods and described in
-L<MCE::Candy|MCE::Candy>. Stubs exist in MCE which load MCE::Candy
-automatically.
+L<MCE::Candy>. Stubs exist in MCE which load MCE::Candy automatically.
 
 =head2 $mce->process ( $input_data [, { options } ] )
 
@@ -1413,7 +1412,7 @@ Do the following if wanting workers to persist between jobs.
 
 =head2 $mce->relay_final ( void )
 
-Desribed in L<MCE::Relay|MCE::Relay>.
+Desribed in L<MCE::Relay>.
 
 =head2 $mce->restart_worker ( void )
 
@@ -1632,8 +1631,7 @@ or on_post_run options for callback support.
 =head2 $mce->gather ( $arg1, [, $arg2, ... ] )
 
 A worker can submit data to the location specified via the gather option by
-calling this method. See L<MCE::Flow|MCE::Flow> and L<MCE::Loop|MCE::Loop>
-for additional use-case.
+calling this method. See L<MCE::Flow> and L<MCE::Loop> for additional use-case.
 
    use MCE;
 
@@ -1801,7 +1799,7 @@ reference.
 
 =head2 $mce->relay_recv ( void )
 
-Desribed in L<MCE::Relay|MCE::Relay>.
+Desribed in L<MCE::Relay>.
 
 =head2 $mce->sendto ( $to, $arg1, ... )
 
@@ -2113,7 +2111,7 @@ The interval.pl example above is included with MCE.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Shared|MCE::Shared>
+L<MCE|MCE>, L<MCE::Shared>
 
 =head1 AUTHOR
 

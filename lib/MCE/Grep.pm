@@ -494,10 +494,9 @@ otherwise -1.
 
    my @m3 = mce_grep_s { /[2357][1468][9]/ } 1, 1000000;  ## 0.165 secs
 
-Although this document is about MCE::Grep, the L<MCE::Stream|MCE::Stream>
-module can write results immediately without waiting for all chunks to
-complete. This is made possible by passing the reference to an array
-(in this case @m4 and @m5).
+Although this document is about MCE::Grep, the L<MCE::Stream> module can write
+results immediately without waiting for all chunks to complete. This is made
+possible by passing the reference to an array (in this case @m4 and @m5).
 
    use MCE::Stream default_mode => 'grep';
 
@@ -659,7 +658,7 @@ specified, is ignored due to being used internally by the module.
 =item mce_grep { code } iterator
 
 An iterator reference can by specified for input_data. Iterators are described
-under "SYNTAX for INPUT_DATA" at L<MCE::Core|MCE::Core>.
+under "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 
    my @a = mce_grep { $_ % 3 == 0 } make_iterator(10, 30, 2);
 
@@ -728,7 +727,7 @@ longer needed.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

@@ -374,7 +374,7 @@ This document describes MCE::Loop version 1.699_011
 This module provides a parallel loop implementation through Many-Core Engine.
 MCE::Loop is not MCE::Map but more along the lines of an easy way to spin up a
 MCE instance and have user_func pointing to your code block. If you want
-something similar to map, then see L<MCE::Map|MCE::Map>.
+something similar to map, then see L<MCE::Map>.
 
    ## Construction when chunking is not desired
 
@@ -590,7 +590,7 @@ possibilities of passing input data into the code block.
 =item mce_loop { code } iterator
 
 An iterator reference can by specified for input_data. Iterators are described
-under "SYNTAX for INPUT_DATA" at L<MCE::Core|MCE::Core>.
+under "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 
    mce_loop { $_ } make_iterator(10, 30, 2);
 
@@ -880,7 +880,7 @@ longer needed.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

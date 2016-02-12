@@ -482,11 +482,11 @@ In summary:
 =head1 ACKNOWLEDGEMENTS
 
 The portable code for detecting the number of processors was adopted from
-L<Test::Smoke::SysInfo|Test::Smoke::SysInfo>.
+L<Test::Smoke::SysInfo>.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

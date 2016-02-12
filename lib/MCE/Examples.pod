@@ -110,7 +110,7 @@ This does the same thing using the foreach "sugar" method.
    });
 
 The 2 examples described above were done using the Core API. MCE 1.5 comes
-with several models. The L<MCE::Loop|MCE::Loop> model is used below.
+with several models. The L<MCE::Loop> model is used below.
 
    use MCE::Loop;
 
@@ -221,7 +221,7 @@ This does the same thing using the forchunk "sugar" method.
       MCE->gather($chunk_id, \@n, \@result);
    });
 
-Finally, chunking with the L<MCE::Loop|MCE::Loop> model.
+Finally, chunking with the L<MCE::Loop> model.
 
    use MCE::Loop;
 
@@ -679,7 +679,7 @@ first come, first serve basis.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

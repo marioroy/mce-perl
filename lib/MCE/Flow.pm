@@ -621,7 +621,7 @@ an anonymous array for specifying the values uniquely per each sub-task.
 
 If speed is not a concern and wanting to rid of all the MCE->freeze and
 MCE->thaw statements, simply enqueue and dequeue 2 items at a time.
-Or better yet, see L<MCE::Step|MCE::Step> introduced in MCE 1.506.
+Or better yet, see L<MCE::Step> introduced in MCE 1.506.
 
 First, task_end must be updated. The number of undef(s) must match the number
 of workers times the dequeue count. Otherwise, the script will stall.
@@ -692,9 +692,8 @@ Finally, run as usual.
 
 =head1 SYNOPSIS when CHUNK_SIZE EQUALS 1
 
-Although L<MCE::Loop|MCE::Loop> may be preferred for running using a single
-code block, the text below also applies to this module, particularly for the
-first block.
+Although L<MCE::Loop> may be preferred for running using a single code block,
+the text below also applies to this module, particularly for the first block.
 
 All models in MCE default to 'auto' for chunk_size. The arguments for the block
 are the same as writing a user_func block using the Core API.
@@ -907,7 +906,7 @@ An iterator reference can by specified for input_data. The only other way
 is to specify input_data via MCE::Flow::init. This prevents MCE::Flow from
 configuring the iterator reference as another user task which will not work.
 
-Iterators are described under "SYNTAX for INPUT_DATA" at L<MCE::Core|MCE::Core>.
+Iterators are described under "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 
    MCE::Flow::init {
       input_data => iterator
@@ -1213,7 +1212,7 @@ longer needed.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

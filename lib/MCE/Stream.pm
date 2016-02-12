@@ -905,7 +905,7 @@ is to specify input_data via MCE::Stream::init. This prevents MCE::Stream
 from configuring the iterator reference as another user task which will
 not work.
 
-Iterators are described under "SYNTAX for INPUT_DATA" at L<MCE::Core|MCE::Core>.
+Iterators are described under "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 
    MCE::Stream::init {
       input_data => iterator
@@ -978,7 +978,7 @@ longer needed.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

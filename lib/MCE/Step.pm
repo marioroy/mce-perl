@@ -711,10 +711,10 @@ This document describes MCE::Step version 1.699_011
 
 =head1 DESCRIPTION
 
-MCE::Step is similar to L<MCE::Flow|MCE::Flow> for writing custom apps.
-The main difference comes from the transparent use of queues between
-sub-tasks. MCE 1.7 adds mce_enq, mce_enqp, and mce_await methods described
-under QUEUE-LIKE FEATURES below.
+MCE::Step is similar to L<MCE::Flow> for writing custom apps. The main
+difference comes from the transparent use of queues between sub-tasks.
+MCE 1.7 adds mce_enq, mce_enqp, and mce_await methods described under
+QUEUE-LIKE FEATURES below.
 
 It is trivial to parallelize with mce_stream shown below.
 
@@ -730,15 +730,15 @@ It is trivial to parallelize with mce_stream shown below.
         sub { $_ * 4 }, sub { $_ * 3 }, sub { $_ * 2 }, 1..10000;
 
 However, let's have MCE::Step compute the same in parallel. Unlike the example
-in L<MCE::Flow|MCE::Flow>, the use of MCE::Queue is totally transparent.
-This calls for preserving output order provided by MCE::Candy.
+in L<MCE::Flow>, the use of MCE::Queue is totally transparent. This calls for
+preserving output order provided by MCE::Candy.
 
    use MCE::Step;
    use MCE::Candy;
 
 Next are the 3 sub-tasks. Compare these 3 sub-tasks with the same as described
-in L<MCE::Flow|MCE::Flow>. The call to MCE->step simplifies the passing of data
-to subsequent sub-task.
+in L<MCE::Flow>. The call to MCE->step simplifies the passing of data to
+subsequent sub-task.
 
    sub task_a {
       my @ans; my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -861,9 +861,8 @@ Finally, sort the array and display its contents.
 
 =head1 SYNOPSIS when CHUNK_SIZE EQUALS 1
 
-Although L<MCE::Loop|MCE::Loop> may be preferred for running using a single
-code block, the text below also applies to this module, particularly for the
-first block.
+Although L<MCE::Loop> may be preferred for running using a single code block,
+the text below also applies to this module, particularly for the first block.
 
 All models in MCE default to 'auto' for chunk_size. The arguments for the block
 are the same as writing a user_func block using the Core API.
@@ -1085,7 +1084,7 @@ An iterator reference can by specified for input_data. The only other way
 is to specify input_data via MCE::Step::init. This prevents MCE::Step from
 configuring the iterator reference as another user task which will not work.
 
-Iterators are described under "SYNTAX for INPUT_DATA" at L<MCE::Core|MCE::Core>.
+Iterators are described under "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 
    MCE::Step::init {
       input_data => iterator
@@ -1568,7 +1567,7 @@ longer needed.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

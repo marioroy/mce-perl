@@ -275,7 +275,7 @@ comma after the glob reference or file handle.
 
 =head1 FUNCTIONS for the MANAGER PROCESS via ( :manager )
 
-MCE methods are described in L<MCE::Core|MCE::Core>.
+MCE methods are described in L<MCE::Core>.
 
 =over 3
 
@@ -317,7 +317,7 @@ MCE methods are described in L<MCE::Core|MCE::Core>.
 
 =head1 FUNCTIONS for MCE WORKERS via ( :worker )
 
-MCE methods are described in L<MCE::Core|MCE::Core>.
+MCE methods are described in L<MCE::Core>.
 
 =over 3
 
@@ -357,7 +357,7 @@ MCE methods are described in L<MCE::Core|MCE::Core>.
 
 =head1 GETTERS for MCE ATTRIBUTES via ( :getter )
 
-MCE methods are described in L<MCE::Core|MCE::Core>.
+MCE methods are described in L<MCE::Core>.
 
 =over 3
 
@@ -389,7 +389,7 @@ MCE methods are described in L<MCE::Core|MCE::Core>.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

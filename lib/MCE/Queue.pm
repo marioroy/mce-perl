@@ -2050,21 +2050,21 @@ numbers, not the data.
 
 =over 3
 
-=item L<List::BinarySearch|List::BinarySearch>
+=item L<List::BinarySearch>
 
 The bsearch_num_pos method was helpful for accommodating the highest and lowest
 order in MCE::Queue.
 
-=item L<POE::Queue::Array|POE::Queue::Array>
+=item L<POE::Queue::Array>
 
 For extra optimization, two if statements were adopted for checking if the item
 belongs at the end or head of the queue.
 
-=item L<List::Priority|List::Priority>
+=item L<List::Priority>
 
 MCE::Queue supports both normal and priority queues.
 
-=item L<Thread::Queue|Thread::Queue>
+=item L<Thread::Queue>
 
 Thread::Queue is used as a template for identifying and documenting the methods.
 
@@ -2079,7 +2079,7 @@ simultaneously; e.g.
 
    $q->pending();                  # counts both normal/priority queues
 
-=item L<Parallel::DataPipe|Parallel::DataPipe>
+=item L<Parallel::DataPipe>
 
 The recursion example, in the sysopsis above, was largely adopted from this
 module.
@@ -2088,7 +2088,7 @@ module.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 
