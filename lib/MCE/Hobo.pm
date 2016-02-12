@@ -41,7 +41,7 @@ use Time::HiRes qw(sleep);
 use Storable ();
 use bytes;
 
-use MCE::Shared::Ordhash;
+use MCE::Shared::Indhash;
 use MCE::Shared::Hash;
 use MCE::Shared ();
 
@@ -144,7 +144,7 @@ sub create {
    }
 
    ## one time setup
-   $_LIST = MCE::Shared::Ordhash->new() unless defined $_LIST;
+   $_LIST = MCE::Shared::Indhash->new() unless defined $_LIST;
 
    unless (defined $_DATA) {
       $_DATA = MCE::Shared::Hash->new();            # non-shared
@@ -251,6 +251,8 @@ sub exit {
 }
 
 sub finish {
+   _croak('Usage: MCE::Hobo->finish()') if ref($_[0]);
+
    if (defined $_LIST) {
       return if ($INC{'MCE/Signal.pm'} && $MCE::Signal::KILLED);
       return if ($MCE::Shared::Server::KILLED);
@@ -364,10 +366,14 @@ sub kill {
 }
 
 sub list {
+   _croak('Usage: MCE::Hobo->list()') if ref($_[0]);
+
    (defined $_LIST) ? $_LIST->vals : ();
 }
 
 sub list_joinable {
+   _croak('Usage: MCE::Hobo->list_joinable()') if ref($_[0]);
+
    if (defined $_LIST) {
       my ($mgr_id, $wrk_id) = ("$$.$_tid");
       for my $self ($_LIST->vals) {
@@ -385,6 +391,8 @@ sub list_joinable {
 }
 
 sub list_running {
+   _croak('Usage: MCE::Hobo->list_running()') if ref($_[0]);
+
    if (defined $_LIST) {
       my ($mgr_id, $wrk_id) = ("$$.$_tid");
       for my $self ($_LIST->vals) {
@@ -399,6 +407,12 @@ sub list_running {
    else {
       ();
    }
+}
+
+sub pending {
+   _croak('Usage: MCE::Hobo->pending()') if ref($_[0]);
+
+   (defined $_LIST) ? $_LIST->len : 0;
 }
 
 sub self { ref($_[0]) ? $_[0] : $_SELF; }
@@ -486,6 +500,7 @@ This document describes MCE::Hobo version 1.699_011
    my @hobos    = MCE::Hobo->list();
    my @running  = MCE::Hobo->list_running();
    my @joinable = MCE::Hobo->list_joinable();
+   my @count    = MCE::Hobo->pending();
 
    $_->join() for @hobos;
 
@@ -550,7 +565,7 @@ The following is a parallel demonstration.
 
    use MCE::Hobo;
    use MCE::Shared Sereal => 1;  # Serialization via Sereal if available.
-   use MCE::Shared::Ordhash;     # Ordhash for non-shared use below.
+   use MCE::Shared::Ordhash;     # Ordered hash for non-shared use below.
 
    # usage: head -20 file.txt | perl script.pl
 
@@ -826,6 +841,10 @@ Returns a list of all hobos that are still running.
 Returns a list of all hobos that have completed running. Thus, ready to be
 joined without blocking.
 
+=item $hobo->pending()
+
+Returns a count of all hobos not yet joined.
+
 =item MCE::Hobo->self()
 
 Class method that allows a hobo to obtain it's own I<MCE::Hobo> object.
@@ -874,7 +893,7 @@ L<Thread::Tie>
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

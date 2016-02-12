@@ -133,15 +133,15 @@ Three modules make up the core engine for MCE.
 
 =over 3
 
-=item L<MCE::Core|MCE::Core>
+=item L<MCE::Core>
 
 Provides the Core API for Many-Core Engine.
 
-=item L<MCE::Signal|MCE::Signal>
+=item L<MCE::Signal>
 
 Temporary directory creation/cleanup and signal handling.
 
-=item L<MCE::Util|MCE::Util>
+=item L<MCE::Util>
 
 Utility functions for Many-Core Engine.
 
@@ -153,54 +153,56 @@ There are 6 add-on modules for use with MCE.
 
 =over 3
 
-=item L<MCE::Candy|MCE::Candy>
+=item L<MCE::Candy>
 
 Provides a collection of sugar methods and output iterators for preserving
 output order.
 
-=item L<MCE::Hobo|MCE::Hobo>
+=item L<MCE::Hobo>
 
 Provides threads-like capability for executing code asynchronously via child
 processes.
 
-=item L<MCE::Mutex|MCE::Mutex>
+=item L<MCE::Mutex>
 
 Provides a simple semaphore implementation supporting threads and processes.
 
-=item L<MCE::Queue|MCE::Queue>
+=item L<MCE::Queue>
 
 Provides a hybrid queuing implementation for MCE supporting normal queues and
 priority queues from a single module. MCE::Queue exchanges data via the core
 engine to enable queueing to work for both children (spawned from fork) and
 threads.
 
-=item L<MCE::Relay|MCE::Relay>
+=item L<MCE::Relay>
 
 Enables workers to receive and pass on information orderly with zero
 involvement by the manager process while running.
 
-=item L<MCE::Shared|MCE::Shared>
+=item L<MCE::Shared>
 
 An extension for sharing data or objects supporting threads and processes.
-Nine classes are included for use with MCE::Shared.
+Ten classes are included for use with MCE::Shared.
 
-L<MCE::Shared::Array|MCE::Shared::Array>
+L<MCE::Shared::Array>
 
-L<MCE::Shared::Condvar|MCE::Shared::Condvar>
+L<MCE::Shared::Condvar>
 
-L<MCE::Shared::Handle|MCE::Shared::Handle>
+L<MCE::Shared::Handle>
 
-L<MCE::Shared::Hash|MCE::Shared::Hash>
+L<MCE::Shared::Hash>
 
-L<MCE::Shared::Minidb|MCE::Shared::Minidb>
+L<MCE::Shared::Indhash>
 
-L<MCE::Shared::Ordhash|MCE::Shared::Ordhash>
+L<MCE::Shared::Ordhash>
 
-L<MCE::Shared::Queue|MCE::Shared::Queue>
+L<MCE::Shared::Minidb>
 
-L<MCE::Shared::Scalar|MCE::Shared::Scalar>
+L<MCE::Shared::Queue>
 
-L<MCE::Shared::Sequence|MCE::Shared::Sequence>
+L<MCE::Shared::Scalar>
+
+L<MCE::Shared::Sequence>
 
 =back
 
@@ -212,33 +214,33 @@ and shutdown.
 
 =over 3
 
-=item L<MCE::Loop|MCE::Loop>
+=item L<MCE::Loop>
 
 Provides a parallel loop utilizing MCE for building creative loops.
 
-=item L<MCE::Flow|MCE::Flow>
+=item L<MCE::Flow>
 
 A parallel flow model for building creative applications. This makes use of
 user_tasks in MCE. The author has full control when utilizing this model.
 MCE::Flow is similar to MCE::Loop, but allows for multiple code blocks to
 run in parallel with a slight change to syntax.
 
-=item L<MCE::Grep|MCE::Grep>
+=item L<MCE::Grep>
 
 Provides a parallel grep implementation similar to the native grep function.
 
-=item L<MCE::Map|MCE::Map>
+=item L<MCE::Map>
 
 Provides a parallel map model similar to the native map function.
 
-=item L<MCE::Step|MCE::Step>
+=item L<MCE::Step>
 
 Provides a parallel step implementation utilizing MCE::Queue between user
 tasks. MCE::Step is a spin off from MCE::Flow with a touch of MCE::Stream.
 This model, introduced in 1.506, allows one to pass data from one sub-task
 into the next transparently.
 
-=item L<MCE::Stream|MCE::Stream>
+=item L<MCE::Stream>
 
 Provides an efficient parallel implementation for chaining multiple maps
 and greps together through user_tasks and MCE::Queue. Like with MCE::Flow,
@@ -253,11 +255,11 @@ Miscellaneous additions included with the distribution.
 
 =over 3
 
-=item L<MCE::Examples|MCE::Examples>
+=item L<MCE::Examples>
 
 Describes various demonstrations for MCE including a Monte Carlo simulation.
 
-=item L<MCE::Subs|MCE::Subs>
+=item L<MCE::Subs>
 
 Exports functions mapped directly to MCE methods; e.g. mce_wid. The module
 allows 3 options; :manager, :worker, and :getter.

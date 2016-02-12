@@ -2,7 +2,7 @@
 ## ----------------------------------------------------------------------------
 ## Ordered-hash helper class.
 ##
-## An optimized ordered-hash implementation inspired by Hash::Ordered v0.009.
+## An optimized ordered hash implementation inspired by Hash::Ordered v0.009.
 ##
 ## 1. Added splice, sorting, plus extra capabilities for use with MCE::Hobo
 ##    and MCE::Shared::Minidb.
@@ -25,6 +25,7 @@ no warnings qw( threads recursion uninitialized numeric );
 
 our $VERSION = '1.699_011';
 
+## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use MCE::Shared::Base;
@@ -219,7 +220,7 @@ sub CLEAR {
 
    delete $self->[_ITER] if defined $self->[_ITER];
 
-   ();
+   return;
 }
 
 # SCALAR ( )
@@ -792,7 +793,7 @@ __END__
 
 =head1 NAME
 
-MCE::Shared::Ordhash - Ordered-hash helper class
+MCE::Shared::Ordhash - An ordered hash class featuring tombstone deletion
 
 =head1 VERSION
 
@@ -883,7 +884,17 @@ This document describes MCE::Shared::Ordhash version 1.699_011
 
 =head1 DESCRIPTION
 
-An ordered-hash helper class for use with L<MCE::Shared|MCE::Shared>.
+This module implements an ordered hash featuring tombstone deletion, inspired
+by the L<Hash::Ordered> module. Key insertion order is preserved.
+
+It provides extra capabilities for use with L<MCE::Shared::Minidb>. Tombstone
+deletion is further optimized to not impact C<store>, C<push>, C<unshift>, and
+C<merge>. Tombstones are purged in-place for lesser memory consumption.
+
+In addition, minimized overhead around C<pop> and C<shift> when an index is
+present. The optimization also applies to forward and reverse deletes.
+
+This class is 100% compatible with L<MCE::Shared::Indhash>.
 
 =head1 QUERY STRING
 
@@ -1080,32 +1091,25 @@ Increments the value of a key by the given number and returns its new value.
 
 =head1 CREDITS
 
-This ordered hash implementation is inspired by L<Hash::Ordered> v0.009.
-
-It adds C<splice>, sorting, plus extra capabilities for use with L<MCE::Hobo>
-and L<MCE::Shared::Minidb>. The tombstone deletion is further optimized to not
-impact C<store>, C<push>, C<unshift>, and C<merge>. Tombstones are purged
-in-place for overall lesser memory consumption.
-
-Finally, minimized overhead in C<pop> and C<shift> when an index is present.
-This optimization also applies to forward and reverse deletes.
-
-Both C<Hash::Ordered> and C<MCE::Shared::Ordhash> are supported for use with
-C<MCE::Shared>.
+The implementation is inspired by L<Hash::Ordered> v0.009.
 
 =head1 MOTIVATION
 
 I wanted an ordered hash implementation for use with MCE::Shared without
 any side effects such as linear scans, slow deletes, or excessive memory
-consumption. The L<Hash::Ordered> module passes. Thank you, David Golden.
+consumption. The closest module on CPAN to pass in this regard is
+L<Hash::Ordered> by David Golden.
 
 MCE::Shared has one shared-manager process which is by design. Therefore,
-extra measures were taken to further reduce or eradicate remaining side
+extra measures were taken to further reduce or eradicate any remaining side
 effects. This resulted in C<MCE::Shared::Ordhash>.
+
+Applications sensitive to hash deletion may prefer L<MCE::Shared::Indhash>,
+a doubly-linked list implementation.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

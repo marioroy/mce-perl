@@ -499,9 +499,9 @@ sub _loop {
    my $_iterator = sub {
       if (!exists $_itr{ $_id }) {
 
-         # MCE::Shared::{ Array, Hash, Ordhash }, Hash::Ordered
+         # MCE::Shared::{ Array, Hash, Indhash, Ordhash }, Hash::Ordered
          if (
-            $_all{ $_id } =~ /^MCE::Shared::(?:Array|Hash|Ordhash)$/ ||
+            $_all{ $_id } =~ /^MCE::Shared::(?:Array|Hash|(Ind|Ord)hash)$/ ||
             $_all{ $_id } eq 'Hash::Ordered'
          ) {
             my @_keys = ( exists $_itr{ "$_id:args" } )
@@ -852,9 +852,9 @@ sub _loop {
          if (exists $_obj{ $_id }) {
             my $_buf;
 
-            # MCE::Shared::{ Array, Hash, Ordhash }, Hash::Ordered
+            # MCE::Shared::{ Array, Hash, Indhash, Ordhash }, Hash::Ordered
             if (
-               $_all{ $_id } =~ /^MCE::Shared::(?:Array|Hash|Ordhash)$/ ||
+               $_all{ $_id } =~ /^MCE::Shared::(?:Array|Hash|(Ind|Ord)hash)$/ ||
                $_all{ $_id } eq 'Hash::Ordered'
             ) {
                $_buf = ($_len)
@@ -1365,14 +1365,17 @@ use Scalar::Util qw( looks_like_number );
 use MCE::Shared::Base;
 use bytes;
 
-my %_hash_supported = (qw/
-   MCE::Shared::Hash 1 MCE::Shared::Ordhash 1 Hash::Ordered 1
-/);
-
 use constant {
    _UNDEF => 0, _ARRAY => 1, _SCALAR => 2,  # wantarray
    _CLASS => 1, _DREF  => 2, _ITER   => 3,  # shared object
 };
+
+my %_hash_support = (qw/
+   MCE::Shared::Hash     1
+   MCE::Shared::Indhash  1
+   MCE::Shared::Ordhash  1
+   Hash::Ordered         1
+/);
 
 use overload (
    q("")    => \&MCE::Shared::Base::_stringify,
@@ -1388,7 +1391,7 @@ use overload (
    q(%{})   => sub {
       no overloading;
       $_[0]->[_DREF] || do {
-         return $_[0] if !exists $_hash_supported{ $_[0]->[_CLASS] };
+         return $_[0] if !exists $_hash_support{ $_[0]->[_CLASS] };
          tie my %h, 'MCE::Shared::Object', bless([ $_[0]->[0] ], __PACKAGE__);
          $_[0]->[_DREF] = \%h;
       };
@@ -1743,13 +1746,14 @@ sub export {
    my $_item  = $_lkup->{ $_id } = _req3('M~EXP', $_buf, $_tmp);
    my $_class = $_blessed->($_item);
 
-   # MCE::Shared::{ Array, Hash, Ordhash }, Hash::Ordered
+   # MCE::Shared::{ Array, Hash, Indhash, Ordhash }, Hash::Ordered
    if (
-      $_class =~ /^MCE::Shared::(?:Array|Hash|Ordhash)$/ ||
+      $_class =~ /^MCE::Shared::(?:Array|Hash|(Ind|Ord)hash)$/ ||
       $_class eq 'Hash::Ordered'
    ) {
       require MCE::Shared::Array   if $_class eq 'MCE::Shared::Array';
       require MCE::Shared::Hash    if $_class eq 'MCE::Shared::Hash';
+      require MCE::Shared::Indhash if $_class eq 'MCE::Shared::Indhash';
       require MCE::Shared::Ordhash if $_class eq 'MCE::Shared::Ordhash';
       require Hash::Ordered        if $_class eq 'Hash::Ordered';
 
@@ -1791,9 +1795,9 @@ sub iterator {
    my ( $self, @keys ) = @_;
    my $ref = $self->blessed();
 
-   # MCE::Shared::{ Array, Hash, Ordhash }, Hash::Ordered
+   # MCE::Shared::{ Array, Hash, Indhash, Ordhash }, Hash::Ordered
    if (
-      $ref =~ /^MCE::Shared::(?:Array|Hash|Ordhash)$/ ||
+      $ref =~ /^MCE::Shared::(?:Array|Hash|(Ind|Ord)hash)$/ ||
       $ref eq 'Hash::Ordered'
    ) {
       if ( !scalar @keys ) {
@@ -2227,8 +2231,9 @@ sub pending  { _req5('pending',  @_) }
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Methods optimized for MCE::Shared::{ Array, Hash, Minidb, Ordhash, Scalar },
-## Hash::Ordered, and PDL.
+## Methods optimized for
+##  PDL, MCE::Shared::{ Array, Hash, Indhash, Ordhash, Minidb, Scalar }, and
+##  Hash::Ordered.
 ##
 ###############################################################################
 
@@ -2303,16 +2308,14 @@ sub set {
 sub FETCH { _req6('FETCH', @_) }
 sub CLEAR { _req7('CLEAR', @_) }
 sub clear { _req7('clear', @_) }
+
 sub decr  { _auto('decr' , @_) }
 sub incr  { _auto('incr' , @_) }
-
 sub hset  { _auto('hset' , @_) }
 sub lset  { _auto('lset' , @_) }
-
 sub  get  { _req6( 'get' , @_) }
 sub hget  { _auto('hget' , @_) }
 sub lget  { _auto('lget' , @_) }
-
 sub  len  { _auto( 'len' , @_) }
 sub hlen  { _auto('hlen' , @_) }
 sub llen  { _auto('llen' , @_) }
@@ -2346,11 +2349,11 @@ This document describes MCE::Shared::Server version 1.699_011
 
 =head1 DESCRIPTION
 
-Core class for L<MCE::Shared|MCE::Shared>. See documentation there.
+Core class for L<MCE::Shared>. See documentation there.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 

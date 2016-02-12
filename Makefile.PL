@@ -165,12 +165,16 @@ WriteMakefile(
                'file'    => 'lib/MCE/Shared/Hash.pm',
                'version' => '1.699_011'
             },
-            'MCE::Shared::Minidb' => {
-               'file'    => 'lib/MCE/Shared/Minidb.pm',
+            'MCE::Shared::Indhash' => {
+               'file'    => 'lib/MCE/Shared/Indhash.pm',
                'version' => '1.699_011'
             },
             'MCE::Shared::Ordhash' => {
                'file'    => 'lib/MCE/Shared/Ordhash.pm',
+               'version' => '1.699_011'
+            },
+            'MCE::Shared::Minidb' => {
+               'file'    => 'lib/MCE/Shared/Minidb.pm',
                'version' => '1.699_011'
             },
             'MCE::Shared::Queue' => {

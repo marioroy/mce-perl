@@ -90,7 +90,7 @@ sub _compile {
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Find items in array.
+## Find items in array: called by MCE::Shared::Array.
 ##
 ###############################################################################
 
@@ -178,7 +178,7 @@ sub _find_array {
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Find items in hash.
+## Find items in hash: called by MCE::Shared::{ Hash, Minidb, Ordhash }.
 ##
 ###############################################################################
 
@@ -373,6 +373,94 @@ sub _find_hash {
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
+## Find items in hash: called by MCE::Shared::Indhash.
+##
+###############################################################################
+
+sub _find_indhash {
+   my ( $data, $params, $query, $obj ) = @_;
+   my ( $field, $code, $expr, $aflg ) = _compile( $query );
+
+   # Single rule
+   if ( scalar @{ $field } == 1 ) {
+      my ( $f, $c, $e ) = ( $field->[0], $code->[0], $expr->[0] );
+
+      if ( $f eq 'key' ) {
+         if ( $params->{'getkeys'} ) {
+            grep $c->( $_, $e ), $obj->keys;
+         }
+         elsif ( $params->{'getvals'} ) {
+            map { $c->( $_, $e ) ? ( $data->{$_}[3] ) : ()
+                } $obj->keys;
+         }
+         else {
+            map { $c->( $_, $e ) ? ( $_ => $data->{$_}[3] ) : ()
+                } $obj->keys;
+         }
+      }
+      else {
+         if ( $params->{'getkeys'} ) {
+            map { $c->( $data->{$_}[3], $e ) ? ( $_ ) : ()
+                } $obj->keys;
+         }
+         elsif ( $params->{'getvals'} ) {
+            grep $c->( $_, $e ), $obj->vals;
+         }
+         else {
+            map { $c->( $data->{$_}[3], $e ) ? ( $_ => $data->{$_}[3] ) : ()
+                } $obj->keys;
+         }
+      }
+   }
+
+   # Multiple rules
+   elsif ( scalar @{ $field } > 1 ) {
+      my $ok;
+
+      my $is = $aflg ?
+      sub {
+         $ok = 1;
+         for my $i ( 0 .. $#{ $field } ) {
+            $ok = $field->[$i] eq 'key'
+               ? $code->[$i]( $_, $expr->[$i] )
+               : $code->[$i]( $data->{$_}[3], $expr->[$i] );
+            last unless $ok;
+         }
+         return;
+      } :
+      sub {
+         $ok = 0;
+         for my $i ( 0 .. $#{ $field } ) {
+            $ok = $field->[$i] eq 'key'
+               ? $code->[$i]( $_, $expr->[$i] )
+               : $code->[$i]( $data->{$_}[3], $expr->[$i] );
+            last if $ok;
+         }
+         return;
+      };
+
+      if ( $params->{'getkeys'} ) {
+         map { $is->(), $ok ? ( $_ ) : ()
+             } $obj->keys;
+      }
+      elsif ( $params->{'getvals'} ) {
+         map { $is->(), $ok ? ( $data->{$_}[3] ) : ()
+             } $obj->keys;
+      }
+      else {
+         map { $is->(), $ok ? ( $_ => $data->{$_}[3] ) : ()
+             } $obj->keys;
+      }
+   }
+
+   # Not supported
+   else {
+      ();
+   }
+}
+
+###############################################################################
+## ----------------------------------------------------------------------------
 ## Miscellaneous.
 ##
 ###############################################################################
@@ -441,11 +529,11 @@ This document describes MCE::Shared::Base version 1.699_011
 
 =head1 DESCRIPTION
 
-Common functions for L<MCE::Shared|MCE::Shared>. There is no public API.
+Common functions for L<MCE::Shared>. There is no public API.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core|MCE::Core>, L<MCE::Shared|MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
 
 =head1 AUTHOR
 
