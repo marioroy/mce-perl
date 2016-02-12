@@ -5,6 +5,9 @@
 ## A doubly-linked list, pure-Perl ordered hash implementation, inspired by
 ## the Tie::Hash::Indexed (XS) module.
 ##
+## It is fully compatible with MCE::Shared::Ordhash, which features tombstone
+## deletion. Both modules may be used interchangeably.
+##
 ###############################################################################
 
 package MCE::Shared::Indhash;
