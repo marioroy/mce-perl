@@ -93,16 +93,18 @@ sub FETCH {
 
 sub DELETE {
    my ( $self, $key ) = @_;
-   return undef if ( !exists $self->[_DATA]{ $key } );
-   my $keys = $self->[_KEYS];
+   my ( $data, $keys, $indx ) = @{ $self };
+
+   return undef if ( !exists $data->{ $key } );
 
    # check the first key
    if ( $key eq $keys->[0] ) {
       shift @{ $keys };
-      $self->[_BEGI]++, delete $self->[_INDX]{ $key } if $self->[_INDX];
+      $self->[_BEGI]++, delete $indx->{ $key } if $indx;
 
+      # GC start of list
       if ( ref $keys->[0] ) {
-         my $i = 1;                 # GC start of list
+         my $i = 1;
          $i++ while ( ref $keys->[$i] );
          $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
          splice @{ $keys }, 0, $i;
@@ -110,16 +112,17 @@ sub DELETE {
 
       $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
 
-      return delete $self->[_DATA]{ $key };
+      return delete $data->{ $key };
    }
 
    # perhaps the last key
    elsif ( $key eq $keys->[-1] ) {
       pop @{ $keys };
-      delete $self->[_INDX]{ $key } if $self->[_INDX];
+      delete $indx->{ $key } if $indx;
 
+      # GC end of list
       if ( ref $keys->[-1] ) {
-         my $i = $#{ $keys } - 1;   # GC end of list
+         my $i = $#{ $keys } - 1;
          $i-- while ( ref $keys->[$i] );
          $self->[_GCNT] -= $#{ $keys } - $i;
          splice @{ $keys }, $i + 1;
@@ -127,16 +130,15 @@ sub DELETE {
 
       $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
 
-      return delete $self->[_DATA]{ $key };
+      return delete $data->{ $key };
    }
 
    # make an index, on-demand
-   my $indx = $self->[_INDX] ||
-      do {
-         my ( $i, %indx ) = ( 0 );
-         $indx{ $_ } = $i++ for @{ $self->[_KEYS] };
-         $self->[_INDX] = \%indx;
-      };
+   if ( !$indx ) {
+      my ( $i, %_indx ) = ( 0 );
+      $_indx{ $_ } = $i++ for @{ $keys };
+      $indx = $self->[_INDX] = \%_indx;
+   }
 
    # fill the index, on-demand
    my $id = delete $indx->{ $key } //
@@ -176,7 +178,7 @@ sub DELETE {
       splice @{ $keys }, $i;
    }
 
-   delete $self->[_DATA]{ $key };
+   delete $data->{ $key };
 }
 
 # FIRSTKEY ( )
@@ -234,17 +236,18 @@ sub SCALAR {
 # POP ( )
 
 sub POP {
-   my $self = shift;
-   my $keys = $self->[_KEYS];
-   my $key  = pop @{ $keys };
+   my ( $self ) = @_;
+   my ( $data, $keys, $indx ) = @{ $self };
+   my $key = pop @{ $keys };
 
    return unless defined $key;
 
-   if ( $self->[_INDX] ) {
-      delete $self->[_INDX]{ $key };
+   if ( $indx ) {
+      delete $indx->{ $key };
 
+      # GC end of list
       if ( ref $keys->[-1] ) {
-         my $i = $#{ $keys } - 1;   # GC end of list
+         my $i = $#{ $keys } - 1;
          $i-- while ( ref $keys->[$i] );
          $self->[_GCNT] -= $#{ $keys } - $i;
          splice @{ $keys }, $i + 1;
@@ -253,7 +256,7 @@ sub POP {
       $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
    }
 
-   return $key, delete $self->[_DATA]{ $key };
+   return $key, delete $data->{ $key };
 }
 
 # PUSH ( key, value [, key, value, ... ] )
@@ -275,17 +278,18 @@ sub PUSH {
 # SHIFT ( )
 
 sub SHIFT {
-   my $self = shift;
-   my $keys = $self->[_KEYS];
-   my $key  = shift @{ $keys };
+   my ( $self ) = @_;
+   my ( $data, $keys, $indx ) = @{ $self };
+   my $key = shift @{ $keys };
 
    return unless defined $key;
 
-   if ( $self->[_INDX] ) {
-      $self->[_BEGI]++, delete $self->[_INDX]{ $key };
+   if ( $indx ) {
+      $self->[_BEGI]++, delete $indx->{ $key };
 
+      # GC start of list
       if ( ref $keys->[0] ) {
-         my $i = 1;                 # GC start of list
+         my $i = 1;
          $i++ while ( ref $keys->[$i] );
          $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
          splice @{ $keys }, 0, $i;
@@ -294,7 +298,7 @@ sub SHIFT {
       $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
    }
 
-   return $key, delete $self->[_DATA]{ $key };
+   return $key, delete $data->{ $key };
 }
 
 # UNSHIFT ( key, value [, key, value, ... ] )
