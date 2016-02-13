@@ -25,7 +25,7 @@ our $VERSION = '1.699_011';
 use MCE::Shared::Base;
 use bytes;
 
-use constant { _DATA => 0, _ROOT => 1, _ITER => 2 };             # self
+use constant { _DATA => 0, _ROOT => 1, _ITER => 2            };  # self
 use constant { _PREV => 0, _NEXT => 1, _KEY  => 2, _VAL => 3 };  # link
 
 use overload (
@@ -104,7 +104,7 @@ sub DELETE {
         $link->[_PREV][_NEXT] = $link->[_NEXT];
         $link->[_NEXT][_PREV] = $link->[_PREV];
 
-        $link->[_VAL ];
+        $link->[_VAL];
     }
     else {
         undef;
@@ -219,7 +219,7 @@ sub POP {
         $link->[_PREV][_NEXT] = $link->[_NEXT];
         $link->[_NEXT][_PREV] = $link->[_PREV];
 
-        return $key, $link->[_VAL ];
+        return $key, $link->[_VAL];
     }
 
     return;
@@ -254,7 +254,7 @@ sub SHIFT {
         $link->[_PREV][_NEXT] = $link->[_NEXT];
         $link->[_NEXT][_PREV] = $link->[_PREV];
 
-        return $key, $link->[_VAL ];
+        return $key, $link->[_VAL];
     }
 
     return;
