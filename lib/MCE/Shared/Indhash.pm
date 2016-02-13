@@ -171,7 +171,7 @@ sub STORABLE_freeze {
     my @pairs;
 
     for ( 1 .. scalar( keys %{ $self->[_DATA] } ) ) {
-        push @pairs, $cur->[_KEY], $cur->[_VAL];
+        push @pairs, @{ $cur }[ _KEY, _VAL ];
         $cur = $cur->[_NEXT];
     }
 
@@ -449,10 +449,8 @@ sub keys {
         if ( wantarray ) {
             my $cur = $self->[_ROOT][_NEXT];
             @_ ? map { exists $self->[_DATA]{ $_ } ? $_ : undef } @_
-               : map {
-                     $cur = $cur->[_NEXT];
-                     $cur->[_PREV][_KEY ];
-                 } 1 .. scalar( CORE::keys %{ $self->[_DATA] } );
+               : map { ( $cur = $cur->[_NEXT] )->[_PREV][_KEY] }
+                    1 .. scalar( CORE::keys %{ $self->[_DATA] } );
         }
         else {
             scalar( CORE::keys %{ $self->[_DATA] } );
@@ -474,10 +472,8 @@ sub pairs {
         if ( wantarray ) {
             my $cur = $self->[_ROOT][_NEXT];
             @_ ? map { $_ => $self->FETCH($_) } @_
-               : map {
-                     $cur = $cur->[_NEXT];
-                     $cur->[_PREV][_KEY] => $cur->[_PREV][_VAL];
-                 } 1 .. scalar( CORE::keys %{ $self->[_DATA] } );
+               : map { @{ ( $cur = $cur->[_NEXT] )->[_PREV] }[ _KEY, _VAL ] }
+                    1 .. scalar( CORE::keys %{ $self->[_DATA] } );
         }
         else {
             scalar( CORE::keys %{ $self->[_DATA] } ) << 1;
@@ -499,10 +495,8 @@ sub values {
         if ( wantarray ) {
             my $cur = $self->[_ROOT][_NEXT];
             @_ ? map { $self->FETCH($_) } @_
-               : map {
-                     $cur = $cur->[_NEXT];
-                     $cur->[_PREV][_VAL ];
-                 } 1 .. scalar( CORE::keys %{ $self->[_DATA] } );
+               : map { ( $cur = $cur->[_NEXT] )->[_PREV][_VAL] }
+                    1 .. scalar( CORE::keys %{ $self->[_DATA] } );
         }
         else {
             scalar( CORE::keys %{ $self->[_DATA] } );
