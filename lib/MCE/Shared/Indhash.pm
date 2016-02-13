@@ -100,9 +100,7 @@ sub FETCH {
 # DELETE ( key )
 
 sub DELETE {
-    my ( $self ) = @_;
-
-    if ( my $link = delete $self->[_DATA]{ $_[1] } ) {
+    if ( my $link = delete $_[0]->[_DATA]{ $_[1] } ) {
         $link->[_PREV][_NEXT] = $link->[_NEXT];
         $link->[_NEXT][_PREV] = $link->[_PREV];
 
