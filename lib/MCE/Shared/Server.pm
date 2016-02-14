@@ -1808,7 +1808,7 @@ sub iterator {
       }
       return sub {
          return unless @keys;
-         my $key = shift(@keys);
+         my $key = shift @keys;
          return ( $key => $self->get($key) );
       };
    }

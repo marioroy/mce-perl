@@ -119,7 +119,7 @@ sub FIRSTKEY {
 
     $self->[_ITER] = sub {
         return unless @keys;
-        return shift(@keys);
+        return shift  @keys;
     };
 
     $self->[_ITER]->();
@@ -232,8 +232,8 @@ sub PUSH {
     my ( $data, $root ) = @{ $self };
 
     while ( @_ ) {
-        my ( $key, $val ) = splice(@_, 0, 2);
-        $self->DELETE($key) if exists $data->{ $key };
+        my ( $key, $val ) = splice @_, 0, 2;
+        $self->DELETE($key) if ( exists $data->{ $key } );
 
         $root->[_PREV] = $root->[_PREV][_NEXT] = $data->{ $key } = [
             $root->[_PREV], $root, "$key", $val
@@ -267,8 +267,8 @@ sub UNSHIFT {
     my ( $data, $root ) = @{ $self };
 
     while ( @_ ) {
-        my ( $key, $val ) = splice(@_, -2, 2);
-        $self->DELETE($key) if exists $data->{ $key };
+        my ( $key, $val ) = splice @_, -2, 2;
+        $self->DELETE($key) if ( exists $data->{ $key } );
 
         $root->[_NEXT] = $root->[_NEXT][_PREV] = $data->{ $key } = [
             $root, $root->[_NEXT], "$key", $val
@@ -309,7 +309,7 @@ sub SPLICE {
             $cur = $cur->[_PREV];
             while ( $len-- ) {
                 $key = $cur->[_NEXT][_KEY];
-                last unless defined $key;
+                last unless ( defined $key );
                 push @ret, $key, $self->DELETE($key);
             }
             $cur = $cur->[_NEXT];
@@ -427,7 +427,7 @@ sub iterator {
 
     return sub {
         return unless @keys;
-        my $key = shift(@keys);
+        my $key = shift @keys;
 
         return ( exists $data->{ $key } )
            ? ( $key => $data->{ $key }[_VAL] )
@@ -518,7 +518,7 @@ sub mdel {
 
     while ( @_ ) {
         $key = shift;
-        $cnt++, $self->DELETE($key) if exists($data->{ $key });
+        $cnt++, $self->DELETE($key) if ( exists $data->{ $key } );
     }
 
     $cnt;
@@ -533,7 +533,7 @@ sub mexists {
 
     while ( @_ ) {
         $key = shift;
-        return '' if ( !exists $data->{ $key } );
+        return '' unless ( exists $data->{ $key } );
     }
 
     1;
@@ -555,7 +555,7 @@ sub mset {
     my ( $data, $root ) = @{ $self };
 
     while ( @_ ) {
-        my ( $key, $val ) = splice(@_, 0, 2);
+        my ( $key, $val ) = splice @_, 0, 2;
         if ( my $link = $data->{ $key } ) {
             $link->[_VAL] = $val;
         }
@@ -578,9 +578,9 @@ sub sort {
     my ( $by_key, $alpha, $desc ) = ( 0, 0, 0 );
 
     if ( length $request ) {
-        $by_key = 1 if $request =~ /\bkey\b/i;
-        $alpha  = 1 if $request =~ /\balpha\b/i;
-        $desc   = 1 if $request =~ /\bdesc\b/i;
+        $by_key = 1 if ( $request =~ /\bkey\b/i );
+        $alpha  = 1 if ( $request =~ /\balpha\b/i );
+        $desc   = 1 if ( $request =~ /\bdesc\b/i );
     }
 
     # Return sorted keys, leaving the data intact.
@@ -673,10 +673,9 @@ sub _reorder {
 
 sub append {
     my ( $self, $key ) = @_;
-    $self->set( $key, '' ) unless exists $self->[_DATA]{ $key };
+    $self->set($key, '') unless ( exists $self->[_DATA]{ $key } );
 
     $self->[_DATA]{ $key }[_VAL] .= $_[2] || '';
-
     length $self->[_DATA]{ $key }[_VAL];
 }
 
@@ -684,7 +683,7 @@ sub append {
 
 sub decr {
     my ( $self, $key ) = @_;
-    $self->set( $key, 0 ) unless exists $self->[_DATA]{ $key };
+    $self->set($key, 0) unless ( exists $self->[_DATA]{ $key } );
 
     --$self->[_DATA]{ $key }[_VAL];
 }
@@ -693,7 +692,7 @@ sub decr {
 
 sub decrby {
     my ( $self, $key ) = @_;
-    $self->set( $key, 0 ) unless exists $self->[_DATA]{ $key };
+    $self->set($key, 0) unless ( exists $self->[_DATA]{ $key } );
 
     $self->[_DATA]{ $key }[_VAL] -= $_[2] || 0;
 }
@@ -702,7 +701,7 @@ sub decrby {
 
 sub incr {
     my ( $self, $key ) = @_;
-    $self->set( $key, 0 ) unless exists $self->[_DATA]{ $key };
+    $self->set($key, 0) unless ( exists $self->[_DATA]{ $key } );
 
     ++$self->[_DATA]{ $key }[_VAL];
 }
@@ -711,7 +710,7 @@ sub incr {
 
 sub incrby {
     my ( $self, $key ) = @_;
-    $self->set( $key, 0 ) unless exists $self->[_DATA]{ $key };
+    $self->set($key, 0) unless ( exists $self->[_DATA]{ $key } );
 
     $self->[_DATA]{ $key }[_VAL] += $_[2] || 0;
 }
@@ -720,7 +719,7 @@ sub incrby {
 
 sub getdecr {
     my ( $self, $key ) = @_;
-    $self->set( $key, 0 ) unless exists $self->[_DATA]{ $key };
+    $self->set($key, 0) unless ( exists $self->[_DATA]{ $key } );
 
     $self->[_DATA]{ $key }[_VAL]-- || 0;
 }
@@ -729,7 +728,7 @@ sub getdecr {
 
 sub getincr {
     my ( $self, $key ) = @_;
-    $self->set( $key, 0 ) unless exists $self->[_DATA]{ $key };
+    $self->set($key, 0) unless ( exists $self->[_DATA]{ $key } );
 
     $self->[_DATA]{ $key }[_VAL]++ || 0;
 }
@@ -738,7 +737,7 @@ sub getincr {
 
 sub getset {
     my ( $self, $key ) = @_;
-    $self->set( $key, undef ) unless exists $self->[_DATA]{ $key };
+    $self->set($key, undef) unless ( exists $self->[_DATA]{ $key } );
 
     my $old = $self->[_DATA]{ $key }[_VAL];
     $self->[_DATA]{ $key }[_VAL] = $_[2];

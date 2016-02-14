@@ -126,7 +126,7 @@ sub iterator {
 
    return sub {
       return unless @keys;
-      my $key = shift(@keys);
+      my $key = shift @keys;
       return ( $key => $self->{ $key } );
    };
 }
@@ -208,7 +208,7 @@ sub mdel {
 
    while ( @_ ) {
       $key = shift;
-      $cnt++, delete($self->{ $key }) if exists($self->{ $key });
+      $cnt++, delete($self->{ $key }) if ( exists $self->{ $key } );
    }
 
    $cnt;
@@ -222,7 +222,7 @@ sub mexists {
 
    while ( @_ ) {
       $key = shift;
-      return '' if ( !exists $self->{ $key } );
+      return '' unless ( exists $self->{ $key } );
    }
 
    1;

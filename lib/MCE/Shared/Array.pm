@@ -143,7 +143,7 @@ sub iterator {
 
    return sub {
       return unless @keys;
-      my $key = shift(@keys);
+      my $key = shift @keys;
       return ( $key => $self->[ $key ] );
    };
 }
@@ -225,7 +225,7 @@ sub mdel {
 
    while ( @_ ) {
       $key = shift;
-      $cnt++, delete($self->[ $key ]) if exists($self->[ $key ]);
+      $cnt++, delete($self->[ $key ]) if ( exists $self->[ $key ] );
    }
 
    $cnt;
@@ -239,7 +239,7 @@ sub mexists {
 
    while ( @_ ) {
       $key = shift;
-      return '' if ( !exists $self->[ $key ] );
+      return '' unless ( exists $self->[ $key ] );
    }
 
    1;
@@ -298,8 +298,8 @@ sub sort {
    my ( $alpha, $desc ) = ( 0, 0 );
 
    if ( length $request ) {
-      $alpha = 1 if $request =~ /\balpha\b/i;
-      $desc  = 1 if $request =~ /\bdesc\b/i;
+      $alpha = 1 if ( $request =~ /\balpha\b/i );
+      $desc  = 1 if ( $request =~ /\bdesc\b/i );
    }
 
    # Return sorted values, leaving the data intact.

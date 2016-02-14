@@ -324,14 +324,14 @@ sub _lselect_href {
 sub _sort {
    my ( $o, $is_list, $request ) = @_;
 
-   return () unless length($request);
+   return () unless ( length $request );
    $request =~ s/^[ ]*\bby\b[ ]*//i;
 
    if ( $request =~ /^[ ]*(\S+)[ ]*(.*)/ ) {
       my ( $f, $modifiers, $alpha, $desc ) = ( $1, $2, 0, 0 );
 
-      $alpha = 1 if $modifiers =~ /\balpha\b/i;
-      $desc  = 1 if $modifiers =~ /\bdesc\b/i;
+      $alpha = 1 if ( $modifiers =~ /\balpha\b/i );
+      $desc  = 1 if ( $modifiers =~ /\bdesc\b/i );
 
       # Return sorted keys, leaving the data intact.
 
