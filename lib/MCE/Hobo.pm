@@ -41,7 +41,7 @@ use Time::HiRes qw(sleep);
 use Storable ();
 use bytes;
 
-use MCE::Shared::Indhash;
+use MCE::Shared::Ordhash;
 use MCE::Shared::Hash;
 use MCE::Shared ();
 
@@ -144,7 +144,7 @@ sub create {
    }
 
    ## one time setup
-   $_LIST = MCE::Shared::Indhash->new() unless defined $_LIST;
+   $_LIST = MCE::Shared::Ordhash->new() unless defined $_LIST;
 
    unless (defined $_DATA) {
       $_DATA = MCE::Shared::Hash->new();            # non-shared
@@ -171,7 +171,7 @@ sub create {
    elsif ($pid) {                                   # parent
       my $wrk_id = "$pid.$_tid";
       $self->{WRK_ID} = $wrk_id, $self->{PID} = $pid;
-      $_LIST->push($wrk_id, $self);
+      $_LIST->set($wrk_id, $self);
 
       return $self;
    }

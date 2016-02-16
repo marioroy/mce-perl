@@ -499,9 +499,9 @@ sub _loop {
    my $_iterator = sub {
       if (!exists $_itr{ $_id }) {
 
-         # MCE::Shared::{ Array, Hash, Indhash, Ordhash }, Hash::Ordered
+         # MCE::Shared::{ Array, Hash, Ordhash }, Hash::Ordered
          if (
-            $_all{ $_id } =~ /^MCE::Shared::(?:Array|Hash|(Ind|Ord)hash)$/ ||
+            $_all{ $_id } =~ /^MCE::Shared::(?:Array|Hash|Ordhash)$/ ||
             $_all{ $_id } eq 'Hash::Ordered'
          ) {
             my @_keys = ( exists $_itr{ "$_id:args" } )
@@ -852,9 +852,9 @@ sub _loop {
          if (exists $_obj{ $_id }) {
             my $_buf;
 
-            # MCE::Shared::{ Array, Hash, Indhash, Ordhash }, Hash::Ordered
+            # MCE::Shared::{ Array, Hash, Ordhash }, Hash::Ordered
             if (
-               $_all{ $_id } =~ /^MCE::Shared::(?:Array|Hash|(Ind|Ord)hash)$/ ||
+               $_all{ $_id } =~ /^MCE::Shared::(?:Array|Hash|Ordhash)$/ ||
                $_all{ $_id } eq 'Hash::Ordered'
             ) {
                $_buf = ($_len)
@@ -1372,7 +1372,6 @@ use constant {
 
 my %_hash_support = (qw/
    MCE::Shared::Hash     1
-   MCE::Shared::Indhash  1
    MCE::Shared::Ordhash  1
    Hash::Ordered         1
 /);
@@ -1746,14 +1745,13 @@ sub export {
    my $_item  = $_lkup->{ $_id } = _req3('M~EXP', $_buf, $_tmp);
    my $_class = $_blessed->($_item);
 
-   # MCE::Shared::{ Array, Hash, Indhash, Ordhash }, Hash::Ordered
+   # MCE::Shared::{ Array, Hash, Ordhash }, Hash::Ordered
    if (
-      $_class =~ /^MCE::Shared::(?:Array|Hash|(Ind|Ord)hash)$/ ||
+      $_class =~ /^MCE::Shared::(?:Array|Hash|Ordhash)$/ ||
       $_class eq 'Hash::Ordered'
    ) {
       require MCE::Shared::Array   if $_class eq 'MCE::Shared::Array';
       require MCE::Shared::Hash    if $_class eq 'MCE::Shared::Hash';
-      require MCE::Shared::Indhash if $_class eq 'MCE::Shared::Indhash';
       require MCE::Shared::Ordhash if $_class eq 'MCE::Shared::Ordhash';
       require Hash::Ordered        if $_class eq 'Hash::Ordered';
 
@@ -1795,9 +1793,9 @@ sub iterator {
    my ( $self, @keys ) = @_;
    my $ref = $self->blessed();
 
-   # MCE::Shared::{ Array, Hash, Indhash, Ordhash }, Hash::Ordered
+   # MCE::Shared::{ Array, Hash, Ordhash }, Hash::Ordered
    if (
-      $ref =~ /^MCE::Shared::(?:Array|Hash|(Ind|Ord)hash)$/ ||
+      $ref =~ /^MCE::Shared::(?:Array|Hash|Ordhash)$/ ||
       $ref eq 'Hash::Ordered'
    ) {
       if ( !scalar @keys ) {
@@ -2232,7 +2230,7 @@ sub pending  { _req5('pending',  @_) }
 ###############################################################################
 ## ----------------------------------------------------------------------------
 ## Methods optimized for
-##  PDL, MCE::Shared::{ Array, Hash, Indhash, Ordhash, Minidb, Scalar }, and
+##  PDL, MCE::Shared::{ Array, Hash, Minidb, Ordhash, Scalar }, and
 ##  Hash::Ordered.
 ##
 ###############################################################################

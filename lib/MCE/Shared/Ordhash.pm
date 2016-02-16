@@ -77,10 +77,12 @@ sub TIEHASH {
 # STORE ( key, value )
 
 sub STORE {
-   my ( $self, $key ) = @_;  # $_[2] is not copied in case it's large
-   push @{ $self->[_KEYS] }, "$key" unless ( exists $self->[_DATA]{ $key } );
+   my ( $data, $keys ) = @{ $_[0] };
+   my $key = $_[1];
 
-   $self->[_DATA]{ $key } = $_[2];
+   push @{ $keys }, "$key" unless ( exists $data->{ $key } );
+
+   $data->{ $key } = $_[2];
 }
 
 # FETCH ( key )
@@ -115,8 +117,8 @@ sub DELETE {
       return delete $data->{ $key };
    }
 
-   # perhaps the last key
-   elsif ( $key eq $keys->[-1] ) {
+   # check the last key
+   if ( $key eq $keys->[-1] ) {
       pop @{ $keys };
       delete $indx->{ $key } if $indx;
 
@@ -236,8 +238,7 @@ sub SCALAR {
 # POP ( )
 
 sub POP {
-   my ( $self ) = @_;
-   my ( $data, $keys, $indx ) = @{ $self };
+   my ( $data, $keys, $indx ) = @{ $_[0] };
    my $key = pop @{ $keys };
 
    return unless ( defined $key );
@@ -249,11 +250,11 @@ sub POP {
       if ( ref $keys->[-1] ) {
          my $i = $#{ $keys } - 1;
          $i-- while ( ref $keys->[$i] );
-         $self->[_GCNT] -= $#{ $keys } - $i;
+         $_[0]->[_GCNT] -= $#{ $keys } - $i;
          splice @{ $keys }, $i + 1;
       }
 
-      $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
+      $_[0]->[_BEGI] = 0, $_[0]->[_INDX] = undef unless @{ $keys };
    }
 
    return $key, delete $data->{ $key };
@@ -278,24 +279,23 @@ sub PUSH {
 # SHIFT ( )
 
 sub SHIFT {
-   my ( $self ) = @_;
-   my ( $data, $keys, $indx ) = @{ $self };
+   my ( $data, $keys, $indx ) = @{ $_[0] };
    my $key = shift @{ $keys };
 
    return unless ( defined $key );
 
    if ( $indx ) {
-      $self->[_BEGI]++, delete $indx->{ $key };
+      $_[0]->[_BEGI]++, delete $indx->{ $key };
 
       # GC start of list
       if ( ref $keys->[0] ) {
          my $i = 1;
          $i++ while ( ref $keys->[$i] );
-         $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
+         $_[0]->[_BEGI] += $i, $_[0]->[_GCNT] -= $i;
          splice @{ $keys }, 0, $i;
       }
 
-      $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
+      $_[0]->[_BEGI] = 0, $_[0]->[_INDX] = undef unless @{ $keys };
    }
 
    return $key, delete $data->{ $key };
@@ -478,8 +478,7 @@ sub pairs {
       if ( wantarray ) {
          my $data = $self->[_DATA];
          @_ ? map { $_ => $data->{ $_ } } @_
-            : map { $_ => $data->{ $_ } }
-                 grep !ref($_), @{ $self->[_KEYS] };
+            : map { $_ => $data->{ $_ } } grep !ref($_), @{ $self->[_KEYS] };
       }
       else {
          ( @{ $self->[_KEYS] } - $self->[_GCNT] ) << 1;
@@ -882,25 +881,19 @@ This document describes MCE::Shared::Ordhash version 1.699_011
 
 =head1 DESCRIPTION
 
-MCE::Shared provides two ordered hash implementations.
-
 This module implements an ordered hash featuring tombstone deletion,
-inspired by the L<Hash::Ordered> module. An ordered hash means that
-the key insertion order is preserved.
+inspired by the L<Hash::Ordered> module. An ordered hash means the key
+insertion order is preserved.
 
 It provides C<splice>, sorting, plus extra capabilities for use with
 L<MCE::Shared::Minidb>. Tombstone deletion is further optimized to not
 impact C<store>, C<push>, C<unshift>, and C<merge>. Tombstones are
-purged in-place for lesser memory consumption.
+purged in-place for lesser memory consumption. In addition, C<pop> and
+C<shift> run optimally when an index is present. The optimization also
+applies to forward and reverse deletes.
 
-In addition, C<pop> and C<shift> run optimally when an index is present.
-The optimization also applies to forward and reverse deletes.
-
-Applications sensitive to hash deletion may prefer L<MCE::Shared::Indhash>,
-a doubly-linked list implementation.
-
-Both this module and C<MCE::Shared::Indhash> may be used interchangeably.
-Only the underlying implementation differs between the two.
+The end result is achieving a new level of performance, for a pure-Perl
+ordered hash implementation.
 
 =head1 QUERY STRING
 
@@ -1103,13 +1096,11 @@ The implementation is inspired by L<Hash::Ordered> v0.009.
 
 I wanted an ordered hash implementation for use with MCE::Shared without
 any side effects such as linear scans, slow deletes, or excessive memory
-consumption. A module on CPAN to pass in this regard is L<Hash::Ordered>
-by David Golden.
+consumption. The closest module on CPAN to pass in this regard is
+L<Hash::Ordered> by David Golden.
 
 MCE::Shared has one shared-manager process which is by design. Therefore,
 extra measures were taken to further reduce any remaining side effects.
-I forwarded all findings along the way to David.
-
 This module differs in personality mainly for compatibilty with other
 C<hash> classes included with MCE::Shared.
 

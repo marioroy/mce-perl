@@ -20,9 +20,10 @@ use MCE::Shared::Server;
 
 our @CARP_NOT = qw(
    MCE::Shared::Array   MCE::Shared::Condvar  MCE::Shared::Handle
-   MCE::Shared::Hash    MCE::Shared::Indhash  MCE::Shared::Ordhash
+   MCE::Shared::Hash    MCE::Shared::Minidb   MCE::Shared::Ordhash
    MCE::Shared::Queue   MCE::Shared::Scalar   MCE::Shared::Sequence
-   MCE::Shared::Minidb  MCE::Shared::Object   MCE::Shared::Server
+
+   MCE::Shared::Server  MCE::Shared::Object
 );
 
 my $_imported;
@@ -195,18 +196,6 @@ sub hash {
    $_item;
 }
 
-sub indhash {
-   shift if ( defined $_[0] && $_[0] eq 'MCE::Shared' );
-   require MCE::Shared::Indhash unless $INC{'MCE/Shared/Indhash.pm'};
-
-   my $_params = ref $_[0] eq 'HASH' ? shift : {};
-   my $_item   = &share($_params, MCE::Shared::Indhash->new());
-
-   &_deeply_share_h($_params, $_item, @_) if @_;
-
-   $_item;
-}
-
 sub ordhash {
    shift if ( defined $_[0] && $_[0] eq 'MCE::Shared' );
    require MCE::Shared::Ordhash unless $INC{'MCE/Shared/Ordhash.pm'};
@@ -262,16 +251,9 @@ sub TIEHASH {
    my $_ordered = ( ref $_[0] eq 'HASH' && exists $_[0]->{'ordered'} )
       ? shift()->{'ordered'}
       : 0;
-   my $_indexed = ( ref $_[0] eq 'HASH' && exists $_[0]->{'indexed'} )
-      ? shift()->{'indexed'}
-      : 0;
-   if ( $_ordered ) {
-      MCE::Shared->ordhash(@_);
-   } elsif ( $_indexed ) {
-      MCE::Shared->indhash(@_);
-   } else {
-      MCE::Shared->hash(@_);
-   }
+   ( $_ordered )
+      ? MCE::Shared->ordhash(@_)
+      : MCE::Shared->hash(@_);
 }
 
 sub TIEHANDLE {
@@ -342,8 +324,7 @@ This document describes MCE::Shared version 1.699_011
    my $cv = MCE::Shared->condvar( 0 );
    my $fh = MCE::Shared->handle( '>>', \*STDOUT );
    my $ha = MCE::Shared->hash( @pairs );
-   my $ih = MCE::Shared->indhash( @pairs ); # feature doubly-linked list
-   my $oh = MCE::Shared->ordhash( @pairs ); # feature tombstone deletion
+   my $oh = MCE::Shared->ordhash( @pairs );
    my $db = MCE::Shared->minidb();
    my $qu = MCE::Shared->queue( await => 1, fast => 0 );
    my $va = MCE::Shared->scalar( $value );
@@ -360,7 +341,6 @@ This document describes MCE::Shared version 1.699_011
    tie my $var, 'MCE::Shared', 'initial value';
    tie my @ary, 'MCE::Shared', qw( a list of values );
    tie my %ha,  'MCE::Shared', ( key1 => 'value', key2 => 'value' );
-   tie my %ih,  'MCE::Shared', { indexed => 1 }, ( key1 => 'value' );
    tie my %oh,  'MCE::Shared', { ordered => 1 }, ( key1 => 'value' );
 
    tie my $cnt, 'MCE::Shared', 0;
@@ -466,11 +446,9 @@ shared-manager process.
 
 =item hash
 
-=item indhash
+=item minidb
 
 =item ordhash
-
-=item minidb
 
 =item queue
 
@@ -478,8 +456,8 @@ shared-manager process.
 
 =item sequence
 
-C<array>, C<condvar>, C<handle>, C<hash>, C<indhash>, C<ordhash>, C<minidb>
-C<queue>, C<scalar>, and C<sequence> are sugar syntax for constructing a
+C<array>, C<condvar>, C<handle>, C<hash>, C<minidb>, C<ordhash>, C<queue>,
+C<scalar>, and C<sequence> are sugar syntax for constructing a
 shared object.
 
   # long form
@@ -488,7 +466,6 @@ shared object.
 
   use MCE::Shared::Array;
   use MCE::Shared::Hash;
-  use MCE::Shared::Indhash;
   use MCE::Shared::OrdHash;
   use MCE::Shared::Minidb;
   use MCE::Shared::Queue;
@@ -496,7 +473,6 @@ shared object.
 
   my $ar = MCE::Shared->share( MCE::Shared::Array->new() );
   my $ha = MCE::Shared->share( MCE::Shared::Hash->new() );
-  my $ih = MCE::Shared->share( MCE::Shared::Indhash->new() );
   my $oh = MCE::Shared->share( MCE::Shared::Ordhash->new() );
   my $db = MCE::Shared->share( MCE::Shared::Minidb->new() );
   my $qu = MCE::Shared->share( MCE::Shared::Queue->new() );
@@ -510,8 +486,7 @@ shared object.
   my $cv = MCE::Shared->condvar( 0 );
   my $fh = MCE::Shared->handle( '>>', \*STDOUT );
   my $ha = MCE::Shared->hash( @pairs );
-  my $ih = MCE::Shared->indhash( @pairs ); # feature doubly-linked list
-  my $oh = MCE::Shared->ordhash( @pairs ); # feature tombstone deletion
+  my $oh = MCE::Shared->ordhash( @pairs );
   my $db = MCE::Shared->minidb();
   my $qu = MCE::Shared->queue( await => 1, fast => 0 );
   my $va = MCE::Shared->scalar( $value );
@@ -765,8 +740,8 @@ Resets the parallel iterator for C<Array or (Ord)Hash>.
 =item next
 
 C<rewind> and C<next> enable parallel iteration between workers for shared
-array, hash, indhash, ordhash, minidb, and sequence. Calling C<rewind> without
-an argument rewinds the iterator.
+array, hash, minidb, ordhash, and sequence. Calling C<rewind> without an
+argument rewinds the iterator.
 
 The syntax for C<query string> is described in each respective class module.
 For sequence, the construction for C<rewind> is the same as C<new>.
@@ -774,8 +749,6 @@ For sequence, the construction for C<rewind> is the same as C<new>.
 L<MCE::Shared::Array>
 
 L<MCE::Shared::Hash>
-
-L<MCE::Shared::Indhash>
 
 L<MCE::Shared::Ordhash>
 

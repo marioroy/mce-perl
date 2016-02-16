@@ -182,7 +182,7 @@ involvement by the manager process while running.
 =item L<MCE::Shared>
 
 An extension for sharing data or objects supporting threads and processes.
-Ten classes are included for use with MCE::Shared.
+Nine classes are included for use with MCE::Shared.
 
 L<MCE::Shared::Array>
 
@@ -192,11 +192,9 @@ L<MCE::Shared::Handle>
 
 L<MCE::Shared::Hash>
 
-L<MCE::Shared::Indhash>
+L<MCE::Shared::Minidb>
 
 L<MCE::Shared::Ordhash>
-
-L<MCE::Shared::Minidb>
 
 L<MCE::Shared::Queue>
 
