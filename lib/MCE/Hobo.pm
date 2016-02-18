@@ -462,6 +462,7 @@ sub _exit {
 }
 
 sub _trap {
+   $SIG{ $_[0] } = sub { };
    print {*STDERR} "Signal $_[0] received in process $$.$_tid\n";
    _exit();
 }
