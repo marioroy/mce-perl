@@ -37,8 +37,9 @@ sub _croak {
 }
 
 sub _reset {
-   my $self   = shift;
-   my $opts   = ref($_[0]) eq 'HASH' ? shift() : {};
+   my $self = shift;
+   my $opts = ref($_[0]) eq 'HASH' ? shift() : {};
+
    @{ $self } = @_;
 
    _croak('invalid begin') unless looks_like_number( $self->[_BEGV] );
@@ -54,10 +55,19 @@ sub _reset {
    $self->[_CKSZ] = $opts->{'chunk_size'}  || 1;
    $self->[_ONLY] = $opts->{'bounds_only'} // 0;
 
+   _croak('invalid chunk_size'  ) unless ( $self->[_CKSZ] =~ /^\d+$/  );
+   _croak('invalid bounds_only' ) unless ( $self->[_ONLY] =~ /^[01]$/ );
+
    $self->[_ITER] = undef;
 
    return;
 }
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Public methods.
+##
+###############################################################################
 
 # new ( begin, end [, step, format ] )
 # new ( )
@@ -65,11 +75,10 @@ sub _reset {
 sub new {
    my ( $class, $self ) = ( shift, [] );
 
-   if ( @_ ) {
-      _reset( $self, @_ );
-   }
-   else {
+   if ( !@_ ) {
       @{ $self } = ( 0, 0, 1, '__NOOP__' );
+   } else {
+      _reset( $self, @_ );
    }
 
    bless $self, $class;
@@ -84,83 +93,72 @@ sub next {
    if ( defined $iter ) {
       my ( $begv, $endv, $step, $fmt, $chunk_size, $bounds_only ) = @{ $self };
 
-      # note: computes from _BEGV value always to not lose precision
+      # computes from _BEGV value to not lose precision
 
       if ( $bounds_only ) {
          my ( @p, $seq, $seq_e );
 
-         for my $cnt ( 1 .. $chunk_size ) {
+         for my $i ( 1 .. $chunk_size ) {
             if ( $begv <= $endv ) {
                $seq = $begv + ( $iter++ * $step );
                last unless ( $seq >= $begv && $seq <= $endv );
-            }
-            else {
+            } else {
                $seq = $begv - -( $iter++ * $step );
                last unless ( $seq >= $endv && $seq <= $begv );
             }
-
-            if ( scalar @p ) {
+            if ( @p ) {
                $seq_e = ( defined $fmt ) ? sprintf( "%$fmt", $seq ) : $seq;
-            }
-            else {
+            } else {
                push @p, ( defined $fmt ) ? sprintf( "%$fmt", $seq ) : $seq;
             }
          }
 
-         return unless ( scalar @p );
+         return unless @p;
 
          $self->[_ITER] = $iter;
          $p[1] = $seq_e // $p[0];
 
          @p;  # begin_end pair
       }
-      else {
-         if ( $chunk_size == 1 ) {
-            my $seq;
+      elsif ( $chunk_size == 1 ) {
+         my $seq;
 
+         if ( $begv <= $endv ) {
+            $seq = $begv + ( $iter++ * $step );
+            return unless ( $seq >= $begv && $seq <= $endv );
+         } else {
+            $seq = $begv - -( $iter++ * $step );
+            return unless ( $seq >= $endv && $seq <= $begv );
+         }
+
+         $self->[_ITER] = $iter;
+
+         ( defined $fmt ) ? sprintf( "%$fmt", $seq ) : $seq;
+      }
+      else {
+         my ( @n, $seq );
+
+         for my $i ( 1 .. $chunk_size ) {
             if ( $begv <= $endv ) {
                $seq = $begv + ( $iter++ * $step );
-               return unless ( $seq >= $begv && $seq <= $endv );
-            }
-            else {
+               last unless ( $seq >= $begv && $seq <= $endv );
+            } else {
                $seq = $begv - -( $iter++ * $step );
-               return unless ( $seq >= $endv && $seq <= $begv );
+               last unless ( $seq >= $endv && $seq <= $begv );
             }
-
-            $self->[_ITER] = $iter;
-
-            ( defined $fmt )
-               ? sprintf( "%$fmt", $seq )
-               : $seq;
+            push @n, ( defined $fmt ) ? sprintf( "%$fmt", $seq ) : $seq;
          }
-         else {
-            my ( @n, $seq );
 
-            for my $cnt ( 1 .. $chunk_size ) {
-               if ( $begv <= $endv ) {
-                  $seq = $begv + ( $iter++ * $step );
-                  last unless ( $seq >= $begv && $seq <= $endv );
-               }
-               else {
-                  $seq = $begv - -( $iter++ * $step );
-                  last unless ( $seq >= $endv && $seq <= $begv );
-               }
+         return unless @n;
 
-               push @n, ( defined $fmt )
-                  ? sprintf( "%$fmt", $seq )
-                  : $seq;
-            }
+         $self->[_ITER] = $iter;
 
-            return unless ( scalar @n );
-
-            $self->[_ITER] = $iter;
-
-            @n;
-         }
+         @n;
       }
    }
    else {
       $self->[_ITER] = 0;
+
       $self->next();
    }
 }
@@ -171,11 +169,10 @@ sub next {
 sub rewind {
    my $self = shift;
 
-   if ( scalar @_ ) {
-      _reset( $self, @_ );
-   }
-   else {
+   if ( !@_ ) {
       $self->[_ITER] = undef unless ( $self->[_FMT] eq '__NOOP__' );
+   } else {
+      _reset( $self, @_ );
    }
 
    return;
