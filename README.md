@@ -90,20 +90,20 @@ Parsing a huge log file.
  print join('', @result);
 ```
 
-Looping through a sequence of numbers.
+Looping through a sequence of numbers with MCE::Flow.
 
 ```perl
  use MCE::Flow;
  use MCE::Shared;
 
- my $pi = MCE::Shared->scalar( 0.0 );
  my $N  = shift || 4_000_000;
+ my $pi = MCE::Shared->scalar( 0.0 );
 
  sub compute_pi {
-    my ( $begin_seq, $end_seq ) = @_;
+    my ( $wid, $beg_seq, $end_seq ) = @_;
     my ( $_pi, $t ) = ( 0.0 );
 
-    foreach my $i ( $begin_seq .. $end_seq ) {
+    foreach my $i ( $beg_seq .. $end_seq ) {
        $t = ( $i + 0.5 ) / $N;
        $_pi += 4.0 / ( 1.0 + $t * $t );
     }
@@ -113,9 +113,53 @@ Looping through a sequence of numbers.
 
  # Compute bounds only, workers receive [ begin, end ] values
 
- MCE::Flow::init { bounds_only => 1 };
+ MCE::Flow::init(
+    chunk_size  => 8000,
+    max_workers => 8,
+    bounds_only => 1
+ );
 
- mce_flow_s sub { compute_pi( $_->[0], $_->[1] ) }, 0, $N - 1;
+ mce_flow_s sub {
+    compute_pi( MCE->wid, $_->[0], $_->[1] );
+ }, 0, $N - 1;
+
+ printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
+```
+
+The same thing, looping through a sequence of numbers with MCE::Hobo.
+
+```perl
+ use MCE::Hobo;
+ use MCE::Shared;
+
+ my $N   = shift || 4_000_000;
+ my $pi  = MCE::Shared->scalar( 0.0 );
+
+ my $seq = MCE::Shared->sequence(
+    { chunk_size => 8000, bounds_only => 1 },
+    0, $N - 1
+ );
+
+ sub compute_pi {
+    my ( $wid ) = @_;
+
+    while ( my ( $beg, $end ) = $seq->next ) {
+       my ( $_pi, $t ) = ( 0.0 );
+       for my $i ( $beg .. $end ) {
+          $t = ( $i + 0.5 ) / $N;
+          $_pi += 4.0 / ( 1.0 + $t * $t );
+       }
+       $pi->incrby( $_pi );
+    }
+
+    return;
+ }
+
+ MCE::Hobo->create( \&compute_pi, $_ ) for ( 1 .. 8 );
+
+ # ... do other stuff ...
+
+ $_->join() for MCE::Hobo->list();
 
  printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
 ```
