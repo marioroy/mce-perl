@@ -434,11 +434,25 @@ Constructs a new object, with an optional list of key-value pairs.
 
 =item clear
 
+Removes all key-value pairs from the hash.
+
+   $ha->clear();
+
 =item clone ( key [, key, ... ] )
 
-=item clone
+Creates a shallow copy, a C<MCE::Shared::Hash> object. It returns an exact
+copy if no arguments are given. Otherwise, the object includes only the given
+keys. Keys that do not exist in the hash will have the C<undef> value.
+
+   $ha2 = $ha->clone( "key1", "key2" );
+   $ha2 = $ha->clone();
 
 =item delete ( key )
+
+Deletes and returns the value by given key or C<undef> if the key does not
+exists in the hash.
+
+   $val = $ha->delete( "some key" );
 
 =item del
 
@@ -446,13 +460,19 @@ C<del> is an alias for C<delete>.
 
 =item exists ( key )
 
-=item flush ( key [, key, ... ] )
+Determines if a key exists in the hash.
 
-=item flush
+   if ( $ha->exists( "some key" ) ) { ... }
+
+=item flush ( key [, key, ... ] )
 
 Same as C<clone>. Though, clears all existing items before returning.
 
 =item get ( key )
+
+Gets the value of a hash key or C<undef> if the key does not exists.
+
+   $val = $ha->get( "some key" );
 
 =item iterator ( key [, key, ... ] )
 
@@ -480,11 +500,31 @@ Returns the number of keys stored in the hash.
 
 =item mdel ( key [, key, ... ] )
 
+Deletes one or more keys in the hash and returns the number of keys deleted.
+A given key which does not exist in the hash is not counted.
+
+   $cnt = $ha->mdel( "key1", "key2" );
+
 =item mexists ( key [, key, ... ] )
+
+Returns a true value if all given keys exists in the hash. A false value is
+returned otherwise.
+
+   if ( $ha->mexists( "key1", "key2" ) ) { ... }
 
 =item mget ( key [, key, ... ] )
 
+Gets the values of all given keys. It returns C<undef> for keys which do not
+exists in the hash.
+
+   ( $val1, $val2 ) = $ha->mget( "key1", "key2" );
+
 =item mset ( key, value [, key, value, ... ] )
+
+Sets multiple key-value pairs in a hash and returns the number of keys stored
+in the hash.
+
+   $len = $ha->mset( "key1" => "val1", "key2" => "val2" );
 
 =item merge
 
@@ -497,6 +537,11 @@ C<merge> is an alias for C<mset>.
 =item pairs
 
 =item set ( key, value )
+
+Sets the value of a hash key and returns its new value.
+
+   $val = $ha->set( "key", "value" );
+   $val = $ha->{"key"} = "value";
 
 =item values ( key [, key, ... ] )
 
@@ -522,7 +567,7 @@ L<http://redis.io/commands#strings> with key representing the hash key.
 
 Appends a value to a key and returns its new length.
 
-   $len = $ha->append( $key, 'foo' );
+   $len = $ha->append( $key, "foo" );
 
 =item decr ( key )
 
@@ -552,7 +597,7 @@ Increments the value of a key by one and returns its old value.
 
 Sets the value of a key and returns its old value.
 
-   $old = $ha->getset( $key, 'baz' );
+   $old = $ha->getset( $key, "baz" );
 
 =item incr ( key )
 

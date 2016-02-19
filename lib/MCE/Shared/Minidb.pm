@@ -921,7 +921,7 @@ sub lrange {
    $self->[1][0]{ $key }->range(@_);
 }
 
-# lsplice ( key, offset, length [, list ] )
+# lsplice ( key, offset [, length [, list ] ] )
 
 sub lsplice {
    my ( $self, $key ) = ( shift, shift );
@@ -1239,6 +1239,8 @@ The shorter form without field names is allowed for HoA.
   
 =head1 API DOCUMENTATION - DB
 
+To be completed before the final 1.700 release.
+
 =over 3
 
 =item new
@@ -1303,27 +1305,76 @@ Returns [ key, href ] pairs.
 
 =head1 API DOCUMENTATION - HASHES ( HoH )
 
-To be completed before the final 1.700 release.
-
 =over 3
 
 =item hset ( key, field, value [, field, value, ... ] )
 
+Sets the value of a hash field and returns its new value. Multiple field_value
+pairs may be set at once. In that case, the number of fields stored at key is
+returned.
+
+   $val = $db->hset( "some key", "field", "value" );
+   $len = $db->hset( "some key", "f1" => "val1", "f2" => "val2" );
+
 =item hget ( key, field [, field, ... ] )
+
+Gets the values of all given hash fields. The C<undef> value is retuned for
+fields which do not exists in the hash stored at key. Likewise, the C<undef>
+value is returned if the key does not exists in the first level hash (H)oH.
+
+   $val = $db->hget( "some key", "field" );
+
+   ( $val1, $val2 ) = $db->hget( "some key", "field1", "field2" );
 
 =item hget ( key )
 
+Gets the C<MCE::Shared::Hash> object for the hash stored at key or C<undef> if
+the key does not exists in the first level hash (H)oH.
+
+   $ha_obj = $db->hget( "some key" );
+
 =item hdel ( key, field [, field, ... ] )
+
+Deletes one or more hash fields. It returns the value associated with the field
+if a single field is given. Otherwise, it returns the number of fields actually
+removed from the hash stored at key. A field which does not exist in the hash
+is not counted.
+
+   $val = $db->hdel( "some key", "some field" );
+   $cnt = $db->hdel( "some key", "field1", "field2" );
 
 =item hdel ( key )
 
+Deletes and returns the C<MCE::Shared::Hash> object stored at key or C<undef>
+if the key does not exists in the first level hash (H)oH.
+
+   $ha_obj = $db->hdel( "some key" );
+
 =item hexists ( key, field [, field, ... ] )
+
+Determines if a hash field exists. For multiple fields, a truth value is
+returned only if all given fields exist in the hash stored at key.
+
+   if ( $db->hexists( "some key", "some field" ) ) { ... }
+   if ( $db->hexists( "some key", "f1", "f5" ) ) { ... }
 
 =item hexists ( key )
 
+Determines if a key exists in the first level hash (H)oH.
+
+   if ( $db->hexists( "some key" ) ) { ... }
+
 =item hclear ( key )
 
+Removes all field-value pairs from the hash stored at key.
+
+   $db->hclear( "some key" );
+
 =item hclear
+
+Removes all key-value pairs from the first level hash (H)oH.
+
+   $db->hclear();
 
 =item hkeys ( key, field [, field, ... ] )
 
@@ -1345,11 +1396,12 @@ To be completed before the final 1.700 release.
 
 =item hshift
 
-Removes and returns the first key-value pair from the first-level hash (H)oH.
-In scalar context, only the value is returned. If the C<HASH> is empty, returns
-the undefined value.
+Removes and returns the first key-value pair or value in scalar context from
+the first-level hash (H)oH. If the C<HASH> is empty, returns the undefined
+value.
 
    ( $key, $href ) = $db->hshift;
+
    $href = $db->hshift;
 
 =item hsort ( "BY key [ ASC | DESC ] [ ALPHA ]" )
@@ -1360,7 +1412,7 @@ the undefined value.
 
 Appends a value to key-field and returns its new length.
 
-   $len = $db->happend( $key, $field, 'foo' );
+   $len = $db->happend( $key, $field, "foo" );
 
 =item hdecr ( key, field )
 
@@ -1402,7 +1454,7 @@ Increments the value of key-field by one and returns its old value.
 
 Sets the value of key-field and returns its old value.
 
-   $old = $db->hgetset( $key, $field, 'baz' );
+   $old = $db->hgetset( $key, $field, "baz" );
 
 =item hlen ( key, field )
 
@@ -1430,38 +1482,134 @@ Returns the number of keys stored at the first-level hash (H)oH.
 
 =item lset ( key, index, value [, index, value, ... ] )
 
+Sets the value of an element in a list by its index and returns its new value.
+Multiple index_value pairs may be set all at once. In that case, the length of
+the list is returned.
+
+   $val = $db->lset( "some key", 2, "value" );
+   $len = $db->lset( "some key", 0 => "val1", 1 => "val2" );
+
 =item lget ( key, index [, index, ... ] )
+
+Gets the values of all given list indices. The C<undef> value is retuned for
+indices which do not exists in the list stored at key. Likewise, the C<undef>
+value is returned if the key does not exists in the first level hash (H)oA.
+
+   $val = $db->lget( "some key", 20 );
+
+   ( $val1, $val2 ) = $db->lget( "some key", 0, 1 );
 
 =item lget ( key )
 
+Gets the C<MCE::Shared::Array> object for the list stored at key or C<undef> if
+the key does not exists in the first level hash (H)oA.
+
+   $ar_obj = $db->lget( "some key" );
+
 =item ldel ( key, index [, index, ... ] )
+
+Deletes one or more elements by their indices. It returns the value associated
+with the index if a single index is given. Otherwise, it returns the number of
+elements actually removed from the list stored at key. An index which does not
+exists in the list is not counted.
+
+   $val = $db->ldel( "some key", 20 );
+   $cnt = $db->ldel( "some key", 0, 1 );
 
 =item ldel ( key )
 
+Deletes and returns the C<MCE::Shared::Array> object stored at key or C<undef>
+if the key does not exists in the first level hash (H)oA.
+
+   $ar_obj = $db->ldel( "some key" );
+
 =item lexists ( key, index [, index, ... ] )
+
+Determines if elements by their indices exist in the list. For multiple indices,
+a truth value is returned only if all given indices exist in the list stored at
+key. The behavior is strongly tied to the use of delete on lists.
+
+   $db->lset( "some key", 0, "value0" );
+   $db->lset( "some key", 1, "value1" );
+   $db->lset( "some key", 2, "value2" );
+   $db->lset( "some key", 3, "value3" );
+
+   $db->lexists( "some key", 2 );     # True
+   $db->lexists( "some key", 2, 3 );  # True
+   $db->ldel   ( "some key", 2 );     # value2
+
+   $db->lexists( "some key", 2 );     # False
+   $db->lexists( "some key", 2, 3 );  # False
+   $db->lexists( "some key", 3 );     # True
 
 =item lexists ( key )
 
+Determines if a key exists in the first level hash (H)oA.
+
+   if ( $db->lexists( "some key" ) ) { ... }
+
 =item lclear ( key )
+
+Removes all elements from the list stored at key.
+
+   $db->lclear( "some key" );
 
 =item lclear
 
+Removes all key-value pairs from the first level hash (H)oA.
+
+   $db->lclear();
+
 =item lrange ( key, start, stop )
 
-=item lsplice ( key, offset, length [, list ] )
+Returns the specified elements of the list stored at key. The offsets C<start>
+and C<stop> can also be negative numbers indicating offsets starting at the
+end of the list.
+
+An empty list is returned if C<start> is larger than the end of the list.
+C<stop> is set to the last index of the list if larger than the actual end
+of the list.
+
+   @list = $db->lrange( "some key", 20, 29 );
+   @list = $db->lrange( "some key", -4, -1 );
+
+=item lsplice ( key, offset [, length [, list ] ] )
+
+Removes the elements designated by C<offset> and C<length> from the array
+stored at key, and replaces them with the elements of C<list>, if any.
+The behavior is similar to the Perl C<splice> function.
+
+   @items = $db->lsplice( "some key", 20, 2, @list );
+   @items = $db->lsplice( "some key", 20, 2 );
+   @items = $db->lsplice( "some key", 20 );
 
 =item lpop ( key )
 
-Removes and return the first value of the second-level array Ho(A). If there
-are no elements in the array, returns the undefined value.
+Removes and returns the first value of the list stored at key. If there are
+no elements in the list, returns the undefined value.
 
-   $value = $db->lpop( $key );
+   $val = $db->lpop( $key );
 
 =item lpush ( key, value [, value, ... ] )
 
+Prepends one or multiple values to the head of the list stored at key and
+returns the new length.
+
+   $len = $db->lpush( "some key", "val1", "val2" );
+
 =item rpop ( key )
 
+Removes and returns the last value of the list stored at key. If there are
+no elements in the list, returns the undefined value.
+
+   $val = $db->rpop( $key );
+
 =item rpush ( key, value [, value, ... ] )
+
+Appends one or multiple values to the tail of the list stored at key and
+returns the new length.
+
+   $len = $db->rpush( "some key", "val1", "val2" );
 
 =item lkeys ( key, index [, index, ... ] )
 
@@ -1483,12 +1631,12 @@ are no elements in the array, returns the undefined value.
 
 =item lshift
 
-Removes and returns the first key-value pair from the first-level hash (H)oA.
-In scalar context, only the value is returned. If the C<HASH> is empty, returns
-the undefined value. See C<lpop> to shift the first value of the second-level
-array Ho(A).
+Removes and returns the first key-value pair or value in scalar context from
+the first-level hash (H)oA. If the C<HASH> is empty, returns the undefined
+value. See C<lpop> to shift the first value of the list stored at key.
 
    ( $key, $aref ) = $db->lshift;
+
    $aref = $db->lshift;
 
 =item lsort ( "BY key [ ASC | DESC ] [ ALPHA ]" )
@@ -1503,7 +1651,7 @@ array Ho(A).
 
 Appends a value to key-index and returns its new length.
 
-   $len = $db->lappend( $key, 0, 'foo' );
+   $len = $db->lappend( $key, 0, "foo" );
 
 =item ldecr ( key, index )
 

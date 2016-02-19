@@ -171,9 +171,9 @@ The following demonstrates barrier synchronization.
 
    my $num_workers = 8;
    my $count = MCE::Shared->condvar(0);
-   my $state = MCE::Shared->scalar('ready');
+   my $state = MCE::Shared->scalar("ready");
 
-   my $microsecs = ($^O eq 'cygwin') ? 0 : 200;
+   my $microsecs = ($^O eq "cygwin") ? 0 : 200;
 
    # The lock is released upon calling ->broadcast, ->signal, ->timedwait,
    # or ->wait. For performance reasons, the variable is *not* re-locked
@@ -181,20 +181,20 @@ The following demonstrates barrier synchronization.
    # afterwards if necessary.
 
    sub barrier_sync {
-      usleep($microsecs) until $state->get eq 'ready' or $state->get eq 'up';
+      usleep($microsecs) until $state->get eq "ready" or $state->get eq "up";
 
       $count->lock;
-      $state->set('up'), $count->incr;
+      $state->set("up"), $count->incr;
 
       if ($count->get == $num_workers) {
-         $count->decr, $state->set('down');
+         $count->decr, $state->set("down");
          $count->broadcast;
       }
       else {
-         $count->wait while $state->get eq 'up';
+         $count->wait while $state->get eq "up";
          $count->lock;
          $count->decr;
-         $state->set('ready') if $count->get == 0;
+         $state->set("ready") if $count->get == 0;
          $count->unlock;
       }
    }
@@ -300,7 +300,7 @@ Releases a held lock on the variable. Then, waits until another thread does a
 C<signal> or C<broadcast> for the same variable. The variable is *not* locked
 upon return.
 
-   $count->wait() while $state->get() eq 'bar';
+   $count->wait() while $state->get() eq "bar";
 
 =item timedwait ( floating_seconds )
 
@@ -311,7 +311,7 @@ C<floating_seconds>.
 A false value is returned if the timeout is reached, and a true value otherwise.
 In either case, the variable is *not* locked upon return.
 
-   $count->timedwait( 10 ) while $state->get() eq 'foo';
+   $count->timedwait( 10 ) while $state->get() eq "foo";
 
 =back
 
@@ -327,7 +327,7 @@ L<http://redis.io/commands#strings> without the key argument.
 
 Appends a value at the end of the current value and returns its new length.
 
-   $len = $cv->append( 'foo' );
+   $len = $cv->append( "foo" );
 
 =item decr
 
@@ -357,7 +357,7 @@ Increments the value by one and returns its old value.
 
 Sets the value and returns its old value.
 
-   $old = $cv->getset( 'baz' );
+   $old = $cv->getset( "baz" );
 
 =item incr
 

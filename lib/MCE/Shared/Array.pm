@@ -52,7 +52,7 @@ sub PUSH      { my $o = shift; push(@$o, @_) }
 sub SHIFT     { shift(@{ $_[0] }) }
 sub UNSHIFT   { my $o = shift; unshift(@$o, @_) }
 
-# SPLICE ( offset, length [, list ] )
+# SPLICE ( offset [, length [, list ] ] )
 
 sub SPLICE {
    my $ob  = shift;
@@ -536,11 +536,26 @@ Constructs a new object, with an optional list of values.
 
 =item clear
 
+Removes all elements from the array.
+
+   $ar->clear();
+
 =item clone ( index [, index, ... ] )
 
-=item clone
+Creates a shallow copy, a C<MCE::Shared::Array> object. It returns an exact
+copy if no arguments are given. Otherwise, the object includes only the given
+indices in the same order. Indices that do not exist in the array will have
+the C<undef> value.
+
+   $ar2 = $ar->clone( 0, 1 );
+   $ar2 = $ar->clone();
 
 =item delete ( index )
+
+Deletes and returns the value associated by index or C<undef> if index exceeds
+the size of the list.
+
+   $val = $ar->delete( 20 );
 
 =item del
 
@@ -548,13 +563,29 @@ C<del> is an alias for C<delete>.
 
 =item exists ( index )
 
-=item flush ( index [, index, ... ] )
+Determines if an element by its index exists in the array. The behavior is
+strongly tied to the use of delete on lists.
 
-=item flush
+   $ar->push(qw/ value0 value1 value2 value3 /);
+
+   $ar->exists( 2 );     # True
+   $ar->exists( 2, 3 );  # True
+   $ar->delete( 2 );     # value2
+
+   $ar->exists( 2 );     # False
+   $ar->exists( 2, 3 );  # False
+   $ar->exists( 3 );     # True
+
+=item flush ( index [, index, ... ] )
 
 Same as C<clone>. Though, clears all existing items before returning.
 
 =item get ( index )
+
+Gets the value of an element by its index or C<undef> if the index does not
+exists.
+
+   $val = $ar->get( 2 );
 
 =item iterator ( index [, index, ... ] )
 
@@ -582,11 +613,30 @@ Returns the length of the list.
 
 =item mdel ( index [, index, ... ] )
 
+Deletes one or more elements by its index and returns the number of indices
+deleted. A given index which does not exist in the list is not counted.
+
+   $cnt = $ar->mdel( 0, 1 );
+
 =item mexists ( index [, index, ... ] )
+
+Returns a true value if all given indices exists in the list. A false value is
+returned otherwise.
+
+   if ( $ar->mexists( 0, 1 ) ) { ... }
 
 =item mget ( index [, index, ... ] )
 
+Gets multiple values from the list by its index. It returns C<undef> for indices
+which do not exists in the list.
+
+   ( $val1, $val2 ) = $ar->mget( 0, 1 );
+
 =item mset ( index, value [, index, value, ... ] )
+
+Sets multiple index-value pairs in the list and returns the length of the list.
+
+   $len = $ar->mset( 0 => "val1", 1 => "val2" );
 
 =item merge
 
@@ -600,21 +650,65 @@ C<merge> is an alias for C<mset>.
 
 =item pop
 
-=item push ( list )
+Removes and returns the last value of the list. If there are no elements in the
+list, returns the undefined value.
+
+   $val = $ar->pop();
+
+=item push ( value [, value, ... ] )
+
+Appends one or multiple values to the tail of the list and returns the new
+length.
+
+   $len = $ar->push( "val1", "val2" );
 
 =item set ( index, value )
 
+Sets the value of an array index and returns its new value.
+
+   $val = $ar->set( 2, "value" );
+   $val = $ar->[2] = "value";
+
 =item shift
 
+Removes and returns the first value of the list. If there are no elements in the
+list, returns the undefined value.
+
+   $val = $ar->shift();
+
 =item range ( start, stop )
+
+Returns the specified elements of the list. The offsets C<start> and C<stop>
+can also be negative numbers indicating offsets starting at the end of the
+list.
+
+An empty list is returned if C<start> is larger than the end of the list.
+C<stop> is set to the last index of the list if larger than the actual end
+of the list.
+
+   @list = $ar->range( 20, 29 );
+   @list = $ar->range( -4, -1 );
 
 =item sort ( "BY val [ ASC | DESC ] [ ALPHA ]" )
 
 =item sort ( "[ ASC | DESC ] [ ALPHA ]" )
 
-=item splice ( offset, length, list )
+=item splice ( offset [, length [, list ] ] )
 
-=item unshift ( list )
+Removes the elements designated by C<offset> and C<length> from the array, and
+replaces them with the elements of C<list>, if any. The behavior is similar to
+the Perl C<splice> function.
+
+   @items = $ar->splice( 20, 2, @list );
+   @items = $ar->splice( 20, 2 );
+   @items = $ar->splice( 20 );
+
+=item unshift ( value [, value, ... ] )
+
+Prepends one or multiple values to the head of the list and returns the new
+length.
+
+   $len = $ar->unshift( "val1", "val2" );
 
 =item values ( index [, index, ... ] )
 
@@ -640,7 +734,7 @@ L<http://redis.io/commands#strings> with key representing the array index.
 
 Appends a value to a key and returns its new length.
 
-   $len = $ar->append( 0, 'foo' );
+   $len = $ar->append( 0, "foo" );
 
 =item decr ( key )
 
@@ -670,7 +764,7 @@ Increments the value of a key by one and returns its old value.
 
 Sets the value of a key and returns its old value.
 
-   $old = $ar->getset( 0, 'baz' );
+   $old = $ar->getset( 0, "baz" );
 
 =item incr ( key )
 

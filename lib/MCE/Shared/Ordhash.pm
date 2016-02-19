@@ -318,7 +318,7 @@ sub UNSHIFT {
    @{ $keys } - $self->[_GCNT];
 }
 
-# SPLICE ( offset, length [, key, value, ... ] )
+# SPLICE ( offset [, length [, key, value, ... ] ] )
 
 sub SPLICE {
    my ( $self, $off ) = ( shift, shift );
@@ -925,22 +925,37 @@ Constructs a new object, with an optional list of key-value pairs.
    # non-shared
    use MCE::Shared::Ordhash;
 
-   $ha = MCE::Shared::Ordhash->new( @pairs );
-   $ha = MCE::Shared::Ordhash->new( );
+   $oh = MCE::Shared::Ordhash->new( @pairs );
+   $oh = MCE::Shared::Ordhash->new( );
 
    # shared
    use MCE::Shared;
 
-   $ha = MCE::Shared->ordhash( @pairs );
-   $ha = MCE::Shared->ordhash( );
+   $oh = MCE::Shared->ordhash( @pairs );
+   $oh = MCE::Shared->ordhash( );
 
 =item clear
 
+Removes all key-value pairs from the hash.
+
+   $oh->clear();
+
 =item clone ( key [, key, ... ] )
 
-=item clone
+Creates a shallow copy, a C<MCE::Shared::Ordhash> object. It returns an exact
+copy if no arguments are given. Otherwise, the object includes only the given
+keys in the same order. Keys that do not exist in the hash will have the
+C<undef> value.
+
+   $oh2 = $oh->clone( "key1", "key2" );
+   $oh2 = $oh->clone();
 
 =item delete ( key )
+
+Deletes and returns the value by given key or C<undef> if the key does not
+exists in the hash.
+
+   $val = $oh->delete( "some key" );
 
 =item del
 
@@ -948,13 +963,19 @@ C<del> is an alias for C<delete>.
 
 =item exists ( key )
 
-=item flush ( key [, key, ... ] )
+Determines if a key exists in the hash.
 
-=item flush
+   if ( $oh->exists( "some key" ) ) { ... }
+
+=item flush ( key [, key, ... ] )
 
 Same as C<clone>. Though, clears all existing items before returning.
 
 =item get ( key )
+
+Gets the value of a hash key or C<undef> if the key does not exists.
+
+   $val = $oh->get( "some key" );
 
 =item iterator ( key [, key, ... ] )
 
@@ -982,11 +1003,31 @@ Returns the number of keys stored in the hash.
 
 =item mdel ( key [, key, ... ] )
 
+Deletes one or more keys in the hash and returns the number of keys deleted.
+A given key which does not exist in the hash is not counted.
+
+   $cnt = $oh->mdel( "key1", "key2" );
+
 =item mexists ( key [, key, ... ] )
+
+Returns a true value if all given keys exists in the hash. A false value is
+returned otherwise.
+
+   if ( $oh->mexists( "key1", "key2" ) ) { ... }
 
 =item mget ( key [, key, ... ] )
 
+Gets the values of all given keys. It returns C<undef> for keys which do not
+exists in the hash.
+
+   ( $val1, $val2 ) = $oh->mget( "key1", "key2" );
+
 =item mset ( key, value [, key, value, ... ] )
+
+Sets multiple key-value pairs in a hash and returns the number of keys stored
+in the hash.
+
+   $len = $oh->mset( "key1" => "val1", "key2" => "val2" );
 
 =item merge
 
@@ -1000,13 +1041,44 @@ C<merge> is an alias for C<mset>.
 
 =item pop
 
+Removes and returns the last key-value pair or value in scalar context of the
+ordered hash. If there are no keys in the hash, returns the undefined value.
+
+   ( $key, $val ) = $oh->pop();
+
+   $val = $oh->shift();
+
 =item purge
 
-=item push ( key/value pairs )
+A utility method for purging any *tombstones* in the keys array. It also
+resets a couple counters internally. Call this method before serializing
+to a file, which is the case in C<MCE::Shared::Minidb>.
+
+   $oh->purge();
+
+=item push ( key, value [, key, value, ... ] )
+
+Appends one or multiple key-value pairs to the tail of the ordered hash and
+returns the new length. Any keys already existing in the hash are re-inserted
+with the new values.
+
+   $len = $oh->push( "key1", "val1", "key2", "val2" );
 
 =item set ( key, value )
 
+Sets the value of a hash key and returns its new value.
+
+   $val = $oh->set( "key", "value" );
+   $val = $oh->{"key"} = "value";
+
 =item shift
+
+Removes and returns the first key-value pair or value in scalar context of the
+ordered hash. If there are no keys in the hash, returns the undefined value.
+
+   ( $key, $val ) = $oh->shift();
+
+   $val = $oh->shift();
 
 =item sort ( "BY key [ ASC | DESC ] [ ALPHA ]" )
 
@@ -1014,9 +1086,23 @@ C<merge> is an alias for C<mset>.
 
 =item sort ( "[ ASC | DESC ] [ ALPHA ]" )
 
-=item splice ( offset, length, key/value pairs )
+=item splice ( offset [, length [, key, value, ... ] ] )
 
-=item unshift ( key/value pairs )
+Removes the key-value pairs designated by C<offset> and C<length> from the
+ordered hash, and replaces them with C<key-value pairs>, if any. The behavior
+is similar to the Perl C<splice> function.
+
+   @pairs = $oh->splice( 20, 2, @pairs );
+   @pairs = $oh->splice( 20, 2 );
+   @pairs = $oh->splice( 20 );
+
+=item unshift ( key, value [, key, value, ... ] )
+
+Prepends one or multiple key-value pairs to the head of the ordered hash and
+returns the new length. Any keys already existing in the hash are re-inserted
+with the new values.
+
+   $len = $oh->unshift( "key1", "val1", "key2", "val2" );
 
 =item values ( key [, key, ... ] )
 
@@ -1042,7 +1128,7 @@ L<http://redis.io/commands#strings> with key representing the hash key.
 
 Appends a value to a key and returns its new length.
 
-   $len = $oh->append( $key, 'foo' );
+   $len = $oh->append( $key, "foo" );
 
 =item decr ( key )
 
@@ -1072,7 +1158,7 @@ Increments the value of a key by one and returns its old value.
 
 Sets the value of a key and returns its old value.
 
-   $old = $oh->getset( $key, 'baz' );
+   $old = $oh->getset( $key, "baz" );
 
 =item incr ( key )
 
