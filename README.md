@@ -126,7 +126,7 @@ Looping through a sequence of numbers with MCE::Flow.
  printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
 ```
 
-The same thing, looping through a sequence of numbers with MCE::Hobo.
+The same thing with MCE::Hobo.
 
 ```perl
  use MCE::Hobo;
