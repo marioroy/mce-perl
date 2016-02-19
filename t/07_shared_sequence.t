@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 6;
+use Test::More tests => 10;
 use MCE::Shared;
                              # beg, end, step, fmt
 my $s1 = MCE::Shared->sequence( 1, 10            );
@@ -69,4 +69,40 @@ cmp_array(
 
 @a1 = (); $s1->rewind;
 @a2 = (); $s2->rewind;
+
+## --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
+
+$s1 = MCE::Shared->sequence(
+   { chunk_size => 10, bounds_only => 1 }, 1, 100
+);
+
+while ( my ( $beg, $end ) = $s1->next ) {
+   push @a1, $beg;
+   push @a2, $end;
+}
+
+cmp_array(
+   [ @a1 ], [ qw/ 1 11 21 31 41 51 61 71 81 91 / ],
+   'shared sequence, check sequence: bounds_only beg values'
+);
+cmp_array(
+   [ @a2 ], [ qw/ 10 20 30 40 50 60 70 80 90 100 / ],
+   'shared sequence, check sequence: bounds_only end values'
+);
+
+@a1 = (), @a2 = ();
+
+$s1->rewind( { chunk_size => 10 }, 1, 20 );
+
+@a1 = $s1->next();
+@a2 = $s1->next();
+
+cmp_array(
+   [ @a1 ], [ qw/ 1 2 3 4 5 6 7 8 9 10 / ],
+   'shared sequence, check sequence: chunk_size chunk 1'
+);
+cmp_array(
+   [ @a2 ], [ qw/ 11 12 13 14 15 16 17 18 19 20 / ],
+   'shared sequence, check sequence: chunk_size chunk 2'
+);
 
