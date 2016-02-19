@@ -99,7 +99,8 @@ Parsing a huge log file.
 
    print join('', @result);
 
-Looping through a sequence of numbers with MCE::Flow.
+Looping through a sequence of numbers with MCE::Flow. MCE workers persist
+between chunks.
 
    use MCE::Flow;
    use MCE::Shared;
@@ -133,7 +134,9 @@ Looping through a sequence of numbers with MCE::Flow.
 
    printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
 
-The same thing with MCE::Hobo.
+Running asynchronously in the background for threads-like behavior is
+possible with MCE::Hobo. Unlike threads, Hobo workers are spawned as
+processes having unique PIDs.
 
    use MCE::Hobo;
    use MCE::Shared;
@@ -169,6 +172,43 @@ The same thing with MCE::Hobo.
 
    printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
 
+Running threads with MCE::Shared is also a possibility. This requires 3 line
+changes from the previous demonstration.
+
+   use threads;                                               # 1
+   use MCE::Shared;
+
+   my $N   = shift || 4_000_000;
+   my $pi  = MCE::Shared->scalar( 0.0 );
+
+   my $seq = MCE::Shared->sequence(
+      { chunk_size => 8000, bounds_only => 1 },
+      0, $N - 1
+   );
+
+   sub compute_pi {
+      my ( $wid ) = @_;
+
+      while ( my ( $beg, $end ) = $seq->next ) {
+         my ( $_pi, $t ) = ( 0.0 );
+         for my $i ( $beg .. $end ) {
+            $t = ( $i + 0.5 ) / $N;
+            $_pi += 4.0 / ( 1.0 + $t * $t );
+         }
+         $pi->incrby( $_pi );
+      }
+
+      return;
+   }
+
+   threads->create( \&compute_pi, $_ ) for ( 1 .. 8 );        # 2
+
+   # ... do other stuff ...
+
+   $_->join() for threads->list();                            # 3
+
+   printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
+
 =head1 CORE MODULES
 
 Three modules make up the core engine for MCE.
@@ -177,11 +217,12 @@ Three modules make up the core engine for MCE.
 
 =item L<MCE::Core>
 
-Provides the Core API for Many-Core Engine.
+Provides the Core API for Many-Core Engine. The various MCE options are
+described here.
 
 =item L<MCE::Signal>
 
-Temporary directory creation/cleanup and signal handling.
+Temporary directory creation, cleanup, and signal handling.
 
 =item L<MCE::Util>
 
@@ -202,7 +243,7 @@ output order.
 
 =item L<MCE::Hobo>
 
-Provides threads-like capability for executing code asynchronously via child
+Provides threads-like behavior for executing code asynchronously via child
 processes.
 
 =item L<MCE::Mutex>

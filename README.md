@@ -90,7 +90,8 @@ Parsing a huge log file.
  print join('', @result);
 ```
 
-Looping through a sequence of numbers with MCE::Flow.
+Looping through a sequence of numbers with MCE::Flow. MCE workers persist
+between chunks.
 
 ```perl
  use MCE::Flow;
@@ -126,7 +127,9 @@ Looping through a sequence of numbers with MCE::Flow.
  printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
 ```
 
-The same thing with MCE::Hobo.
+Running asynchronously in the background for threads-like behavior is
+possible with MCE::Hobo. Unlike threads, Hobo workers are spawned as
+processes having unique PIDs.
 
 ```perl
  use MCE::Hobo;
@@ -164,6 +167,45 @@ The same thing with MCE::Hobo.
  printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
 ```
 
+Running threads with MCE::Shared is also a possibility. This requires 3 line
+changes from the previous demonstration.
+
+```perl
+ use threads;                                               # 1
+ use MCE::Shared;
+
+ my $N   = shift || 4_000_000;
+ my $pi  = MCE::Shared->scalar( 0.0 );
+
+ my $seq = MCE::Shared->sequence(
+    { chunk_size => 8000, bounds_only => 1 },
+    0, $N - 1
+ );
+
+ sub compute_pi {
+    my ( $wid ) = @_;
+
+    while ( my ( $beg, $end ) = $seq->next ) {
+       my ( $_pi, $t ) = ( 0.0 );
+       for my $i ( $beg .. $end ) {
+          $t = ( $i + 0.5 ) / $N;
+          $_pi += 4.0 / ( 1.0 + $t * $t );
+       }
+       $pi->incrby( $_pi );
+    }
+
+    return;
+ }
+
+ threads->create( \&compute_pi, $_ ) for ( 1 .. 8 );        # 2
+
+ # ... do other stuff ...
+
+ $_->join() for threads->list();                            # 3
+
+ printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
+```
+
 ### Installation and Dependencies
 
 To install this module type the following:
@@ -186,7 +228,8 @@ of threads requires that you include threads support prior to loading MCE.
 
 ![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Supported_OS.png)
 
-MCE utilizes the following modules, which are packaged with Perl normally:
+Minimally, MCE utilizes the following modules, which are packaged with Perl
+normally:
 
     bytes
     constant
@@ -200,6 +243,8 @@ MCE utilizes the following modules, which are packaged with Perl normally:
     Symbol
     Test::More 0.45+ (for make test only)
     Time::HiRes
+
+Optionally, install IO::FDPass, used by MCE::Shared::Server if available.
 
 ### Further Reading
 
