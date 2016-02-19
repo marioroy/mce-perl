@@ -115,7 +115,7 @@ between chunks.
  # Compute bounds only, workers receive [ begin, end ] values
 
  MCE::Flow::init(
-    chunk_size  => 100_000,
+    chunk_size  => 200_000,
     max_workers => 8,
     bounds_only => 1
  );
@@ -139,7 +139,7 @@ processes having unique PIDs.
  my $pi  = MCE::Shared->scalar( 0.0 );
 
  my $seq = MCE::Shared->sequence(
-    { chunk_size => 100_000, bounds_only => 1 },
+    { chunk_size => 200_000, bounds_only => 1 },
     0, $N - 1
  );
 
@@ -178,7 +178,7 @@ changes from the previous demonstration.
  my $pi  = MCE::Shared->scalar( 0.0 );
 
  my $seq = MCE::Shared->sequence(
-    { chunk_size => 100_000, bounds_only => 1 },
+    { chunk_size => 200_000, bounds_only => 1 },
     0, $N - 1
  );
 
