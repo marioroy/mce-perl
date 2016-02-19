@@ -115,7 +115,7 @@ sub _worker_sequence_generator {
             my $_tmp_b = $_next; my $_tmp_e;
 
             if ($_begin < $_end) {
-               if ($_step * $_chunk_size + $_n_begin <= $_end) {
+               if ($_step * ($_chunk_size - 1) + $_n_begin <= $_end) {
                   $_tmp_e = $_step * ($_chunk_size - 1) + $_n_begin;
                }
                else {
@@ -132,7 +132,7 @@ sub _worker_sequence_generator {
                }
             }
             else {
-               if ($_step * $_chunk_size + $_n_begin >= $_end) {
+               if ($_step * ($_chunk_size - 1) + $_n_begin >= $_end) {
                   $_tmp_e = $_step * ($_chunk_size - 1) + $_n_begin;
                }
                else {

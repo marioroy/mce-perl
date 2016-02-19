@@ -92,70 +92,101 @@ sub next {
 
    if ( defined $iter ) {
       my ( $begv, $endv, $step, $fmt, $chunk_size, $bounds_only ) = @{ $self };
+      my ( $seq );
 
-      # computes from _BEGV value to not lose precision
+      # compute from _BEGV value to not lose precision during iteration
+
+      if ( $begv <= $endv ) {
+         $seq = $begv + ( $iter++ * $step );
+         return if ( $seq > $endv );
+      }
+      else {
+         $seq = $begv - -( $iter++ * $step );
+         return if ( $seq < $endv );
+      }
+
+      # bounds_only => 1
 
       if ( $bounds_only ) {
-         my ( @p, $seq, $seq_e );
+         my ( @n, $seq_e );
 
-         for my $i ( 1 .. $chunk_size ) {
+         $n[0] = ( defined $fmt ) ? sprintf( "%$fmt", $seq ) : $seq;
+
+         if ( $chunk_size > 1 ) {
             if ( $begv <= $endv ) {
-               $seq = $begv + ( $iter++ * $step );
-               last unless ( $seq >= $begv && $seq <= $endv );
-            } else {
-               $seq = $begv - -( $iter++ * $step );
-               last unless ( $seq >= $endv && $seq <= $begv );
+               if ( $step * ( $chunk_size - 1 ) + $seq <= $endv ) {
+                  $seq_e = $step * ( $chunk_size - 1 ) + $seq;
+                  $iter += $chunk_size - 1;
+               }
+               else {
+                  for my $i ( 2 .. $chunk_size ) {
+                     $seq = $begv + ( $iter++ * $step );
+                     last if ( $seq > $endv );
+                     $seq_e = $seq;
+                  }
+               }
             }
-            if ( @p ) {
-               $seq_e = ( defined $fmt ) ? sprintf( "%$fmt", $seq ) : $seq;
-            } else {
-               push @p, ( defined $fmt ) ? sprintf( "%$fmt", $seq ) : $seq;
+            else {
+               if ( $step * ( $chunk_size - 1 ) + $seq >= $endv ) {
+                  $seq_e = $step * ( $chunk_size - 1 ) + $seq;
+                  $iter += $chunk_size - 1;
+               }
+               else {
+                  for my $i ( 2 .. $chunk_size ) {
+                     $seq = $begv - -( $iter++ * $step );
+                     last if ( $seq < $endv );
+                     $seq_e = $seq;
+                  }
+               }
             }
          }
-
-         return unless @p;
 
          $self->[_ITER] = $iter;
-         $p[1] = $seq_e // $p[0];
 
-         @p;  # begin_end pair
-      }
-      elsif ( $chunk_size == 1 ) {
-         my $seq;
-
-         if ( $begv <= $endv ) {
-            $seq = $begv + ( $iter++ * $step );
-            return unless ( $seq >= $begv && $seq <= $endv );
-         } else {
-            $seq = $begv - -( $iter++ * $step );
-            return unless ( $seq >= $endv && $seq <= $begv );
+         if ( defined $seq_e ) {
+            $n[1] = ( defined $fmt ) ? sprintf( "%$fmt", $seq_e ) : $seq_e;
+         }
+         else {
+            $n[1] = $n[0];
          }
 
+         @n;  # begin_end pair
+      }
+
+      # chunk_size == 1
+
+      elsif ( $chunk_size == 1 ) {
          $self->[_ITER] = $iter;
 
          ( defined $fmt ) ? sprintf( "%$fmt", $seq ) : $seq;
       }
+
+      # chunk_size > 1
+
       else {
-         my ( @n, $seq );
+         push my @n, ( defined $fmt ) ? sprintf( "%$fmt", $seq ) : $seq;
 
-         for my $i ( 1 .. $chunk_size ) {
-            if ( $begv <= $endv ) {
+         if ( $begv <= $endv ) {
+            for my $i ( 2 .. $chunk_size ) {
                $seq = $begv + ( $iter++ * $step );
-               last unless ( $seq >= $begv && $seq <= $endv );
-            } else {
-               $seq = $begv - -( $iter++ * $step );
-               last unless ( $seq >= $endv && $seq <= $begv );
+               last if ( $seq > $endv );
+               push @n, ( defined $fmt ) ? sprintf( "%$fmt", $seq ) : $seq;
             }
-            push @n, ( defined $fmt ) ? sprintf( "%$fmt", $seq ) : $seq;
          }
-
-         return unless @n;
+         else {
+            for my $i ( 2 .. $chunk_size ) {
+               $seq = $begv - -( $iter++ * $step );
+               last if ( $seq < $endv );
+               push @n, ( defined $fmt ) ? sprintf( "%$fmt", $seq ) : $seq;
+            }
+         }
 
          $self->[_ITER] = $iter;
 
          @n;
       }
    }
+
    else {
       $self->[_ITER] = 0;
 

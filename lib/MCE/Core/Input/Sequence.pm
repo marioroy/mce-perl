@@ -106,7 +106,7 @@ sub _worker_sequence_queue {
             my $_tmp_b = $_seq_n; my $_tmp_e;
 
             if ($_begin < $_end) {
-               if ($_step * $_chunk_size + $_n_begin <= $_end) {
+               if ($_step * ($_chunk_size - 1) + $_n_begin <= $_end) {
                   $_tmp_e = $_step * ($_chunk_size - 1) + $_n_begin;
                }
                else {
@@ -123,7 +123,7 @@ sub _worker_sequence_queue {
                }
             }
             else {
-               if ($_step * $_chunk_size + $_n_begin >= $_end) {
+               if ($_step * ($_chunk_size - 1) + $_n_begin >= $_end) {
                   $_tmp_e = $_step * ($_chunk_size - 1) + $_n_begin;
                }
                else {
