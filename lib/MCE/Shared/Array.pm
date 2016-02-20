@@ -47,10 +47,10 @@ sub FETCH     { $_[0]->[ $_[1] ] }
 sub DELETE    { delete $_[0]->[ $_[1] ] }
 sub EXISTS    { exists $_[0]->[ $_[1] ] }
 sub CLEAR     { @{ $_[0] } = () }
-sub POP       { pop(@{ $_[0] }) }
-sub PUSH      { my $o = shift; push(@$o, @_) }
-sub SHIFT     { shift(@{ $_[0] }) }
-sub UNSHIFT   { my $o = shift; unshift(@$o, @_) }
+sub POP       { pop @{ $_[0] } }
+sub PUSH      { my $ob = shift; push @{ $ob }, @_ }
+sub SHIFT     { shift @{ $_[0] } }
+sub UNSHIFT   { my $ob = shift; unshift @{ $ob }, @_ }
 
 # SPLICE ( offset [, length [, list ] ] )
 
@@ -60,7 +60,8 @@ sub SPLICE {
    my $off = @_ ? shift : 0;
    $off   += $sz if $off < 0;
    my $len = @_ ? shift : $sz-$off;
-   return splice(@$ob, $off, $len, @_);
+
+   splice @{ $ob }, $off, $len, @_;
 }
 
 ###############################################################################
@@ -332,8 +333,7 @@ sub _reorder {
 # append ( index, string )
 
 sub append {
-   $_[0]->[ $_[1] ] .= $_[2] || '';
-   length $_[0]->[ $_[1] ];
+   length( $_[0]->[ $_[1] ] .= $_[2] // '' );
 }
 
 # decr    ( index )
@@ -344,15 +344,20 @@ sub append {
 # getincr ( index )
 
 sub decr    { --$_[0]->[ $_[1] ]               }
-sub decrby  {   $_[0]->[ $_[1] ] -= $_[2] || 0 }
+sub decrby  {   $_[0]->[ $_[1] ] -= $_[2] // 0 }
 sub incr    { ++$_[0]->[ $_[1] ]               }
-sub incrby  {   $_[0]->[ $_[1] ] += $_[2] || 0 }
-sub getdecr {   $_[0]->[ $_[1] ]--        || 0 }
-sub getincr {   $_[0]->[ $_[1] ]++        || 0 }
+sub incrby  {   $_[0]->[ $_[1] ] += $_[2] // 0 }
+sub getdecr {   $_[0]->[ $_[1] ]--        // 0 }
+sub getincr {   $_[0]->[ $_[1] ]++        // 0 }
 
 # getset ( index, value )
 
-sub getset { my $old = $_[0]->[ $_[1] ]; $_[0]->[ $_[1] ] = $_[2]; $old }
+sub getset {
+   my $old = $_[0]->[ $_[1] ];
+   $_[0]->[ $_[1] ] = $_[2];
+
+   $old;
+}
 
 # len ( index )
 # len ( )

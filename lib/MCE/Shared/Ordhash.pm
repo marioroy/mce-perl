@@ -676,65 +676,57 @@ sub _reorder {
 # append ( key, string )
 
 sub append {
-   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   exists $_[0]->[_DATA]{ $_[1] } || push @{ $_[0]->[_KEYS] }, "$_[1]";
 
-   $data->{ $key } .= $_[2] || '';
-   length $data->{ $key };
+   length( $_[0]->[_DATA]{ $_[1] } .= $_[2] // '' );
 }
 
 # decr ( key )
 
 sub decr {
-   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   exists $_[0]->[_DATA]{ $_[1] } || push @{ $_[0]->[_KEYS] }, "$_[1]";
 
-   --$data->{ $key };
+   --$_[0]->[_DATA]{ $_[1] };
 }
 
 # decrby ( key, number )
 
 sub decrby {
-   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   exists $_[0]->[_DATA]{ $_[1] } || push @{ $_[0]->[_KEYS] }, "$_[1]";
 
-   $data->{ $key } -= $_[2] || 0;
+   $_[0]->[_DATA]{ $_[1] } -= $_[2] // 0;
 }
 
 # incr ( key )
 
 sub incr {
-   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   exists $_[0]->[_DATA]{ $_[1] } || push @{ $_[0]->[_KEYS] }, "$_[1]";
 
-   ++$data->{ $key };
+   ++$_[0]->[_DATA]{ $_[1] };
 }
 
 # incrby ( key, number )
 
 sub incrby {
-   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   exists $_[0]->[_DATA]{ $_[1] } || push @{ $_[0]->[_KEYS] }, "$_[1]";
 
-   $data->{ $key } += $_[2] || 0;
+   $_[0]->[_DATA]{ $_[1] } += $_[2] // 0;
 }
 
 # getdecr ( key )
 
 sub getdecr {
-   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   exists $_[0]->[_DATA]{ $_[1] } || push @{ $_[0]->[_KEYS] }, "$_[1]";
 
-   $data->{ $key }-- || 0;
+   $_[0]->[_DATA]{ $_[1] }-- // 0;
 }
 
 # getincr ( key )
 
 sub getincr {
-   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   exists $_[0]->[_DATA]{ $_[1] } || push @{ $_[0]->[_KEYS] }, "$_[1]";
 
-   $data->{ $key }++ || 0;
+   $_[0]->[_DATA]{ $_[1] }++ // 0;
 }
 
 # getset ( key, value )

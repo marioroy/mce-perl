@@ -43,8 +43,7 @@ sub FETCH { ${ $_[0] } }
 # append ( string )
 
 sub append {
-   ${ $_[0] } .= $_[1] || '';
-   length ${ $_[0] };
+   length( ${ $_[0] } .= $_[1] // '' );
 }
 
 # decr
@@ -55,19 +54,26 @@ sub append {
 # getincr
 
 sub decr    { --${ $_[0] }               }
-sub decrby  {   ${ $_[0] } -= $_[1] || 0 }
+sub decrby  {   ${ $_[0] } -= $_[1] // 0 }
 sub incr    { ++${ $_[0] }               }
-sub incrby  {   ${ $_[0] } += $_[1] || 0 }
-sub getdecr {   ${ $_[0] }--        || 0 }
-sub getincr {   ${ $_[0] }++        || 0 }
+sub incrby  {   ${ $_[0] } += $_[1] // 0 }
+sub getdecr {   ${ $_[0] }--        // 0 }
+sub getincr {   ${ $_[0] }++        // 0 }
 
 # getset ( value )
 
-sub getset { my $old = ${ $_[0] }; ${ $_[0] } = $_[1]; $old }
+sub getset {
+   my $old = ${ $_[0] };
+   ${ $_[0] } = $_[1];
+
+   $old;
+}
 
 # len ( )
 
-sub len { length ${ $_[0] } || 0 }
+sub len {
+   length ${ $_[0] } || 0;
+}
 
 {
    no strict 'refs';
