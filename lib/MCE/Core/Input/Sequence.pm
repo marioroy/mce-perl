@@ -103,19 +103,14 @@ sub _worker_sequence_queue {
          ## -------------------------------------------------------------------
 
          if ($_bounds_only) {
-            my $_tmp_b = $_seq_n; my $_tmp_e;
+            my ($_tmp_b, $_tmp_e) = ($_seq_n);
 
             if ($_begin < $_end) {
                if ($_step * ($_chunk_size - 1) + $_n_begin <= $_end) {
                   $_tmp_e = $_step * ($_chunk_size - 1) + $_n_begin;
                }
                else {
-                  my $_start = int(
-                     ($_end - $_seq_n) / $_chunk_size / $_step * $_chunk_size
-                  );
-                  $_start = 1 if ($_start < 1);
-
-                  for my $_i ($_start .. $_chunk_size) {
+                  for my $_i (1 .. $_chunk_size) {
                      last if ($_seq_n > $_end);
                      $_tmp_e = $_seq_n;
                      $_seq_n = $_step * $_i + $_n_begin;
@@ -127,12 +122,7 @@ sub _worker_sequence_queue {
                   $_tmp_e = $_step * ($_chunk_size - 1) + $_n_begin;
                }
                else {
-                  my $_start = int(
-                     ($_seq_n - $_end) / $_chunk_size / $_step * $_chunk_size
-                  );
-                  $_start = 1 if ($_start < 1);
-
-                  for my $_i ($_start .. $_chunk_size) {
+                  for my $_i (1 .. $_chunk_size) {
                      last if ($_seq_n < $_end);
                      $_tmp_e = $_seq_n;
                      $_seq_n = $_step * $_i + $_n_begin;
@@ -140,11 +130,9 @@ sub _worker_sequence_queue {
                }
             }
 
-            if (defined $_fmt) {
-               @_n = (sprintf("%$_fmt", $_tmp_b), sprintf("%$_fmt", $_tmp_e));
-            } else {
-               @_n = ($_tmp_b, $_tmp_e);
-            }
+            @_n = (defined $_fmt)
+               ? ( sprintf("%$_fmt",$_tmp_b), sprintf("%$_fmt",$_tmp_e) )
+               : ( $_tmp_b, $_tmp_e );
          }
 
          ## -------------------------------------------------------------------
