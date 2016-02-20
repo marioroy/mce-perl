@@ -306,11 +306,12 @@ sub UNSHIFT {
    my ( $data, $keys, $key ) = ( @{ $self }[ _DATA, _KEYS ] );
 
    while ( @_ ) {
-      $key = splice @_, -2, 1;
+      $key = $_[-2];
       $self->DELETE($key) if ( exists $data->{ $key } );
       $self->[_BEGI]-- if $self->[_INDX];
       unshift @{ $keys }, "$key";
       $data->{ $key } = pop;
+      pop;
    }
 
    @{ $keys } - $self->[_GCNT];
