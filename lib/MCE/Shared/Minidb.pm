@@ -754,7 +754,7 @@ sub hdecrby {
    my ( $self, $key ) = @_;
    return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   $self->[0][0]{ $key }{ $_[2] } -= $_[3] // 0;
+   $self->[0][0]{ $key }{ $_[2] } -= $_[3] || 0;
 }
 
 # hincr ( key, field )
@@ -772,7 +772,7 @@ sub hincrby {
    my ( $self, $key ) = @_;
    return unless length($key);
    $self->[0]->set($key, _new_hash()) unless exists($self->[0][0]{ $key });
-   $self->[0][0]{ $key }{ $_[2] } += $_[3] // 0;
+   $self->[0][0]{ $key }{ $_[2] } += $_[3] || 0;
 }
 
 # hgetdecr ( key, field )
@@ -1071,7 +1071,7 @@ sub ldecrby {
    my ( $self, $key ) = @_;
    return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }[ $_[2] ] -= $_[3] // 0;
+   $self->[1][0]{ $key }[ $_[2] ] -= $_[3] || 0;
 }
 
 # lincr ( key, index )
@@ -1089,7 +1089,7 @@ sub lincrby {
    my ( $self, $key ) = @_;
    return unless length($key);
    $self->[1]->set($key, _new_list()) unless exists($self->[1][0]{ $key });
-   $self->[1][0]{ $key }[ $_[2] ] += $_[3] // 0;
+   $self->[1][0]{ $key }[ $_[2] ] += $_[3] || 0;
 }
 
 # lgetdecr ( key, index )

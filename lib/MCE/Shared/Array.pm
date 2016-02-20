@@ -344,9 +344,9 @@ sub append {
 # getincr ( index )
 
 sub decr    { --$_[0]->[ $_[1] ]               }
-sub decrby  {   $_[0]->[ $_[1] ] -= $_[2] // 0 }
+sub decrby  {   $_[0]->[ $_[1] ] -= $_[2] || 0 }
 sub incr    { ++$_[0]->[ $_[1] ]               }
-sub incrby  {   $_[0]->[ $_[1] ] += $_[2] // 0 }
+sub incrby  {   $_[0]->[ $_[1] ] += $_[2] || 0 }
 sub getdecr {   $_[0]->[ $_[1] ]--        // 0 }
 sub getincr {   $_[0]->[ $_[1] ]++        // 0 }
 
