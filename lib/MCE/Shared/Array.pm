@@ -103,17 +103,7 @@ sub _find {
 sub clone {
    my $self = shift;
    my $params = ref($_[0]) eq 'HASH' ? shift : {};
-   my ( @data, $key );
-
-   if ( @_ ) {
-      while ( @_ ) {
-         $key = shift;
-         push @data, $self->[ $key ];
-      }
-   }
-   else {
-      @data = @{ $self };
-   }
+   my @data = ( @_ ) ? @{ $self }[ @_ ] : @{ $self };
 
    $self->clear() if $params->{'flush'};
 

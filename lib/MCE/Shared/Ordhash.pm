@@ -67,7 +67,7 @@ sub TIEHASH {
 
    while ( @_ ) {
       $key = shift;
-      push @keys, "$key" unless ( exists $data{ $key } );
+      exists $data{ $key } || push @keys, "$key";
       $data{ $key } = shift;
    }
 
@@ -77,10 +77,8 @@ sub TIEHASH {
 # STORE ( key, value )
 
 sub STORE {
-   my ( $data, $keys ) = @{ $_[0] };
-   my $key = $_[1];
-
-   push @{ $keys }, "$key" unless ( exists $data->{ $key } );
+   my ( $key, $data, $keys ) = ( $_[1], @{ $_[0] } );
+   exists $data->{ $key } || push @{ $keys }, "$key";
 
    $data->{ $key } = $_[2];
 }
@@ -390,22 +388,29 @@ sub _find {
 sub clone {
    my $self = shift;
    my $params = ref($_[0]) eq 'HASH' ? shift : {};
-   my $DATA = $self->[_DATA];
-   my ( $key, %data, @keys );
+   my ( %data, @keys );
 
    if ( @_ ) {
-      while ( @_ ) {
-         $key = shift;
-         push @keys, "$key" unless ( exists $data{ $key } );
-         $data{ $key } = $DATA->{ $key };
+      @data{ @_ } = @{ $self->[_DATA] }{ @_ };
+      if ( scalar( keys %data ) == scalar( @_ ) ) {
+         @keys = map "$_", @_;
+      }
+      else {
+         my ( $DATA, $key ) = ( $self->[_DATA] );
+         %data = ();
+         while ( @_ ) {
+            $key = shift;
+            exists $data{ $key } || push @keys, "$key";
+            $data{ $key } = $DATA->{ $key };
+         }
       }
    }
    else {
-      for my $key ( @{ $self->[_KEYS] } ) {
-         next if ( ref $key );
-         push @keys, "$key" unless ( exists $data{ $key } );
-         $data{ $key } = $DATA->{ $key };
-      }
+      @keys = ( $self->[_GCNT] )
+         ? grep !ref($_), @{ $self->[_KEYS] }
+         : @{ $self->[_KEYS] };
+
+      @data{ @keys } = @{ $self->[_DATA] }{ @keys };
    }
 
    $self->clear() if $params->{'flush'};
@@ -554,11 +559,11 @@ sub mget {
 
 sub mset {
    my $self = shift;
-   my ( $data, $keys, $key ) = ( $self->[_DATA], $self->[_KEYS] );
+   my ( $data, $keys, $key ) = ( @{ $self }[ _DATA, _KEYS ] );
 
    while ( @_ ) {
       $key = shift;
-      push @{ $keys }, "$key" unless ( exists $data->{ $key } );
+      exists $data->{ $key } || push @{ $keys }, "$key";
       $data->{ $key } = shift;
    }
 
@@ -670,75 +675,75 @@ sub _reorder {
 # append ( key, string )
 
 sub append {
-   my ( $self, $key ) = @_;
-   push @{ $self->[_KEYS] }, "$key" unless ( exists $self->[_DATA]{ $key } );
+   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
+   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
 
-   $self->[_DATA]{ $key } .= $_[2] || '';
-   length $self->[_DATA]{ $key };
+   $data->{ $key } .= $_[2] || '';
+   length $data->{ $key };
 }
 
 # decr ( key )
 
 sub decr {
-   my ( $self, $key ) = @_;
-   push @{ $self->[_KEYS] }, "$key" unless ( exists $self->[_DATA]{ $key } );
+   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
+   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
 
-   --$self->[_DATA]{ $key };
+   --$data->{ $key };
 }
 
 # decrby ( key, number )
 
 sub decrby {
-   my ( $self, $key ) = @_;
-   push @{ $self->[_KEYS] }, "$key" unless ( exists $self->[_DATA]{ $key } );
+   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
+   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
 
-   $self->[_DATA]{ $key } -= $_[2] || 0;
+   $data->{ $key } -= $_[2] || 0;
 }
 
 # incr ( key )
 
 sub incr {
-   my ( $self, $key ) = @_;
-   push @{ $self->[_KEYS] }, "$key" unless ( exists $self->[_DATA]{ $key } );
+   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
+   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
 
-   ++$self->[_DATA]{ $key };
+   ++$data->{ $key };
 }
 
 # incrby ( key, number )
 
 sub incrby {
-   my ( $self, $key ) = @_;
-   push @{ $self->[_KEYS] }, "$key" unless ( exists $self->[_DATA]{ $key } );
+   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
+   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
 
-   $self->[_DATA]{ $key } += $_[2] || 0;
+   $data->{ $key } += $_[2] || 0;
 }
 
 # getdecr ( key )
 
 sub getdecr {
-   my ( $self, $key ) = @_;
-   push @{ $self->[_KEYS] }, "$key" unless ( exists $self->[_DATA]{ $key } );
+   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
+   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
 
-   $self->[_DATA]{ $key }-- || 0;
+   $data->{ $key }-- || 0;
 }
 
 # getincr ( key )
 
 sub getincr {
-   my ( $self, $key ) = @_;
-   push @{ $self->[_KEYS] }, "$key" unless ( exists $self->[_DATA]{ $key } );
+   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
+   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
 
-   $self->[_DATA]{ $key }++ || 0;
+   $data->{ $key }++ || 0;
 }
 
 # getset ( key, value )
 
 sub getset {
-   my ( $self, $key ) = @_;
-   push @{ $self->[_KEYS] }, "$key" unless ( exists $self->[_DATA]{ $key } );
+   my ( $key, $data ) = ( $_[1] , @{ $_[0] } );
+   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
 
-   my $old = $self->[_DATA]{ $key };
-   $self->[_DATA]{ $key } = $_[2];
+   my $old = $data->{ $key };
+   $data->{ $key } = $_[2];
 
    $old;
 }

@@ -86,13 +86,10 @@ sub _find {
 sub clone {
    my $self = shift;
    my $params = ref($_[0]) eq 'HASH' ? shift : {};
-   my ( %data, $key );
+   my %data;
 
    if ( @_ ) {
-      while ( @_ ) {
-         $key = shift;
-         $data{ $key } = $self->{ $key };
-      }
+      @data{ @_ } = @{ $self }{ @_ };
    }
    else {
       %data = %{ $self };
