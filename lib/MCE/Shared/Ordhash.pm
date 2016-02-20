@@ -262,13 +262,13 @@ sub POP {
 
 sub PUSH {
    my $self = shift;
-   my ( $data, $keys ) = @{ $self };
+   my ( $data, $keys, $key ) = ( @{ $self }[ _DATA, _KEYS ] );
 
    while ( @_ ) {
-      my ( $key, $val ) = splice @_, 0, 2;
+      $key = shift;
       $self->DELETE($key) if ( exists $data->{ $key } );
       push @{ $keys }, "$key";
-      $data->{ $key } = $val;
+      $data->{ $key } = shift;
    }
 
    @{ $keys } - $self->[_GCNT];
@@ -303,14 +303,14 @@ sub SHIFT {
 
 sub UNSHIFT {
    my $self = shift;
-   my ( $data, $keys ) = @{ $self };
+   my ( $data, $keys, $key ) = ( @{ $self }[ _DATA, _KEYS ] );
 
    while ( @_ ) {
-      my ( $key, $val ) = splice @_, -2, 2;
+      $key = splice @_, -2, 1;
       $self->DELETE($key) if ( exists $data->{ $key } );
       $self->[_BEGI]-- if $self->[_INDX];
       unshift @{ $keys }, "$key";
-      $data->{ $key } = $val;
+      $data->{ $key } = pop;
    }
 
    @{ $keys } - $self->[_GCNT];
