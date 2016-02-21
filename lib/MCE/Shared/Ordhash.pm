@@ -31,7 +31,8 @@ our $VERSION = '1.699_011';
 use MCE::Shared::Base;
 use bytes;
 
-use constant { _TOMBSTONE => \1 };  # ref to arbitrary scalar
+# for invalidating a key to be garbage collected later
+use constant { _TOMBSTONE => undef };
 
 use constant {
    _DATA => 0,  # unordered data
@@ -102,15 +103,17 @@ sub DELETE {
       shift @{ $keys };
       $self->[_BEGI]++, delete $indx->{ $key } if $indx;
 
+      # reset ordered hash
+      if ( ! @{ $keys } ) {
+         $self->[_BEGI] = 0, $self->[_INDX] = undef;
+      }
       # GC start of list
-      if ( ref $keys->[0] ) {
+      elsif ( !defined $keys->[0] ) {
          my $i = 1;
-         $i++ while ( ref $keys->[$i] );
+         $i++ until ( defined $keys->[$i] );
          $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
          splice @{ $keys }, 0, $i;
       }
-
-      $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
 
       return delete $data->{ $key };
    }
@@ -120,15 +123,17 @@ sub DELETE {
       pop @{ $keys };
       delete $indx->{ $key } if $indx;
 
+      # reset ordered hash
+      if ( ! @{ $keys } ) {
+         $self->[_BEGI] = 0, $self->[_INDX] = undef;
+      }
       # GC end of list
-      if ( ref $keys->[-1] ) {
+      elsif ( !defined $keys->[-1] ) {
          my $i = $#{ $keys } - 1;
-         $i-- while ( ref $keys->[$i] );
+         $i-- until ( defined $keys->[$i] );
          $self->[_GCNT] -= $#{ $keys } - $i;
          splice @{ $keys }, $i + 1;
       }
-
-      $self->[_BEGI] = 0, $self->[_INDX] = undef unless @{ $keys };
 
       return delete $data->{ $key };
    }
@@ -137,7 +142,7 @@ sub DELETE {
    if ( !$indx ) {
       my ( $i, %_indx ) = ( 0 );
       $_indx{ $_ } = $i++ for @{ $keys };
-      $indx = $self->[_INDX] = \%_indx;
+      $self->[_INDX] = $indx = \%_indx;
    }
 
    # fill the index, on-demand
@@ -147,7 +152,7 @@ sub DELETE {
             # from end of list
             my $i = $self->[_BEGI] + $#{ $keys };
             for my $k ( reverse @{ $keys } ) {
-               $i--, next if ( ref $k );
+               $i--, next unless ( defined $k );
                last if ( exists $indx->{ $k } );
                $indx->{ $k } = $i--;
             }
@@ -158,7 +163,7 @@ sub DELETE {
             # from start of list
             my $i = $self->[_BEGI];
             for my $k ( @{ $keys } ) {
-               $i++, next if ( ref $k );
+               $i++, next unless ( defined $k );
                last if ( exists $indx->{ $k } );
                $indx->{ $k } = $i++;
             }
@@ -172,7 +177,7 @@ sub DELETE {
    if ( ++$self->[_GCNT] > ( @{ $keys } >> 1 ) ) {
       my $i = 0;
       for my $k ( @{ $keys } ) {
-         $keys->[ $i ] = $k, $indx->{ $k } = $i++ unless ( ref $k );
+         $keys->[ $i ] = $k, $indx->{ $k } = $i++ if ( defined $k );
       }
       $self->[_BEGI] = $self->[_GCNT] = 0;
       splice @{ $keys }, $i;
@@ -185,7 +190,9 @@ sub DELETE {
 
 sub FIRSTKEY {
    my ( $self ) = @_;
-   my @keys = grep !ref($_), @{ $self->[_KEYS] };
+   my @keys = ( $self->[_GCNT] )
+      ? grep defined($_), @{ $self->[_KEYS] }
+      : @{ $self->[_KEYS] };
 
    $self->[_ITER] = sub {
       return unless @keys;
@@ -244,15 +251,17 @@ sub POP {
    if ( $indx ) {
       delete $indx->{ $key };
 
+      # reset ordered hash
+      if ( ! @{ $keys } ) {
+         $_[0]->[_BEGI] = 0, $_[0]->[_INDX] = undef;
+      }
       # GC end of list
-      if ( ref $keys->[-1] ) {
+      elsif ( !defined $keys->[-1] ) {
          my $i = $#{ $keys } - 1;
-         $i-- while ( ref $keys->[$i] );
+         $i-- until ( defined $keys->[$i] );
          $_[0]->[_GCNT] -= $#{ $keys } - $i;
          splice @{ $keys }, $i + 1;
       }
-
-      $_[0]->[_BEGI] = 0, $_[0]->[_INDX] = undef unless @{ $keys };
    }
 
    return $key, delete $data->{ $key };
@@ -285,15 +294,17 @@ sub SHIFT {
    if ( $indx ) {
       $_[0]->[_BEGI]++, delete $indx->{ $key };
 
+      # reset ordered hash
+      if ( ! @{ $keys } ) {
+         $_[0]->[_BEGI] = 0, $_[0]->[_INDX] = undef;
+      }
       # GC start of list
-      if ( ref $keys->[0] ) {
+      elsif ( !defined $keys->[0] ) {
          my $i = 1;
-         $i++ while ( ref $keys->[$i] );
+         $i++ until ( defined $keys->[$i] );
          $_[0]->[_BEGI] += $i, $_[0]->[_GCNT] -= $i;
          splice @{ $keys }, 0, $i;
       }
-
-      $_[0]->[_BEGI] = 0, $_[0]->[_INDX] = undef unless @{ $keys };
    }
 
    return $key, delete $data->{ $key };
@@ -408,7 +419,7 @@ sub clone {
    }
    else {
       @keys = ( $self->[_GCNT] )
-         ? grep !ref($_), @{ $self->[_KEYS] }
+         ? grep defined($_), @{ $self->[_KEYS] }
          : @{ $self->[_KEYS] };
 
       @data{ @keys } = @{ $self->[_DATA] }{ @keys };
@@ -434,8 +445,10 @@ sub iterator {
    my ( $self, @keys ) = @_;
    my $data = $self->[_DATA];
 
-   if ( !scalar @keys ) {
-      @keys = grep !ref($_), @{ $self->[_KEYS] };
+   if ( ! @keys ) {
+      @keys = ( $self->[_GCNT] )
+         ? grep defined($_), @{ $self->[_KEYS] }
+         : @{ $self->[_KEYS] };
    }
    elsif ( @keys == 1 && $keys[0] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {
       @keys = $self->keys($keys[0]);
@@ -462,7 +475,9 @@ sub keys {
       if ( wantarray ) {
          my $data = $self->[_DATA];
          @_ ? map { exists $data->{ $_ } ? $_ : undef } @_
-            : grep !ref($_), @{ $self->[_KEYS] };
+            : ( $self->[_GCNT] )
+                  ? grep defined($_), @{ $self->[_KEYS] }
+                  : @{ $self->[_KEYS] };
       }
       else {
          @{ $self->[_KEYS] } - $self->[_GCNT];
@@ -484,7 +499,9 @@ sub pairs {
       if ( wantarray ) {
          my $data = $self->[_DATA];
          @_ ? map { $_ => $data->{ $_ } } @_
-            : map { $_ => $data->{ $_ } } grep !ref($_), @{ $self->[_KEYS] };
+            : map { $_ => $data->{ $_ } } ( $self->[_GCNT] )
+                  ? grep defined($_), @{ $self->[_KEYS] }
+                  : @{ $self->[_KEYS] };
       }
       else {
          ( @{ $self->[_KEYS] } - $self->[_GCNT] ) << 1;
@@ -505,7 +522,10 @@ sub values {
    else {
       if ( wantarray ) {
          @_ ? @{ $self->[_DATA] }{ @_ }
-            : @{ $self->[_DATA] }{ grep !ref($_), @{ $self->[_KEYS] } };
+            : @{ $self->[_DATA] }{ ( $self->[_GCNT] )
+                  ? grep defined($_), @{ $self->[_KEYS] }
+                  : @{ $self->[_KEYS] }
+              };
       }
       else {
          @{ $self->[_KEYS] } - $self->[_GCNT];
@@ -577,11 +597,11 @@ sub purge {
    my ( $self ) = @_;
    my ( $i, $keys ) = ( 0, $self->[_KEYS] );
 
-   # TOMBSTONES, purge in-place to minimize memory consumption.
+   # TOMBSTONES, purges in-place for minimum memory consumption.
 
    if ( $self->[_GCNT] ) {
       for my $key ( @{ $keys } ) {
-         $keys->[ $i++ ] = $key unless ( ref $key );
+         $keys->[ $i++ ] = $key if ( defined $key );
       }
       splice @{ $keys }, $i;
    }
