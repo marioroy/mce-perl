@@ -405,14 +405,17 @@ sub clone {
    if ( @_ ) {
       @data{ @_ } = @{ $self->[_DATA] }{ @_ };
       if ( scalar( keys %data ) == scalar( @_ ) ) {
+         # @_ has zero duplicates, finish up
          @keys = map "$_", @_;
       }
       else {
+         # @_ has duplicate keys, try again the long way
          my ( $DATA, $key ) = ( $self->[_DATA] );
          %data = ();
          while ( @_ ) {
             $key = shift;
-            exists $data{ $key } || push @keys, "$key";
+            next if ( exists $data{ $key } );
+            push @keys, "$key";
             $data{ $key } = $DATA->{ $key };
          }
       }
