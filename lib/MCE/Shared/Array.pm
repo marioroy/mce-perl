@@ -125,7 +125,7 @@ sub flush {
 sub iterator {
    my ( $self, @keys ) = @_;
 
-   if ( !scalar @keys ) {
+   if ( ! @keys ) {
       @keys = ( 0 .. $#{ $self } );
    }
    elsif ( @keys == 1 && $keys[0] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {

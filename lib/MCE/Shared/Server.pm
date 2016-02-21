@@ -510,7 +510,7 @@ sub _loop {
 
             $_itr{ $_id } = sub {
                my $_key = shift @_keys;
-               if (!defined $_key) {
+               if ( !defined $_key ) {
                   print {$_DAU_R_SOCK} '-1'.$LF;
                   return;
                }
@@ -526,10 +526,10 @@ sub _loop {
             my @_a = @{ $_itr{ "$_id:args" } };
             my $_data; my $_ta = 0;
 
-            if ($_a[0] =~ /^:lists$/i) {
+            if ( $_a[0] =~ /^:lists$/i ) {
                $_data = $_obj{ $_id }->[1][0];
                shift @_a;
-               if (!scalar @_a) {
+               if ( ! @_a ) {
                   @_a = $_obj{ $_id }->lkeys();
                }
                elsif ( @_a == 1 && $_a[0] =~ /^(?:key|\S+)[ ]+\S\S?[ ]+\S/ ) {
@@ -542,8 +542,8 @@ sub _loop {
             }
             else {
                $_data = $_obj{ $_id }->[0][0];
-               shift @_a if ($_a[0] =~ /^:hashes$/i);
-               if (!scalar @_a) {
+               shift @_a if ( $_a[0] =~ /^:hashes$/i );
+               if ( ! @_a ) {
                   @_a = $_obj{ $_id }->hkeys();
                }
                elsif ( @_a == 1 && $_a[0] =~ /^(?:key|\S+)[ ]+\S\S?[ ]+\S/ ) {
@@ -557,7 +557,7 @@ sub _loop {
 
             $_itr{ $_id } = sub {
                my $_key = shift @_a;
-               if (!defined $_key) {
+               if ( !defined $_key ) {
                   print {$_DAU_R_SOCK} '-1'.$LF;
                   return;
                }
@@ -917,7 +917,7 @@ sub _loop {
          }
          else {
             weaken( delete $_itr{ $_id } ) if ( exists $_itr{ $_id } );
-            if (scalar @_args) {
+            if ( @_args ) {
                $_itr{ "$_id:args" } = \@_args;
             } else {
                delete $_itr{ "$_id:args" };
@@ -1499,8 +1499,7 @@ sub _init {
 ##
 ###############################################################################
 
-# Called by AUTOLOAD, STORE, hget/lget, len/hlen/llen, set/hset/lset,
-# decr/incr, lpush/rpush, and enqueue/enqueuep.
+# Called by AUTOLOAD, enqueue, enqueuep, STORE, set, decr, incr, and len.
 
 sub _auto {
    my ( $_fn, $_id, $_wa, $_len, $_buf ) = ( shift, shift()->[0] );
@@ -1798,7 +1797,7 @@ sub iterator {
       $ref =~ /^MCE::Shared::(?:Array|Hash|Ordhash)$/ ||
       $ref eq 'Hash::Ordered'
    ) {
-      if ( !scalar @keys ) {
+      if ( ! @keys ) {
          @keys = $self->keys;
       }
       elsif ( @keys == 1 && $keys[0] =~ /^(?:key|val)[ ]+\S\S?[ ]+\S/ ) {
@@ -1815,7 +1814,7 @@ sub iterator {
    elsif ( $ref eq 'MCE::Shared::Minidb' ) {
       if ( $keys[0] =~ /^:lists$/i ) {
          shift @keys;
-         if ( !scalar @keys ) {
+         if ( ! @keys ) {
             @keys = $self->lkeys;
          }
          elsif ( @keys == 1 && $keys[0] =~ /^(?:key|\S+)[ ]+\S\S?[ ]+\S/ ) {
@@ -1837,7 +1836,7 @@ sub iterator {
       }
       else {
          shift @keys if ( $keys[0] =~ /^:hashes$/i );
-         if ( !scalar @keys ) {
+         if ( ! @keys ) {
             @keys = $self->hkeys;
          }
          elsif ( @keys == 1 && $keys[0] =~ /^(?:key|\S+)[ ]+\S\S?[ ]+\S/ ) {
@@ -2230,8 +2229,7 @@ sub pending  { _req5('pending',  @_) }
 ###############################################################################
 ## ----------------------------------------------------------------------------
 ## Methods optimized for
-##  PDL, MCE::Shared::{ Array, Hash, Minidb, Ordhash, Scalar }, and
-##  Hash::Ordered.
+##  PDL, MCE::Shared::{ Array, Hash, Ordhash, Scalar }, and Hash::Ordered.
 ##
 ###############################################################################
 
@@ -2304,22 +2302,12 @@ sub set {
 }
 
 sub FETCH { _req6('FETCH', @_) }
+sub get   { _req6('get'  , @_) }
 sub CLEAR { _req7('CLEAR', @_) }
 sub clear { _req7('clear', @_) }
-
 sub decr  { _auto('decr' , @_) }
 sub incr  { _auto('incr' , @_) }
-sub hset  { _auto('hset' , @_) }
-sub lset  { _auto('lset' , @_) }
-sub  get  { _req6( 'get' , @_) }
-sub hget  { _auto('hget' , @_) }
-sub lget  { _auto('lget' , @_) }
-sub  len  { _auto( 'len' , @_) }
-sub hlen  { _auto('hlen' , @_) }
-sub llen  { _auto('llen' , @_) }
-
-sub lpush { _auto('lpush', @_) }
-sub rpush { _auto('rpush', @_) }
+sub len   { _auto('len'  , @_) }
 
 {
    no strict 'refs';

@@ -488,7 +488,7 @@ sub iterator {
    if ( $keys[0] =~ /^:lists$/i ) {
       $data = $self->[1][0];
       shift @keys;
-      if ( !scalar @keys ) {
+      if ( ! @keys ) {
          @keys = $self->lkeys();
       }
       elsif ( @keys == 1 && $keys[0] =~ /^(?:key|\S+)[ ]+\S\S?[ ]+\S/ ) {
@@ -507,7 +507,7 @@ sub iterator {
    else {
       $data = $self->[0][0];
       shift @keys if ( $keys[0] =~ /^:hashes$/i );
-      if ( !scalar @keys ) {
+      if ( ! @keys ) {
          @keys = $self->hkeys();
       }
       elsif ( @keys == 1 && $keys[0] =~ /^(?:key|\S+)[ ]+\S\S?[ ]+\S/ ) {
