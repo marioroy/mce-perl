@@ -31,7 +31,7 @@ our $VERSION = '1.699_011';
 use MCE::Shared::Base;
 use bytes;
 
-# for invalidating a key to be garbage collected later
+# for marking a key to be garbage collected later
 use constant { _TOMBSTONE => undef };
 
 use constant {
@@ -174,7 +174,7 @@ sub DELETE {
    $keys->[ $id - $self->[_BEGI] ] = _TOMBSTONE;
 
    # GC keys and indx if more than half are tombstone
-   if ( ++$self->[_GCNT] > ( @{ $keys } >> 1 ) ) {
+   if ( ++$self->[_GCNT] > ( @{ $keys } >> 2 ) * 3 ) {
       my $i = 0;
       for my $k ( @{ $keys } ) {
          $keys->[ $i ] = $k, $indx->{ $k } = $i++ if ( defined $k );
