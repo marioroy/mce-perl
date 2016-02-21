@@ -173,7 +173,7 @@ sub DELETE {
    # place tombstone
    $keys->[ $id - $self->[_BEGI] ] = _TOMBSTONE;
 
-   # GC keys and indx if more than half are tombstone
+   # GC keys and indx if 75% or more are tombstone
    if ( ++$self->[_GCNT] >= ( @{ $keys } >> 2 ) * 3 ) {
       my $i = 0;
       for my $k ( @{ $keys } ) {
