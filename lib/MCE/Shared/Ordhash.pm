@@ -67,8 +67,7 @@ sub TIEHASH {
    my ( $key, %data, @keys );
 
    while ( @_ ) {
-      $key = shift;
-      exists $data{ $key } || push @keys, "$key";
+      exists $data{ $key = shift } || push @keys, "$key";
       $data{ $key } = shift;
    }
 
@@ -107,7 +106,7 @@ sub DELETE {
       if ( ! @{ $keys } ) {
          $self->[_BEGI] = 0, $self->[_INDX] = undef;
       }
-      # GC start of list
+      # or GC start of list
       elsif ( !defined $keys->[0] ) {
          my $i = 1;
          $i++ until ( defined $keys->[$i] );
@@ -127,7 +126,7 @@ sub DELETE {
       if ( ! @{ $keys } ) {
          $self->[_BEGI] = 0, $self->[_INDX] = undef;
       }
-      # GC end of list
+      # or GC end of list
       elsif ( !defined $keys->[-1] ) {
          my $i = $#{ $keys } - 1;
          $i-- until ( defined $keys->[$i] );
@@ -145,41 +144,38 @@ sub DELETE {
       $self->[_INDX] = $indx = \%_indx;
    }
 
-   # fill the index, on-demand
-   my $id = delete $indx->{ $key } //
-      do {
-         ( exists $indx->{ $keys->[-1] } ) ? undef : do {
-            # from end of list
-            my $i = $self->[_BEGI] + $#{ $keys };
-            for my $k ( reverse @{ $keys } ) {
-               $i--, next unless ( defined $k );
-               last if ( exists $indx->{ $k } );
-               $indx->{ $k } = $i--;
-            }
-            delete $indx->{ $key };
-         };
-      } //
-         do {
-            # from start of list
-            my $i = $self->[_BEGI];
-            for my $k ( @{ $keys } ) {
-               $i++, next unless ( defined $k );
-               last if ( exists $indx->{ $k } );
-               $indx->{ $k } = $i++;
-            }
-            delete $indx->{ $key };
-         };
+   # fill index, on-demand
+   my $id = delete $indx->{ $key } // do {
+      # from end of list
+      ( exists $indx->{ $keys->[-1] } ) ? undef : do {
+         my $i = $self->[_BEGI] + $#{ $keys };
+         for my $k ( reverse @{ $keys } ) {
+            $i--, next unless ( defined $k );
+            last if ( exists $indx->{ $k } );
+            $indx->{ $k } = $i--;
+         }
+         delete $indx->{ $key };
+      };
+   } // do {
+      # from start of list
+      my $i = $self->[_BEGI];
+      for my $k ( @{ $keys } ) {
+         $i++, next unless ( defined $k );
+         last if ( exists $indx->{ $k } );
+         $indx->{ $k } = $i++;
+      }
+      delete $indx->{ $key };
+   };
 
    # place tombstone
    $keys->[ $id - $self->[_BEGI] ] = _TOMBSTONE;
 
    # GC keys and indx if 75% or more are tombstone
    if ( ++$self->[_GCNT] >= ( @{ $keys } >> 2 ) * 3 ) {
-      my $i = 0;
+      my $i = 0;  $self->[_BEGI] = $self->[_GCNT] = 0;
       for my $k ( @{ $keys } ) {
          $keys->[ $i ] = $k, $indx->{ $k } = $i++ if ( defined $k );
       }
-      $self->[_BEGI] = $self->[_GCNT] = 0;
       splice @{ $keys }, $i;
    }
 
@@ -254,7 +250,7 @@ sub POP {
       if ( ! @{ $keys } ) {
          $_[0]->[_BEGI] = 0, $_[0]->[_INDX] = undef;
       }
-      # GC end of list
+      # or GC end of list
       elsif ( !defined $keys->[-1] ) {
          my $i = $#{ $keys } - 1;
          $i-- until ( defined $keys->[$i] );
@@ -274,8 +270,7 @@ sub PUSH {
    my $key;
 
    while ( @_ ) {
-      $key = shift;
-      $self->DELETE($key) if ( exists $data->{ $key } );
+      $self->DELETE($key) if ( exists $data->{ $key = shift } );
       push @{ $keys }, "$key";
       $data->{ $key } = shift;
    }
@@ -298,7 +293,7 @@ sub SHIFT {
       if ( ! @{ $keys } ) {
          $_[0]->[_BEGI] = 0, $_[0]->[_INDX] = undef;
       }
-      # GC start of list
+      # or GC start of list
       elsif ( !defined $keys->[0] ) {
          my $i = 1;
          $i++ until ( defined $keys->[$i] );
@@ -318,8 +313,7 @@ sub UNSHIFT {
    my $key;
 
    while ( @_ ) {
-      $key = $_[-2];
-      $self->DELETE($key) if ( exists $data->{ $key } );
+      $self->DELETE($key) if ( exists $data->{ $key = $_[-2] } );
       $self->[_BEGI]-- if $self->[_INDX];
       unshift @{ $keys }, "$key";
       $data->{ $key } = pop;
@@ -588,8 +582,7 @@ sub mset {
    my $key;
 
    while ( @_ ) {
-      $key = shift;
-      exists $data->{ $key } || push @{ $keys }, "$key";
+      exists $data->{ $key = shift } || push @{ $keys }, "$key";
       $data->{ $key } = shift;
    }
 
