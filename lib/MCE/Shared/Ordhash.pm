@@ -40,15 +40,18 @@ use constant {
    _INDX => 2,  # index into _KEYS (on demand, no impact to STORE)
    _BEGI => 3,  # begin ordered id for optimized shift/unshift
    _GCNT => 4,  # garbage count
-   _ITER => 5,  # for tied hash support
+   _HREF => 5,  # for hash-like dereferencing
+   _ITER => 6,  # for tied hash support
 };
 
 use overload (
    q("")    => \&MCE::Shared::Base::_stringify,
    q(0+)    => \&MCE::Shared::Base::_numify,
    q(%{})   => sub {
-      tie my %h, 'MCE::Shared::Ordhash::_href', $_[0];
-      \%h;
+      $_[0]->[_HREF] //= do {
+         tie my %h, 'MCE::Shared::Ordhash::_href', $_[0];
+         \%h;
+      };
    },
    fallback => 1
 );
@@ -64,6 +67,7 @@ use overload (
 
 sub TIEHASH {
    my ( $class ) = ( shift );
+   my ( $begi, $gcnt ) = ( 0, 0 );
    my ( $key, %data, @keys );
 
    while ( @_ ) {
@@ -71,7 +75,7 @@ sub TIEHASH {
       $data{ $key } = shift;
    }
 
-   bless [ \%data, \@keys, undef, 0, 0 ], $class;
+   bless [ \%data, \@keys, undef, \$begi, \$gcnt, undef ], $class;
 }
 
 # STORE ( key, value )
@@ -100,17 +104,20 @@ sub DELETE {
    # check the first key
    if ( $key eq $keys->[0] ) {
       shift @{ $keys };
-      $self->[_BEGI]++, delete $indx->{ $key } if $indx;
+      ${ $self->[_BEGI] }++, delete $indx->{ $key } if $indx;
 
       # reset ordered hash
       if ( ! @{ $keys } ) {
-         $self->[_BEGI] = 0, $self->[_INDX] = undef;
+         ${ $self->[_BEGI] } = 0;
+            $self->[_HREF]   = undef;
+            $self->[_INDX]   = undef;
       }
       # or GC start of list
       elsif ( !defined $keys->[0] ) {
          my $i = 1;
          $i++ until ( defined $keys->[$i] );
-         $self->[_BEGI] += $i, $self->[_GCNT] -= $i;
+         ${ $self->[_BEGI] } += $i;
+         ${ $self->[_GCNT] } -= $i;
          splice @{ $keys }, 0, $i;
       }
 
@@ -124,13 +131,15 @@ sub DELETE {
 
       # reset ordered hash
       if ( ! @{ $keys } ) {
-         $self->[_BEGI] = 0, $self->[_INDX] = undef;
+         ${ $self->[_BEGI] } = 0;
+            $self->[_HREF]   = undef;
+            $self->[_INDX]   = undef;
       }
       # or GC end of list
       elsif ( !defined $keys->[-1] ) {
          my $i = $#{ $keys } - 1;
          $i-- until ( defined $keys->[$i] );
-         $self->[_GCNT] -= $#{ $keys } - $i;
+         ${ $self->[_GCNT] } -= $#{ $keys } - $i;
          splice @{ $keys }, $i + 1;
       }
 
@@ -148,7 +157,7 @@ sub DELETE {
    my $id = delete $indx->{ $key } // do {
       # from end of list
       ( exists $indx->{ $keys->[-1] } ) ? undef : do {
-         my $i = $self->[_BEGI] + $#{ $keys };
+         my $i = ${ $self->[_BEGI] } + $#{ $keys };
          for my $k ( reverse @{ $keys } ) {
             $i--, next unless ( defined $k );
             last if ( exists $indx->{ $k } );
@@ -158,7 +167,7 @@ sub DELETE {
       };
    } // do {
       # from start of list
-      my $i = $self->[_BEGI];
+      my $i = ${ $self->[_BEGI] };
       for my $k ( @{ $keys } ) {
          $i++, next unless ( defined $k );
          last if ( exists $indx->{ $k } );
@@ -168,11 +177,13 @@ sub DELETE {
    };
 
    # place tombstone
-   $keys->[ $id - $self->[_BEGI] ] = _TOMBSTONE;
+   $keys->[ $id - ${ $self->[_BEGI] } ] = _TOMBSTONE;
 
    # GC keys and indx if 75% or more are tombstone
-   if ( ++$self->[_GCNT] >= ( @{ $keys } >> 2 ) * 3 ) {
-      my $i = 0;  $self->[_BEGI] = $self->[_GCNT] = 0;
+   if ( ++${ $self->[_GCNT] } >= ( @{ $keys } >> 2 ) * 3 ) {
+      my $i = 0;
+      ${ $self->[_BEGI] } = 0;
+      ${ $self->[_GCNT] } = 0;
       for my $k ( @{ $keys } ) {
          $keys->[ $i ] = $k, $indx->{ $k } = $i++ if ( defined $k );
       }
@@ -186,7 +197,7 @@ sub DELETE {
 
 sub FIRSTKEY {
    my ( $self ) = @_;
-   my @keys = ( $self->[_GCNT] )
+   my @keys = ( ${ $self->[_GCNT] } )
       ? grep defined($_), @{ $self->[_KEYS] }
       : @{ $self->[_KEYS] };
 
@@ -215,8 +226,8 @@ sub EXISTS {
 sub CLEAR {
    my ( $self ) = @_;
    %{ $self->[_DATA] } = @{ $self->[_KEYS] } = ( );
-      $self->[_BEGI]   =    $self->[_GCNT]   =  0 ;
-      $self->[_INDX]   = undef;
+   ${ $self->[_BEGI] } = ${ $self->[_GCNT] } =  0 ;
+      $self->[_INDX]   =    $self->[_HREF]   = undef;
 
    delete $self->[_ITER] if ( defined $self->[_ITER] );
 
@@ -226,7 +237,7 @@ sub CLEAR {
 # SCALAR ( )
 
 sub SCALAR {
-   @{ $_[0]->[_KEYS] } - $_[0]->[_GCNT];
+   @{ $_[0]->[_KEYS] } - ${ $_[0]->[_GCNT] };
 }
 
 ###############################################################################
@@ -248,13 +259,15 @@ sub POP {
 
       # reset ordered hash
       if ( ! @{ $keys } ) {
-         $_[0]->[_BEGI] = 0, $_[0]->[_INDX] = undef;
+         ${ $_[0]->[_BEGI] } = 0;
+            $_[0]->[_HREF]   = undef;
+            $_[0]->[_INDX]   = undef;
       }
       # or GC end of list
       elsif ( !defined $keys->[-1] ) {
          my $i = $#{ $keys } - 1;
          $i-- until ( defined $keys->[$i] );
-         $_[0]->[_GCNT] -= $#{ $keys } - $i;
+         ${ $_[0]->[_GCNT] } -= $#{ $keys } - $i;
          splice @{ $keys }, $i + 1;
       }
    }
@@ -275,7 +288,7 @@ sub PUSH {
       $data->{ $key } = shift;
    }
 
-   @{ $keys } - $self->[_GCNT];
+   @{ $keys } - ${ $self->[_GCNT] };
 }
 
 # SHIFT ( )
@@ -287,17 +300,20 @@ sub SHIFT {
    return unless ( defined $key );
 
    if ( $indx ) {
-      $_[0]->[_BEGI]++, delete $indx->{ $key };
+      ${ $_[0]->[_BEGI] }++, delete $indx->{ $key };
 
       # reset ordered hash
       if ( ! @{ $keys } ) {
-         $_[0]->[_BEGI] = 0, $_[0]->[_INDX] = undef;
+         ${ $_[0]->[_BEGI] } = 0;
+            $_[0]->[_HREF]   = undef;
+            $_[0]->[_INDX]   = undef;
       }
       # or GC start of list
       elsif ( !defined $keys->[0] ) {
          my $i = 1;
          $i++ until ( defined $keys->[$i] );
-         $_[0]->[_BEGI] += $i, $_[0]->[_GCNT] -= $i;
+         ${ $_[0]->[_BEGI] } += $i;
+         ${ $_[0]->[_GCNT] } -= $i;
          splice @{ $keys }, 0, $i;
       }
    }
@@ -314,13 +330,13 @@ sub UNSHIFT {
 
    while ( @_ ) {
       $self->DELETE($key) if ( exists $data->{ $key = $_[-2] } );
-      $self->[_BEGI]-- if $self->[_INDX];
+      ${ $self->[_BEGI] }-- if $self->[_INDX];
       unshift @{ $keys }, "$key";
       $data->{ $key } = pop;
       pop;
    }
 
-   @{ $keys } - $self->[_GCNT];
+   @{ $keys } - ${ $self->[_GCNT] };
 }
 
 # SPLICE ( offset [, length [, key, value, ... ] ] )
@@ -395,6 +411,7 @@ sub _find {
 sub clone {
    my $self = shift;
    my $params = ref($_[0]) eq 'HASH' ? shift : {};
+   my ( $begi, $gcnt ) = ( 0, 0 );
    my ( %data, @keys );
 
    if ( @_ ) {
@@ -416,7 +433,7 @@ sub clone {
       }
    }
    else {
-      @keys = ( $self->[_GCNT] )
+      @keys = ( ${ $self->[_GCNT] } )
          ? grep defined($_), @{ $self->[_KEYS] }
          : @{ $self->[_KEYS] };
 
@@ -425,7 +442,7 @@ sub clone {
 
    $self->clear() if $params->{'flush'};
 
-   bless [ \%data, \@keys, undef, 0, 0 ], ref $self;
+   bless [ \%data, \@keys, undef, \$begi, \$gcnt, undef ], ref $self;
 }
 
 # flush ( key [, key, ... ] )
@@ -444,7 +461,7 @@ sub iterator {
    my $data = $self->[_DATA];
 
    if ( ! @keys ) {
-      @keys = ( $self->[_GCNT] )
+      @keys = ( ${ $self->[_GCNT] } )
          ? grep defined($_), @{ $self->[_KEYS] }
          : @{ $self->[_KEYS] };
    }
@@ -473,12 +490,12 @@ sub keys {
       if ( wantarray ) {
          my $data = $self->[_DATA];
          @_ ? map { exists $data->{ $_ } ? $_ : undef } @_
-            : ( $self->[_GCNT] )
+            : ( ${ $self->[_GCNT] } )
                   ? grep defined($_), @{ $self->[_KEYS] }
                   : @{ $self->[_KEYS] };
       }
       else {
-         @{ $self->[_KEYS] } - $self->[_GCNT];
+         @{ $self->[_KEYS] } - ${ $self->[_GCNT] };
       }
    }
 }
@@ -497,12 +514,12 @@ sub pairs {
       if ( wantarray ) {
          my $data = $self->[_DATA];
          @_ ? map { $_ => $data->{ $_ } } @_
-            : map { $_ => $data->{ $_ } } ( $self->[_GCNT] )
+            : map { $_ => $data->{ $_ } } ( ${ $self->[_GCNT] } )
                   ? grep defined($_), @{ $self->[_KEYS] }
                   : @{ $self->[_KEYS] };
       }
       else {
-         ( @{ $self->[_KEYS] } - $self->[_GCNT] ) << 1;
+         ( @{ $self->[_KEYS] } - ${ $self->[_GCNT] } ) << 1;
       }
    }
 }
@@ -520,13 +537,13 @@ sub values {
    else {
       if ( wantarray ) {
          @_ ? @{ $self->[_DATA] }{ @_ }
-            : @{ $self->[_DATA] }{ ( $self->[_GCNT] )
+            : @{ $self->[_DATA] }{ ( ${ $self->[_GCNT] } )
                   ? grep defined($_), @{ $self->[_KEYS] }
                   : @{ $self->[_KEYS] }
               };
       }
       else {
-         @{ $self->[_KEYS] } - $self->[_GCNT];
+         @{ $self->[_KEYS] } - ${ $self->[_GCNT] };
       }
    }
 }
@@ -586,7 +603,7 @@ sub mset {
       $data->{ $key } = shift;
    }
 
-   defined wantarray ? @{ $keys } - $self->[_GCNT] : ();
+   defined wantarray ? @{ $keys } - ${ $self->[_GCNT] } : ();
 }
 
 # purge ( )
@@ -597,15 +614,15 @@ sub purge {
 
    # TOMBSTONES, purges in-place for minimum memory consumption.
 
-   if ( $self->[_GCNT] ) {
+   if ( ${ $self->[_GCNT] } ) {
       for my $key ( @{ $keys } ) {
          $keys->[ $i++ ] = $key if ( defined $key );
       }
       splice @{ $keys }, $i;
    }
 
-   $self->[_BEGI] = $self->[_GCNT] = 0;
-   $self->[_INDX] = undef;
+   ${ $self->[_BEGI] } = ${ $self->[_GCNT] } = 0;
+      $self->[_INDX]   =    $self->[_HREF]   = undef;
 
    return;
 }
@@ -679,8 +696,8 @@ sub _reorder {
    my $self = shift;
    @{ $self->[_KEYS] } = @_;
 
-   $self->[_BEGI] = $self->[_GCNT] = 0;
-   $self->[_INDX] = undef;
+   ${ $self->[_BEGI] } = ${ $self->[_GCNT] } = 0;
+      $self->[_INDX]   =    $self->[_HREF]   = undef;
 
    return;
 }
@@ -772,7 +789,7 @@ sub getset {
 sub len {
    ( defined $_[1] )
       ? length $_[0]->[_DATA]{ $_[1] } || 0
-      : @{ $_[0]->[_KEYS] } - $_[0]->[_GCNT];
+      : @{ $_[0]->[_KEYS] } - ${ $_[0]->[_GCNT] };
 }
 
 {
@@ -799,7 +816,12 @@ sub len {
 
 package MCE::Shared::Ordhash::_href;
 
-sub TIEHASH { $_[1] }
+sub TIEHASH {
+   $_[1]->[2] //= {};  # _INDX to persist onwards until the next reset
+                       #  i.e. clear, purge, _reorder, or emptied _KEYS
+
+   bless [ @{ $_[1] } ], 'MCE::Shared::Ordhash';
+}
 
 1;
 

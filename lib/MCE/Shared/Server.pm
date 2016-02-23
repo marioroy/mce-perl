@@ -1381,26 +1381,26 @@ use overload (
    q(0+)    => \&MCE::Shared::Base::_numify,
    q(@{})   => sub {
       no overloading;
-      $_[0]->[_DREF] || do {
+      $_[0]->[_DREF] //= do {
          return $_[0] if $_[0]->[_CLASS] ne 'MCE::Shared::Array';
          tie my @a, 'MCE::Shared::Object', bless([ $_[0]->[0] ], __PACKAGE__);
-         $_[0]->[_DREF] = \@a;
+         \@a;
       };
    },
    q(%{})   => sub {
       no overloading;
-      $_[0]->[_DREF] || do {
+      $_[0]->[_DREF] //= do {
          return $_[0] if !exists $_hash_support{ $_[0]->[_CLASS] };
          tie my %h, 'MCE::Shared::Object', bless([ $_[0]->[0] ], __PACKAGE__);
-         $_[0]->[_DREF] = \%h;
+         \%h;
       };
    },
    q(${})   => sub {
       no overloading;
-      $_[0]->[_DREF] || do {
+      $_[0]->[_DREF] //= do {
          return $_[0] if $_[0]->[_CLASS] ne 'MCE::Shared::Scalar';
          tie my $s, 'MCE::Shared::Object', bless([ $_[0]->[0] ], __PACKAGE__);
-         $_[0]->[_DREF] = \$s;
+         \$s;
       };
    },
    fallback => 1
