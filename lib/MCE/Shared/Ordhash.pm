@@ -96,26 +96,24 @@ sub FETCH {
 # DELETE ( key )
 
 sub DELETE {
-   my ( $self, $key ) = @_;
-   my ( $data, $keys, $indx ) = @{ $self };
+   my ( $key, $data, $keys, $indx, $begi, $gcnt ) = ( $_[1], @{ $_[0] } );
 
    return undef unless ( exists $data->{ $key } );
 
    # check the first key
    if ( $key eq $keys->[0] ) {
       shift @{ $keys };
-      ${ $self->[_BEGI] }++, delete $indx->{ $key } if %{ $indx };
+      ${ $begi }++, delete $indx->{ $key } if %{ $indx };
 
       # reset ordered hash
       if ( ! @{ $keys } ) {
-         ${ $self->[_BEGI] } = 0;
+         ${ $begi } = 0, %{ $indx } = ();
       }
       # or GC start of list
       elsif ( !defined $keys->[0] ) {
          my $i = 1;
          $i++ until ( defined $keys->[$i] );
-         ${ $self->[_BEGI] } += $i;
-         ${ $self->[_GCNT] } -= $i;
+         ${ $begi } += $i, ${ $gcnt } -= $i;
          splice @{ $keys }, 0, $i;
       }
 
@@ -129,13 +127,13 @@ sub DELETE {
 
       # reset ordered hash
       if ( ! @{ $keys } ) {
-         ${ $self->[_BEGI] } = 0;
+         ${ $begi } = 0, %{ $indx } = ();
       }
       # or GC end of list
       elsif ( !defined $keys->[-1] ) {
          my $i = $#{ $keys } - 1;
          $i-- until ( defined $keys->[$i] );
-         ${ $self->[_GCNT] } -= $#{ $keys } - $i;
+         ${ $gcnt } -= $#{ $keys } - $i;
          splice @{ $keys }, $i + 1;
       }
 
@@ -144,16 +142,15 @@ sub DELETE {
 
    # fill index, on-demand
    my $id = delete $indx->{ $key } // do {
-      # pre-populate entire list
       ( %{ $indx } ) ? undef : do {
-         my $i; $i = ${ $self->[_BEGI] } = 0;
+         my $i; $i = ${ $begi } = 0;
          $indx->{ $_ } = $i++ for @{ $keys };
          delete $indx->{ $key };
       };
    } // do {
       # from end of list
       ( exists $indx->{ $keys->[-1] } ) ? undef : do {
-         my $i = ${ $self->[_BEGI] } + $#{ $keys };
+         my $i = ${ $begi } + $#{ $keys };
          for my $k ( reverse @{ $keys } ) {
             $i--, next unless ( defined $k );
             last if ( exists $indx->{ $k } );
@@ -163,7 +160,7 @@ sub DELETE {
       };
    } // do {
       # from start of list
-      my $i = ${ $self->[_BEGI] };
+      my $i = ${ $begi };
       for my $k ( @{ $keys } ) {
          $i++, next unless ( defined $k );
          last if ( exists $indx->{ $k } );
@@ -173,12 +170,11 @@ sub DELETE {
    };
 
    # place tombstone
-   $keys->[ $id - ${ $self->[_BEGI] } ] = _TOMBSTONE;
+   $keys->[ $id - ${ $begi } ] = _TOMBSTONE;
 
-   # GC keys and indx if 75% or more are tombstone
-   if ( ++${ $self->[_GCNT] } >= ( @{ $keys } >> 2 ) * 3 ) {
-      my $i = 0;
-      ${ $self->[_BEGI] } = ${ $self->[_GCNT] } = 0;
+   # GC keys and index if 75% or more are tombstone
+   if ( ++${ $gcnt } >= ( @{ $keys } >> 2 ) * 3 ) {
+      my $i; $i = ${ $begi } = ${ $gcnt } = 0;
       for my $k ( @{ $keys } ) {
          $keys->[ $i ] = $k, $indx->{ $k } = $i++ if ( defined $k );
       }
@@ -219,12 +215,12 @@ sub EXISTS {
 # CLEAR ( )
 
 sub CLEAR {
-   my ( $self ) = @_;
+   my ( $data, $keys, $indx, $begi, $gcnt ) = @{ $_[0] };
 
-   %{ $self->[_DATA] } = @{ $self->[_KEYS] } = %{ $self->[_INDX] } = ();
-   ${ $self->[_BEGI] } = ${ $self->[_GCNT] } = 0;
+   %{ $data } = @{ $keys } = %{ $indx } = ();
+   ${ $begi } = ${ $gcnt } = 0;
 
-   delete $self->[_ITER] if ( defined $self->[_ITER] );
+   delete $_[0]->[_ITER];
 
    return;
 }
@@ -316,15 +312,24 @@ sub SHIFT {
 
 sub UNSHIFT {
    my $self = shift;
-   my ( $data, $keys, $indx ) = @{ $self };
+   my ( $data, $keys ) = @{ $self };
    my $key;
 
-   while ( @_ ) {
-      $self->delete( $key ) if ( exists $data->{ $key = $_[-2] } );
-      ${ $self->[_BEGI] }-- if %{ $indx };
+   if ( @_ == 2 ) {
+      $self->delete( $key ) if ( exists $data->{ $key = $_[0] } );
+      ${ $self->[_BEGI] }-- if %{ $self->[_INDX] };
       unshift @{ $keys }, "$key";
-      $data->{ $key } = pop;
-      pop;
+      $data->{ $key } = $_[1];
+   }
+   else {
+      my ( $indx, $begi ) = @{ $self }[ _INDX, _BEGI ];
+      while ( @_ ) {
+         $self->delete( $key ) if ( exists $data->{ $key = $_[-2] } );
+         ${ $begi }-- if %{ $indx };
+         unshift @{ $keys }, "$key";
+         $data->{ $key } = pop;
+         pop;
+      }
    }
 
    @{ $keys } - ${ $self->[_GCNT] };
@@ -333,11 +338,11 @@ sub UNSHIFT {
 # SPLICE ( offset [, length [, key, value, ... ] ] )
 
 sub SPLICE {
-   my ( $self, $off ) = ( shift, shift );
-   my ( $data, $keys, $indx ) = @{ $self };
+   my ( $self, $off  ) = ( shift, shift );
+   my ( $data, $keys ) = @{ $self };
    return () unless ( defined $off );
 
-   $self->purge() if %{ $indx };
+   $self->purge() if %{ $self->[_INDX] };
 
    my ( $key, @ret );
    my $size = scalar @{ $keys };
@@ -1254,7 +1259,7 @@ ordered hash implementation takes in comparison.
 
    0.362 secs.  55 MB  MCE::Shared::Hash; unordered hash
    0.626 secs. 126 MB  Tie::Hash::Indexed; (XS) ordered hash
-   0.758 secs.  74 MB  MCE::Shared::Ordhash; ordered hash **
+   0.744 secs.  74 MB  MCE::Shared::Ordhash; ordered hash **
    1.032 secs.  74 MB  Hash::Ordered; ordered hash
    1.756 secs. 161 MB  Tie::LLHash; ordered hash
     > 42 mins.  79 MB  Tie::IxHash; ordered hash (stopped)
@@ -1266,7 +1271,7 @@ Hobos provided by C<MCE::Hobo->list>.
    for ( $oh->keys ) { $oh->delete($_) }
 
    0.332 secs.  55 MB  MCE::Shared::Hash; unordered hash
-   0.462 secs.  67 MB  MCE::Shared::Ordhash; ordered hash **
+   0.474 secs.  67 MB  MCE::Shared::Ordhash; ordered hash **
    0.503 secs. 126 MB  Tie::Hash::Indexed; (XS) ordered hash
    0.802 secs.  74 MB  Hash::Ordered; ordered hash
    1.337 secs. 161 MB  Tie::LLHash; ordered hash
