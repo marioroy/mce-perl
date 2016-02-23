@@ -138,7 +138,7 @@ sub DELETE {
    }
 
    # make an index, on-demand
-   if ( !$indx ) {
+   if ( ! $indx ) {
       my ( $i, %_indx ) = ( 0 );
       $_indx{ $_ } = $i++ for @{ $keys };
       $self->[_INDX] = $indx = \%_indx;
@@ -1199,19 +1199,101 @@ Increments the value of a key by the given number and returns its new value.
 
 =head1 CREDITS
 
-The implementation is inspired by L<Hash::Ordered> v0.009.
+Many thanks to David Golden for Hash::Ordered. This implementation is inspired
+by L<Hash::Ordered> v0.009.
 
 =head1 MOTIVATION
 
-I wanted an ordered hash implementation for use with MCE::Shared without
-any side effects such as linear scans, slow deletes, or excessive memory
+I wanted an ordered hash implementation for use with MCE::Shared without any
+side effects. For example, linear scans, slow deletes, or excessive memory
 consumption. The closest module on CPAN to pass in this regard is
 L<Hash::Ordered> by David Golden.
 
-MCE::Shared has one shared-manager process which is by design. Therefore,
-extra measures were taken to further reduce any remaining side effects.
-This module differs in personality mainly for compatibilty with other
-C<hash> classes included with MCE::Shared.
+MCE::Shared has only one shared-manager process which is by design. Therefore,
+refactored tombstone deletion with extras for lesser impact to the rest of the
+library. This module differs in personality from Hash::Ordered mainly for
+compatibilty with the various classes included with MCE::Shared.
+
+The following simulates a usage pattern inside L<MCE::Hobo> involving random
+key deletion. For example, an application joining a list of Hobos provided by
+C<MCE::Hobo->list_joinable>.
+
+   use MCE::Shared::Ordhash;
+   use List::Util 'shuffle';
+   use Time::HiRes 'time';
+
+   srand 1618;
+
+   my $oh = MCE::Shared::Ordhash->new();
+   my $num_keys = 200000;
+   my $start = time();
+
+   $oh->set($_,$_) for 1 .. $num_keys;
+
+   for ( shuffle $oh->keys ) {
+      $oh->delete($_);
+   }
+
+   printf "duration: %7.03f secs\n", time() - $start;
+
+Both the runtime and memory consumption are captured for the demonstration.
+Result for MCE::Shared::Hash is included for seeing how much longer a given
+ordered hash implementation takes in comparison.
+
+   for ( shuffle $oh->keys ) { $oh->delete($_) }
+
+   0.362 secs.  55 MB  MCE::Shared::Hash; unordered hash
+   0.626 secs. 126 MB  Tie::Hash::Indexed; (XS) ordered hash
+   0.753 secs.  74 MB  MCE::Shared::Ordhash; ordered hash **
+   1.032 secs.  74 MB  Hash::Ordered; ordered hash
+   1.756 secs. 161 MB  Tie::LLHash; ordered hash
+    > 42 mins.  79 MB  Tie::IxHash; ordered hash (stopped)
+
+Using the same demonstration above, another usage pattern inside L<MCE::Hobo>
+involves orderly hash-key deletion. For example, waiting for and joining all
+Hobos provided by C<MCE::Hobo->list>.
+
+   for ( $oh->keys ) { $oh->delete($_) }
+
+   0.332 secs.  55 MB  MCE::Shared::Hash; unordered hash
+   0.471 secs.  67 MB  MCE::Shared::Ordhash; ordered hash **
+   0.503 secs. 126 MB  Tie::Hash::Indexed; (XS) ordered hash
+   0.802 secs.  74 MB  Hash::Ordered; ordered hash
+   1.337 secs. 161 MB  Tie::LLHash; ordered hash
+    > 42 mins.  79 MB  Tie::IxHash; ordered hash (stopped)
+
+No matter if orderly or randomly, even backwards, hash-key deletion in
+C<MCE::Shared::Ordhash> performs reasonably well.
+
+The following provides the construction used for the modules mentioned.
+Basically, key setting and deletion is through the OO interface for fair
+comparison.
+
+   my $oh = Hash::Ordered->new();
+      $oh->set($_,$_);   $oh->keys;  $oh->delete($_);
+
+   my $oh = tie my %hash, 'Tie::Hash::Indexed';
+      $oh->STORE($_,$_); keys %hash; $oh->DELETE($_);
+
+   my $oh = Tie::IxHash->new();
+      $oh->STORE($_,$_); $oh->Keys;  $oh->DELETE($_);
+
+   my $oh = tie my %hash, 'Tie::LLHash';
+      $oh->last($_,$_);  keys %hash; $oh->DELETE($_);
+
+=head1 SEE ALSO
+
+=over 3
+
+=item * L<Hash::Ordered>
+
+=item * L<Tie::Hash::Indexed>
+
+=item * L<Tie::IxHash>
+
+=item * L<Tie::LLHash>
+
+=back
 
 =head1 INDEX
 
