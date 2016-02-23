@@ -75,7 +75,7 @@ sub TIEHASH {
       $data{ $key } = shift;
    }
 
-   bless [ \%data, \@keys, undef, \$begi, \$gcnt, undef ], $class;
+   bless [ \%data, \@keys, {}, \$begi, \$gcnt ], $class;
 }
 
 # STORE ( key, value )
@@ -104,13 +104,11 @@ sub DELETE {
    # check the first key
    if ( $key eq $keys->[0] ) {
       shift @{ $keys };
-      ${ $self->[_BEGI] }++, delete $indx->{ $key } if $indx;
+      ${ $self->[_BEGI] }++, delete $indx->{ $key } if %{ $indx };
 
       # reset ordered hash
       if ( ! @{ $keys } ) {
          ${ $self->[_BEGI] } = 0;
-            $self->[_HREF]   = undef;
-            $self->[_INDX]   = undef;
       }
       # or GC start of list
       elsif ( !defined $keys->[0] ) {
@@ -127,13 +125,11 @@ sub DELETE {
    # check the last key
    if ( $key eq $keys->[-1] ) {
       pop @{ $keys };
-      delete $indx->{ $key } if $indx;
+      delete $indx->{ $key } if %{ $indx };
 
       # reset ordered hash
       if ( ! @{ $keys } ) {
          ${ $self->[_BEGI] } = 0;
-            $self->[_HREF]   = undef;
-            $self->[_INDX]   = undef;
       }
       # or GC end of list
       elsif ( !defined $keys->[-1] ) {
@@ -146,15 +142,15 @@ sub DELETE {
       return delete $data->{ $key };
    }
 
-   # make an index, on-demand
-   if ( ! $indx ) {
-      my ( $i, %_indx ) = ( 0 );
-      $_indx{ $_ } = $i++ for @{ $keys };
-      $self->[_INDX] = $indx = \%_indx;
-   }
-
    # fill index, on-demand
    my $id = delete $indx->{ $key } // do {
+      # pre-populate entire list
+      ( %{ $indx } ) ? undef : do {
+         my $i; $i = ${ $self->[_BEGI] } = 0;
+         $indx->{ $_ } = $i++ for @{ $keys };
+         delete $indx->{ $key };
+      };
+   } // do {
       # from end of list
       ( exists $indx->{ $keys->[-1] } ) ? undef : do {
          my $i = ${ $self->[_BEGI] } + $#{ $keys };
@@ -182,8 +178,7 @@ sub DELETE {
    # GC keys and indx if 75% or more are tombstone
    if ( ++${ $self->[_GCNT] } >= ( @{ $keys } >> 2 ) * 3 ) {
       my $i = 0;
-      ${ $self->[_BEGI] } = 0;
-      ${ $self->[_GCNT] } = 0;
+      ${ $self->[_BEGI] } = ${ $self->[_GCNT] } = 0;
       for my $k ( @{ $keys } ) {
          $keys->[ $i ] = $k, $indx->{ $k } = $i++ if ( defined $k );
       }
@@ -225,9 +220,9 @@ sub EXISTS {
 
 sub CLEAR {
    my ( $self ) = @_;
-   %{ $self->[_DATA] } = @{ $self->[_KEYS] } = ( );
-   ${ $self->[_BEGI] } = ${ $self->[_GCNT] } =  0 ;
-      $self->[_INDX]   =    $self->[_HREF]   = undef;
+
+   %{ $self->[_DATA] } = @{ $self->[_KEYS] } = %{ $self->[_INDX] } = ();
+   ${ $self->[_BEGI] } = ${ $self->[_GCNT] } = 0;
 
    delete $self->[_ITER] if ( defined $self->[_ITER] );
 
@@ -254,14 +249,12 @@ sub POP {
 
    return unless ( defined $key );
 
-   if ( $indx ) {
+   if ( %{ $indx } ) {
       delete $indx->{ $key };
 
       # reset ordered hash
       if ( ! @{ $keys } ) {
          ${ $_[0]->[_BEGI] } = 0;
-            $_[0]->[_HREF]   = undef;
-            $_[0]->[_INDX]   = undef;
       }
       # or GC end of list
       elsif ( !defined $keys->[-1] ) {
@@ -283,7 +276,7 @@ sub PUSH {
    my $key;
 
    while ( @_ ) {
-      $self->DELETE($key) if ( exists $data->{ $key = shift } );
+      $self->delete( $key ) if ( exists $data->{ $key = shift } );
       push @{ $keys }, "$key";
       $data->{ $key } = shift;
    }
@@ -299,14 +292,12 @@ sub SHIFT {
 
    return unless ( defined $key );
 
-   if ( $indx ) {
+   if ( %{ $indx } ) {
       ${ $_[0]->[_BEGI] }++, delete $indx->{ $key };
 
       # reset ordered hash
       if ( ! @{ $keys } ) {
          ${ $_[0]->[_BEGI] } = 0;
-            $_[0]->[_HREF]   = undef;
-            $_[0]->[_INDX]   = undef;
       }
       # or GC start of list
       elsif ( !defined $keys->[0] ) {
@@ -325,12 +316,12 @@ sub SHIFT {
 
 sub UNSHIFT {
    my $self = shift;
-   my ( $data, $keys ) = @{ $self };
+   my ( $data, $keys, $indx ) = @{ $self };
    my $key;
 
    while ( @_ ) {
-      $self->DELETE($key) if ( exists $data->{ $key = $_[-2] } );
-      ${ $self->[_BEGI] }-- if $self->[_INDX];
+      $self->delete( $key ) if ( exists $data->{ $key = $_[-2] } );
+      ${ $self->[_BEGI] }-- if %{ $indx };
       unshift @{ $keys }, "$key";
       $data->{ $key } = pop;
       pop;
@@ -346,14 +337,14 @@ sub SPLICE {
    my ( $data, $keys, $indx ) = @{ $self };
    return () unless ( defined $off );
 
-   $self->purge() if $indx;
+   $self->purge() if %{ $indx };
 
    my ( $key, @ret );
    my $size = scalar @{ $keys };
    my $len  = @_ ? shift : $size - $off;
 
    if ( $off >= $size ) {
-      $self->PUSH(@_) if @_;
+      $self->push( @_ ) if @_;
    }
    elsif ( abs($off) <= $size ) {
       if ( $len > 0 ) {
@@ -363,7 +354,7 @@ sub SPLICE {
       }
       if ( @_ ) {
          my @k = splice @{ $keys }, $off;
-         $self->PUSH(@_);
+         $self->push( @_ );
          push(@{ $keys }, "$_") for @k;
       }
    }
@@ -442,7 +433,7 @@ sub clone {
 
    $self->clear() if $params->{'flush'};
 
-   bless [ \%data, \@keys, undef, \$begi, \$gcnt, undef ], ref $self;
+   bless [ \%data, \@keys, {}, \$begi, \$gcnt ], ref $self;
 }
 
 # flush ( key [, key, ... ] )
@@ -562,7 +553,7 @@ sub mdel {
 
    while ( @_ ) {
       $key = shift;
-      $cnt++, $self->DELETE($key) if ( exists $data->{ $key } );
+      $cnt++, $self->delete( $key ) if ( exists $data->{ $key } );
    }
 
    $cnt;
@@ -622,7 +613,7 @@ sub purge {
    }
 
    ${ $self->[_BEGI] } = ${ $self->[_GCNT] } = 0;
-      $self->[_INDX]   =    $self->[_HREF]   = undef;
+   %{ $self->[_INDX] } = ();
 
    return;
 }
@@ -697,7 +688,7 @@ sub _reorder {
    @{ $self->[_KEYS] } = @_;
 
    ${ $self->[_BEGI] } = ${ $self->[_GCNT] } = 0;
-      $self->[_INDX]   =    $self->[_HREF]   = undef;
+   %{ $self->[_INDX] } = ();
 
    return;
 }
@@ -817,9 +808,6 @@ sub len {
 package MCE::Shared::Ordhash::_href;
 
 sub TIEHASH {
-   $_[1]->[2] //= {};  # _INDX to persist onwards until the next reset
-                       #  i.e. clear, purge, _reorder, or emptied _KEYS
-
    bless [ @{ $_[1] } ], 'MCE::Shared::Ordhash';
 }
 
@@ -1266,7 +1254,7 @@ ordered hash implementation takes in comparison.
 
    0.362 secs.  55 MB  MCE::Shared::Hash; unordered hash
    0.626 secs. 126 MB  Tie::Hash::Indexed; (XS) ordered hash
-   0.753 secs.  74 MB  MCE::Shared::Ordhash; ordered hash **
+   0.758 secs.  74 MB  MCE::Shared::Ordhash; ordered hash **
    1.032 secs.  74 MB  Hash::Ordered; ordered hash
    1.756 secs. 161 MB  Tie::LLHash; ordered hash
     > 42 mins.  79 MB  Tie::IxHash; ordered hash (stopped)
@@ -1278,7 +1266,7 @@ Hobos provided by C<MCE::Hobo->list>.
    for ( $oh->keys ) { $oh->delete($_) }
 
    0.332 secs.  55 MB  MCE::Shared::Hash; unordered hash
-   0.471 secs.  67 MB  MCE::Shared::Ordhash; ordered hash **
+   0.462 secs.  67 MB  MCE::Shared::Ordhash; ordered hash **
    0.503 secs. 126 MB  Tie::Hash::Indexed; (XS) ordered hash
    0.802 secs.  74 MB  Hash::Ordered; ordered hash
    1.337 secs. 161 MB  Tie::LLHash; ordered hash
