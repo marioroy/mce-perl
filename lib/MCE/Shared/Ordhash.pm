@@ -49,9 +49,10 @@ use overload (
    q(0+)    => \&MCE::Shared::Base::_numify,
    q(%{})   => sub {
       $_[0]->[_HREF] //= do {
-         tie my %h, 'MCE::Shared::Ordhash::_href', $_[0];
+         tie my %h, __PACKAGE__.'::_href', bless([ @{ $_[0] } ], __PACKAGE__);
          \%h;
       };
+      
    },
    fallback => 1
 );
@@ -810,9 +811,7 @@ sub len {
 
 package MCE::Shared::Ordhash::_href;
 
-sub TIEHASH {
-   bless [ @{ $_[1] } ], 'MCE::Shared::Ordhash';
-}
+sub TIEHASH { $_[1] }
 
 1;
 

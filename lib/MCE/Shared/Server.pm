@@ -1381,26 +1381,24 @@ use overload (
    q(0+)    => \&MCE::Shared::Base::_numify,
    q(@{})   => sub {
       no overloading;
-      $_[0]->[_DREF] //= do {
+      $_[0]->[_DREF] || do {
          return $_[0] if $_[0]->[_CLASS] ne 'MCE::Shared::Array';
-         tie my @a, 'MCE::Shared::Object', bless([ $_[0]->[0] ], __PACKAGE__);
-         \@a;
+         tie my @a, __PACKAGE__, bless([ $_[0]->[0] ], __PACKAGE__);
+         $_[0]->[_DREF] = \@a;
       };
    },
    q(%{})   => sub {
-      no overloading;
-      $_[0]->[_DREF] //= do {
+      $_[0]->[_DREF] || do {
          return $_[0] if !exists $_hash_support{ $_[0]->[_CLASS] };
-         tie my %h, 'MCE::Shared::Object', bless([ $_[0]->[0] ], __PACKAGE__);
-         \%h;
+         tie my %h, __PACKAGE__, bless([ $_[0]->[0] ], __PACKAGE__);
+         $_[0]->[_DREF] = \%h;
       };
    },
    q(${})   => sub {
-      no overloading;
-      $_[0]->[_DREF] //= do {
+      $_[0]->[_DREF] || do {
          return $_[0] if $_[0]->[_CLASS] ne 'MCE::Shared::Scalar';
-         tie my $s, 'MCE::Shared::Object', bless([ $_[0]->[0] ], __PACKAGE__);
-         \$s;
+         tie my $s, __PACKAGE__, bless([ $_[0]->[0] ], __PACKAGE__);
+         $_[0]->[_DREF] = \$s;
       };
    },
    fallback => 1
