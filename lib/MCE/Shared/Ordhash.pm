@@ -142,7 +142,8 @@ sub DELETE {
 
    # fill index, on-demand
    my $id = delete $indx->{ $key } // do {
-      ( %{ $indx } || ${ $gcnt } ) ? undef : do {
+      ( %{ $indx } ) ? undef : do {
+         $_[0]->purge() if ${ $gcnt };
          my $i; $i = ${ $begi } = 0;
          $indx->{ $_ } = $i++ for @{ $keys };
          delete $indx->{ $key };
