@@ -12,7 +12,7 @@
 ##    Also, minimized overhead in pop and shift when an index is present.
 ##    Ditto for forward and reverse deletes.
 ##
-## 3. Provides support for hash-like dereferencing, for Perlish behavior.
+## 3. Provides support for hash-like dereferencing.
 ##
 ###############################################################################
 
@@ -105,11 +105,10 @@ sub DELETE {
       shift @{ $keys };
       ${ $begi }++, delete $indx->{ $key } if %{ $indx };
 
-      # reset ordered hash
+      # GC start of list
       if ( ! @{ $keys } ) {
          ${ $begi } = 0;
       }
-      # or GC start of list
       elsif ( !defined $keys->[0] ) {
          my $i = 1;
          $i++ until ( defined $keys->[$i] );
@@ -125,11 +124,10 @@ sub DELETE {
       pop @{ $keys };
       delete $indx->{ $key } if %{ $indx };
 
-      # reset ordered hash
+      # GC end of list
       if ( ! @{ $keys } ) {
          ${ $begi } = 0;
       }
-      # or GC end of list
       elsif ( !defined $keys->[-1] ) {
          my $i = $#{ $keys } - 1;
          $i-- until ( defined $keys->[$i] );
@@ -141,7 +139,8 @@ sub DELETE {
    }
 
    # fill index, on-demand
-   my $id = delete $indx->{ $key } // do {
+   my $off = delete $indx->{ $key } // do {
+      # with entire list
       ( %{ $indx } ) ? undef : do {
          $_[0]->purge() if ${ $gcnt };
          my $i; $i = ${ $begi } = 0;
@@ -149,7 +148,7 @@ sub DELETE {
          delete $indx->{ $key };
       };
    } // do {
-      # from end of list
+      # or from end of list
       ( exists $indx->{ $keys->[-1] } ) ? undef : do {
          my $i = ${ $begi } + $#{ $keys };
          for my $k ( reverse @{ $keys } ) {
@@ -160,7 +159,7 @@ sub DELETE {
          delete $indx->{ $key };
       };
    } // do {
-      # from start of list
+      # or from start of list
       my $i = ${ $begi };
       for my $k ( @{ $keys } ) {
          $i++, next unless ( defined $k );
@@ -170,10 +169,10 @@ sub DELETE {
       delete $indx->{ $key };
    };
 
-   # place tombstone
-   $keys->[ $id - ${ $begi } ] = _TOMBSTONE;
+   # set tombstone
+   $keys->[ $off - ${ $begi } ] = _TOMBSTONE;
 
-   # GC keys and index if 75% or more are tombstone
+   # GC keys if 75% or more are tombstone
    if ( ++${ $gcnt } >= ( @{ $keys } >> 2 ) * 3 ) {
       my $i; $i = ${ $begi } = ${ $gcnt } = 0;
       for my $k ( @{ $keys } ) {
@@ -249,11 +248,10 @@ sub POP {
    if ( %{ $indx } ) {
       delete $indx->{ $key };
 
-      # reset ordered hash
+      # GC end of list
       if ( ! @{ $keys } ) {
          ${ $_[0]->[_BEGI] } = 0;
       }
-      # or GC end of list
       elsif ( !defined $keys->[-1] ) {
          my $i = $#{ $keys } - 1;
          $i-- until ( defined $keys->[$i] );
@@ -292,11 +290,10 @@ sub SHIFT {
    if ( %{ $indx } ) {
       ${ $_[0]->[_BEGI] }++, delete $indx->{ $key };
 
-      # reset ordered hash
+      # GC start of list
       if ( ! @{ $keys } ) {
          ${ $_[0]->[_BEGI] } = 0;
       }
-      # or GC start of list
       elsif ( !defined $keys->[0] ) {
          my $i = 1;
          $i++ until ( defined $keys->[$i] );
@@ -606,20 +603,20 @@ sub mset {
 # purge ( )
 
 sub purge {
-   my ( $self ) = @_;
-   my ( $i, $keys ) = ( 0, $self->[_KEYS] );
+   my ( $data, $keys, $indx, $begi, $gcnt ) = @{ $_[0] };
 
-   # TOMBSTONES, purges in-place for minimum memory consumption.
+   # TOMBSTONES, in-place purging for minimum memory consumption.
 
-   if ( ${ $self->[_GCNT] } ) {
+   if ( ${ $gcnt } ) {
+      my $i = 0;
       for my $key ( @{ $keys } ) {
          $keys->[ $i++ ] = $key if ( defined $key );
       }
       splice @{ $keys }, $i;
    }
 
-   ${ $self->[_BEGI] } = ${ $self->[_GCNT] } = 0;
-   %{ $self->[_INDX] } = ();
+   ${ $begi } = ${ $gcnt } = 0;
+   %{ $indx } = ();
 
    return;
 }
