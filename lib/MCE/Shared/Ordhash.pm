@@ -107,7 +107,7 @@ sub DELETE {
 
       # reset ordered hash
       if ( ! @{ $keys } ) {
-         ${ $begi } = 0, %{ $indx } = ();
+         ${ $begi } = 0;
       }
       # or GC start of list
       elsif ( !defined $keys->[0] ) {
@@ -127,7 +127,7 @@ sub DELETE {
 
       # reset ordered hash
       if ( ! @{ $keys } ) {
-         ${ $begi } = 0, %{ $indx } = ();
+         ${ $begi } = 0;
       }
       # or GC end of list
       elsif ( !defined $keys->[-1] ) {
@@ -142,7 +142,7 @@ sub DELETE {
 
    # fill index, on-demand
    my $id = delete $indx->{ $key } // do {
-      ( %{ $indx } ) ? undef : do {
+      ( %{ $indx } || ${ $gcnt } ) ? undef : do {
          my $i; $i = ${ $begi } = 0;
          $indx->{ $_ } = $i++ for @{ $keys };
          delete $indx->{ $key };
