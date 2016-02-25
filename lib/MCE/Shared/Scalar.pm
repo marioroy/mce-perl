@@ -72,7 +72,7 @@ sub getset {
 # len ( )
 
 sub len {
-   length ${ $_[0] } || 0;
+   length ${ $_[0] };
 }
 
 {
@@ -134,6 +134,10 @@ Helper class for L<MCE::Shared>.
 
 =head1 API DOCUMENTATION
 
+This module may involve TIE when accessing the object via scalar dereferencing.
+Only shared instances are impacted if doing so. Although likely fast enough for
+many use cases, use the OO interface if better performance is desired.
+
 =over 3
 
 =item new ( [ value ] )
@@ -159,7 +163,7 @@ on-demand for setting the value. The new value is returned in scalar context.
 
    $val = $var->set( "baz" );
    $var->set( "baz" );
-   $$var = "baz";
+   ${$var} = "baz";
 
 =item get
 
@@ -167,13 +171,15 @@ Likewise, obtain the value via the OO interface. C<TIE> is utilized for
 retrieving the value otherwise.
 
    $val = $var->get;
-   $val = $$var;
+   $val = ${$var};
 
 =item len
 
-Returns the length of the value.
+Returns the length of the value. It returns the C<undef> value if the value
+is not defined.
 
    $len = $var->len;
+   length ${$var};
 
 =back
 

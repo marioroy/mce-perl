@@ -372,22 +372,6 @@ sub SPLICE {
 ##
 ###############################################################################
 
-#  Query string:
-#
-#  Several methods receive a query string argument. The string is quoteless.
-#  Basically, any quotes inside the string will be treated literally.
-#
-#  Search capability { =~ !~ eq ne lt le gt ge == != < <= > >= }
-#
-#  "key =~ /pattern/i :AND val =~ /pattern/i"
-#  "key =~ /pattern/i :AND val eq foo bar"     # val eq foo bar
-#  "val eq foo baz :OR key !~ /pattern/i"
-#
-#     key means to match against keys in the hash
-#     likewise, val means to match against values
-#
-#  :AND(s) and :OR(s) mixed together is not supported
-
 # _find ( { getkeys => 1 }, "query string" )
 # _find ( { getvals => 1 }, "query string" )
 # _find ( "query string" ) # pairs
@@ -514,7 +498,7 @@ sub pairs {
                   : @{ $self->[_KEYS] };
       }
       else {
-         ( @{ $self->[_KEYS] } - ${ $self->[_GCNT] } ) << 1;
+         @{ $self->[_KEYS] } - ${ $self->[_GCNT] };
       }
    }
 }
@@ -783,7 +767,7 @@ sub getset {
 
 sub len {
    ( defined $_[1] )
-      ? length $_[0]->[_DATA]{ $_[1] } || 0
+      ? length $_[0]->[_DATA]{ $_[1] }
       : @{ $_[0]->[_KEYS] } - ${ $_[0]->[_GCNT] };
 }
 
@@ -930,26 +914,37 @@ applies to forward and reverse deletes.
 The end result is achieving a new level of performance, for a pure-Perl
 ordered hash implementation.
 
-=head1 QUERY STRING
+=head1 SYNTAX for QUERY STRING
 
-Several methods in C<MCE::Shared::Ordhash> receive a query string argument.
-The string is quoteless. Basically, any quotes inside the string will be
-treated literally.
+Several methods in C<MCE::Shared::Ordhash> take a query string for an argument.
+The format of the string is quoteless. Therefore, any quotes inside the string
+will be treated literally.
 
-   Search capability: =~ !~ eq ne lt le gt ge == != < <= > >=
+   o Basic demonstration: @keys = $oh->keys( "val =~ /pattern/" );
+   o Supported operators: =~ !~ eq ne lt le gt ge == != < <= > >=
+   o Multiple expressions are delimited by :AND or :OR.
 
-   "key =~ /pattern/i :AND val =~ /pattern/i"
-   "key =~ /pattern/i :AND val eq foo bar"     # val eq foo bar
-   "val eq foo baz :OR key !~ /pattern/i"
+     "key =~ /pattern/i :AND val =~ /pattern/i"
+     "key =~ /pattern/i :AND val eq foo bar"     # val eq "foo bar"
+     "val eq foo baz :OR key !~ /pattern/i"
 
-      key means to match against keys in the hash
-      likewise, val means to match against values
+     * key matches on keys in the hash
+     * val matches on values
 
-   :AND(s) and :OR(s) mixed together is not supported
+=over 3
+
+=item * The modifiers C<:AND> and C<:OR> may be mixed case. e.g. C<:And>
+
+=item * Mixing C<:AND> and C<:OR> in the query is not supported.
+
+=back
 
 =head1 API DOCUMENTATION
 
-To be completed before the final 1.700 release.
+This module involves TIE when accessing the object via hash-like behavior.
+Both non-shared and shared instances are impacted if doing so. Although likely
+fast enough for many use cases, use the OO interface if better performance is
+desired.
 
 =over 3
 
@@ -973,7 +968,8 @@ Constructs a new object, with an optional list of key-value pairs.
 
 Removes all key-value pairs from the hash.
 
-   $oh->clear();
+   $oh->clear;
+   %{$oh} = ();
 
 =item clone ( key [, key, ... ] )
 
@@ -983,7 +979,7 @@ keys in the same order. Keys that do not exist in the hash will have the
 C<undef> value.
 
    $oh2 = $oh->clone( "key1", "key2" );
-   $oh2 = $oh->clone();
+   $oh2 = $oh->clone;
 
 =item delete ( key )
 
@@ -991,6 +987,7 @@ Deletes and returns the value by given key or C<undef> if the key does not
 exists in the hash.
 
    $val = $oh->delete( "some key" );
+   $val = delete $oh->{ "some key" };
 
 =item del
 
@@ -1001,6 +998,7 @@ C<del> is an alias for C<delete>.
 Determines if a key exists in the hash.
 
    if ( $oh->exists( "some key" ) ) { ... }
+   if ( exists $oh->{ "some key" } ) { ... }
 
 =item flush ( key [, key, ... ] )
 
@@ -1011,30 +1009,42 @@ Same as C<clone>. Though, clears all existing items before returning.
 Gets the value of a hash key or C<undef> if the key does not exists.
 
    $val = $oh->get( "some key" );
+   $val = $oh->{ "some key" };
 
 =item iterator ( key [, key, ... ] )
 
 =item iterator ( "query string" )
 
-=item iterator
-
 =item keys ( key [, key, ...] )
+
+Returns hash keys in the same insertion order when no arguments are given.
+Otherwise, returns the given keys in the same order. Keys that do not exist
+will have the C<undef> value. In scalar context, returns the size of the hash.
+
+   @keys = $oh->keys;
+   @keys = $oh->keys( "key1", "key2" );
+   $len  = $oh->keys;
 
 =item keys ( "query string" )
 
-=item keys
+Returns only keys that match the given criteria. It returns an empty list
+if the search found nothing. The syntax for the C<query string> is described
+above. In scalar context, returns the size of the resulting list.
+
+   @keys = $oh->keys( "val eq Hello, it's me." );
+   @keys = $oh->keys( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   @keys = $oh->keys( "val eq sun :OR val eq moon :OR val eq foo" );
+   $len  = $oh->keys( "key =~ /$pattern/" );
 
 =item len ( key )
 
-Returns the length of the value stored at key.
+Returns the size of the hash when no arguments are given. For the given key,
+returns the length of the value stored at key or the C<undef> value if the
+key does not exists.
 
-   $len = $oh->len( $key );
-
-=item len
-
-Returns the number of keys stored in the hash.
-
-   $len = $oh->len;
+   $size = $oh->len;
+   $len  = $oh->len( "key1" );
+   $len  = length $oh->{ "key1" };
 
 =item mdel ( key [, key, ... ] )
 
@@ -1070,18 +1080,34 @@ C<merge> is an alias for C<mset>.
 
 =item pairs ( key [, key, ... ] )
 
+Returns key-value pairs in the same insertion order when no arguments are given.
+Otherwise, returns key-value pairs for the given keys in the same order. Keys
+that do not exist will have the C<undef> value. In scalar context, returns the
+size of the hash.
+
+   @pairs = $oh->pairs;
+   @pairs = $oh->pairs( "key1", "key2" );
+   $len   = $oh->pairs;
+
 =item pairs ( "query string" )
 
-=item pairs
+Returns only key-value pairs that match the given criteria. It returns an
+empty list if the search found nothing. The syntax for the C<query string> is
+described above. In scalar context, returns the size of the resulting list.
+
+   @pairs = $oh->pairs( "val eq Hello, it's me." );
+   @pairs = $oh->pairs( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   @pairs = $oh->pairs( "val eq sun :OR val eq moon :OR val eq foo" );
+   $len   = $oh->pairs( "key =~ /$pattern/" );
 
 =item pop
 
 Removes and returns the last key-value pair or value in scalar context of the
 ordered hash. If there are no keys in the hash, returns the undefined value.
 
-   ( $key, $val ) = $oh->pop();
+   ( $key, $val ) = $oh->pop;
 
-   $val = $oh->shift();
+   $val = $oh->shift;
 
 =item purge
 
@@ -1089,7 +1115,7 @@ A utility method for purging any *tombstones* in the keys array. It also
 resets a couple counters internally. Call this method before serializing
 to a file, which is the case in C<MCE::Shared::Minidb>.
 
-   $oh->purge();
+   $oh->purge;
 
 =item push ( key, value [, key, value, ... ] )
 
@@ -1101,19 +1127,19 @@ with the new values.
 
 =item set ( key, value )
 
-Sets the value of a hash key and returns its new value.
+Sets the value of the given hash key and returns its new value.
 
    $val = $oh->set( "key", "value" );
-   $val = $oh->{"key"} = "value";
+   $val = $oh->{ "key" } = "value";
 
 =item shift
 
 Removes and returns the first key-value pair or value in scalar context of the
 ordered hash. If there are no keys in the hash, returns the undefined value.
 
-   ( $key, $val ) = $oh->shift();
+   ( $key, $val ) = $oh->shift;
 
-   $val = $oh->shift();
+   $val = $oh->shift;
 
 =item sort ( "BY key [ ASC | DESC ] [ ALPHA ]" )
 
@@ -1141,9 +1167,25 @@ with the new values.
 
 =item values ( key [, key, ... ] )
 
+Returns hash values in the same insertion order when no arguments are given.
+Otherwise, returns values for the given keys in the same order. Keys that do
+not exist will have the C<undef> value. In scalar context, returns the size
+of the hash.
+
+   @vals = $oh->values;
+   @vals = $oh->values( "key1", "key2" );
+   $len  = $oh->values;
+
 =item values ( "query string" )
 
-=item values
+Returns only values that match the given criteria. It returns an empty list
+if the search found nothing. The syntax for the C<query string> is described
+above. In scalar context, returns the size of the resulting list.
+
+   @vals = $oh->values( "val eq Hello, it's me." );
+   @vals = $oh->values( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   @vals = $oh->values( "val eq sun :OR val eq moon :OR val eq foo" );
+   $len  = $oh->values( "key =~ /$pattern/" );
 
 =item vals
 

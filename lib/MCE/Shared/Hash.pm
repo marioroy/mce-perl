@@ -52,22 +52,6 @@ sub SCALAR   { scalar keys %{ $_[0] } }
 ##
 ###############################################################################
 
-#  Query string:
-#
-#  Several methods receive a query string argument. The string is quoteless.
-#  Basically, any quotes inside the string will be treated literally.
-#
-#  Search capability { =~ !~ eq ne lt le gt ge == != < <= > >= }
-#
-#  "key =~ /pattern/i :AND val =~ /pattern/i"
-#  "key =~ /pattern/i :AND val eq foo bar"     # val eq foo bar
-#  "val eq foo baz :OR key !~ /pattern/i"
-#
-#     key means to match against keys in the hash
-#     likewise, val means to match against values
-#
-#  :AND(s) and :OR(s) mixed together is not supported
-
 # _find ( { getkeys => 1 }, "query string" )
 # _find ( { getvals => 1 }, "query string" )
 # _find ( "query string" ) # pairs
@@ -165,7 +149,7 @@ sub pairs {
             : %{ $self };
       }
       else {
-         ( scalar CORE::keys %{ $self } ) << 1;
+         scalar CORE::keys %{ $self };
       }
    }
 }
@@ -285,7 +269,7 @@ sub getset {
 
 sub len {
    ( defined $_[1] )
-      ? length $_[0]->{ $_[1] } || 0
+      ? length $_[0]->{ $_[1] }
       : scalar CORE::keys %{ $_[0] };
 }
 
@@ -394,26 +378,36 @@ This document describes MCE::Shared::Hash version 1.699_011
 
 A hash helper class for use with L<MCE::Shared>.
 
-=head1 QUERY STRING
+=head1 SYNTAX for QUERY STRING
 
-Several methods in C<MCE::Shared::Hash> receive a query string argument.
-The string is quoteless. Basically, any quotes inside the string will be
-treated literally.
+Several methods in C<MCE::Shared::Hash> take a query string for an argument.
+The format of the string is quoteless. Therefore, any quotes inside the string
+will be treated literally.
 
-   Search capability: =~ !~ eq ne lt le gt ge == != < <= > >=
+   o Basic demonstration: @keys = $ha->keys( "val =~ /pattern/" );
+   o Supported operators: =~ !~ eq ne lt le gt ge == != < <= > >=
+   o Multiple expressions are delimited by :AND or :OR.
 
-   "key =~ /pattern/i :AND val =~ /pattern/i"
-   "key =~ /pattern/i :AND val eq foo bar"     # val eq foo bar
-   "val eq foo baz :OR key !~ /pattern/i"
+     "key =~ /pattern/i :AND val =~ /pattern/i"
+     "key =~ /pattern/i :AND val eq foo bar"     # val eq "foo bar"
+     "val eq foo baz :OR key !~ /pattern/i"
 
-      key means to match against keys in the hash
-      likewise, val means to match against values
+     * key matches on keys in the hash
+     * val matches on values
 
-   :AND(s) and :OR(s) mixed together is not supported
+=over 3
+
+=item * The modifiers C<:AND> and C<:OR> may be mixed case. e.g. C<:And>
+
+=item * Mixing C<:AND> and C<:OR> in the query is not supported.
+
+=back
 
 =head1 API DOCUMENTATION
 
-To be completed before the final 1.700 release.
+This module may involve TIE when accessing the object via hash-like behavior.
+Only shared instances are impacted if doing so. Although likely fast enough for
+many use cases, use the OO interface if better performance is desired.
 
 =over 3
 
@@ -437,7 +431,8 @@ Constructs a new object, with an optional list of key-value pairs.
 
 Removes all key-value pairs from the hash.
 
-   $ha->clear();
+   $ha->clear;
+   %{$ha} = ();
 
 =item clone ( key [, key, ... ] )
 
@@ -446,7 +441,7 @@ copy if no arguments are given. Otherwise, the object includes only the given
 keys. Keys that do not exist in the hash will have the C<undef> value.
 
    $ha2 = $ha->clone( "key1", "key2" );
-   $ha2 = $ha->clone();
+   $ha2 = $ha->clone;
 
 =item delete ( key )
 
@@ -454,6 +449,7 @@ Deletes and returns the value by given key or C<undef> if the key does not
 exists in the hash.
 
    $val = $ha->delete( "some key" );
+   $val = delete $ha->{ "some key" };
 
 =item del
 
@@ -464,6 +460,7 @@ C<del> is an alias for C<delete>.
 Determines if a key exists in the hash.
 
    if ( $ha->exists( "some key" ) ) { ... }
+   if ( exists $ha->{ "some key" } ) { ... }
 
 =item flush ( key [, key, ... ] )
 
@@ -474,30 +471,42 @@ Same as C<clone>. Though, clears all existing items before returning.
 Gets the value of a hash key or C<undef> if the key does not exists.
 
    $val = $ha->get( "some key" );
+   $val = $ha->{ "some key" };
 
 =item iterator ( key [, key, ... ] )
 
 =item iterator ( "query string" )
 
-=item iterator
-
 =item keys ( key [, key, ... ] )
+
+Returns all keys in the hash when no arguments are given. Otherwise, returns
+the given keys in the same order. Keys that do not exist will have the C<undef>
+value. In scalar context, returns the size of the hash.
+
+   @keys = $ha->keys;
+   @keys = $ha->keys( "key1", "key2" );
+   $len  = $ha->keys;
 
 =item keys ( "query string" )
 
-=item keys
+Returns only keys that match the given criteria. It returns an empty list
+if the search found nothing. The syntax for the C<query string> is described
+above. In scalar context, returns the size of the resulting list.
+
+   @keys = $ha->keys( "val eq Hello, it's me." );
+   @keys = $ha->keys( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   @keys = $ha->keys( "val eq sun :OR val eq moon :OR val eq foo" );
+   $len  = $ha->keys( "key =~ /$pattern/" );
 
 =item len ( key )
 
-Returns the length of the value stored at key.
+Returns the size of the hash when no arguments are given. For the given key,
+returns the length of the value stored at key or the C<undef> value if the
+key does not exists.
 
-   $len = $ha->len( $key );
-
-=item len
-
-Returns the number of keys stored in the hash.
-
-   $len = $ha->len;
+   $size = $ha->len;
+   $len  = $ha->len( "key1" );
+   $len  = length $ha->{ "key1" };
 
 =item mdel ( key [, key, ... ] )
 
@@ -531,24 +540,55 @@ in the hash.
 
 C<merge> is an alias for C<mset>.
 
-=item pairs ( key [, key, ... ] )
-
 =item pairs ( "query string" )
 
-=item pairs
+Returns key-value pairs in the hash when no arguments are given. Otherwise,
+returns key-value pairs for the given keys in the same order. Keys that do not
+exist will have the C<undef> value. In scalar context, returns the size of the
+hash.
+
+   @pairs = $ha->pairs;
+   @pairs = $ha->pairs( "key1", "key2" );
+   $len   = $ha->pairs;
+
+=item pairs ( key [, key, ... ] )
+
+Returns only key-value pairs that match the given criteria. It returns an
+empty list if the search found nothing. The syntax for the C<query string> is
+described above. In scalar context, returns the size of the resulting list.
+
+   @pairs = $ha->pairs( "val eq Hello, it's me." );
+   @pairs = $ha->pairs( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   @pairs = $ha->pairs( "val eq sun :OR val eq moon :OR val eq foo" );
+   $len   = $ha->pairs( "key =~ /$pattern/" );
 
 =item set ( key, value )
 
-Sets the value of a hash key and returns its new value.
+Sets the value of the given hash key and returns its new value.
 
    $val = $ha->set( "key", "value" );
-   $val = $ha->{"key"} = "value";
+   $val = $ha->{ "key" } = "value";
 
 =item values ( key [, key, ... ] )
 
+Returns all values in the hash when no arguments are given. Otherwise, returns
+values for the given keys in the same order. Keys that do not exist will have
+the C<undef> value. In scalar context, returns the size of the hash.
+
+   @vals = $ha->values;
+   @vals = $ha->values( "key1", "key2" );
+   $len  = $ha->values;
+
 =item values ( "query string" )
 
-=item values
+Returns only values that match the given criteria. It returns an empty list
+if the search found nothing. The syntax for the C<query string> is described
+above. In scalar context, returns the size of the resulting list.
+
+   @vals = $ha->values( "val eq Hello, it's me." );
+   @vals = $ha->values( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   @vals = $ha->values( "val eq sun :OR val eq moon :OR val eq foo" );
+   $len  = $ha->values( "key =~ /$pattern/" );
 
 =item vals
 

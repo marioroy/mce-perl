@@ -54,14 +54,31 @@ sub _compile {
    my ( $query ) = @_;
    my ( @f,@c,@e, $aflg );
 
-   # Search capability { =~ !~ eq ne lt le gt ge == != < <= > >= }
+   # o Several methods in MCE::Shared::{ Array, Hash, Minidb, and Ordhash }
+   #   take a query string for an argument. The format of the string is
+   #   quoteless. Therefore, any quotes inside the string will be treated
+   #   literally.
    #
-   # Any quotes inside the string are treated literally
-   # :AND(s) and :OR(s) mixed together is not supported
+   # o Basic demonstration: @keys = $oh->keys( "val =~ /pattern/" );
+   # o Supported operators: =~ !~ eq ne lt le gt ge == != < <= > >=
+   # o Multiple expressions are delimited by :AND or :OR.
    #
-   # "key =~ /$pattern/i :AND field =~ /$pattern/i"
-   # "key =~ /$pattern/i :AND val eq foo bar"     # val eq 'foo bar'
-   # "val eq foo bar :OR key !~ /$pattern/i"
+   #   "key =~ /pattern/i :AND field =~ /pattern/i"
+   #   "key =~ /pattern/i :AND index =~ /pattern/i"
+   #   "key =~ /pattern/i :AND field eq foo bar"     # address eq "foo bar"
+   #   "index eq foo baz :OR key !~ /pattern/i"      # 9 eq "foo baz"
+   #
+   #   MCE::Shared::{ Array, Hash, Ordhash }
+   #   * key matches on keys in the hash or index in the array
+   #   * val matches on values
+   #
+   #   MCE::Shared::{ Minidb }
+   #   * key   matches on primary keys in the hash (H)oH or (H)oA
+   #   * field matches on HoH->{key}{field} e.g. address
+   #   * index matches on HoA->{key}[index] e.g. 9
+   #
+   # o The modifiers :AND and :OR may be mixed case. e.g. :And
+   # o Mixing :AND and :OR in the query is not supported.
 
    if ( length $query ) {
       local $@;  $aflg = ( $query =~ / :and /i );

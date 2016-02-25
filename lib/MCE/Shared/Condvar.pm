@@ -112,7 +112,7 @@ sub getset {
 # len ( )
 
 sub len {
-   length $_[0]->{_value} || 0;
+   length $_[0]->{_value};
 }
 
 1;
@@ -259,7 +259,8 @@ Returns the value associated with the C<cv> object.
 
 =item len
 
-Returns the length of the value.
+Returns the length of the value. It returns the C<undef> value if the value
+is not defined.
 
    $len = $var->len;
 

@@ -70,22 +70,6 @@ sub SPLICE {
 ##
 ###############################################################################
 
-#  Query string:
-#
-#  Several methods receive a query string argument. The string is quoteless.
-#  Basically, any quotes inside the string will be treated literally.
-#
-#  Search capability { =~ !~ eq ne lt le gt ge == != < <= > >= }
-#
-#  "key =~ /pattern/i :AND val =~ /pattern/i"
-#  "key =~ /pattern/i :AND val eq foo bar"     # val eq foo bar
-#  "val eq foo baz :OR key !~ /pattern/i"
-#
-#     key means to match against indices in the array
-#     likewise, val means to match against values
-#
-#  :AND(s) and :OR(s) mixed together is not supported
-
 # _find ( { getkeys => 1 }, "query string" )
 # _find ( { getvals => 1 }, "query string" )
 # _find ( "query string" ) # pairs
@@ -176,7 +160,7 @@ sub pairs {
             : map { $_ => $self->[ $_ ] } 0 .. $#{ $self };
       }
       else {
-         ( scalar @{ $self } ) << 1;
+         scalar @{ $self };
       }
    }
 }
@@ -364,7 +348,7 @@ sub getset {
 
 sub len {
    ( defined $_[1] )
-      ? length $_[0]->[ $_[1] ] || 0
+      ? length $_[0]->[ $_[1] ]
       : scalar @{ $_[0] };
 }
 
@@ -490,26 +474,36 @@ This document describes MCE::Shared::Array version 1.699_011
 
 An array helper class for use with L<MCE::Shared>.
 
-=head1 QUERY STRING
+=head1 SYNTAX for QUERY STRING
 
-Several methods in C<MCE::Shared::Array> receive a query string argument.
-The string is quoteless. Basically, any quotes inside the string will be
-treated literally.
+Several methods in C<MCE::Shared::Array> take a query string for an argument.
+The format of the string is quoteless. Therefore, any quotes inside the string
+will be treated literally.
 
-   Search capability { =~ !~ eq ne lt le gt ge == != < <= > >= }
+   o Basic demonstration: @keys = $ar->keys( "val =~ /pattern/" );
+   o Supported operators: =~ !~ eq ne lt le gt ge == != < <= > >=
+   o Multiple expressions are delimited by :AND or :OR.
 
-   "key =~ /pattern/i :AND val =~ /pattern/i"
-   "key =~ /pattern/i :AND val eq foo bar"     # val eq foo bar
-   "val eq foo baz :OR key !~ /pattern/i"
+     "key =~ /pattern/i :AND val =~ /pattern/i"
+     "key =~ /pattern/i :AND val eq foo bar"     # val eq "foo bar"
+     "val eq foo baz :OR key !~ /pattern/i"
 
-      key means to match against indices in the array
-      likewise, val means to match against values
+     * key matches on indices in the array
+     * val matches on values
 
-   :AND(s) and :OR(s) mixed together is not supported
+=over 3
+
+=item * The modifiers C<:AND> and C<:OR> may be mixed case. e.g. C<:And>
+
+=item * Mixing C<:AND> and C<:OR> in the query is not supported.
+
+=back
 
 =head1 API DOCUMENTATION
 
-To be completed before the final 1.700 release.
+This module may involve TIE when accessing the object via array-like behavior.
+Only shared instances are impacted if doing so. Although likely fast enough for
+many use cases, use the OO interface if better performance is desired.
 
 =over 3
 
@@ -533,7 +527,8 @@ Constructs a new object, with an optional list of values.
 
 Removes all elements from the array.
 
-   $ar->clear();
+   $ar->clear;
+   @{$ar} = ();
 
 =item clone ( index [, index, ... ] )
 
@@ -543,7 +538,7 @@ indices in the same order. Indices that do not exist in the array will have
 the C<undef> value.
 
    $ar2 = $ar->clone( 0, 1 );
-   $ar2 = $ar->clone();
+   $ar2 = $ar->clone;
 
 =item delete ( index )
 
@@ -551,6 +546,7 @@ Deletes and returns the value associated by index or C<undef> if index exceeds
 the size of the list.
 
    $val = $ar->delete( 20 );
+   $val = delete $ar->[ 20 ];
 
 =item del
 
@@ -571,6 +567,8 @@ strongly tied to the use of delete on lists.
    $ar->exists( 2, 3 );  # False
    $ar->exists( 3 );     # True
 
+   exists $ar->[ 3 ];
+
 =item flush ( index [, index, ... ] )
 
 Same as C<clone>. Though, clears all existing items before returning.
@@ -581,30 +579,42 @@ Gets the value of an element by its index or C<undef> if the index does not
 exists.
 
    $val = $ar->get( 2 );
+   $val = $ar->[ 2 ];
 
 =item iterator ( index [, index, ... ] )
 
 =item iterator ( "query string" )
 
-=item iterator
-
 =item keys ( index [, index, ... ] )
+
+Returns all indices in the array when no arguments are given. Otherwise,
+returns the given indices in the same order. Indices that do not exist will
+have the C<undef> value. In scalar context, returns the size of the array.
+
+   @keys = $ar->keys;
+   @keys = $ar->keys( 0, 1 );
+   $len  = $ar->keys;
 
 =item keys ( "query string" )
 
-=item keys
+Returns only indices that match the given criteria. It returns an empty list
+if the search found nothing. The syntax for the C<query string> is described
+above. In scalar context, returns the size of the resulting list.
+
+   @keys = $ar->keys( "val eq Hello, it's me." );
+   @keys = $ar->keys( "key >= 50 :AND val =~ /sun|moon|air|wind/" );
+   @keys = $ar->keys( "val eq sun :OR val eq moon :OR val eq foo" );
+   $len  = $ar->keys( "key =~ /$pattern/" );
 
 =item len ( index )
 
-Returns the length of the value stored at index.
-
-   $len = $ar->len( 0 );
-
-=item len
-
-Returns the length of the list.
+Returns the size of the array when no arguments are given. For the given
+indice, returns the length of the value stored at index or the C<undef> value
+if the indice does not exists.
 
    $len = $ar->len;
+   $len = $ar->len( 0 );
+   $len = length $ar->[ 0 ];
 
 =item mdel ( index [, index, ... ] )
 
@@ -637,18 +647,34 @@ Sets multiple index-value pairs in the list and returns the length of the list.
 
 C<merge> is an alias for C<mset>.
 
-=item pairs ( index [, index, ... ] )
-
 =item pairs ( "query string" )
 
-=item pairs
+Returns indice-value pairs in the array when no arguments are given. Otherwise,
+returns indice-value pairs for the given indices in the same order. Indices that
+do not exist will have the C<undef> value. In scalar context, returns the size
+of the array.
+
+   @pairs = $ar->pairs;
+   @pairs = $ar->pairs( 0, 1 );
+   $len   = $ar->pairs;
+
+=item pairs ( index [, index, ... ] )
+
+Returns only indice-value pairs that match the given criteria. It returns an
+empty list if the search found nothing. The syntax for the C<query string> is
+described above. In scalar context, returns the size of the resulting list.
+
+   @pairs = $ar->pairs( "val eq Hello, it's me." );
+   @pairs = $ar->pairs( "key >= 50 :AND val =~ /sun|moon|air|wind/" );
+   @pairs = $ar->pairs( "val eq sun :OR val eq moon :OR val eq foo" );
+   $len   = $ar->pairs( "key =~ /$pattern/" );
 
 =item pop
 
 Removes and returns the last value of the list. If there are no elements in the
 list, returns the undefined value.
 
-   $val = $ar->pop();
+   $val = $ar->pop;
 
 =item push ( value [, value, ... ] )
 
@@ -659,17 +685,17 @@ length.
 
 =item set ( index, value )
 
-Sets the value of an array index and returns its new value.
+Sets the value of the given array index and returns its new value.
 
    $val = $ar->set( 2, "value" );
-   $val = $ar->[2] = "value";
+   $val = $ar->[ 2 ] = "value";
 
 =item shift
 
 Removes and returns the first value of the list. If there are no elements in the
 list, returns the undefined value.
 
-   $val = $ar->shift();
+   $val = $ar->shift;
 
 =item range ( start, stop )
 
@@ -707,9 +733,24 @@ length.
 
 =item values ( index [, index, ... ] )
 
+Returns all values in the array when no arguments are given. Otherwise, returns
+values for the given indices in the same order. Indices that do not exist will
+have the C<undef> value. In scalar context, returns the size of the array.
+
+   @vals = $ar->values;
+   @vals = $ar->values( 0, 1 );
+   $len  = $ar->values;
+
 =item values ( "query string" )
 
-=item values
+Returns only values that match the given criteria. It returns an empty list
+if the search found nothing. The syntax for the C<query string> is described
+above. In scalar context, returns the size of the resulting list.
+
+   @keys = $ar->values( "val eq Hello, it's me." );
+   @keys = $ar->values( "key >= 50 :AND val =~ /sun|moon|air|wind/" );
+   @keys = $ar->values( "val eq sun :OR val eq moon :OR val eq foo" );
+   $len  = $ar->values( "key =~ /$pattern/" );
 
 =item vals
 

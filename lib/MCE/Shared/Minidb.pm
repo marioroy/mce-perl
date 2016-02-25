@@ -39,25 +39,6 @@ sub new {
 ##
 ###############################################################################
 
-#  Query string:
-#
-#  Several methods receive a query string argument. The string is quoteless.
-#  Basically, any quotes inside the string will be treated literally.
-#
-#  Search capability: =~ !~ eq ne lt le gt ge == != < <= > >=
-#
-#  "key =~ /pattern/i :AND field =~ /pattern/i"
-#  "key =~ /pattern/i :AND index =~ /pattern/i"
-#  "key =~ /pattern/i :AND field eq foo bar"     # address eq foo bar
-#  "index eq foo baz :OR key !~ /pattern/i"      # 9 eq foo baz
-#
-#     key   means to match against keys in the hash (H)oH or (H)oA
-#     field means to match against HoH->{key}->{field}; e.g. address
-#     index means to match against HoA->{key}->[index]; e.g. 9
-#
-#  Keys in hash may have spaces, but not field names Ho(H).
-#  :AND(s) and :OR(s) mixed together is not supported.
-
 # _hfind ( { getkeys => 1 }, "query string" )
 # _hfind ( { getvals => 1 }, "query string" )
 # _hfind ( "query string" ) # pairs
@@ -116,23 +97,31 @@ sub _new_list {
    MCE::Shared::Array->new();
 }
 
-# The select_aref and select_href methods receive a select string
-# allowing one to specify field names and sort directives.
+# o The select_aref and select_href methods take a select string supporting
+#   field names or list indices and optionally sort modifiers. The syntax for
+#   the query string, between :WHERE and :ORDER BY, is the same as described
+#   in the documentation under the section SYNTAX for QUERY STRING.
 #
-# "f1 f2 f3 :WHERE f4 > 20 :AND key =~ /foo/ :ORDER BY f5 DESC ALPHA"
-# "f1 f2 f3 :where f4 > 20 :and key =~ /foo/ :order by f5 desc alpha"
+# o HoH
+#    "f1 f2 f3 :WHERE f4 > 20 :AND key =~ /foo/ :ORDER BY f5 DESC ALPHA"
+#    "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/ :ORDER BY key ALPHA"
+#    "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/"
+#    "f5 f1 f2"
 #
-# "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/ :ORDER BY key ALPHA"
-# "f5 f1 f2 :where fN > 40 :and key =~ /bar/ :order by key alpha"
+#    * key matches on keys stored in the primary level hash (H)oH
 #
-# "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/"
-# "f5 f1 f2 :where fN > 40 :and key =~ /bar/"
+# o HoA
+#    "17 15 11 :WHERE 12 > 20 :AND key =~ /foo/ :ORDER BY 10 DESC ALPHA"
+#    "17 15 11 :WHERE 12 > 40 :AND key =~ /bar/ :ORDER BY key ALPHA"
+#    "17 15 11 :WHERE 12 > 40 :AND key =~ /bar/"
+#    "17 15 11"
 #
-# "f5 f1 f2"
+#    * key matches on keys stored in the primary level hash (H)oA
+#    * above, list indices are given as 17, 15, 11, 12, and 10
+#    * the shorter form is allowed e.g. "4 > 20 :AND key =~ /baz/"
 #
-# The shorter form without field names is allowed for HoA.
-#
-# "4 > 20 :and key =~ /baz/"  4 is the array index 
+# o The modifiers :WHERE, :AND, :OR, ORDER BY, ASC, DESC, and ALPHA may be
+#   mixed case. e.g. :Where
 
 # _qparse ( "select string" )
 
@@ -479,7 +468,7 @@ sub restore {
 # iterator ( ":hashes", key, "query string" )
 # iterator ( ":hashes", key [, key, ... ] )
 #
-# iterator  same as ":hashes"
+# iterator ( ) same as ":hashes"
 
 sub iterator {
    my ( $self, @keys ) = @_;
@@ -655,7 +644,8 @@ sub hclear {
    }
 }
 
-# hkeys ( key, field [, field, ... ] )
+# hkeys ( key, [ field [, field, ... ] ] )
+# hkeys ( key, "query string" )
 # hkeys ( "query string" )
 # hkeys ( )
 
@@ -675,27 +665,8 @@ sub hkeys {
    }
 }
 
-# hvals ( key, field [, field, ... ] )
-# hvals ( "query string" )
-# hvals ( )
-
-sub hvals {
-   my $self = shift;
-
-   if ( @_ == 1 && $_[0] =~ /^(?:key|\S+)[ ]+\S\S?[ ]+\S/ ) {
-      $self->_hfind({ getvals => 1 }, @_);
-   }
-   elsif ( @_ ) {
-      my $key = shift;
-      return () unless exists($self->[0][0]{ $key });
-      $self->[0][0]{ $key }->vals(@_);
-   }
-   else {
-      $self->[0]->vals();
-   }
-}
-
-# hpairs ( key, field [, field, ... ] )
+# hpairs ( key, [ field [, field, ... ] ] )
+# hpairs ( key, "query string" )
 # hpairs ( "query string" )
 # hpairs ( )
 
@@ -712,6 +683,27 @@ sub hpairs {
    }
    else {
       $self->[0]->pairs();
+   }
+}
+
+# hvals ( key, [ field [, field, ... ] ] )
+# hvals ( key, "query string" )
+# hvals ( "query string" )
+# hvals ( )
+
+sub hvals {
+   my $self = shift;
+
+   if ( @_ == 1 && $_[0] =~ /^(?:key|\S+)[ ]+\S\S?[ ]+\S/ ) {
+      $self->_hfind({ getvals => 1 }, @_);
+   }
+   elsif ( @_ ) {
+      my $key = shift;
+      return () unless exists($self->[0][0]{ $key });
+      $self->[0][0]{ $key }->vals(@_);
+   }
+   else {
+      $self->[0]->vals();
    }
 }
 
@@ -964,7 +956,8 @@ sub rpush {
    push @{ $self->[1][0]{ $key } }, @_;
 }
 
-# lkeys ( key, index [, index, ... ] )
+# lkeys ( key, [ index [, index, ... ] ] )
+# lkeys ( key, "query string" )
 # lkeys ( "query string" )
 # lkeys ( )
 
@@ -984,27 +977,8 @@ sub lkeys {
    }
 }
 
-# lvals ( key, index [, index, ... ] )
-# lvals ( "query string" )
-# lvals ( )
-
-sub lvals {
-   my $self = shift;
-
-   if ( @_ == 1 && $_[0] =~ /^(?:key|\S+)[ ]+\S\S?[ ]+\S/ ) {
-      $self->_lfind({ getvals => 1 }, @_);
-   }
-   elsif ( @_ ) {
-      my $key = shift;
-      return () unless exists($self->[1][0]{ $key });
-      $self->[1][0]{ $key }->vals(@_);
-   }
-   else {
-      $self->[1]->vals();
-   }
-}
-
-# lpairs ( key, index [, index, ... ] )
+# lpairs ( key, [ index [, index, ... ] ] )
+# lpairs ( key, "query string" )
 # lpairs ( "query string" )
 # lpairs ( )
 
@@ -1021,6 +995,27 @@ sub lpairs {
    }
    else {
       $self->[1]->pairs();
+   }
+}
+
+# lvals ( key, [ index [, index, ... ] ] )
+# lvals ( key, "query string" )
+# lvals ( "query string" )
+# lvals ( )
+
+sub lvals {
+   my $self = shift;
+
+   if ( @_ == 1 && $_[0] =~ /^(?:key|\S+)[ ]+\S\S?[ ]+\S/ ) {
+      $self->_lfind({ getvals => 1 }, @_);
+   }
+   elsif ( @_ ) {
+      my $key = shift;
+      return () unless exists($self->[1][0]{ $key });
+      $self->[1][0]{ $key }->vals(@_);
+   }
+   else {
+      $self->[1]->vals();
    }
 }
 
@@ -1196,50 +1191,73 @@ inside the C<$db> object.
       ], shift;
    }
 
-   # (H)oH key => MCE::Shared::Hash->new();
-   # (H)oA key => MCE::Shared::Array->new()
+   # Ho(H) key => MCE::Shared::Hash->new();
+   # Ho(A) key => MCE::Shared::Array->new()
 
-=head1 QUERY STRING
+=head1 SYNTAX for QUERY STRING
 
-Several methods in C<MCE::Shared::Minidb> receive a query string argument.
-The string is quoteless. Basically, any quotes inside the string will be
+Several methods in C<MCE::Shared::Minidb> take a query string. The format of
+the string is quoteless. Therefore, any quotes inside the string will be
 treated literally.
 
-   Search capability: =~ !~ eq ne lt le gt ge == != < <= > >=
+   o Basic demonstration: @keys = $db->hkeys( "key", "val =~ /pattern/" );
+   o Supported operators: =~ !~ eq ne lt le gt ge == != < <= > >=
+   o Multiple expressions are delimited by :AND or :OR.
   
-   "key =~ /pattern/i :AND field =~ /pattern/i"
-   "key =~ /pattern/i :AND index =~ /pattern/i"
-   "key =~ /pattern/i :AND field eq foo bar"     # address eq foo bar
-   "index eq foo baz :OR key !~ /pattern/i"      # 9 eq foo baz
+     "key =~ /pattern/i :AND field =~ /pattern/i"
+     "key =~ /pattern/i :AND index =~ /pattern/i"
+     "key =~ /pattern/i :AND field eq foo bar"     # address eq "foo bar"
+     "index eq foo baz :OR key !~ /pattern/i"      # 9 eq "foo baz"
 
-      key   means to match against keys in the hash (H)oH or (H)oA
-      field means to match against HoH->{key}->{field}; e.g. address
-      index means to match against HoA->{key}->[index]; e.g. 9
+     * key   matches on primary keys in the hash (H)oH or (H)oA
+     * field matches on HoH->{key}{field} e.g. address
+     * index matches on HoA->{key}[index] e.g. 9
 
-   Keys in hash may have spaces, but not in field names Ho(H).
-   :AND(s) and :OR(s) mixed together is not supported.
+=over 3
 
-The C<select_aref> and C<select_href> methods receive a select string
-allowing one to specify field names and sort directives.
+=item * Primary keys (H)oH may have spaces, but not secondary field names.
 
-   "f1 f2 f3 :WHERE f4 > 20 :AND key =~ /foo/ :ORDER BY f5 DESC ALPHA"
-   "f1 f2 f3 :where f4 > 20 :and key =~ /foo/ :order by f5 desc alpha"
+=item * The modifiers C<:AND> and C<:OR> may be mixed case. e.g. C<:And>
 
-   "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/ :ORDER BY key ALPHA"
-   "f5 f1 f2 :where fN > 40 :and key =~ /bar/ :order by key alpha"
+=item * Mixing C<:AND> and C<:OR> in the query is not supported.
 
-   "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/"
-   "f5 f1 f2 :where fN > 40 :and key =~ /bar/"
+=back
 
-   "f5 f1 f2"
+=head1 SYNTAX for SELECT STRING
 
-The shorter form without field names is allowed for HoA.
+The C<select_aref> and C<select_href> methods take a select string supporting
+field names or list indices and optionally sort modifiers. The syntax for the
+query string, between C<:WHERE> and C<:ORDER BY>, is the same as described
+above.
 
-   "4 > 20 :and key =~ /baz/"  4 is the array index
-  
+   o HoH
+     "f1 f2 f3 :WHERE f4 > 20 :AND key =~ /foo/ :ORDER BY f5 DESC ALPHA"
+     "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/ :ORDER BY key ALPHA"
+     "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/"
+     "f5 f1 f2"
+
+     * key matches on keys stored in the primary level hash (H)oH
+
+   o HoA
+     "17 15 11 :WHERE 12 > 20 :AND key =~ /foo/ :ORDER BY 10 DESC ALPHA"
+     "17 15 11 :WHERE 12 > 40 :AND key =~ /bar/ :ORDER BY key ALPHA"
+     "17 15 11 :WHERE 12 > 40 :AND key =~ /bar/"
+     "17 15 11"
+
+     * key matches on keys stored in the primary level hash (H)oA
+     * above, list indices are given as 17, 15, 11, 12, and 10
+     * the shorter form is allowed e.g. "4 > 20 :AND key =~ /baz/"
+
+=over 3
+
+=item *
+
+The modifiers C<:WHERE>, C<:AND>, C<:OR>, C<ORDER BY>, C<ASC>, C<DESC>, and
+C<ALPHA> may be mixed case. e.g. C<:Where>
+
+=back
+
 =head1 API DOCUMENTATION - DB
-
-To be completed before the final 1.700 release.
 
 =over 3
 
@@ -1307,31 +1325,13 @@ Returns [ key, href ] pairs.
 
 =over 3
 
-=item hset ( key, field, value [, field, value, ... ] )
+=item hclear ( key )
 
-Sets the value of a hash field and returns its new value. Multiple field_value
-pairs may be set at once. In that case, the number of fields stored at key is
-returned.
+Removes all key-value pairs from the first level hash (H)oH when no arguments
+are given. Otherwise, removes all field-value pairs stored at key.
 
-   $val = $db->hset( "some key", "field", "value" );
-   $len = $db->hset( "some key", "f1" => "val1", "f2" => "val2" );
-
-=item hget ( key, field [, field, ... ] )
-
-Gets the values of all given hash fields. The C<undef> value is retuned for
-fields which do not exists in the hash stored at key. Likewise, the C<undef>
-value is returned if the key does not exists in the first level hash (H)oH.
-
-   $val = $db->hget( "some key", "field" );
-
-   ( $val1, $val2 ) = $db->hget( "some key", "field1", "field2" );
-
-=item hget ( key )
-
-Gets the C<MCE::Shared::Hash> object for the hash stored at key or C<undef> if
-the key does not exists in the first level hash (H)oH.
-
-   $ha_obj = $db->hget( "some key" );
+   $db->hclear;
+   $db->hclear( "some key" );
 
 =item hdel ( key, field [, field, ... ] )
 
@@ -1364,35 +1364,110 @@ Determines if a key exists in the first level hash (H)oH.
 
    if ( $db->hexists( "some key" ) ) { ... }
 
-=item hclear ( key )
+=item hget ( key, field [, field, ... ] )
 
-Removes all field-value pairs from the hash stored at key.
+Gets the values of all given hash fields. The C<undef> value is retuned for
+fields which do not exists in the hash stored at key. Likewise, the C<undef>
+value is returned if the key does not exists in the first level hash (H)oH.
 
-   $db->hclear( "some key" );
+   $val = $db->hget( "some key", "field" );
 
-=item hclear
+   ( $val1, $val2 ) = $db->hget( "some key", "field1", "field2" );
 
-Removes all key-value pairs from the first level hash (H)oH.
+=item hget ( key )
 
-   $db->hclear();
+Gets the C<MCE::Shared::Hash> object for the hash stored at key or C<undef> if
+the key does not exists in the first level hash (H)oH.
 
-=item hkeys ( key, field [, field, ... ] )
+   $ha_obj = $db->hget( "some key" );
+
+=item hkeys ( key, [ field [, field, ... ] ] )
+
+Returns keys stored in the first level hash (H)oH when no arguments are given.
+Otherwise, returns the given fields in the hash stored at key. Fields that do
+not exist will have the C<undef> value. In scalar context, returns the size of
+the object, either the hash store at key or the first level hash.
+
+   @keys   = $db->hkeys;
+   @fields = $db->hkeys( "some key" );
+   @fields = $db->hkeys( "some key", "field1", "field2" );
+   $len    = $db->hkeys( "some key" );
+   $len    = $db->hkeys;
+
+=item hkeys ( key, "query string" )
+
+Returns only fields stored at key that match the given criteria. It returns an
+empty list if the search found nothing. The syntax for the C<query string> is
+described above. In scalar context, returns the size of the resulting list.
+
+   @keys = $db->hkeys( "some key", "val eq Hello, it's me." );
+   @keys = $db->hkeys( "some key", "key eq field5 :AND val =~ /sun|moon/" );
+   @keys = $db->hkeys( "some key", "val eq sun :OR val eq moon );
+   $len  = $db->hkeys( "some key", "key =~ /$pattern/" );
 
 =item hkeys ( "query string" )
 
-=item hkeys
+For the one argument form, the search is applied to keys stored in the primary
+hash only (H)oH. Therefore, the C<key> modifier is the only thing possible if
+wanting any result.
 
-=item hvals ( key, field [, field, ... ] )
+   @keys = $db->hkeys( "key =~ /$pattern/" );
+   $len  = $db->hkeys( "key =~ /$pattern/" );
 
-=item hvals ( "query string" )
+=item hlen ( key [, field ] )
 
-=item hvals
+Returns the size of the first level hash (H)oH when no arguments are given.
+For the given key, returns the size of hash stored at key or optionally, the
+length of the value stored at key-field. It returns the C<undef> value if
+either the given key or given field does not exists.
 
-=item hpairs ( key, field [, field, ... ] )
+   $len = $db->hlen;
+   $len = $db->hlen( $key );
+   $len = $db->hlen( $key, $field );
+
+=item hpairs ( key, [ field [, field, ... ] ] )
+
+Returns key-value pairs stored in the first level hash (H)oH when no arguments
+are given. Otherwise, returns field-value pairs for the given fields in the hash
+stored at key. Fields that do not exist will have the C<undef> value. In scalar
+context, returns the size of the object, either the hash store at key or the
+first level hash.
+
+   @pairs = $db->hpairs;                 # ( key => href, ... )
+   @pairs = $db->hpairs( "some key" );   # ( field => value, ... )
+   @pairs = $db->hpairs( "some key", "field1", "field2" );
+   $len   = $db->hpairs( "some key" );
+   $len   = $db->hpairs;
+
+=item hpairs ( key, "query string" )
+
+Returns only field-value pairs stored at key that match the given criteria.
+It returns an empty list if the search found nothing. The syntax for the
+C<query string> is described above. In scalar context, returns the size of
+the resulting list.
+
+   @pairs = $db->hpairs( "some key", "val eq Hello, it's me." );
+   @pairs = $db->hpairs( "some key", "key eq field5 :AND val =~ /sun|moon/" );
+   @pairs = $db->hpairs( "some key", "val eq sun :OR val eq moon" );
+   $len   = $db->hpairs( "some key", "key =~ /$pattern/" );
 
 =item hpairs ( "query string" )
 
-=item hpairs
+For the one argument form, the search is applied to keys stored in the primary
+hash only (H)oH. Therefore, the C<key> modifier is the only thing possible if
+wanting any result.
+
+   @keys = $db->hpairs( "key =~ /$pattern/" );
+   $len  = $db->hpairs( "key =~ /$pattern/" );
+
+=item hset ( key, field, value [, field, value, ... ] )
+
+Sets the value of a hash field and returns its new value. Multiple field_value
+pairs may be set at once. In that case, the number of fields stored at key is
+returned.
+
+   $val = $db->hset( "some key", "field", "value" );
+   $len = $db->hset( "some key", "f1" => "val1", "f2" => "val2" );
 
 =item hshift
 
@@ -1407,6 +1482,45 @@ value.
 =item hsort ( "BY key [ ASC | DESC ] [ ALPHA ]" )
 
 =item hsort ( "BY field [ ASC | DESC ] [ ALPHA ]" )
+
+=item hvals ( key, [ field [, field, ... ] ] )
+
+Returns values stored in the first level hash (H)oH when no arguments are given.
+Otherwise, returns values for the given fields in the hash stored at key. Fields
+that do not exist will have the C<undef> value. In scalar context, returns the
+size of the object, either the hash store at key or the first level hash.
+
+   @hrefs = $db->hvals;
+   @vals  = $db->hvals( "some key" );
+   @vals  = $db->hvals( "some key", "field1", "field2" );
+   $len   = $db->hvals( "some key" );
+   $len   = $db->hvals;
+
+=item hvals ( key, "query string" )
+
+Returns only values stored at key that match the given criteria. It returns an
+empty list if the search found nothing. The syntax for the C<query string> is
+described above. In scalar context, returns the size of the resulting list.
+
+   @vals = $db->hvals( "some key", "val eq Hello, it's me." );
+   @vals = $db->hvals( "some key", "key eq field5 :AND val =~ /sun|moon/" );
+   @vals = $db->hvals( "some key", "val eq sun :OR val eq moon" );
+   $len  = $db->hvals( "some key", "key =~ /$pattern/" );
+
+=item hvals ( "query string" )
+
+For the one argument form, the search is applied to keys stored in the primary
+hash only (H)oH. Therefore, the C<key> modifier is the only thing possible if
+wanting any result.
+
+   @keys = $db->hvals( "key =~ /$pattern/" );
+   $len  = $db->hvals( "key =~ /$pattern/" );
+
+=back
+
+=head1 SUGAR METHODS - HASHES ( HoH )
+
+=over 3
 
 =item happend ( key, field, string )
 
@@ -1426,18 +1540,6 @@ Decrements the value of key-field by the given number and returns its new value.
 
    $num = $db->hdecrby( $key, $field, 2 );
 
-=item hincr ( key, field )
-
-Increments the value of key-field by one and returns its new value.
-
-   $num = $db->hincr( $key, $field );
-
-=item hincrby ( key, field, number )
-
-Increments the value of key-field by the given number and returns its new value.
-
-   $num = $db->hincrby( $key, $field, 2 );
-
 =item hgetdecr ( key, field )
 
 Decrements the value of key-field by one and returns its old value.
@@ -1456,23 +1558,17 @@ Sets the value of key-field and returns its old value.
 
    $old = $db->hgetset( $key, $field, "baz" );
 
-=item hlen ( key, field )
+=item hincr ( key, field )
 
-Returns the length for the value stored at key-field.
+Increments the value of key-field by one and returns its new value.
 
-   $len = $db->hlen( $key, $field );
+   $num = $db->hincr( $key, $field );
 
-=item hlen ( key )
+=item hincrby ( key, field, number )
 
-Returns the number of fields stored at key.
+Increments the value of key-field by the given number and returns its new value.
 
-   $len = $db->hlen( $key );
-
-=item hlen
-
-Returns the number of keys stored at the first-level hash (H)oH.
-
-   $len = $db->hlen;
+   $num = $db->hincrby( $key, $field, 2 );
 
 =back
 
@@ -1480,31 +1576,13 @@ Returns the number of keys stored at the first-level hash (H)oH.
 
 =over 3
 
-=item lset ( key, index, value [, index, value, ... ] )
+=item lclear ( key )
 
-Sets the value of an element in a list by its index and returns its new value.
-Multiple index_value pairs may be set all at once. In that case, the length of
-the list is returned.
+Removes all key-value pairs from the first level hash (H)oA when no arguments
+are given. Otherwise, removes all elements from the list stored at key.
 
-   $val = $db->lset( "some key", 2, "value" );
-   $len = $db->lset( "some key", 0 => "val1", 1 => "val2" );
-
-=item lget ( key, index [, index, ... ] )
-
-Gets the values of all given list indices. The C<undef> value is retuned for
-indices which do not exists in the list stored at key. Likewise, the C<undef>
-value is returned if the key does not exists in the first level hash (H)oA.
-
-   $val = $db->lget( "some key", 20 );
-
-   ( $val1, $val2 ) = $db->lget( "some key", 0, 1 );
-
-=item lget ( key )
-
-Gets the C<MCE::Shared::Array> object for the list stored at key or C<undef> if
-the key does not exists in the first level hash (H)oA.
-
-   $ar_obj = $db->lget( "some key" );
+   $db->lclear;
+   $db->lclear( "some key" );
 
 =item ldel ( key, index [, index, ... ] )
 
@@ -1548,40 +1626,101 @@ Determines if a key exists in the first level hash (H)oA.
 
    if ( $db->lexists( "some key" ) ) { ... }
 
-=item lclear ( key )
+=item lget ( key, index [, index, ... ] )
 
-Removes all elements from the list stored at key.
+Gets the values of all given list indices. The C<undef> value is retuned for
+indices which do not exists in the list stored at key. Likewise, the C<undef>
+value is returned if the key does not exists in the first level hash (H)oA.
 
-   $db->lclear( "some key" );
+   $val = $db->lget( "some key", 20 );
 
-=item lclear
+   ( $val1, $val2 ) = $db->lget( "some key", 0, 1 );
 
-Removes all key-value pairs from the first level hash (H)oA.
+=item lget ( key )
 
-   $db->lclear();
+Gets the C<MCE::Shared::Array> object for the list stored at key or C<undef> if
+the key does not exists in the first level hash (H)oA.
 
-=item lrange ( key, start, stop )
+   $ar_obj = $db->lget( "some key" );
 
-Returns the specified elements of the list stored at key. The offsets C<start>
-and C<stop> can also be negative numbers indicating offsets starting at the
-end of the list.
+=item lkeys ( key, [ index [, index, ... ] ] )
 
-An empty list is returned if C<start> is larger than the end of the list.
-C<stop> is set to the last index of the list if larger than the actual end
-of the list.
+Returns keys stored in the first level hash (H)oA when no arguments are given.
+Otherwise, returns the given indices in the list stored at key. Indices that do
+not exist will have the C<undef> value. In scalar context, returns the size of
+the object, either the list store at key or the first level hash.
 
-   @list = $db->lrange( "some key", 20, 29 );
-   @list = $db->lrange( "some key", -4, -1 );
+   @keys    = $db->lkeys;
+   @indices = $db->lkeys( "some key" );
+   @indices = $db->lkeys( "some key", 0, 1 );
+   $len     = $db->lkeys( "some key" );
+   $len     = $db->lkeys;
 
-=item lsplice ( key, offset [, length [, list ] ] )
+=item lkeys ( key, "query string" )
 
-Removes the elements designated by C<offset> and C<length> from the array
-stored at key, and replaces them with the elements of C<list>, if any.
-The behavior is similar to the Perl C<splice> function.
+Returns only indices stored at key that match the given criteria. It returns an
+empty list if the search found nothing. The syntax for the C<query string> is
+described above. In scalar context, returns the size of the resulting list.
 
-   @items = $db->lsplice( "some key", 20, 2, @list );
-   @items = $db->lsplice( "some key", 20, 2 );
-   @items = $db->lsplice( "some key", 20 );
+   @keys = $db->lkeys( "some key", "val eq Hello, it's me." );
+   @keys = $db->lkeys( "some key", "key >= 50 :AND val =~ /sun|moon/" );
+   @keys = $db->lkeys( "some key", "val eq sun :OR val eq moon" );
+   $len  = $db->lkeys( "some key", "key =~ /$pattern/" );
+
+=item lkeys ( "query string" )
+
+For the one argument form, the search is applied to keys stored in the primary
+hash only (H)oA. Therefore, the C<key> modifier is the only thing possible if
+wanting any result.
+
+   @keys = $db->lkeys( "key =~ /$pattern/" );
+   $len  = $db->lkeys( "key =~ /$pattern/" );
+
+=item llen ( key [, index ] )
+
+Returns the size of the first level hash (H)oA when no arguments are given.
+For the given indice, returns the size of list stored at key or optionally,
+the length of the value stored at key-index. It returns the C<undef> value
+if either the given key or given indice does not exists.
+
+   $len = $db->llen;
+   $len = $db->llen( $key );
+   $len = $db->llen( $key, 0 );
+
+=item lpairs ( key, [ index [, index, ... ] ] )
+
+Returns key-value pairs stored in the first level hash (H)oA when no arguments
+are given. Otherwise, returns indice-value pairs for the given indices in the
+list stored at key. Indices that do not exist will have the C<undef> value.
+In scalar context, returns the size of the object, either the list store at key
+or the first level hash.
+
+   @pairs = $db->lpairs;                 # ( key => aref, ... )
+   @pairs = $db->lpairs( "some key" );   # ( indice => value, ... )
+   @pairs = $db->lpairs( "some key", 0, 1 );
+   $len   = $db->lpairs( "some key" );
+   $len   = $db->lpairs;
+
+=item lpairs ( key, "query string" )
+
+Returns only indice-value pairs stored at key that match the given criteria.
+It returns an empty list if the search found nothing. The syntax for the
+C<query string> is described above. In scalar context, returns the size of
+the resulting list.
+
+   @pairs = $db->lpairs( "some key", "val eq Hello, it's me." );
+   @pairs = $db->lpairs( "some key", "key >= 50 :AND val =~ /sun|moon/" );
+   @pairs = $db->lpairs( "some key", "val eq sun :OR val eq moon" );
+   $len   = $db->lpairs( "some key", "key =~ /$pattern/" );
+
+=item lpairs ( "query string" )
+
+For the one argument form, the search is applied to keys stored in the primary
+hash only (H)oA. Therefore, the C<key> modifier is the only thing possible if
+wanting any result.
+
+   @keys = $db->lpairs( "key =~ /$pattern/" );
+   $len  = $db->lpairs( "key =~ /$pattern/" );
 
 =item lpop ( key )
 
@@ -1597,37 +1736,27 @@ returns the new length.
 
    $len = $db->lpush( "some key", "val1", "val2" );
 
-=item rpop ( key )
+=item lrange ( key, start, stop )
 
-Removes and returns the last value of the list stored at key. If there are
-no elements in the list, returns the undefined value.
+Returns the specified elements of the list stored at key. The offsets C<start>
+and C<stop> can also be negative numbers indicating offsets starting at the
+end of the list.
 
-   $val = $db->rpop( $key );
+An empty list is returned if C<start> is larger than the end of the list.
+C<stop> is set to the last index of the list if larger than the actual end
+of the list.
 
-=item rpush ( key, value [, value, ... ] )
+   @list = $db->lrange( "some key", 20, 29 );
+   @list = $db->lrange( "some key", -4, -1 );
 
-Appends one or multiple values to the tail of the list stored at key and
-returns the new length.
+=item lset ( key, index, value [, index, value, ... ] )
 
-   $len = $db->rpush( "some key", "val1", "val2" );
+Sets the value of an element in a list by its index and returns its new value.
+Multiple index_value pairs may be set all at once. In that case, the length of
+the list is returned.
 
-=item lkeys ( key, index [, index, ... ] )
-
-=item lkeys ( "query string" )
-
-=item lkeys
-
-=item lvals ( key, index [, index, ... ] )
-
-=item lvals ( "query string" )
-
-=item lvals
-
-=item lpairs ( key, index [, index, ... ] )
-
-=item lpairs ( "query string" )
-
-=item lpairs
+   $val = $db->lset( "some key", 2, "value" );
+   $len = $db->lset( "some key", 0 => "val1", 1 => "val2" );
 
 =item lshift
 
@@ -1647,6 +1776,70 @@ value. See C<lpop> to shift the first value of the list stored at key.
 
 =item lsort ( key, "BY val [ ASC | DESC ] [ ALPHA ]" )
 
+=item lsplice ( key, offset [, length [, list ] ] )
+
+Removes the elements designated by C<offset> and C<length> from the array
+stored at key, and replaces them with the elements of C<list>, if any.
+The behavior is similar to the Perl C<splice> function.
+
+   @items = $db->lsplice( "some key", 20, 2, @list );
+   @items = $db->lsplice( "some key", 20, 2 );
+   @items = $db->lsplice( "some key", 20 );
+
+=item lvals ( key, [ index [, index, ... ] ] )
+
+Returns values stored in the first level hash (H)oA when no arguments are given.
+Otherwise, returns values for the given indices in the list stored at key.
+Indices that do not exist will have the C<undef> value. In scalar context,
+returns the size of the object, either the list store at key or the first level
+hash.
+
+   @arefs = $db->lvals;
+   @vals  = $db->lvals( "some key" );
+   @vals  = $db->lvals( "some key", 0, 1 );
+   $len   = $db->lvals( "some key" );
+   $len   = $db->lvals;
+
+=item lvals ( key, "query string" )
+
+Returns only values stored at key that match the given criteria. It returns an
+empty list if the search found nothing. The syntax for the C<query string> is
+described above. In scalar context, returns the size of the resulting list.
+
+   @keys = $db->lvals( "some key", "val eq Hello, it's me." );
+   @keys = $db->lvals( "some key", "key >= 50 :AND val =~ /sun|moon/" );
+   @keys = $db->lvals( "some key", "val eq sun :OR val eq moon" );
+   $len  = $db->lvals( "some key", "key =~ /$pattern/" );
+
+=item lvals ( "query string" )
+
+For the one argument form, the search is applied to keys stored in the primary
+hash only (H)oA. Therefore, the C<key> modifier is the only thing possible if
+wanting any result.
+
+   @keys = $db->lvals( "key =~ /$pattern/" );
+   $len  = $db->lvals( "key =~ /$pattern/" );
+
+=item rpop ( key )
+
+Removes and returns the last value of the list stored at key. If there are
+no elements in the list, returns the undefined value.
+
+   $val = $db->rpop( $key );
+
+=item rpush ( key, value [, value, ... ] )
+
+Appends one or multiple values to the tail of the list stored at key and
+returns the new length.
+
+   $len = $db->rpush( "some key", "val1", "val2" );
+
+=back
+
+=head1 SUGAR METHODS - LISTS ( HoA )
+
+=over 3
+
 =item lappend ( key, index, string )
 
 Appends a value to key-index and returns its new length.
@@ -1664,18 +1857,6 @@ Decrements the value of key-index by one and returns its new value.
 Decrements the value of key-index by the given number and returns its new value.
 
    $num = $db->ldecrby( $key, 0, 2 );
-
-=item lincr ( key, index )
-
-Increments the value of key-index by one and returns its new value.
-
-   $num = $db->lincr( $key, 0 );
-
-=item lincrby ( key, index, number )
-
-Increments the value of key-index by the given number and returns its new value.
-
-   $num = $db->lincrby( $key, 0, 2 );
 
 =item lgetdecr ( key, index )
 
@@ -1695,23 +1876,17 @@ Sets the value of key-index and return its old value.
 
    $old = $db->lgetset( $key, 0, 'baz' );
 
-=item llen ( key, index )
+=item lincr ( key, index )
 
-Returns the length for the value stored at key-index.
+Increments the value of key-index by one and returns its new value.
 
-   $len = $db->llen( $key, $index );
+   $num = $db->lincr( $key, 0 );
 
-=item llen ( key )
+=item lincrby ( key, index, number )
 
-Returns the the size of the list stored at key.
+Increments the value of key-index by the given number and returns its new value.
 
-   $len = $db->llen( $key );
-
-=item llen
-
-Returns the number of keys stored at the first-level hash (H)oA.
-
-   $len = $db->llen;
+   $num = $db->lincrby( $key, 0, 2 );
 
 =back
 

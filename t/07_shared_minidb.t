@@ -86,11 +86,11 @@ $db->hset( 'k2', qw(
 ## hkeys, hpairs, hvals
 
 is( $db->hkeys(),  2, 'shared minidb hash, check keys count' );
-is( $db->hpairs(), 4, 'shared minidb hash, check pairs count' );
+is( $db->hpairs(), 2, 'shared minidb hash, check pairs count' );
 is( $db->hvals(),  2, 'shared minidb hash, check vals count' );
 
 is( $db->hkeys('k2'),  14, 'shared minidb hash, check keys("k2") count' );
-is( $db->hpairs('k2'), 28, 'shared minidb hash, check pairs("k2") count' );
+is( $db->hpairs('k2'), 14, 'shared minidb hash, check pairs("k2") count' );
 is( $db->hvals('k2'),  14, 'shared minidb hash, check vals("k2") count' );
 
 is(
@@ -527,11 +527,11 @@ $db->lset( 'k2', qw(
 ## lkeys, lpairs, lvals
 
 is( $db->lkeys(),  2, 'shared minidb list, check keys count' );
-is( $db->lpairs(), 4, 'shared minidb list, check pairs count' );
+is( $db->lpairs(), 2, 'shared minidb list, check pairs count' );
 is( $db->lvals(),  2, 'shared minidb list, check vals count' );
 
 is( $db->lkeys('k2'),  14, 'shared minidb list, check keys("k2") count' );
-is( $db->lpairs('k2'), 28, 'shared minidb list, check pairs("k2") count' );
+is( $db->lpairs('k2'), 14, 'shared minidb list, check pairs("k2") count' );
 is( $db->lvals('k2'),  14, 'shared minidb list, check vals("k2") count' );
 
 is(
