@@ -107,14 +107,14 @@ sub DELETE {
       ${ $begi }++, delete $indx->{ $key } if %{ $indx };
 
       # GC start of list
-      if ( ! @{ $keys } ) {
-         ${ $begi } = 0;
-      }
-      elsif ( !defined $keys->[0] ) {
+      if ( ${ $gcnt } && !defined $keys->[0] ) {
          my $i = 1;
          $i++ until ( defined $keys->[$i] );
          ${ $begi } += $i, ${ $gcnt } -= $i;
          splice @{ $keys }, 0, $i;
+      }
+      elsif ( ! @{ $keys } ) {
+         ${ $begi } = 0;
       }
 
       return delete $data->{ $key };
@@ -126,14 +126,14 @@ sub DELETE {
       delete $indx->{ $key } if %{ $indx };
 
       # GC end of list
-      if ( ! @{ $keys } ) {
-         ${ $begi } = 0;
-      }
-      elsif ( !defined $keys->[-1] ) {
+      if ( ${ $gcnt } && !defined $keys->[-1] ) {
          my $i = $#{ $keys } - 1;
          $i-- until ( defined $keys->[$i] );
          ${ $gcnt } -= $#{ $keys } - $i;
          splice @{ $keys }, $i + 1;
+      }
+      elsif ( ! @{ $keys } ) {
+         ${ $begi } = 0;
       }
 
       return delete $data->{ $key };
@@ -150,15 +150,13 @@ sub DELETE {
       };
    } // do {
       # or from end of list
-      ( exists $indx->{ $keys->[-1] } ) ? undef : do {
-         my $i = ${ $begi } + $#{ $keys };
-         for my $k ( reverse @{ $keys } ) {
-            $i--, next unless ( defined $k );
-            last if ( exists $indx->{ $k } );
-            $indx->{ $k } = $i--;
-         }
-         delete $indx->{ $key };
-      };
+      my $i = ${ $begi } + $#{ $keys };
+      for my $k ( reverse @{ $keys } ) {
+         $i--, next unless ( defined $k );
+         last if ( exists $indx->{ $k } );
+         $indx->{ $k } = $i--;
+      }
+      delete $indx->{ $key };
    } // do {
       # or from start of list
       my $i = ${ $begi };
@@ -1298,7 +1296,7 @@ ordered hash implementation takes in comparison.
 
    0.362 secs.  55 MB  MCE::Shared::Hash; unordered hash
    0.626 secs. 126 MB  Tie::Hash::Indexed; (XS) ordered hash
-   0.744 secs.  74 MB  MCE::Shared::Ordhash; ordered hash **
+   0.741 secs.  74 MB  MCE::Shared::Ordhash; ordered hash **
    1.032 secs.  74 MB  Hash::Ordered; ordered hash
    1.756 secs. 161 MB  Tie::LLHash; ordered hash
     > 42 mins.  79 MB  Tie::IxHash; ordered hash (stopped)
@@ -1310,7 +1308,7 @@ Hobos provided by C<MCE::Hobo->list>.
    for ( $oh->keys ) { $oh->delete($_) }
 
    0.332 secs.  55 MB  MCE::Shared::Hash; unordered hash
-   0.474 secs.  67 MB  MCE::Shared::Ordhash; ordered hash **
+   0.462 secs.  67 MB  MCE::Shared::Ordhash; ordered hash **
    0.503 secs. 126 MB  Tie::Hash::Indexed; (XS) ordered hash
    0.802 secs.  74 MB  Hash::Ordered; ordered hash
    1.337 secs. 161 MB  Tie::LLHash; ordered hash
