@@ -241,22 +241,19 @@ sub SCALAR {
 sub POP {
    my ( $data, $keys, $indx ) = @{ $_[0] };
    my $key = pop @{ $keys };
-
    return unless ( defined $key );
 
-   if ( %{ $indx } ) {
-      delete $indx->{ $key };
+   delete $indx->{ $key } if %{ $indx };
 
-      # GC end of list
-      if ( ! @{ $keys } ) {
-         ${ $_[0]->[_BEGI] } = 0;
-      }
-      elsif ( !defined $keys->[-1] ) {
-         my $i = $#{ $keys } - 1;
-         $i-- until ( defined $keys->[$i] );
-         ${ $_[0]->[_GCNT] } -= $#{ $keys } - $i;
-         splice @{ $keys }, $i + 1;
-      }
+   # GC end of list
+   if ( ! @{ $keys } ) {
+      ${ $_[0]->[_BEGI] } = 0;
+   }
+   elsif ( !defined $keys->[-1] ) {
+      my $i = $#{ $keys } - 1;
+      $i-- until ( defined $keys->[$i] );
+      ${ $_[0]->[_GCNT] } -= $#{ $keys } - $i;
+      splice @{ $keys }, $i + 1;
    }
 
    return $key, delete $data->{ $key };
@@ -283,23 +280,20 @@ sub PUSH {
 sub SHIFT {
    my ( $data, $keys, $indx ) = @{ $_[0] };
    my $key = shift @{ $keys };
-
    return unless ( defined $key );
 
-   if ( %{ $indx } ) {
-      ${ $_[0]->[_BEGI] }++, delete $indx->{ $key };
+   ${ $_[0]->[_BEGI] }++, delete $indx->{ $key } if %{ $indx };
 
-      # GC start of list
-      if ( ! @{ $keys } ) {
-         ${ $_[0]->[_BEGI] } = 0;
-      }
-      elsif ( !defined $keys->[0] ) {
-         my $i = 1;
-         $i++ until ( defined $keys->[$i] );
-         ${ $_[0]->[_BEGI] } += $i;
-         ${ $_[0]->[_GCNT] } -= $i;
-         splice @{ $keys }, 0, $i;
-      }
+   # GC start of list
+   if ( ! @{ $keys } ) {
+      ${ $_[0]->[_BEGI] } = 0;
+   }
+   elsif ( !defined $keys->[0] ) {
+      my $i = 1;
+      $i++ until ( defined $keys->[$i] );
+      ${ $_[0]->[_BEGI] } += $i;
+      ${ $_[0]->[_GCNT] } -= $i;
+      splice @{ $keys }, 0, $i;
    }
 
    return $key, delete $data->{ $key };
