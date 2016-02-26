@@ -52,7 +52,6 @@ use overload (
          tie my %h, __PACKAGE__.'::_href', bless([ @{ $_[0] } ], __PACKAGE__);
          \%h;
       };
-      
    },
    fallback => 1
 );
@@ -72,7 +71,7 @@ sub TIEHASH {
    my ( $key, %data, @keys );
 
    while ( @_ ) {
-      exists $data{ $key = shift } || push @keys, "$key";
+      push @keys, "$key" unless ( exists $data{ $key = shift } );
       $data{ $key } = shift;
    }
 
@@ -83,7 +82,7 @@ sub TIEHASH {
 
 sub STORE {
    my ( $key, $data, $keys ) = ( $_[1], @{ $_[0] } );
-   exists $data->{ $key } || push @{ $keys }, "$key";
+   push @{ $keys }, "$key" unless ( exists $data->{ $key } );
 
    $data->{ $key } = $_[2];
 }
@@ -276,7 +275,7 @@ sub PUSH {
       $data->{ $key } = shift;
    }
 
-   @{ $keys } - ${ $self->[_GCNT] };
+   defined wantarray ? @{ $keys } - ${ $self->[_GCNT] } : ();
 }
 
 # SHIFT ( )
@@ -327,7 +326,7 @@ sub UNSHIFT {
       }
    }
 
-   @{ $keys } - ${ $self->[_GCNT] };
+   defined wantarray ? @{ $keys } - ${ $self->[_GCNT] } : ();
 }
 
 # SPLICE ( offset [, length [, key, value, ... ] ] )
@@ -574,7 +573,7 @@ sub mset {
    my $key;
 
    while ( @_ ) {
-      exists $data->{ $key = shift } || push @{ $keys }, "$key";
+      push @{ $keys }, "$key" unless ( exists $data->{ $key = shift } );
       $data->{ $key } = shift;
    }
 
@@ -687,7 +686,7 @@ sub _reorder {
 
 sub append {
    my ( $key, $data ) = ( $_[1], @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   push @{ $_[0]->[_KEYS] }, "$key" unless ( exists $data->{ $key } );
 
    length( $data->{ $key } .= $_[2] // '' );
 }
@@ -696,7 +695,7 @@ sub append {
 
 sub decr {
    my ( $key, $data ) = ( $_[1], @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   push @{ $_[0]->[_KEYS] }, "$key" unless ( exists $data->{ $key } );
 
    --$data->{ $key };
 }
@@ -705,7 +704,7 @@ sub decr {
 
 sub decrby {
    my ( $key, $data ) = ( $_[1], @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   push @{ $_[0]->[_KEYS] }, "$key" unless ( exists $data->{ $key } );
 
    $data->{ $key } -= $_[2] || 0;
 }
@@ -714,7 +713,7 @@ sub decrby {
 
 sub incr {
    my ( $key, $data ) = ( $_[1], @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   push @{ $_[0]->[_KEYS] }, "$key" unless ( exists $data->{ $key } );
 
    ++$data->{ $key };
 }
@@ -723,7 +722,7 @@ sub incr {
 
 sub incrby {
    my ( $key, $data ) = ( $_[1], @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   push @{ $_[0]->[_KEYS] }, "$key" unless ( exists $data->{ $key } );
 
    $data->{ $key } += $_[2] || 0;
 }
@@ -732,7 +731,7 @@ sub incrby {
 
 sub getdecr {
    my ( $key, $data ) = ( $_[1], @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   push @{ $_[0]->[_KEYS] }, "$key" unless ( exists $data->{ $key } );
 
    $data->{ $key }-- // 0;
 }
@@ -741,7 +740,7 @@ sub getdecr {
 
 sub getincr {
    my ( $key, $data ) = ( $_[1], @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   push @{ $_[0]->[_KEYS] }, "$key" unless ( exists $data->{ $key } );
 
    $data->{ $key }++ // 0;
 }
@@ -750,7 +749,7 @@ sub getincr {
 
 sub getset {
    my ( $key, $data ) = ( $_[1], @{ $_[0] } );
-   exists $data->{ $key } || push @{ $_[0]->[_KEYS] }, "$key";
+   push @{ $_[0]->[_KEYS] }, "$key" unless ( exists $data->{ $key } );
 
    my $old = $data->{ $key };
    $data->{ $key } = $_[2];
