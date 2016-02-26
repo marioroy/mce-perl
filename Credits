@@ -73,8 +73,8 @@ Golden, David
   For the Hash::Ordered module. I learned a lot from this *GEM* on CPAN.
   Particularly, the use of overload. I did not know that was possible.
 
-  This resulted in MCE::Shared providing array-like and hash-like behavior
-  for shared objects. e.g. MCE::Shared::{ Array, Hash, Ordhash }
+  MCE::Shared provides array-like and hash-like behavior for shared objects.
+  e.g. MCE::Shared::{ Array, Hash, and Ordhash }
 
 Gorwits, Oliver
 
