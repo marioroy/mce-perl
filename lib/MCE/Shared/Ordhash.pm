@@ -99,8 +99,6 @@ sub FETCH {
 sub DELETE {
    my ( $key, $data, $keys, $indx, $begi, $gcnt ) = ( $_[1], @{ $_[0] } );
 
-   return undef unless ( exists $data->{ $key } );
-
    # check the first key
    if ( $key eq $keys->[0] ) {
       shift @{ $keys };
@@ -141,6 +139,8 @@ sub DELETE {
 
    # fill index, on-demand
    my $off = delete $indx->{ $key } // do {
+      return undef unless ( exists $data->{ $key } );
+
       # with entire list
       ( %{ $indx } ) ? undef : do {
          $_[0]->purge() if ${ $gcnt };
@@ -148,6 +148,7 @@ sub DELETE {
          $indx->{ $_ } = $i++ for @{ $keys };
          delete $indx->{ $key };
       };
+
    } // do {
       # or from end of list
       ( exists $indx->{ $keys->[-1] } ) ? undef : do {
@@ -159,6 +160,7 @@ sub DELETE {
          }
          delete $indx->{ $key };
       };
+
    } // do {
       # or from start of list
       my $i = ${ $begi };
@@ -1292,7 +1294,7 @@ ordered hash implementation takes in comparison.
 
    0.362 secs.  55 MB  MCE::Shared::Hash; unordered hash
    0.626 secs. 126 MB  Tie::Hash::Indexed; (XS) ordered hash
-   0.741 secs.  74 MB  MCE::Shared::Ordhash; ordered hash **
+   0.720 secs.  74 MB  MCE::Shared::Ordhash; ordered hash **
    1.032 secs.  74 MB  Hash::Ordered; ordered hash
    1.756 secs. 161 MB  Tie::LLHash; ordered hash
     > 42 mins.  79 MB  Tie::IxHash; ordered hash (stopped)
@@ -1304,7 +1306,7 @@ Hobos provided by C<MCE::Hobo->list>.
    for ( $oh->keys ) { $oh->delete($_) }
 
    0.332 secs.  55 MB  MCE::Shared::Hash; unordered hash
-   0.462 secs.  67 MB  MCE::Shared::Ordhash; ordered hash **
+   0.447 secs.  67 MB  MCE::Shared::Ordhash; ordered hash **
    0.503 secs. 126 MB  Tie::Hash::Indexed; (XS) ordered hash
    0.802 secs.  74 MB  Hash::Ordered; ordered hash
    1.337 secs. 161 MB  Tie::LLHash; ordered hash
