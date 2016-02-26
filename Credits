@@ -68,21 +68,13 @@ Farrell, David
   http://perltricks.com/article/61/2014/1/21/
          Make-your-code-run-faster-with-Perl-s-secret-turbo-module
 
-Goethebier, Karl
-
-  Thank you for the "Threads From Hell" series.
-  Threads From Hell #1: http://www.perlmonks.org/?node_id=1126584
-  Threads From Hell #2: http://www.perlmonks.org/?node_id=1127540
-  Threads From Hell #3: http://www.perlmonks.org/?node_id=1128332
-
 Golden, David
 
-  For the Hash::Ordered module. I learned a lot from this *gem* on CPAN.
-  Particularly, the use of overload. I did not know that was possible
-  at the time.
+  For the Hash::Ordered module. I learned a lot from this *GEM* on CPAN.
+  Particularly, the use of overload. I did not know that was possible.
 
   This resulted in MCE::Shared providing array-like and hash-like behavior
-  for MCE::Shared::{ Array, Hash, Ordhash } shared objects.
+  for shared objects. e.g. MCE::Shared::{ Array, Hash, Ordhash }
 
 Gorwits, Oliver
 
