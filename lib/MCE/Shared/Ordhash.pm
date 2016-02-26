@@ -150,13 +150,15 @@ sub DELETE {
       };
    } // do {
       # or from end of list
-      my $i = ${ $begi } + $#{ $keys };
-      for my $k ( reverse @{ $keys } ) {
-         $i--, next unless ( defined $k );
-         last if ( exists $indx->{ $k } );
-         $indx->{ $k } = $i--;
-      }
-      delete $indx->{ $key };
+      ( exists $indx->{ $keys->[-1] } ) ? undef : do {
+         my $i = ${ $begi } + $#{ $keys };
+         for my $k ( reverse @{ $keys } ) {
+            $i--, next unless ( defined $k );
+            last if ( exists $indx->{ $k } );
+            $indx->{ $k } = $i--;
+         }
+         delete $indx->{ $key };
+      };
    } // do {
       # or from start of list
       my $i = ${ $begi };
