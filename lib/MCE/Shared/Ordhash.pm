@@ -244,7 +244,6 @@ sub SCALAR {
 sub POP {
    my ( $data, $keys, $indx ) = @{ $_[0] };
    my $key = pop @{ $keys };
-   return unless ( defined $key );
 
    delete $indx->{ $key } if %{ $indx };
 
@@ -259,7 +258,7 @@ sub POP {
       splice @{ $keys }, $i + 1;
    }
 
-   return $key, delete $data->{ $key };
+   defined $key ? ( $key, delete $data->{ $key } ) : ();
 }
 
 # PUSH ( key, value [, key, value, ... ] )
@@ -283,7 +282,6 @@ sub PUSH {
 sub SHIFT {
    my ( $data, $keys, $indx ) = @{ $_[0] };
    my $key = shift @{ $keys };
-   return unless ( defined $key );
 
    ${ $_[0]->[_BEGI] }++, delete $indx->{ $key } if %{ $indx };
 
@@ -294,12 +292,11 @@ sub SHIFT {
    elsif ( !defined $keys->[0] ) {
       my $i = 1;
       $i++ until ( defined $keys->[$i] );
-      ${ $_[0]->[_BEGI] } += $i;
-      ${ $_[0]->[_GCNT] } -= $i;
+      ${ $_[0]->[_BEGI] } += $i, ${ $_[0]->[_GCNT] } -= $i;
       splice @{ $keys }, 0, $i;
    }
 
-   return $key, delete $data->{ $key };
+   defined $key ? ( $key, delete $data->{ $key } ) : ();
 }
 
 # UNSHIFT ( key, value [, key, value, ... ] )
