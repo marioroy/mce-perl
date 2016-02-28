@@ -870,12 +870,106 @@ recursively.
    my $v2 = $h2->get('key')->get(3)->get('foo');  # baz
    my $v3 = $h2->{key}[3]{foo};                   # baz
 
+The following is a demonstration for a tied-hash shared variable. Before
+venturing into the actual code, notice the dump function making a call to
+C<export> explicitly for objects of type C<MCE::Shared::Object>. This is
+necessary in order to retrieve the data residing under the shared-manager
+process.
+
+   sub _dump {
+      require Data::Dumper unless $INC{'Data/Dumper.pm'};
+      no warnings 'once';
+
+      local $Data::Dumper::Varname  = 'VAR';
+      local $Data::Dumper::Deepcopy = 1;
+      local $Data::Dumper::Indent   = 1;
+      local $Data::Dumper::Purity   = 1;
+      local $Data::Dumper::Sortkeys = 0;
+      local $Data::Dumper::Terse    = 0;
+
+      ( ref $_[0] eq 'MCE::Shared::Object' )
+         ? print Data::Dumper::Dumper( $_[0]->export ) . "\n"
+         : print Data::Dumper::Dumper( $_[0] ) . "\n";
+   }
+
+   use MCE::Shared;
+
+   tie my %abc, 'MCE::Shared';
+
+   my @parents = qw( a b c );
+   my @children = qw( 1 2 3 4 );
+
+   for my $parent ( @parents ) {
+      for my $child ( @children ) {
+         $abc{ $parent }{ $child } = 1;
+      }
+   }
+
+   _dump( tied( %abc ) );
+
+   -- Output
+
+   $VAR1 = bless( {
+     'c' => bless( {
+       '1' => '1',
+       '4' => '1',
+       '3' => '1',
+       '2' => '1'
+     }, 'MCE::Shared::Hash' ),
+     'a' => bless( {
+       '1' => '1',
+       '4' => '1',
+       '3' => '1',
+       '2' => '1'
+     }, 'MCE::Shared::Hash' ),
+     'b' => bless( {
+       '1' => '1',
+       '4' => '1',
+       '3' => '1',
+       '2' => '1'
+     }, 'MCE::Shared::Hash' )
+   }, 'MCE::Shared::Hash' );
+
+Here's another demonstration. Dereferencing provides hash-like behavior for a
+shared C<hash> or C<ordhash> object. Likewise, array-like behavior is possible
+for shared C<array> object not shown below.
+
+   use MCE::Shared;
+
+   my $abc = MCE::Shared->hash;
+
+   my @parents = qw( a b c );
+   my @children = qw( 1 2 3 4 );
+
+   for my $parent ( @parents ) {
+      for my $child ( @children ) {
+         $abc->{ $parent }{ $child } = 1;
+      }
+   }
+
+   _dump( $abc );
+
 Each level in a deeply structure requires a separate trip to the shared-manager
 processs. There is a faster way if the app calls for just C<HoH> and/or C<HoA>.
 The included C<MCE::Shared::Minidb> module provides optimized methods for
 working with C<HoH> and C<HoA> structures.
 
-See L<MCE::Shared::Minidb>.
+   use MCE::Shared;
+
+   my $abc = MCE::Shared->minidb;
+
+   my @parents = qw( a b c );
+   my @children = qw( 1 2 3 4 );
+
+   for my $parent ( @parents ) {
+      for my $child ( @children ) {
+         $abc->hset( $parent, $child, 1 );
+      }
+   }
+
+   _dump( $abc );
+
+For further reading, see L<MCE::Shared::Minidb>.
 
 =back
 
