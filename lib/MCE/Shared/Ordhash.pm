@@ -14,6 +14,9 @@
 ##
 ## 3. Provides support for hash-like dereferencing.
 ##
+## Results obtained from this module are posted online.
+## https://gist.github.com/marioroy/b55fd508f61551b4022d
+##
 ###############################################################################
 
 package MCE::Shared::Ordhash;
@@ -1326,6 +1329,9 @@ comparison.
 
    my $oh = tie my %hash, 'Tie::LLHash';
       $oh->last($_,$_);  keys %hash; $oh->DELETE($_);
+
+See this L<https://gist.github.com/marioroy/b55fd508f61551b4022d|Gist> for
+more results.
 
 =head1 SEE ALSO
 
