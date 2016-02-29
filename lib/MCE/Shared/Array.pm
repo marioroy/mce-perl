@@ -712,7 +712,27 @@ of the list.
 
 =item sort ( "BY val [ ASC | DESC ] [ ALPHA ]" )
 
-=item sort ( "[ ASC | DESC ] [ ALPHA ]" )
+Returns sorted values in list context, leaving the elements intact. In void
+context, sorts the list in-place. By default, sorting is numeric when no
+arguments are given. The C<BY val> modifier is optional and may be omitted.
+
+   @vals = $ar->sort( "BY val" );
+
+   $ar->sort();
+
+If the list contains string values and you want to sort them lexicographically,
+specify the C<ALPHA> modifier.
+
+   @vals = $ar->sort( "BY val ALPHA" );
+
+   $ar->sort( "ALPHA" );
+
+The default is C<ASC> for sorting the list from small to large. In order to
+sort the list from large to small, specify the C<DESC> modifier.
+
+   @vals = $ar->sort( "DESC ALPHA" );
+
+   $ar->sort( "DESC ALPHA" );
 
 =item splice ( offset [, length [, list ] ] )
 

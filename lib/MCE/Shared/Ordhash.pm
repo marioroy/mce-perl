@@ -1140,7 +1140,27 @@ ordered hash. If there are no keys in the hash, returns the undefined value.
 
 =item sort ( "BY val [ ASC | DESC ] [ ALPHA ]" )
 
-=item sort ( "[ ASC | DESC ] [ ALPHA ]" )
+Returns sorted keys in list context, leaving the elements intact. In void
+context, sorts the hash in-place. By default, sorting is numeric and applied
+to values when no arguments are given.
+
+   @keys = $oh->sort( "BY val" );
+
+   $oh->sort();
+
+If the keys or values contain string values and you want to sort them
+lexicographically, specify the C<ALPHA> modifier.
+
+   @keys = $oh->sort( "BY key ALPHA" );
+
+   $oh->sort( "BY val ALPHA" );
+
+The default is C<ASC> for sorting the hash from small to large. In order to
+sort the hash from large to small, specify the C<DESC> modifier.
+
+   @keys = $oh->sort( "BY val DESC ALPHA" );
+
+   $oh->sort( "BY key DESC ALPHA" );
 
 =item splice ( offset [, length [, key, value, ... ] ] )
 

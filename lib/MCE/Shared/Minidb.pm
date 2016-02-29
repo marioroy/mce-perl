@@ -1483,6 +1483,34 @@ value.
 
 =item hsort ( "BY field [ ASC | DESC ] [ ALPHA ]" )
 
+Returns sorted keys from the first level hash (H)oH, leaving the elements
+intact. In void context, sorts the first level hash in-place. Sorting is
+numeric by default.
+
+   @keys = $db->hsort( "BY key" );
+   @keys = $db->hsort( "BY some_field" );
+
+   $db->hsort( "BY key" );
+   $db->hsort( "BY some_field" );
+
+If the keys or field values contain string values and you want to sort them
+lexicographically, specify the C<ALPHA> modifier.
+
+   @keys = $db->hsort( "BY key ALPHA" );
+   @keys = $db->hsort( "BY some_field ALPHA" );
+
+   $db->hsort( "BY key ALPHA" );
+   $db->hsort( "BY some_field ALPHA" );
+
+The default is C<ASC> for sorting the elements from small to large. In order
+to sort from large to small, specify the C<DESC> modifier.
+
+   @keys = $db->hsort( "BY key DESC ALPHA" );
+   @keys = $db->hsort( "BY some_field DESC ALPHA" );
+
+   $db->hsort( "BY key DESC ALPHA" );
+   $db->hsort( "BY some_field DESC ALPHA" );
+
 =item hvals ( key, [ field [, field, ... ] ] )
 
 Returns values stored in the first level hash (H)oH when no arguments are given.
@@ -1772,9 +1800,44 @@ value. See C<lpop> to shift the first value of the list stored at key.
 
 =item lsort ( "BY index [ ASC | DESC ] [ ALPHA ]" )
 
+Returns sorted keys from the first level hash (H)oA, leaving the elements
+intact. In void context, sorts the first level hash in-place. Sorting is
+numeric by default.
+
+   @keys = $db->lsort( "BY key" );
+   @keys = $db->lsort( "BY some_index" );
+
+   $db->lsort( "BY key" );
+   $db->lsort( "BY some_index" );
+
+If the keys or field values given by index contain string values and you want
+to sort them lexicographically, specify the C<ALPHA> modifier.
+
+   @keys = $db->lsort( "BY key ALPHA" );
+   @keys = $db->lsort( "BY some_index ALPHA" );
+
+   $db->lsort( "BY key ALPHA" );
+   $db->lsort( "BY some_index ALPHA" );
+
+The default is C<ASC> for sorting the elements from small to large. In order
+to sort from large to small, specify the C<DESC> modifier.
+
+   @keys = $db->lsort( "BY key DESC ALPHA" );
+   @keys = $db->lsort( "BY some_index DESC ALPHA" );
+
+   $db->lsort( "BY key DESC ALPHA" );
+   $db->lsort( "BY some_index DESC ALPHA" );
+
 =item lsort ( key, "BY key [ ASC | DESC ] [ ALPHA ]" )
 
 =item lsort ( key, "BY val [ ASC | DESC ] [ ALPHA ]" )
+
+The two argument form has similar functionality. Here, sorting is applied to
+the list stored at key. For example, the following reverses the list stored
+at the given key. The C<BY key> modifier refers to the indices in the list
+and not the values.
+
+   $db->lsort( "some_key", "BY key DESC" );
 
 =item lsplice ( key, offset [, length [, list ] ] )
 
