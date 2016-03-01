@@ -1014,8 +1014,8 @@ iterating the given keys in the same order. Keys that do not exist will have
 the C<undef> value.
 
 The list of keys to return is set when the closure is constructed. Later keys
-added to the hash are not included. Subsequently, keys later removed will
-return the C<undef> value.
+added to the hash are not included. Subsequently, the C<undef> value is
+returned for deleted keys.
 
    $iter = $oh->iterator;
    $iter = $oh->iterator( "key1", "key2" );

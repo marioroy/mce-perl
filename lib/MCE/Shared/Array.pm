@@ -589,8 +589,8 @@ iterating the given indices in the same order. Indices that do not exist will
 have the C<undef> value.
 
 The list of indices to return is set when the closure is constructed. Any new
-indices added later are not included. Subsequently, indices later removed will
-return the C<undef> value.
+indices added later are not included. Subsequently, the C<undef> value is
+returned for deleted indices.
 
    $iter = $ar->iterator;
    $iter = $ar->iterator( 0, 1 );

@@ -1161,16 +1161,16 @@ This document describes MCE::Shared::Minidb version 1.699_011
    my $db = MCE::Shared->minidb();
 
    # HoH
-   $db->hset('key1', 'f1', 'foo');
-   $db->hset('key2', 'f1', 'bar', 'f2', 'baz');
+   $db->hset( "key1", "f1", "foo" );
+   $db->hset( "key2", "f1", "bar", "f2", "baz" );
 
-   $val = $db->hget('key2', 'f2');  # 'baz'
+   $val = $db->hget( "key2", "f2" );  # "baz"
 
    # HoA
-   $db->lset('key1', 0, 'foo');
-   $db->lset('key2', 0, 'bar', 1, 'baz');
+   $db->lset( "key1", 0, "foo" );
+   $db->lset( "key2", 0, "bar", 1, "baz" );
 
-   $val = $db->lget('key2', 1);     # 'baz'
+   $val = $db->lget( "key2", 1 );     # "baz"
 
 =head1 DESCRIPTION
 
@@ -1223,40 +1223,6 @@ treated literally.
 
 =back
 
-=head1 SYNTAX for SELECT STRING
-
-The C<select_aref> and C<select_href> methods take a select string supporting
-field names or list indices and optionally sort modifiers. The syntax for the
-query string, between C<:WHERE> and C<:ORDER BY>, is the same as described
-above.
-
-   o HoH
-     "f1 f2 f3 :WHERE f4 > 20 :AND key =~ /foo/ :ORDER BY f5 DESC ALPHA"
-     "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/ :ORDER BY key ALPHA"
-     "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/"
-     "f5 f1 f2"
-
-     * key matches on keys stored in the primary level hash (H)oH
-
-   o HoA
-     "17 15 11 :WHERE 12 > 20 :AND key =~ /foo/ :ORDER BY 10 DESC ALPHA"
-     "17 15 11 :WHERE 12 > 40 :AND key =~ /bar/ :ORDER BY key ALPHA"
-     "17 15 11 :WHERE 12 > 40 :AND key =~ /bar/"
-     "17 15 11"
-
-     * key matches on keys stored in the primary level hash (H)oA
-     * above, list indices are given as 17, 15, 11, 12, and 10
-     * the shorter form is allowed e.g. "4 > 20 :AND key =~ /baz/"
-
-=over 3
-
-=item *
-
-The modifiers C<:WHERE>, C<:AND>, C<:OR>, C<ORDER BY>, C<ASC>, C<DESC>, and
-C<ALPHA> may be mixed case. e.g. C<:Where>
-
-=back
-
 =head1 API DOCUMENTATION - DB
 
 =over 3
@@ -1279,45 +1245,145 @@ Constructs an empty in-memory C<HoH> and C<HoA> key-store database structure.
 
 Dumps the in-memory content to a file.
 
+   $db->dump( "content.dat" );
+
 =item restore ( "file.dat" )
 
 Restores the in-memory content from a file.
 
-=item iterator ( ":hashes", "query string" )
-
-=item iterator ( ":hashes" )
-
-Returns a code reference that returns a single key => href pair.
+   $db->restore( "content.dat" );
 
 =item iterator ( ":hashes", key, "query string" )
 
 =item iterator ( ":hashes", key [, key, ... ] )
 
-Returns a code reference that returns a single key => value pair.
+=item iterator ( ":hashes" [, "query string" ] )
 
-=item iterator ( ":lists", "query string" )
+Returns a code reference for iterating a list of key-href pairs stored in the
+hash of hashes (HoH). The list of keys to return is set when the closure is
+constructed. Later keys added to the primary level hash are not included.
+Subsequently, the C<undef> value is returned for deleted keys.
 
-=item iterator ( ":lists" )
+The syntax for the C<query string> is described above.
 
-Returns a code reference that returns a single key => aref pair.
+   $iter = $db->( ":hashes", "key =~ user" );
+   $iter = $db->( ":hashes", "some_field eq some value" );
+   $iter = $db->( ":hashes", "key1", "key2", "key3" );
+   $iter = $db->( ":hashes" );
+
+   while ( my ( $key, $href ) = $iter->() ) {
+      ...
+   }
 
 =item iterator ( ":lists", key, "query string" )
 
 =item iterator ( ":lists", key [, key, ... ] )
 
-Returns a code reference that returns a single key => value pair.
+=item iterator ( ":lists" [, "query string" ] )
+
+Returns a code reference for iterating a list of key-aref pairs stored in the
+hash of lists (HoA). The list of keys to return is set when the closure is
+constructed. Later keys added to the primary level hash are not included.
+Subsequently, the C<undef> value is returned for deleted keys.
+
+The syntax for the C<query string> is described above.
+
+   $iter = $db->( ":lists", "key =~ user" );
+   $iter = $db->( ":lists", "some_index eq some value" );
+   $iter = $db->( ":lists", "key1", "key2", "key3" );
+   $iter = $db->( ":lists" );
+
+   while ( my ( $key, $aref ) = $iter->() ) {
+      ...
+   }
 
 =item select_aref ( ":hashes", "select string" )
 
-=item select_aref ( ":lists", "select string" )
-
-Returns [ key, aref ] pairs.
-
 =item select_href ( ":hashes", "select string" )
+
+Returns a list containing C<[ key, aref ]> pairs or C<[ key, href ]> pairs
+from the hash of hashes (HoH).
+
+The C<select_aref> and C<select_href> methods take a select string supporting
+field names and optionally sort modifiers. The syntax for the query string,
+between C<:WHERE> and C<:ORDER BY>, is the same as described above.
+
+The modifiers C<:WHERE>, C<:AND>, C<:OR>, C<ORDER BY>, C<ASC>, C<DESC>, and
+C<ALPHA> may be mixed case. e.g. C<:Where>
+
+HoH select string:
+
+   "f1 f2 f3 :WHERE f4 > 20 :AND key =~ /foo/ :ORDER BY f5 DESC ALPHA"
+   "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/ :ORDER BY key ALPHA"
+   "f5 f1 f2 :WHERE fN > 40 :AND key =~ /bar/"
+   "f5 f1 f2"
+
+   * key matches on keys stored in the primary level hash (H)oH
+
+HoH select synopsis:
+
+   @rows = $db->select_aref( ":hashes", "some_field :ORDER BY some_field" );
+   @rows = $db->select_aref( ":hashes", "f2 f6 f5 :ORDER BY f4" );
+
+   # $rows[0] = [ "key1", [ "f2_val", "f6_val", "f5_val" ] ]
+   # $rows[1] = [ "key2", [ "f2_val", "f6_val", "f5_val" ] ]
+   # $rows[2] = [ "key3", [ "f2_val", "f6_val", "f5_val" ] ]
+   # ...
+   # $rows[N] = [ "keyN", [ "f2_val", "f6_val", "f5_val" ] ]
+
+   @rows = $db->select_href( ":hashes", "some_field :ORDER BY some_field" );
+   @rows = $db->select_href( ":hashes", "f2 f6 f5 :ORDER BY f4" );
+
+   # $rows[0] = [ "key1", { f2 => "val", f6 => "val", f5 => "val" } ]
+   # $rows[1] = [ "key2", { f2 => "val", f6 => "val", f5 => "val" } ]
+   # $rows[2] = [ "key3", { f2 => "val", f6 => "val", f5 => "val" } ]
+   # ...
+   # $rows[N] = [ "keyN", { f2 => "val", f6 => "val", f5 => "val" } ]
+
+=item select_aref ( ":lists", "select string" )
 
 =item select_href ( ":lists", "select string" )
 
-Returns [ key, href ] pairs.
+Returns a list containing C<[ key, aref ]> pairs or C<[ key, href ]> pairs
+from the hash of lists (HoA).
+
+The C<select_aref> and C<select_href> methods take a select string supporting
+field indices and optionally sort modifiers. The syntax for the query string,
+between C<:WHERE> and C<:ORDER BY>, is the same as described above.
+
+The modifiers C<:WHERE>, C<:AND>, C<:OR>, C<ORDER BY>, C<ASC>, C<DESC>, and
+C<ALPHA> may be mixed case. e.g. C<:Where>
+
+HoA select string:
+
+   "17 15 11 :WHERE 12 > 20 :AND key =~ /foo/ :ORDER BY 10 DESC ALPHA"
+   "17 15 11 :WHERE 12 > 40 :AND key =~ /bar/ :ORDER BY key ALPHA"
+   "17 15 11 :WHERE 12 > 40 :AND key =~ /bar/"
+   "17 15 11"
+
+   * key matches on keys stored in the primary level hash (H)oA
+   * above, list indices are given as 17, 15, 11, 12, and 10
+   * the shorter form is allowed e.g. "4 > 20 :AND key =~ /baz/"
+
+HoA select synopsis:
+
+   @rows = $db->select_aref( ":lists", "some_index :ORDER BY some_index" );
+   @rows = $db->select_aref( ":lists", "2 6 5 :ORDER BY 4" );
+
+   # $rows[0] = [ "key1", [ "2_val", "6_val", "5_val" ] ]
+   # $rows[1] = [ "key2", [ "2_val", "6_val", "5_val" ] ]
+   # $rows[2] = [ "key3", [ "2_val", "6_val", "5_val" ] ]
+   # ...
+   # $rows[N] = [ "keyN", [ "2_val", "6_val", "5_val" ] ]
+
+   @rows = $db->select_href( ":lists", "some_index :ORDER BY some_index" );
+   @rows = $db->select_href( ":lists", "2 6 5 :ORDER BY 4" );
+
+   # $rows[0] = [ "key1", { 2 => "val", 6 => "val", 5 => "val" } ]
+   # $rows[1] = [ "key2", { 2 => "val", 6 => "val", 5 => "val" } ]
+   # $rows[2] = [ "key3", { 2 => "val", 6 => "val", 5 => "val" } ]
+   # ...
+   # $rows[N] = [ "keyN", { 2 => "val", 6 => "val", 5 => "val" } ]
 
 =back
 
@@ -1937,7 +2003,7 @@ Increments the value of key-index by one and returns its old value.
 
 Sets the value of key-index and return its old value.
 
-   $old = $db->lgetset( $key, 0, 'baz' );
+   $old = $db->lgetset( $key, 0, "baz" );
 
 =item lincr ( key, index )
 
