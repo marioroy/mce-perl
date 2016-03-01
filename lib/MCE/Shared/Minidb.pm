@@ -1400,8 +1400,8 @@ Returns only fields stored at key that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 
-   @keys = $db->hkeys( "some key", "val eq Hello, it's me." );
-   @keys = $db->hkeys( "some key", "key eq field5 :AND val =~ /sun|moon/" );
+   @keys = $db->hkeys( "some key", "val eq some value" );
+   @keys = $db->hkeys( "some key", "key eq some key :AND val =~ /sun|moon/" );
    @keys = $db->hkeys( "some key", "val eq sun :OR val eq moon );
    $len  = $db->hkeys( "some key", "key =~ /$pattern/" );
 
@@ -1446,8 +1446,8 @@ It returns an empty list if the search found nothing. The syntax for the
 C<query string> is described above. In scalar context, returns the size of
 the resulting list.
 
-   @pairs = $db->hpairs( "some key", "val eq Hello, it's me." );
-   @pairs = $db->hpairs( "some key", "key eq field5 :AND val =~ /sun|moon/" );
+   @pairs = $db->hpairs( "some key", "val eq some value" );
+   @pairs = $db->hpairs( "some key", "key eq some key :AND val =~ /sun|moon/" );
    @pairs = $db->hpairs( "some key", "val eq sun :OR val eq moon" );
    $len   = $db->hpairs( "some key", "key =~ /$pattern/" );
 
@@ -1530,8 +1530,8 @@ Returns only values stored at key that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 
-   @vals = $db->hvals( "some key", "val eq Hello, it's me." );
-   @vals = $db->hvals( "some key", "key eq field5 :AND val =~ /sun|moon/" );
+   @vals = $db->hvals( "some key", "val eq some value" );
+   @vals = $db->hvals( "some key", "key eq some key :AND val =~ /sun|moon/" );
    @vals = $db->hvals( "some key", "val eq sun :OR val eq moon" );
    $len  = $db->hvals( "some key", "key =~ /$pattern/" );
 
@@ -1690,7 +1690,7 @@ Returns only indices stored at key that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 
-   @keys = $db->lkeys( "some key", "val eq Hello, it's me." );
+   @keys = $db->lkeys( "some key", "val eq some value" );
    @keys = $db->lkeys( "some key", "key >= 50 :AND val =~ /sun|moon/" );
    @keys = $db->lkeys( "some key", "val eq sun :OR val eq moon" );
    $len  = $db->lkeys( "some key", "key =~ /$pattern/" );
@@ -1736,7 +1736,7 @@ It returns an empty list if the search found nothing. The syntax for the
 C<query string> is described above. In scalar context, returns the size of
 the resulting list.
 
-   @pairs = $db->lpairs( "some key", "val eq Hello, it's me." );
+   @pairs = $db->lpairs( "some key", "val eq some value" );
    @pairs = $db->lpairs( "some key", "key >= 50 :AND val =~ /sun|moon/" );
    @pairs = $db->lpairs( "some key", "val eq sun :OR val eq moon" );
    $len   = $db->lpairs( "some key", "key =~ /$pattern/" );
@@ -1869,7 +1869,7 @@ Returns only values stored at key that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 
-   @keys = $db->lvals( "some key", "val eq Hello, it's me." );
+   @keys = $db->lvals( "some key", "val eq some value" );
    @keys = $db->lvals( "some key", "key >= 50 :AND val =~ /sun|moon/" );
    @keys = $db->lvals( "some key", "val eq sun :OR val eq moon" );
    $len  = $db->lvals( "some key", "key =~ /$pattern/" );
