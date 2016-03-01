@@ -475,7 +475,36 @@ Gets the value of a hash key or C<undef> if the key does not exists.
 
 =item iterator ( key [, key, ... ] )
 
+Returns a code reference for iterating a list of key-value pairs stored in
+the hash when no arguments are given. Otherwise, returns a code reference for
+iterating the given keys in the same order. Keys that do not exist will have
+the C<undef> value.
+
+The list of keys to return is set when the closure is constructed. Later keys
+added to the hash are not included. Subsequently, keys later removed will
+return the C<undef> value.
+
+   $iter = $ha->iterator;
+   $iter = $ha->iterator( "key1", "key2" );
+
+   while ( my ( $key, $val ) = $iter->() ) {
+      ...
+   }
+
 =item iterator ( "query string" )
+
+Returns a code reference for iterating a list of key-value pairs that match
+the given criteria. It returns an empty list if the search found nothing.
+The syntax for the C<query string> is described above.
+
+   $iter = $ha->iterator( "val eq some value" );
+   $iter = $ha->iterator( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   $iter = $ha->iterator( "val eq sun :OR val eq moon :OR val eq foo" );
+   $iter = $ha->iterator( "key =~ /$pattern/" );
+
+   while ( my ( $key, $val ) = $iter->() ) {
+      ...
+   }
 
 =item keys ( key [, key, ... ] )
 
@@ -493,7 +522,7 @@ Returns only keys that match the given criteria. It returns an empty list
 if the search found nothing. The syntax for the C<query string> is described
 above. In scalar context, returns the size of the resulting list.
 
-   @keys = $ha->keys( "val eq Hello, it's me." );
+   @keys = $ha->keys( "val eq some value" );
    @keys = $ha->keys( "key eq some key :AND val =~ /sun|moon|air|wind/" );
    @keys = $ha->keys( "val eq sun :OR val eq moon :OR val eq foo" );
    $len  = $ha->keys( "key =~ /$pattern/" );
@@ -557,7 +586,7 @@ Returns only key-value pairs that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 
-   @pairs = $ha->pairs( "val eq Hello, it's me." );
+   @pairs = $ha->pairs( "val eq some value" );
    @pairs = $ha->pairs( "key eq some key :AND val =~ /sun|moon|air|wind/" );
    @pairs = $ha->pairs( "val eq sun :OR val eq moon :OR val eq foo" );
    $len   = $ha->pairs( "key =~ /$pattern/" );
@@ -585,7 +614,7 @@ Returns only values that match the given criteria. It returns an empty list
 if the search found nothing. The syntax for the C<query string> is described
 above. In scalar context, returns the size of the resulting list.
 
-   @vals = $ha->values( "val eq Hello, it's me." );
+   @vals = $ha->values( "val eq some value" );
    @vals = $ha->values( "key eq some key :AND val =~ /sun|moon|air|wind/" );
    @vals = $ha->values( "val eq sun :OR val eq moon :OR val eq foo" );
    $len  = $ha->values( "key =~ /$pattern/" );

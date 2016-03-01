@@ -1008,7 +1008,36 @@ Gets the value of a hash key or C<undef> if the key does not exists.
 
 =item iterator ( key [, key, ... ] )
 
+Returns a code reference for iterating a list of key-value pairs stored in
+the hash when no arguments are given. Otherwise, returns a code reference for
+iterating the given keys in the same order. Keys that do not exist will have
+the C<undef> value.
+
+The list of keys to return is set when the closure is constructed. Later keys
+added to the hash are not included. Subsequently, keys later removed will
+return the C<undef> value.
+
+   $iter = $oh->iterator;
+   $iter = $oh->iterator( "key1", "key2" );
+
+   while ( my ( $key, $val ) = $iter->() ) {
+      ...
+   }
+
 =item iterator ( "query string" )
+
+Returns a code reference for iterating a list of key-value pairs that match
+the given criteria. It returns an empty list if the search found nothing.
+The syntax for the C<query string> is described above.
+
+   $iter = $oh->iterator( "val eq some value" );
+   $iter = $oh->iterator( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   $iter = $oh->iterator( "val eq sun :OR val eq moon :OR val eq foo" );
+   $iter = $oh->iterator( "key =~ /$pattern/" );
+
+   while ( my ( $key, $val ) = $iter->() ) {
+      ...
+   }
 
 =item keys ( key [, key, ...] )
 
@@ -1026,7 +1055,7 @@ Returns only keys that match the given criteria. It returns an empty list
 if the search found nothing. The syntax for the C<query string> is described
 above. In scalar context, returns the size of the resulting list.
 
-   @keys = $oh->keys( "val eq Hello, it's me." );
+   @keys = $oh->keys( "val eq some value" );
    @keys = $oh->keys( "key eq some key :AND val =~ /sun|moon|air|wind/" );
    @keys = $oh->keys( "val eq sun :OR val eq moon :OR val eq foo" );
    $len  = $oh->keys( "key =~ /$pattern/" );
@@ -1090,7 +1119,7 @@ Returns only key-value pairs that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 
-   @pairs = $oh->pairs( "val eq Hello, it's me." );
+   @pairs = $oh->pairs( "val eq some value" );
    @pairs = $oh->pairs( "key eq some key :AND val =~ /sun|moon|air|wind/" );
    @pairs = $oh->pairs( "val eq sun :OR val eq moon :OR val eq foo" );
    $len   = $oh->pairs( "key =~ /$pattern/" );
@@ -1197,7 +1226,7 @@ Returns only values that match the given criteria. It returns an empty list
 if the search found nothing. The syntax for the C<query string> is described
 above. In scalar context, returns the size of the resulting list.
 
-   @vals = $oh->values( "val eq Hello, it's me." );
+   @vals = $oh->values( "val eq some value" );
    @vals = $oh->values( "key eq some key :AND val =~ /sun|moon|air|wind/" );
    @vals = $oh->values( "val eq sun :OR val eq moon :OR val eq foo" );
    $len  = $oh->values( "key =~ /$pattern/" );

@@ -583,7 +583,36 @@ exists.
 
 =item iterator ( index [, index, ... ] )
 
+Returns a code reference for iterating a list of indice-value pairs stored in
+the array when no arguments are given. Otherwise, returns a code reference for
+iterating the given indices in the same order. Indices that do not exist will
+have the C<undef> value.
+
+The list of indices to return is set when the closure is constructed. Any new
+indices added later are not included. Subsequently, indices later removed will
+return the C<undef> value.
+
+   $iter = $ar->iterator;
+   $iter = $ar->iterator( 0, 1 );
+
+   while ( my ( $index, $val ) = $iter->() ) {
+      ...
+   }
+
 =item iterator ( "query string" )
+
+Returns a code reference for iterating a list of indice-value pairs that match
+the given criteria. It returns an empty list if the search found nothing.
+The syntax for the C<query string> is described above.
+
+   $iter = $ar->iterator( "val eq some value" );
+   $iter = $ar->iterator( "key >= 50 :AND val =~ /sun|moon|air|wind/" );
+   $iter = $ar->iterator( "val eq sun :OR val eq moon :OR val eq foo" );
+   $iter = $ar->iterator( "key =~ /$pattern/" );
+
+   while ( my ( $index, $val ) = $iter->() ) {
+      ...
+   }
 
 =item keys ( index [, index, ... ] )
 
@@ -601,7 +630,7 @@ Returns only indices that match the given criteria. It returns an empty list
 if the search found nothing. The syntax for the C<query string> is described
 above. In scalar context, returns the size of the resulting list.
 
-   @keys = $ar->keys( "val eq Hello, it's me." );
+   @keys = $ar->keys( "val eq some value" );
    @keys = $ar->keys( "key >= 50 :AND val =~ /sun|moon|air|wind/" );
    @keys = $ar->keys( "val eq sun :OR val eq moon :OR val eq foo" );
    $len  = $ar->keys( "key =~ /$pattern/" );
@@ -664,7 +693,7 @@ Returns only indice-value pairs that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 
-   @pairs = $ar->pairs( "val eq Hello, it's me." );
+   @pairs = $ar->pairs( "val eq some value" );
    @pairs = $ar->pairs( "key >= 50 :AND val =~ /sun|moon|air|wind/" );
    @pairs = $ar->pairs( "val eq sun :OR val eq moon :OR val eq foo" );
    $len   = $ar->pairs( "key =~ /$pattern/" );
@@ -767,7 +796,7 @@ Returns only values that match the given criteria. It returns an empty list
 if the search found nothing. The syntax for the C<query string> is described
 above. In scalar context, returns the size of the resulting list.
 
-   @keys = $ar->values( "val eq Hello, it's me." );
+   @keys = $ar->values( "val eq some value" );
    @keys = $ar->values( "key >= 50 :AND val =~ /sun|moon|air|wind/" );
    @keys = $ar->values( "val eq sun :OR val eq moon :OR val eq foo" );
    $len  = $ar->values( "key =~ /$pattern/" );
