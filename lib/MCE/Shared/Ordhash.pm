@@ -14,8 +14,8 @@
 ##
 ## 3. Provides support for hash-like dereferencing.
 ##
-## Results obtained from this module are posted online at:
-## https://gist.github.com/marioroy/1b1e6394dde3fb692e69
+## Results obtained from this module are stored online:
+## https://gist.github.com/marioroy/b9b8e1924f392a2e3dbd
 ##
 ###############################################################################
 
@@ -1350,8 +1350,9 @@ comparison.
    my $oh = tie my %hash, 'Tie::LLHash';
       $oh->last($_,$_);  keys %hash; $oh->DELETE($_);
 
-See this L<https://gist.github.com/marioroy/1b1e6394dde3fb692e69|Gist> for
-more results.
+More results are stored online.
+
+L<https://gist.github.com/marioroy/b9b8e1924f392a2e3dbd|Ordered Hash Comparison>
 
 =head1 SEE ALSO
 
