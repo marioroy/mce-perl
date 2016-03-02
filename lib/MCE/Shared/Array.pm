@@ -436,8 +436,8 @@ This document describes MCE::Shared::Array version 1.699_011
    @vals  = $ar->sort( "alpha desc" );        # $b cmp $a
 
    # search capability key/val { =~ !~ eq ne lt le gt ge == != < <= > >= }
-   # query string is quoteless, otherwise quote(s) are treated literally
    # key/val means to match against actual key/val respectively
+   # do not add quotes inside the string unless intended literally
    # do not mix :AND(s) and :OR(s) together
 
    @keys  = $ar->keys( "key =~ /$pattern/i" );
@@ -478,7 +478,7 @@ An array helper class for use with L<MCE::Shared>.
 
 Several methods in C<MCE::Shared::Array> take a query string for an argument.
 The format of the string is quoteless. Therefore, any quotes inside the string
-will be treated literally.
+is treated literally.
 
    o Basic demonstration: @keys = $ar->keys( "val =~ /pattern/" );
    o Supported operators: =~ !~ eq ne lt le gt ge == != < <= > >=
@@ -583,12 +583,12 @@ exists.
 
 =item iterator ( index [, index, ... ] )
 
-Returns a code reference for iterating a list of indice-value pairs stored in
+Returns a code reference for iterating a list of index-value pairs stored in
 the array when no arguments are given. Otherwise, returns a code reference for
 iterating the given indices in the same order. Indices that do not exist will
 have the C<undef> value.
 
-The list of indices to return is set when the closure is constructed. Any new
+The list of indices to return is set when the closure is constructed. New
 indices added later are not included. Subsequently, the C<undef> value is
 returned for deleted indices.
 
@@ -601,7 +601,7 @@ returned for deleted indices.
 
 =item iterator ( "query string" )
 
-Returns a code reference for iterating a list of indice-value pairs that match
+Returns a code reference for iterating a list of index-value pairs that match
 the given criteria. It returns an empty list if the search found nothing.
 The syntax for the C<query string> is described above.
 
@@ -638,8 +638,8 @@ above. In scalar context, returns the size of the resulting list.
 =item len ( index )
 
 Returns the size of the array when no arguments are given. For the given
-indice, returns the length of the value stored at index or the C<undef> value
-if the indice does not exists.
+index, returns the length of the value stored at index or the C<undef> value
+if the index does not exists.
 
    $len = $ar->len;
    $len = $ar->len( 0 );
@@ -678,8 +678,8 @@ C<merge> is an alias for C<mset>.
 
 =item pairs ( "query string" )
 
-Returns indice-value pairs in the array when no arguments are given. Otherwise,
-returns indice-value pairs for the given indices in the same order. Indices that
+Returns index-value pairs in the array when no arguments are given. Otherwise,
+returns index-value pairs for the given indices in the same order. Indices that
 do not exist will have the C<undef> value. In scalar context, returns the size
 of the array.
 
@@ -689,7 +689,7 @@ of the array.
 
 =item pairs ( index [, index, ... ] )
 
-Returns only indice-value pairs that match the given criteria. It returns an
+Returns only index-value pairs that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 

@@ -1,14 +1,14 @@
 
 Revision history for Perl module MCE.
 
-1.699 Tue Mar 01 15:30:00 EST 2016
+1.699 Wed Mar 02 00:30:00 EST 2016
 
   # 1.699_011 changes.
 
-    * Completed documentation for MCE 1.7.
-    * Completed code optimizations for MCE::Shared::{ Minidb, Ordhash }.
     * Added chunk_size and bounds_only options to MCE::Shared::Sequence.
     * Added MCE::Hobo and threads demonstrations to README and MCE.pod.
+    * Completed code optimizations for MCE::Shared::{ Minidb, Ordhash }.
+    * Completed documentation.
 
   # 1.699_010 changes.
 

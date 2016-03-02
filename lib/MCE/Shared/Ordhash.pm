@@ -859,8 +859,8 @@ This document describes MCE::Shared::Ordhash version 1.699_011
    @vals  = $oh->sort( "key alpha desc" );    # by key $b cmp $a
 
    # search capability key/val { =~ !~ eq ne lt le gt ge == != < <= > >= }
-   # query string is quoteless, otherwise quote(s) are treated literally
    # key/val means to match against actual key/val respectively
+   # do not add quotes inside the string unless intended literally
    # do not mix :AND(s) and :OR(s) together
 
    @keys  = $oh->keys( "key =~ /$pattern/i" );
@@ -913,7 +913,7 @@ ordered hash implementation.
 
 Several methods in C<MCE::Shared::Ordhash> take a query string for an argument.
 The format of the string is quoteless. Therefore, any quotes inside the string
-will be treated literally.
+is treated literally.
 
    o Basic demonstration: @keys = $oh->keys( "val =~ /pattern/" );
    o Supported operators: =~ !~ eq ne lt le gt ge == != < <= > >=
@@ -1310,7 +1310,7 @@ L<Hash::Ordered> by David Golden.
 MCE::Shared has only one shared-manager process which is by design. Therefore,
 refactored tombstone deletion with extras for lesser impact to the rest of the
 library. This module differs in personality from Hash::Ordered mainly for
-compatibilty with the various classes included with MCE::Shared.
+compatibility with the various classes included with MCE::Shared.
 
 The following simulates a usage pattern inside L<MCE::Hobo> involving random
 key deletion. For example, an application joining a list of Hobos provided by

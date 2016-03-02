@@ -530,7 +530,7 @@ This document describes MCE::Hobo version 1.699_011
    MCE::Hobo->yield();
    MCE::Hobo->yield(0.05);
 
-   # Wantarray-aware return context
+   # Return context, wantarray aware
    my ($value1, $value2) = $hobo->join();
    my $value = $hobo->join();
 
@@ -672,7 +672,7 @@ non-voided context, C<join()> will return the value(s) of the entry point
 function.
 
 The context (void, scalar or list) for the return value(s) for C<join> is
-determined at the time of joining and mostly wantarray-aware.
+determined at the time of joining and mostly C<wantarray> aware.
 
    my $hobo1 = MCE::Hobo->create( sub {
       my @results = qw(foo bar baz);
@@ -729,7 +729,7 @@ This behaves the same as C<exit(status)> when called from the main process.
 
 This class method is called automatically by C<END>, but may be called
 explicitly. Two shared objects to C<MCE::Shared> are destroyed. An error is
-emmitted via croak if there are active hobos not yet joined.
+emitted via croak if there are active hobos not yet joined.
 
    MCE::Hobo->create( 'task1', $_ ) for 1 .. 4;
 

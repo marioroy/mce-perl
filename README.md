@@ -11,7 +11,7 @@ maximizing all available cores.
 
 MCE spawns a pool of workers and therefore does not fork a new process per
 each element of data. Instead, MCE follows a bank queuing model. Imagine the
-line being the data and bank-tellers the arallel workers. MCE enhances that
+line being the data and bank-tellers the parallel workers. MCE enhances that
 model by adding the ability to chunk the next n elements from the input
 stream to the next available worker.
 

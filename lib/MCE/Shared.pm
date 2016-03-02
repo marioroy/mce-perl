@@ -375,7 +375,7 @@ This document describes MCE::Shared version 1.699_011
    say " array : $_" for (@foo);
    say "  hash : $_ => $bar{$_}" for (sort keys %bar);
 
-   -- Output
+   # Output
 
    scalar : 4
     array : 37847
@@ -510,7 +510,7 @@ The object must not contain any C<GLOB>'s or C<CODE_REF>'s or the transfer
 will fail.
 
 Unlike with C<threads::shared>, objects are not deeply shared. The shared
-object is accessable only through the OO interface.
+object is accessible only through the OO interface.
 
    use MCE::Shared;
    use Hash::Ordered;
@@ -696,7 +696,7 @@ This applies to shared array, hash, and ordhash.
 
    _dump($h2);
 
-   __END__
+   # Output
 
    $VAR1 = bless( {
      'I' => 'Heard',
@@ -733,7 +733,7 @@ Resets the parallel iterator for C<MCE::Shared::Minidb> Lists (HoA).
 
 =item rewind ( "query string" )
 
-Resets the parallel iterator for C<Array or (Ord)Hash>.
+Resets the parallel iterator for C<Array, Hash, and Ordhash>.
 
 =item rewind
 
@@ -777,7 +777,7 @@ Below is a demonstration for iterating through a shared list between workers.
 
    $_->join() for MCE::Hobo->list();
 
-   -- Output
+   # Output
 
    1: a
    2: b
@@ -791,7 +791,7 @@ Below is a demonstration for iterating through a shared list between workers.
    2: j
 
 There are two forms for iterating through a shared hash or ordhash object.
-The C<next> method is wantarray-aware providing key and value in list
+The C<next> method is C<wantarray> aware providing key and value in list
 context and value in scalar context.
 
    use MCE::Hobo;
@@ -828,7 +828,7 @@ context and value in scalar context.
 Although the shared-manager process iterates items orderly, some workers may
 require more time than others. Therefore, output order is not guaranteed.
 
-   -- Output
+   # Output
 
    1: key_a => val_a
    2: key_b => val_b
@@ -907,7 +907,7 @@ process.
 
    _dump( tied( %abc ) );
 
-   -- Output
+   # Output
 
    $VAR1 = bless( {
      'c' => bless( {
@@ -930,9 +930,8 @@ process.
      }, 'MCE::Shared::Hash' )
    }, 'MCE::Shared::Hash' );
 
-Here's another demonstration. Dereferencing provides hash-like behavior for a
-shared C<hash> or C<ordhash> object. Likewise, array-like behavior is possible
-for shared C<array> object not shown below.
+Dereferencing provides hash-like behavior for C<hash> and C<ordhash>.
+Also, array-like behavior is possible for C<array> not shown below.
 
    use MCE::Shared;
 
@@ -950,7 +949,7 @@ for shared C<array> object not shown below.
    _dump( $abc );
 
 Each level in a deeply structure requires a separate trip to the shared-manager
-processs. There is a faster way if the app calls for just C<HoH> and/or C<HoA>.
+process. There is a faster way if the app calls for just C<HoH> and/or C<HoA>.
 The included C<MCE::Shared::Minidb> module provides optimized methods for
 working with C<HoH> and C<HoA> structures.
 

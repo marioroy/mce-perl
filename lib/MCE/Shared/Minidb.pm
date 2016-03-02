@@ -1180,7 +1180,7 @@ module to become 100% compatible with it.
 
 This module was created mainly for having an efficient manner in which to
 manipulate hashes-of-hashes (HoH) and hashes-of-arrays (HoA) structures with
-MCE::Shared. Both are supported simulatenously due to being unique objects
+MCE::Shared. Both are supported simultaneously due to being unique objects
 inside the C<$db> object.
 
    sub new {
@@ -1197,8 +1197,8 @@ inside the C<$db> object.
 =head1 SYNTAX for QUERY STRING
 
 Several methods in C<MCE::Shared::Minidb> take a query string. The format of
-the string is quoteless. Therefore, any quotes inside the string will be
-treated literally.
+the string is quoteless. Therefore, any quotes inside the string is treated
+literally.
 
    o Basic demonstration: @keys = $db->hkeys( "key", "val =~ /pattern/" );
    o Supported operators: =~ !~ eq ne lt le gt ge == != < <= > >=
@@ -1773,9 +1773,9 @@ wanting any result.
 =item llen ( key [, index ] )
 
 Returns the size of the first level hash (H)oA when no arguments are given.
-For the given indice, returns the size of list stored at key or optionally,
+For the given index, returns the size of list stored at key or optionally,
 the length of the value stored at key-index. It returns the C<undef> value
-if either the given key or given indice does not exists.
+if either the given key or given index does not exists.
 
    $len = $db->llen;
    $len = $db->llen( $key );
@@ -1784,20 +1784,20 @@ if either the given key or given indice does not exists.
 =item lpairs ( key, [ index [, index, ... ] ] )
 
 Returns key-value pairs stored in the first level hash (H)oA when no arguments
-are given. Otherwise, returns indice-value pairs for the given indices in the
+are given. Otherwise, returns index-value pairs for the given indices in the
 list stored at key. Indices that do not exist will have the C<undef> value.
 In scalar context, returns the size of the object, either the list store at key
 or the first level hash.
 
    @pairs = $db->lpairs;                 # ( key => aref, ... )
-   @pairs = $db->lpairs( "some key" );   # ( indice => value, ... )
+   @pairs = $db->lpairs( "some key" );   # ( index => value, ... )
    @pairs = $db->lpairs( "some key", 0, 1 );
    $len   = $db->lpairs( "some key" );
    $len   = $db->lpairs;
 
 =item lpairs ( key, "query string" )
 
-Returns only indice-value pairs stored at key that match the given criteria.
+Returns only index-value pairs stored at key that match the given criteria.
 It returns an empty list if the search found nothing. The syntax for the
 C<query string> is described above. In scalar context, returns the size of
 the resulting list.

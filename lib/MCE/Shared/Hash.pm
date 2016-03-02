@@ -340,8 +340,8 @@ This document describes MCE::Shared::Hash version 1.699_011
    $len   = $ha->mset( $key/$val pairs );     # merge is an alias for mset
 
    # search capability key/val { =~ !~ eq ne lt le gt ge == != < <= > >= }
-   # query string is quoteless, otherwise quote(s) are treated literally
    # key/val means to match against actual key/val respectively
+   # do not add quotes inside the string unless intended literally
    # do not mix :AND(s) and :OR(s) together
 
    @keys  = $ha->keys( "key =~ /$pattern/i" );
@@ -382,7 +382,7 @@ A hash helper class for use with L<MCE::Shared>.
 
 Several methods in C<MCE::Shared::Hash> take a query string for an argument.
 The format of the string is quoteless. Therefore, any quotes inside the string
-will be treated literally.
+is treated literally.
 
    o Basic demonstration: @keys = $ha->keys( "val =~ /pattern/" );
    o Supported operators: =~ !~ eq ne lt le gt ge == != < <= > >=

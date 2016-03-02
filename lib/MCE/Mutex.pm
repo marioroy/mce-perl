@@ -183,7 +183,7 @@ automatically.
 =head2 $m->synchronize ( sub { ... }, @_ )
 
 Obtains a lock, runs the code block, and releases the lock after the block
-completes. Optionally, the method is wantarray aware.
+completes. Optionally, the method is C<wantarray> aware.
 
    my $value = $m->synchronize( sub {
 

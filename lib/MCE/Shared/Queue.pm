@@ -946,7 +946,7 @@ a shared C<queue> or C<condvar> while the shared-manager process is running.
 
 For platforms where C<IO::FDPass> is not feasible, construct C<queues> or
 C<condvars> first before other classes. The shared-manager process is delayed
-until sharing other classes or explictly starting the process.
+until sharing other classes or explicitly starting the process.
 
    use MCE::Shared;
 

@@ -56,7 +56,7 @@ sub _compile {
 
    # o Several methods in MCE::Shared::{ Array, Hash, Minidb, and Ordhash }
    #   take a query string for an argument. The format of the string is
-   #   quoteless. Therefore, any quotes inside the string will be treated
+   #   quoteless. Therefore, any quotes inside the string is treated
    #   literally.
    #
    # o Basic demonstration: @keys = $oh->keys( "val =~ /pattern/" );

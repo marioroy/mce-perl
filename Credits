@@ -71,10 +71,19 @@ Farrell, David
 Golden, David
 
   For the Hash::Ordered module. I learned a lot from this *GEM* on CPAN.
-  Particularly, the use of overload. I did not know that was possible.
+  Particularly, the use of overload. I didn't know that was possible.
 
-  MCE::Shared provides array-like and hash-like behavior for shared objects.
-  e.g. MCE::Shared::{ Array, Hash, and Ordhash }
+  For the time during collaborative efforts in making Hash::Ordered faster.
+  I learned a trick or two along the way. Maybe, three. But, possibly four.
+
+  Thank you for alarming me of the memory leaks with the on-demand hash
+  dereferencing inside MCE::Shared::Ordhash. MCE::Shared::Object was also
+  impacted. I'd never forget that dreadful day.
+
+  MCE::Shared::{ Array, Hash, and Ordhash } are inspired by Hash::Ordered.
+  In particular, the clone and iterator methods. Also, keys and values on
+  taking arguments. I confess for never getting used to the "as_list"
+  method name, initially. :)
 
 Gorwits, Oliver
 
