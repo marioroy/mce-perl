@@ -1381,7 +1381,7 @@ comparison.
 
 More results are stored online.
 
-L<https://gist.github.com/marioroy/b9b8e1924f392a2e3dbd|Ordered Hash Comparison>
+L<https://gist.github.com/marioroy/b9b8e1924f392a2e3dbd>
 
 =head1 SEE ALSO
 
