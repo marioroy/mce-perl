@@ -12,7 +12,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric once );
 
-our $VERSION = '1.699_011';
+our $VERSION = '1.699_012';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -2297,6 +2297,7 @@ sub set {
       delete $_new{ $_[2]->SHARED_ID() };
    }
    _auto('set', @_);
+   $_[-1];
 }
 
 sub FETCH { _req6('FETCH', @_) }
@@ -2329,7 +2330,7 @@ MCE::Shared::Server - Server/Object packages for MCE::Shared
 
 =head1 VERSION
 
-This document describes MCE::Shared::Server version 1.699_011
+This document describes MCE::Shared::Server version 1.699_012
 
 =head1 DESCRIPTION
 

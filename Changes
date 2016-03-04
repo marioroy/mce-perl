@@ -1,71 +1,21 @@
 
 Revision history for Perl module MCE.
 
-1.699 Wed Mar 02 00:30:00 EST 2016
+1.699 Thu Mar 03 21:00:00 EST 2016
 
-  # 1.699_011 changes.
-
-    * Added chunk_size and bounds_only options to MCE::Shared::Sequence.
-    * Added MCE::Hobo and threads demonstrations to README and MCE.pod.
-    * Completed code optimizations for MCE::Shared::{ Minidb, Ordhash }.
-    * Completed documentation.
-
-  # 1.699_010 changes.
-
-    * Applied fix for RT#111780 mentioned below.
-    * Completed 360 for MCE::Shared and helper classes.
-
-    * Completed documentation for several MCE::Shared classes:
-      MCE::Shared::{ Condvar, Handle, Queue, Scalar, Sequence }
-
-    * Began work on documenting the remaining classes:
-      MCE::Shared::{ Array, Hash, Minidb, Ordhash }
-
-  # 1.699_009 changes.
-
-    * Documentation updates for various MCE::Shared modules.
-    * Inlined code inside POP/SHIFT in MCE::Shared::Ordhash.
-    * Fix for MCE::Shared on Windows platform (MSWin32).
-
-  # 1.699_008 changes.
-
-    * Added MCE::Shared::Minidb.
-
-    * Find refactored for MCE::Shared::{ Array, Hash, Minidb, Ordhash }.
-      Added support for multiple search criteria.
-
-    * API changes in MCE::Shared::Object.
-      Added *store* method for sharing deeply structures
-      Removed dset, dmerge, dpush, and dunshift
-      Updated demonstration in MCE::Shared POD
-
-    * API changes in MCE::Shared::{ Array, Condvar, Hash, Ordhash, Scalar }.
-      Renamed length to len
-      Renamed pdecr to getdecr
-      Renamed pincr to getincr
-      Added method getset
-
-    * API changes in MCE::Shared::{ Array, Hash, Ordhash }.
-      Renamed find to _find, now a private method
-      Added new methods mdel and mexists
-      Added query support to keys, pairs, and values
-        e.g. $oh->keys( "key =~ /pattern/ :OR val > 100" )
-
-    * API changes in MCE::Shared and MCE::Shared::Sequence.
-      Renamed reset to rewind
-      Removed prev
+  1.699_012 is the last development release for MCE 1.700.
 
   [BUG FIXES]
 
   * Fixed race condition on Windows for non-threaded workers.
 
   * Updated MCE Models to not fail when running inside an eval statement.
-    This addresses RT#105557 and RT#105559. Thank you, Benjamin McKeown.
+    This addresses [#105557] and [#105559]. Thank you, Benjamin McKeown.
 
   * Added new MCE option loop_timeout to prevent the MCE Manager process
     from hanging perpetually. The manager process wrongly assumes a worker
     is still running when the worker died in an uncontrollable manner.
-    This resolves RT#111780. Thank you, Benjamin McKeown.
+    This resolves [#111780]. Thank you, Benjamin McKeown.
 
   [ENHANCEMENTS]
 

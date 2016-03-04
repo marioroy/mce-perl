@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_011';
+our $VERSION = '1.699_012';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -312,7 +312,7 @@ MCE::Shared - MCE extension for sharing data between workers
 
 =head1 VERSION
 
-This document describes MCE::Shared version 1.699_011
+This document describes MCE::Shared version 1.699_012
 
 =head1 SYNOPSIS
 
@@ -438,23 +438,25 @@ shared-manager process.
 
 =over 3
 
-=item array
+=item * array
 
-=item condvar
+=item * condvar
 
-=item handle
+=item * handle
 
-=item hash
+=item * hash
 
-=item minidb
+=item * minidb
 
-=item ordhash
+=item * ordhash
 
-=item queue
+=item * queue
 
-=item scalar
+=item * scalar
 
-=item sequence
+=item * sequence
+
+=back
 
 C<array>, C<condvar>, C<handle>, C<hash>, C<minidb>, C<ordhash>, C<queue>,
 C<scalar>, and C<sequence> are sugar syntax for constructing a
@@ -492,11 +494,116 @@ shared object.
   my $va = MCE::Shared->scalar( $value );
   my $se = MCE::Shared->sequence( $begin, $end, $step, $fmt );
 
+=over 3
+
 =item num_sequence
 
 C<num_sequence> is an alias for C<sequence>.
 
 =back
+
+=head1 DEEPLY SHARING
+
+The following is a demonstration for a shared tied-hash variable. Before
+venturing into the actual code, notice the dump function making a call to
+C<export> explicitly for objects of type C<MCE::Shared::Object>. This is
+necessary in order to retrieve the data from the shared-manager process.
+
+The C<export> method is described later on under the Common API section.
+
+   sub _dump {
+      require Data::Dumper unless $INC{'Data/Dumper.pm'};
+      no warnings 'once';
+
+      local $Data::Dumper::Varname  = 'VAR';
+      local $Data::Dumper::Deepcopy = 1;
+      local $Data::Dumper::Indent   = 1;
+      local $Data::Dumper::Purity   = 1;
+      local $Data::Dumper::Sortkeys = 0;
+      local $Data::Dumper::Terse    = 0;
+
+      ( ref $_[0] eq 'MCE::Shared::Object' )
+         ? print Data::Dumper::Dumper( $_[0]->export ) . "\n"
+         : print Data::Dumper::Dumper( $_[0] ) . "\n";
+   }
+
+   use MCE::Shared;
+
+   tie my %abc, 'MCE::Shared';
+
+   my @parents = qw( a b c );
+   my @children = qw( 1 2 3 4 );
+
+   for my $parent ( @parents ) {
+      for my $child ( @children ) {
+         $abc{ $parent }{ $child } = 1;
+      }
+   }
+
+   _dump( tied( %abc ) );
+
+   # Output
+
+   $VAR1 = bless( {
+     'c' => bless( {
+       '1' => '1',
+       '4' => '1',
+       '3' => '1',
+       '2' => '1'
+     }, 'MCE::Shared::Hash' ),
+     'a' => bless( {
+       '1' => '1',
+       '4' => '1',
+       '3' => '1',
+       '2' => '1'
+     }, 'MCE::Shared::Hash' ),
+     'b' => bless( {
+       '1' => '1',
+       '4' => '1',
+       '3' => '1',
+       '2' => '1'
+     }, 'MCE::Shared::Hash' )
+   }, 'MCE::Shared::Hash' );
+
+Dereferencing provides hash-like behavior for C<hash> and C<ordhash>.
+Array-like behavior is allowed for C<array>, not shown below.
+
+   use MCE::Shared;
+
+   my $abc = MCE::Shared->hash;
+
+   my @parents = qw( a b c );
+   my @children = qw( 1 2 3 4 );
+
+   for my $parent ( @parents ) {
+      for my $child ( @children ) {
+         $abc->{ $parent }{ $child } = 1;
+      }
+   }
+
+   _dump( $abc );
+
+Each level in a deeply structure requires a separate trip to the shared-manager
+process. The included C<MCE::Shared::Minidb> module provides optimized methods
+for working with hash of hashes C<HoH> and/or hash of arrays C<HoA>. As such,
+do the following when performance is desired.
+
+   use MCE::Shared;
+
+   my $abc = MCE::Shared->minidb;
+
+   my @parents = qw( a b c );
+   my @children = qw( 1 2 3 4 );
+
+   for my $parent ( @parents ) {
+      for my $child ( @children ) {
+         $abc->hset( $parent, $child, 1 );
+      }
+   }
+
+   _dump( $abc );
+
+For further reading, see L<MCE::Shared::Minidb>.
 
 =head1 OBJECT SHARING
 
@@ -552,29 +659,31 @@ hash, or scalar object.
 
 =over 3
 
-=item pdl_byte
+=item * pdl_byte
 
-=item pdl_short
+=item * pdl_short
 
-=item pdl_ushort
+=item * pdl_ushort
 
-=item pdl_long
+=item * pdl_long
 
-=item pdl_longlong
+=item * pdl_longlong
 
-=item pdl_float
+=item * pdl_float
 
-=item pdl_double
+=item * pdl_double
 
-=item pdl_ones
+=item * pdl_ones
 
-=item pdl_sequence
+=item * pdl_sequence
 
-=item pdl_zeroes
+=item * pdl_zeroes
 
-=item pdl_indx
+=item * pdl_indx
 
-=item pdl
+=item * pdl
+
+=back
 
 C<pdl_byte>, C<pdl_short>, C<pdl_ushort>, C<pdl_long>, C<pdl_longlong>,
 C<pdl_float>, C<pdl_double>, C<pdl_ones>, C<pdl_sequence>, C<pdl_zeroes>,
@@ -592,6 +701,8 @@ under the shared-manager process.
    # efficient
    my $ob1 = MCE::Shared->zeroes( 256, 256 );
 
+=over 3
+
 =item ins_inplace
 
 The C<ins_inplace> method applies to shared PDL objects. It supports two forms
@@ -606,8 +717,8 @@ process.
    $o->ins_inplace( ":,$start:$stop", $result );  #  2 args
    $o->ins_inplace( $result, 0, $seq_n );         # >2 args
 
-The MCE-Cookbook on Github provides a couple working PDL demonstrations for
-further reading.
+For further reading, the MCE-Cookbook on Github provides a couple PDL
+demonstrations.
 
 L<https://github.com/marioroy/mce-cookbook>
 
@@ -746,15 +857,19 @@ argument rewinds the iterator.
 The syntax for C<query string> is described in each respective class module.
 For sequence, the construction for C<rewind> is the same as C<new>.
 
-L<MCE::Shared::Array>
+=over 3
 
-L<MCE::Shared::Hash>
+=item * L<MCE::Shared::Array>
 
-L<MCE::Shared::Ordhash>
+=item * L<MCE::Shared::Hash>
 
-L<MCE::Shared::Minidb>
+=item * L<MCE::Shared::Ordhash>
 
-L<MCE::Shared::Sequence>
+=item * L<MCE::Shared::Minidb>
+
+=item * L<MCE::Shared::Sequence>
+
+=back
 
 Below is a demonstration for iterating through a shared list between workers.
 
@@ -853,9 +968,8 @@ require more time than others. Therefore, output order is not guaranteed.
 
 =item store ( key, value )
 
-Deep-sharing non-blessed structure(s) is possible with C<store> only. C<store>,
-an alias to C<STORE>, converts non-blessed deeply-structures to shared objects
-recursively.
+Deep-sharing a non-blessed structure recursively is possible with C<store>,
+an alias to C<STORE>.
 
    use MCE::Shared;
 
@@ -869,106 +983,6 @@ recursively.
    my $v1 = $h1->get('key')->get(3)->get('foo');  # bar
    my $v2 = $h2->get('key')->get(3)->get('foo');  # baz
    my $v3 = $h2->{key}[3]{foo};                   # baz
-
-The following is a demonstration for a tied-hash shared variable. Before
-venturing into the actual code, notice the dump function making a call to
-C<export> explicitly for objects of type C<MCE::Shared::Object>. This is
-necessary in order to retrieve the data residing under the shared-manager
-process.
-
-   sub _dump {
-      require Data::Dumper unless $INC{'Data/Dumper.pm'};
-      no warnings 'once';
-
-      local $Data::Dumper::Varname  = 'VAR';
-      local $Data::Dumper::Deepcopy = 1;
-      local $Data::Dumper::Indent   = 1;
-      local $Data::Dumper::Purity   = 1;
-      local $Data::Dumper::Sortkeys = 0;
-      local $Data::Dumper::Terse    = 0;
-
-      ( ref $_[0] eq 'MCE::Shared::Object' )
-         ? print Data::Dumper::Dumper( $_[0]->export ) . "\n"
-         : print Data::Dumper::Dumper( $_[0] ) . "\n";
-   }
-
-   use MCE::Shared;
-
-   tie my %abc, 'MCE::Shared';
-
-   my @parents = qw( a b c );
-   my @children = qw( 1 2 3 4 );
-
-   for my $parent ( @parents ) {
-      for my $child ( @children ) {
-         $abc{ $parent }{ $child } = 1;
-      }
-   }
-
-   _dump( tied( %abc ) );
-
-   # Output
-
-   $VAR1 = bless( {
-     'c' => bless( {
-       '1' => '1',
-       '4' => '1',
-       '3' => '1',
-       '2' => '1'
-     }, 'MCE::Shared::Hash' ),
-     'a' => bless( {
-       '1' => '1',
-       '4' => '1',
-       '3' => '1',
-       '2' => '1'
-     }, 'MCE::Shared::Hash' ),
-     'b' => bless( {
-       '1' => '1',
-       '4' => '1',
-       '3' => '1',
-       '2' => '1'
-     }, 'MCE::Shared::Hash' )
-   }, 'MCE::Shared::Hash' );
-
-Dereferencing provides hash-like behavior for C<hash> and C<ordhash>.
-Also, array-like behavior is possible for C<array> not shown below.
-
-   use MCE::Shared;
-
-   my $abc = MCE::Shared->hash;
-
-   my @parents = qw( a b c );
-   my @children = qw( 1 2 3 4 );
-
-   for my $parent ( @parents ) {
-      for my $child ( @children ) {
-         $abc->{ $parent }{ $child } = 1;
-      }
-   }
-
-   _dump( $abc );
-
-Each level in a deeply structure requires a separate trip to the shared-manager
-process. There is a faster way if the app calls for just C<HoH> and/or C<HoA>.
-The included C<MCE::Shared::Minidb> module provides optimized methods for
-working with C<HoH> and C<HoA> structures.
-
-   use MCE::Shared;
-
-   my $abc = MCE::Shared->minidb;
-
-   my @parents = qw( a b c );
-   my @children = qw( 1 2 3 4 );
-
-   for my $parent ( @parents ) {
-      for my $child ( @children ) {
-         $abc->hset( $parent, $child, 1 );
-      }
-   }
-
-   _dump( $abc );
-
-For further reading, see L<MCE::Shared::Minidb>.
 
 =back
 

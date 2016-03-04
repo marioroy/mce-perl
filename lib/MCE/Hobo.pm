@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized redefine );
 
-our $VERSION = '1.699_011';
+our $VERSION = '1.699_012';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -483,7 +483,7 @@ MCE::Hobo - A threads-like parallelization module
 
 =head1 VERSION
 
-This document describes MCE::Hobo version 1.699_011
+This document describes MCE::Hobo version 1.699_012
 
 =head1 SYNOPSIS
 
@@ -886,11 +886,15 @@ L<threads>
 
 =head1 SEE ALSO
 
-L<forks>
+=over 3
 
-L<forks::BerkeleyDB>
+=item * L<forks>
 
-L<Thread::Tie>
+=item * L<forks::BerkeleyDB>
+
+=item * L<Thread::Tie>
+
+=back
 
 =head1 INDEX
 

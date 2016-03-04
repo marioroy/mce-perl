@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_011';
+our $VERSION = '1.699_012';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -707,7 +707,7 @@ MCE::Step - Parallel step model for building creative steps
 
 =head1 VERSION
 
-This document describes MCE::Step version 1.699_011
+This document describes MCE::Step version 1.699_012
 
 =head1 DESCRIPTION
 
@@ -1129,8 +1129,6 @@ optional. The format is passed to sprintf (% may be omitted below).
       begin => $beg, end => $end, step => $step, format => $fmt
    };
 
-=back
-
 The sequence engine can compute 'begin' and 'end' items only, for the chunk,
 and not the items in between (hence boundaries only). This option applies
 to sequence only and has no effect when chunk_size equals 1.
@@ -1183,6 +1181,8 @@ Time was measured using 1 worker to emphasize the difference.
    7500001 ..  8750000
    8750001 .. 10000000
 
+=back
+
 =head1 QUEUE-LIKE FEATURES
 
 =over 3
@@ -1224,10 +1224,6 @@ sub-task.
    4: 17, 0.698907
    2: 18, 0.985448
    3: 19, 0.146548
-
-=back
-
-=over 3
 
 =item MCE->enq ( task_name, item )
 
@@ -1298,10 +1294,6 @@ will cause an error.
    C5: 19, 0.318371
    D6: 28, 0.220465
    D8: 29, 0.630111
-
-=back
-
-=over 3
 
 =item MCE->await ( task_name, pending_threshold )
 

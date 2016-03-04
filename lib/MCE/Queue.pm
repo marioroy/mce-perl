@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_011';
+our $VERSION = '1.699_012';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -1634,7 +1634,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.699_011
+This document describes MCE::Queue version 1.699_012
 
 =head1 SYNOPSIS
 
@@ -1682,12 +1682,12 @@ The porder option applies to priority queues only.
 
 MCE::Queue can be utilized under the following conditions:
 
-    A) use MCE;           B) use MCE::Queue;    C) use MCE::Queue;
+   (A) use MCE;          (B) use MCE::Queue;   (C) use MCE::Queue;
        use MCE::Queue;       use MCE;
 
 =over 3
 
-=item A) MCE is included prior to inclusion of MCE::Queue
+=item (A) MCE is included prior to inclusion of MCE::Queue
 
 The dequeue method blocks for the manager process including workers. All data
 resides under the manager process. Workers send/request data via IPC.
@@ -1696,13 +1696,13 @@ Creating a queue from within the worker process will cause the queue to run in
 local mode (C). The data resides under the worker process and not available to
 other workers including the manager process.
 
-=item B) MCE::Queue is included prior to inclusion of MCE
+=item (B) MCE::Queue is included prior to inclusion of MCE
 
 Queues behave as if running in local mode for the manager and worker processes
 for the duration of the script. I cannot think of a use-case for this, but
 mentioning the behavior in the event MCE::Queue is included before MCE.
 
-=item C) MCE::Queue without inclusion of MCE
+=item (C) MCE::Queue without inclusion of MCE
 
 The dequeue method is non-blocking. Queues behave similarly to local queuing.
 This mode is efficient due to minimum overhead and zero IPC behind the scene.

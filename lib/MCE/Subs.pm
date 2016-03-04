@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_011';
+our $VERSION = '1.699_012';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -206,7 +206,7 @@ MCE::Subs - Exports functions mapped directly to MCE methods
 
 =head1 VERSION
 
-This document describes MCE::Subs version 1.699_011
+This document describes MCE::Subs version 1.699_012
 
 =head1 SYNOPSIS
 
@@ -279,39 +279,39 @@ MCE methods are described in L<MCE::Core>.
 
 =over 3
 
-=item mce_abort
+=item * mce_abort
 
-=item mce_forchunk
+=item * mce_forchunk
 
-=item mce_foreach
+=item * mce_foreach
 
-=item mce_forseq
+=item * mce_forseq
 
-=item mce_freeze
+=item * mce_freeze
 
-=item mce_process
+=item * mce_process
 
-=item mce_relay_final
+=item * mce_relay_final
 
-=item mce_restart_worker
+=item * mce_restart_worker
 
-=item mce_run
+=item * mce_run
 
-=item mce_print
+=item * mce_print
 
-=item mce_printf
+=item * mce_printf
 
-=item mce_say
+=item * mce_say
 
-=item mce_send
+=item * mce_send
 
-=item mce_shutdown
+=item * mce_shutdown
 
-=item mce_spawn
+=item * mce_spawn
 
-=item mce_status
+=item * mce_status
 
-=item mce_thaw
+=item * mce_thaw
 
 =back
 
@@ -321,37 +321,37 @@ MCE methods are described in L<MCE::Core>.
 
 =over 3
 
-=item mce_abort
+=item * mce_abort
 
-=item mce_do
+=item * mce_do
 
-=item mce_exit
+=item * mce_exit
 
-=item mce_freeze
+=item * mce_freeze
 
-=item mce_gather
+=item * mce_gather
 
-=item mce_last
+=item * mce_last
 
-=item mce_next
+=item * mce_next
 
-=item mce_print
+=item * mce_print
 
-=item mce_printf
+=item * mce_printf
 
-=item mce_relay
+=item * mce_relay
 
-=item mce_relay_recv
+=item * mce_relay_recv
 
-=item mce_say
+=item * mce_say
 
-=item mce_sendto
+=item * mce_sendto
 
-=item mce_sync
+=item * mce_sync
 
-=item mce_thaw
+=item * mce_thaw
 
-=item mce_yield
+=item * mce_yield
 
 =back
 
@@ -361,29 +361,29 @@ MCE methods are described in L<MCE::Core>.
 
 =over 3
 
-=item mce_chunk_id
+=item * mce_chunk_id
 
-=item mce_chunk_size
+=item * mce_chunk_size
 
-=item mce_max_retries
+=item * mce_max_retries
 
-=item mce_max_workers
+=item * mce_max_workers
 
-=item mce_pid
+=item * mce_pid
 
-=item mce_sess_dir
+=item * mce_sess_dir
 
-=item mce_task_id
+=item * mce_task_id
 
-=item mce_task_name
+=item * mce_task_name
 
-=item mce_task_wid
+=item * mce_task_wid
 
-=item mce_tmp_dir
+=item * mce_tmp_dir
 
-=item mce_user_args
+=item * mce_user_args
 
-=item mce_wid
+=item * mce_wid
 
 =back
 

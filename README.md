@@ -46,14 +46,14 @@ This is a simplistic use case of MCE running with 5 workers.
  };
 ```
 
-Parsing a huge log file.
+The following is a demonstration for parsing a huge log file in parallel.
 
 ```perl
  use MCE::Loop;
 
  MCE::Loop::init { max_workers => 8, use_slurpio => 1 };
 
- my $pattern  = 'karl';
+ my $pattern  = 'something';
  my $hugefile = 'very_huge.file';
 
  my @result = mce_loop_f {
@@ -90,8 +90,7 @@ Parsing a huge log file.
  print join('', @result);
 ```
 
-Looping through a sequence of numbers with MCE::Flow. MCE workers persist
-between chunks.
+The next demonstration loops through a sequence of numbers with MCE::Flow.
 
 ```perl
  use MCE::Flow;
@@ -127,9 +126,9 @@ between chunks.
  printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
 ```
 
-Running asynchronously in the background for threads-like behavior is
-possible with MCE::Hobo. Unlike threads, Hobo workers are spawned as
-processes having unique PIDs.
+Running asynchronously in the background is possible with MCE::Hobo,
+for threads-like behavior. Unlike threads, Hobo workers are spawned
+as processes having unique PIDs.
 
 ```perl
  use MCE::Hobo;
@@ -163,45 +162,6 @@ processes having unique PIDs.
  # ... do other stuff ...
 
  $_->join() for MCE::Hobo->list();
-
- printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
-```
-
-Running threads with MCE::Shared is also a possibility. This requires 3 line
-changes from the previous demonstration.
-
-```perl
- use threads;                                               # 1
- use MCE::Shared;
-
- my $N   = shift || 4_000_000;
- my $pi  = MCE::Shared->scalar( 0.0 );
-
- my $seq = MCE::Shared->sequence(
-    { chunk_size => 200_000, bounds_only => 1 },
-    0, $N - 1
- );
-
- sub compute_pi {
-    my ( $wid ) = @_;
-
-    while ( my ( $beg, $end ) = $seq->next ) {
-       my ( $_pi, $t ) = ( 0.0 );
-       for my $i ( $beg .. $end ) {
-          $t = ( $i + 0.5 ) / $N;
-          $_pi += 4.0 / ( 1.0 + $t * $t );
-       }
-       $pi->incrby( $_pi );
-    }
-
-    return;
- }
-
- threads->create( \&compute_pi, $_ ) for ( 1 .. 8 );        # 2
-
- # ... do other stuff ...
-
- $_->join() for threads->list();                            # 3
 
  printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
 ```
@@ -255,7 +215,7 @@ and [MCE Cookbook](https://github.com/marioroy/mce-cookbook) for recipes.
 
 ### Copyright and Licensing
 
-Copyright (C) 2012-2015 by Mario E. Roy <marioeroy AT gmail DOT com>
+Copyright (C) 2012-2016 by Mario E. Roy <marioeroy AT gmail DOT com>
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself:
