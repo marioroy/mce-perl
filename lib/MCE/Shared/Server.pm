@@ -12,7 +12,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric once );
 
-our $VERSION = '1.699_012';
+our $VERSION = '1.699_013';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -1636,13 +1636,12 @@ sub _req4 {
 # Called by FETCHSIZE, SCALAR, and pending.
 
 sub _req5 {
-   my ( $_fn, $_id ) = ( shift, shift()->[0] );
    local $\ = undef if (defined $\);
    local $/ = $LF if (!$/ || $/ ne $LF);
 
    $_dat_ex->();
    print {$_DAT_W_SOCK} 'M~SZE'.$LF . $_chn.$LF;
-   print {$_DAU_W_SOCK} $_id.$LF . $_fn.$LF;
+   print {$_DAU_W_SOCK} $_[1]->[0].$LF . $_[0].$LF;
 
    chomp(my $_ret = <$_DAU_W_SOCK>);
    $_dat_un->();
@@ -1653,13 +1652,12 @@ sub _req5 {
 # Called by FETCH and get.
 
 sub _req6 {
-   my ( $_fn, $_id ) = ( shift, shift()->[0] );
    local $\ = undef if (defined $\);
    local $/ = $LF if (!$/ || $/ ne $LF);
 
    $_dat_ex->();
    print {$_DAT_W_SOCK} 'O~FCH'.$LF . $_chn.$LF;
-   print {$_DAU_W_SOCK} $_id.$LF . $_fn.$LF . length($_[0]).$LF, $_[0];
+   print {$_DAU_W_SOCK} $_[1]->[0].$LF . $_[0].$LF . length($_[2]).$LF, $_[2];
 
    chomp(my $_len = <$_DAU_W_SOCK>);
 
@@ -1781,7 +1779,7 @@ sub export {
 # iterator ( ":lists", "query string" )
 # iterator ( ":lists" )
 #
-# iterator ( index, [, index, ... ] )          # Array/(Ord)Hash
+# iterator ( index, [, index, ... ] )          # Array/Hash/Ordhash
 # iterator ( key, [, key, ... ] )
 # iterator ( "query string" )
 # iterator ( )
@@ -1915,8 +1913,7 @@ sub next {
 # lock ( )
 
 sub lock {
-   my $_id = $_[0]->[0];
-   return unless ( my $_CV = $_obj{ $_id } );
+   return unless ( my $_CV = $_obj{ $_[0]->[0] } );
    return unless ( exists $_CV->{_cr_sock} );
 
    $_CV->{_mutex}->lock;
@@ -1925,8 +1922,7 @@ sub lock {
 # unlock ( )
 
 sub unlock {
-   my $_id = $_[0]->[0];
-   return unless ( my $_CV = $_obj{ $_id } );
+   return unless ( my $_CV = $_obj{ $_[0]->[0] } );
    return unless ( exists $_CV->{_cr_sock} );
 
    $_CV->{_mutex}->unlock;
@@ -1942,8 +1938,10 @@ sub broadcast {
 
    sleep($_[1]) if defined $_[1];
 
+   $_CV->{_mutex}->unlock();
    _req1('O~CVB', $_id.$LF);
-   $_CV->{_mutex}->unlock;
+
+   sleep(0);
 }
 
 # signal ( floating_seconds )
@@ -1956,8 +1954,10 @@ sub signal {
 
    sleep($_[1]) if defined $_[1];
 
+   $_CV->{_mutex}->unlock();
    _req1('O~CVS', $_id.$LF);
-   $_CV->{_mutex}->unlock;
+
+   sleep(0);
 }
 
 # timedwait ( floating_seconds )
@@ -1973,8 +1973,8 @@ sub timedwait {
    _croak('Condvar: timedwait (timeout) is not an integer')
       if (!looks_like_number($_timeout) || int($_timeout) != $_timeout);
 
+   $_CV->{_mutex}->unlock();
    _req2('O~CVW', $_id.$LF, '');
-   $_CV->{_mutex}->unlock;
 
    local $@; eval {
       local $SIG{ALRM} = sub { die "alarm clock restart\n" };
@@ -2007,8 +2007,8 @@ sub wait {
    return unless ( my $_CV = $_obj{ $_id } );
    return unless ( exists $_CV->{_cr_sock} );
 
+   $_CV->{_mutex}->unlock();
    _req2('O~CVW', $_id.$LF, '');
-   $_CV->{_mutex}->unlock;
 
    $_ready->($_CV->{_cr_sock}) if $_is_MSWin32;
    1 until sysread $_CV->{_cr_sock}, my($_next), 1;  # block
@@ -2330,7 +2330,7 @@ MCE::Shared::Server - Server/Object packages for MCE::Shared
 
 =head1 VERSION
 
-This document describes MCE::Shared::Server version 1.699_012
+This document describes MCE::Shared::Server version 1.699_013
 
 =head1 DESCRIPTION
 

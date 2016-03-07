@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_012';
+our $VERSION = '1.699_013';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -260,8 +260,7 @@ sub _sock_ready {
       !defined $_[1] && !$INC{'MCE/Hobo.pm'} && defined $MCE::VERSION
    );
 
-   my ($_socket, $_timeout) = @_;
-   my $_val_bytes = "\x00\x00\x00\x00";
+   my ($_val_bytes, $_socket, $_timeout) = ("\x00\x00\x00\x00", @_);
    my $_ptr_bytes = unpack('I', pack('P', $_val_bytes));
 
    if ($_timeout) {
@@ -271,15 +270,15 @@ sub _sock_ready {
        # return '' if unpack('I', $_val_bytes);     # unpack isn't needed here
          return '' if $_val_bytes ne $_zero_bytes;  # this completes 2x faster
          return 1  if time() > $_timeout;
-         sleep 0.080;
+         sleep 0.045;
       }
    }
    else {
+      my $_count = 0;
       while (1) {
          ioctl($_socket, 0x4004667f, $_ptr_bytes);  # Ditto
-       # return if unpack('I', $_val_bytes);
          return if $_val_bytes ne $_zero_bytes;
-         sleep 0.008;
+         $_count = 0, sleep 0.008 if ++$_count > 1618;
       }
    }
 }
@@ -428,7 +427,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.699_012
+This document describes MCE::Util version 1.699_013
 
 =head1 SYNOPSIS
 

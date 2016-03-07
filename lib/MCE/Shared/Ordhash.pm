@@ -3,7 +3,7 @@
 ## Ordered-hash helper class.
 ##
 ## An optimized, pure-Perl ordered hash implementation featuring tombstone
-## deletion, inspired by the Hash::Ordered v0.009 module.
+## deletion, inspired by Hash::Ordered v0.009.
 ##
 ## 1. Added splice, sorting, plus extra capabilities for use with MCE::Shared.
 ##
@@ -14,9 +14,6 @@
 ##
 ## 3. Provides support for hash-like dereferencing.
 ##
-## Results obtained from this module are stored online:
-## https://gist.github.com/marioroy/b9b8e1924f392a2e3dbd
-##
 ###############################################################################
 
 package MCE::Shared::Ordhash;
@@ -26,7 +23,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_012';
+our $VERSION = '1.699_013';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -808,7 +805,7 @@ MCE::Shared::Ordhash - An ordered hash class featuring tombstone deletion
 
 =head1 VERSION
 
-This document describes MCE::Shared::Ordhash version 1.699_012
+This document describes MCE::Shared::Ordhash version 1.699_013
 
 =head1 SYNOPSIS
 
@@ -981,8 +978,8 @@ C<undef> value.
 Deletes and returns the value by given key or C<undef> if the key does not
 exists in the hash.
 
-   $val = $oh->delete( "some key" );
-   $val = delete $oh->{ "some key" };
+   $val = $oh->delete( "some_key" );
+   $val = delete $oh->{ "some_key" };
 
 =item del
 
@@ -992,8 +989,8 @@ C<del> is an alias for C<delete>.
 
 Determines if a key exists in the hash.
 
-   if ( $oh->exists( "some key" ) ) { ... }
-   if ( exists $oh->{ "some key" } ) { ... }
+   if ( $oh->exists( "some_key" ) ) { ... }
+   if ( exists $oh->{ "some_key" } ) { ... }
 
 =item flush ( key [, key, ... ] )
 
@@ -1003,8 +1000,8 @@ Same as C<clone>. Though, clears all existing items before returning.
 
 Gets the value of a hash key or C<undef> if the key does not exists.
 
-   $val = $oh->get( "some key" );
-   $val = $oh->{ "some key" };
+   $val = $oh->get( "some_key" );
+   $val = $oh->{ "some_key" };
 
 =item iterator ( key [, key, ... ] )
 
@@ -1030,8 +1027,8 @@ Returns a code reference for iterating a list of key-value pairs that match
 the given criteria. It returns an empty list if the search found nothing.
 The syntax for the C<query string> is described above.
 
-   $iter = $oh->iterator( "val eq some value" );
-   $iter = $oh->iterator( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   $iter = $oh->iterator( "val eq some_value" );
+   $iter = $oh->iterator( "key eq some_key :AND val =~ /sun|moon|air|wind/" );
    $iter = $oh->iterator( "val eq sun :OR val eq moon :OR val eq foo" );
    $iter = $oh->iterator( "key =~ /$pattern/" );
 
@@ -1055,8 +1052,8 @@ Returns only keys that match the given criteria. It returns an empty list
 if the search found nothing. The syntax for the C<query string> is described
 above. In scalar context, returns the size of the resulting list.
 
-   @keys = $oh->keys( "val eq some value" );
-   @keys = $oh->keys( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   @keys = $oh->keys( "val eq some_value" );
+   @keys = $oh->keys( "key eq some_key :AND val =~ /sun|moon|air|wind/" );
    @keys = $oh->keys( "val eq sun :OR val eq moon :OR val eq foo" );
    $len  = $oh->keys( "key =~ /$pattern/" );
 
@@ -1119,8 +1116,8 @@ Returns only key-value pairs that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 
-   @pairs = $oh->pairs( "val eq some value" );
-   @pairs = $oh->pairs( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   @pairs = $oh->pairs( "val eq some_value" );
+   @pairs = $oh->pairs( "key eq some_key :AND val =~ /sun|moon|air|wind/" );
    @pairs = $oh->pairs( "val eq sun :OR val eq moon :OR val eq foo" );
    $len   = $oh->pairs( "key =~ /$pattern/" );
 
@@ -1226,8 +1223,8 @@ Returns only values that match the given criteria. It returns an empty list
 if the search found nothing. The syntax for the C<query string> is described
 above. In scalar context, returns the size of the resulting list.
 
-   @vals = $oh->values( "val eq some value" );
-   @vals = $oh->values( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   @vals = $oh->values( "val eq some_value" );
+   @vals = $oh->values( "key eq some_key :AND val =~ /sun|moon|air|wind/" );
    @vals = $oh->values( "val eq sun :OR val eq moon :OR val eq foo" );
    $len  = $oh->values( "key =~ /$pattern/" );
 
@@ -1378,10 +1375,6 @@ comparison.
 
    my $oh = tie my %hash, 'Tie::LLHash';
       $oh->last($_,$_);  keys %hash; $oh->DELETE($_);
-
-More results are stored online.
-
-L<https://gist.github.com/marioroy/b9b8e1924f392a2e3dbd>
 
 =head1 SEE ALSO
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_012';
+our $VERSION = '1.699_013';
 
 use MCE::Shared::Base;
 use MCE::Shared::Ordhash;
@@ -1146,7 +1146,7 @@ MCE::Shared::Minidb - A pure-Perl in-memory data store
 
 =head1 VERSION
 
-This document describes MCE::Shared::Minidb version 1.699_012
+This document describes MCE::Shared::Minidb version 1.699_013
 
 =head1 SYNOPSIS
 
@@ -1266,10 +1266,17 @@ Subsequently, the C<undef> value is returned for deleted keys.
 
 The syntax for the C<query string> is described above.
 
-   $iter = $db->( ":hashes", "key =~ user" );
-   $iter = $db->( ":hashes", "some_field eq some value" );
-   $iter = $db->( ":hashes", "key1", "key2", "key3" );
-   $iter = $db->( ":hashes" );
+   $iter = $db->iterator( ":hashes", "some_key", "key eq some_value" );
+   $iter = $db->iterator( ":hashes", "some_key", "val eq some_value" );
+
+   while ( my ( $key, $val ) = $iter->() ) {
+      ...
+   }
+
+   $iter = $db->iterator( ":hashes", "key1", "key2", "key3" );
+   $iter = $db->iterator( ":hashes", "some_field eq some_value" );
+   $iter = $db->iterator( ":hashes", "key =~ user" );
+   $iter = $db->iterator( ":hashes" );
 
    while ( my ( $key, $href ) = $iter->() ) {
       ...
@@ -1288,10 +1295,17 @@ Subsequently, the C<undef> value is returned for deleted keys.
 
 The syntax for the C<query string> is described above.
 
-   $iter = $db->( ":lists", "key =~ user" );
-   $iter = $db->( ":lists", "some_index eq some value" );
-   $iter = $db->( ":lists", "key1", "key2", "key3" );
-   $iter = $db->( ":lists" );
+   $iter = $db->iterator( ":lists", "some_key", "key eq some_value" );
+   $iter = $db->iterator( ":lists", "some_key", "val eq some_value" );
+
+   while ( my ( $key, $val ) = $iter->() ) {
+      ...
+   }
+
+   $iter = $db->iterator( ":lists", "key1", "key2", "key3" );
+   $iter = $db->iterator( ":lists", "some_index eq some_value" );
+   $iter = $db->iterator( ":lists", "key =~ user" );
+   $iter = $db->iterator( ":lists" );
 
    while ( my ( $key, $aref ) = $iter->() ) {
       ...
@@ -1397,7 +1411,7 @@ Removes all key-value pairs from the first level hash (H)oH when no arguments
 are given. Otherwise, removes all field-value pairs stored at key.
 
    $db->hclear;
-   $db->hclear( "some key" );
+   $db->hclear( "some_key" );
 
 =item hdel ( key, field [, field, ... ] )
 
@@ -1406,29 +1420,29 @@ if a single field is given. Otherwise, it returns the number of fields actually
 removed from the hash stored at key. A field which does not exist in the hash
 is not counted.
 
-   $val = $db->hdel( "some key", "some field" );
-   $cnt = $db->hdel( "some key", "field1", "field2" );
+   $val = $db->hdel( "some_key", "some_field" );
+   $cnt = $db->hdel( "some_key", "field1", "field2" );
 
 =item hdel ( key )
 
 Deletes and returns the C<MCE::Shared::Hash> object stored at key or C<undef>
 if the key does not exists in the first level hash (H)oH.
 
-   $ha_obj = $db->hdel( "some key" );
+   $ha_obj = $db->hdel( "some_key" );
 
 =item hexists ( key, field [, field, ... ] )
 
 Determines if a hash field exists. For multiple fields, a truth value is
 returned only if all given fields exist in the hash stored at key.
 
-   if ( $db->hexists( "some key", "some field" ) ) { ... }
-   if ( $db->hexists( "some key", "f1", "f5" ) ) { ... }
+   if ( $db->hexists( "some_key", "some_field" ) ) { ... }
+   if ( $db->hexists( "some_key", "f1", "f5" ) ) { ... }
 
 =item hexists ( key )
 
 Determines if a key exists in the first level hash (H)oH.
 
-   if ( $db->hexists( "some key" ) ) { ... }
+   if ( $db->hexists( "some_key" ) ) { ... }
 
 =item hget ( key, field [, field, ... ] )
 
@@ -1436,16 +1450,16 @@ Gets the values of all given hash fields. The C<undef> value is retuned for
 fields which do not exists in the hash stored at key. Likewise, the C<undef>
 value is returned if the key does not exists in the first level hash (H)oH.
 
-   $val = $db->hget( "some key", "field" );
+   $val = $db->hget( "some_key", "field" );
 
-   ( $val1, $val2 ) = $db->hget( "some key", "field1", "field2" );
+   ( $val1, $val2 ) = $db->hget( "some_key", "field1", "field2" );
 
 =item hget ( key )
 
 Gets the C<MCE::Shared::Hash> object for the hash stored at key or C<undef> if
 the key does not exists in the first level hash (H)oH.
 
-   $ha_obj = $db->hget( "some key" );
+   $ha_obj = $db->hget( "some_key" );
 
 =item hkeys ( key, [ field [, field, ... ] ] )
 
@@ -1455,9 +1469,9 @@ not exist will have the C<undef> value. In scalar context, returns the size of
 the object, either the hash store at key or the first level hash.
 
    @keys   = $db->hkeys;
-   @fields = $db->hkeys( "some key" );
-   @fields = $db->hkeys( "some key", "field1", "field2" );
-   $len    = $db->hkeys( "some key" );
+   @fields = $db->hkeys( "some_key" );
+   @fields = $db->hkeys( "some_key", "field1", "field2" );
+   $len    = $db->hkeys( "some_key" );
    $len    = $db->hkeys;
 
 =item hkeys ( key, "query string" )
@@ -1466,10 +1480,10 @@ Returns only fields stored at key that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 
-   @keys = $db->hkeys( "some key", "val eq some value" );
-   @keys = $db->hkeys( "some key", "key eq some key :AND val =~ /sun|moon/" );
-   @keys = $db->hkeys( "some key", "val eq sun :OR val eq moon );
-   $len  = $db->hkeys( "some key", "key =~ /$pattern/" );
+   @keys = $db->hkeys( "some_key", "val eq some_value" );
+   @keys = $db->hkeys( "some_key", "key eq some_key :AND val =~ /sun|moon/" );
+   @keys = $db->hkeys( "some_key", "val eq sun :OR val eq moon );
+   $len  = $db->hkeys( "some_key", "key =~ /$pattern/" );
 
 =item hkeys ( "query string" )
 
@@ -1500,9 +1514,9 @@ context, returns the size of the object, either the hash store at key or the
 first level hash.
 
    @pairs = $db->hpairs;                 # ( key => href, ... )
-   @pairs = $db->hpairs( "some key" );   # ( field => value, ... )
-   @pairs = $db->hpairs( "some key", "field1", "field2" );
-   $len   = $db->hpairs( "some key" );
+   @pairs = $db->hpairs( "some_key" );   # ( field => value, ... )
+   @pairs = $db->hpairs( "some_key", "field1", "field2" );
+   $len   = $db->hpairs( "some_key" );
    $len   = $db->hpairs;
 
 =item hpairs ( key, "query string" )
@@ -1512,10 +1526,10 @@ It returns an empty list if the search found nothing. The syntax for the
 C<query string> is described above. In scalar context, returns the size of
 the resulting list.
 
-   @pairs = $db->hpairs( "some key", "val eq some value" );
-   @pairs = $db->hpairs( "some key", "key eq some key :AND val =~ /sun|moon/" );
-   @pairs = $db->hpairs( "some key", "val eq sun :OR val eq moon" );
-   $len   = $db->hpairs( "some key", "key =~ /$pattern/" );
+   @pairs = $db->hpairs( "some_key", "val eq some_value" );
+   @pairs = $db->hpairs( "some_key", "key eq some_key :AND val =~ /sun|moon/" );
+   @pairs = $db->hpairs( "some_key", "val eq sun :OR val eq moon" );
+   $len   = $db->hpairs( "some_key", "key =~ /$pattern/" );
 
 =item hpairs ( "query string" )
 
@@ -1532,8 +1546,8 @@ Sets the value of a hash field and returns its new value. Multiple field_value
 pairs may be set at once. In that case, the number of fields stored at key is
 returned.
 
-   $val = $db->hset( "some key", "field", "value" );
-   $len = $db->hset( "some key", "f1" => "val1", "f2" => "val2" );
+   $val = $db->hset( "some_key", "field", "value" );
+   $len = $db->hset( "some_key", "f1" => "val1", "f2" => "val2" );
 
 =item hshift
 
@@ -1585,9 +1599,9 @@ that do not exist will have the C<undef> value. In scalar context, returns the
 size of the object, either the hash store at key or the first level hash.
 
    @hrefs = $db->hvals;
-   @vals  = $db->hvals( "some key" );
-   @vals  = $db->hvals( "some key", "field1", "field2" );
-   $len   = $db->hvals( "some key" );
+   @vals  = $db->hvals( "some_key" );
+   @vals  = $db->hvals( "some_key", "field1", "field2" );
+   $len   = $db->hvals( "some_key" );
    $len   = $db->hvals;
 
 =item hvals ( key, "query string" )
@@ -1596,10 +1610,10 @@ Returns only values stored at key that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 
-   @vals = $db->hvals( "some key", "val eq some value" );
-   @vals = $db->hvals( "some key", "key eq some key :AND val =~ /sun|moon/" );
-   @vals = $db->hvals( "some key", "val eq sun :OR val eq moon" );
-   $len  = $db->hvals( "some key", "key =~ /$pattern/" );
+   @vals = $db->hvals( "some_key", "val eq some_value" );
+   @vals = $db->hvals( "some_key", "key eq some_key :AND val =~ /sun|moon/" );
+   @vals = $db->hvals( "some_key", "val eq sun :OR val eq moon" );
+   $len  = $db->hvals( "some_key", "key =~ /$pattern/" );
 
 =item hvals ( "query string" )
 
@@ -1676,7 +1690,7 @@ Removes all key-value pairs from the first level hash (H)oA when no arguments
 are given. Otherwise, removes all elements from the list stored at key.
 
    $db->lclear;
-   $db->lclear( "some key" );
+   $db->lclear( "some_key" );
 
 =item ldel ( key, index [, index, ... ] )
 
@@ -1685,15 +1699,15 @@ with the index if a single index is given. Otherwise, it returns the number of
 elements actually removed from the list stored at key. An index which does not
 exists in the list is not counted.
 
-   $val = $db->ldel( "some key", 20 );
-   $cnt = $db->ldel( "some key", 0, 1 );
+   $val = $db->ldel( "some_key", 20 );
+   $cnt = $db->ldel( "some_key", 0, 1 );
 
 =item ldel ( key )
 
 Deletes and returns the C<MCE::Shared::Array> object stored at key or C<undef>
 if the key does not exists in the first level hash (H)oA.
 
-   $ar_obj = $db->ldel( "some key" );
+   $ar_obj = $db->ldel( "some_key" );
 
 =item lexists ( key, index [, index, ... ] )
 
@@ -1701,24 +1715,24 @@ Determines if elements by their indices exist in the list. For multiple indices,
 a truth value is returned only if all given indices exist in the list stored at
 key. The behavior is strongly tied to the use of delete on lists.
 
-   $db->lset( "some key", 0, "value0" );
-   $db->lset( "some key", 1, "value1" );
-   $db->lset( "some key", 2, "value2" );
-   $db->lset( "some key", 3, "value3" );
+   $db->lset( "some_key", 0, "value0" );
+   $db->lset( "some_key", 1, "value1" );
+   $db->lset( "some_key", 2, "value2" );
+   $db->lset( "some_key", 3, "value3" );
 
-   $db->lexists( "some key", 2 );     # True
-   $db->lexists( "some key", 2, 3 );  # True
-   $db->ldel   ( "some key", 2 );     # value2
+   $db->lexists( "some_key", 2 );     # True
+   $db->lexists( "some_key", 2, 3 );  # True
+   $db->ldel   ( "some_key", 2 );     # value2
 
-   $db->lexists( "some key", 2 );     # False
-   $db->lexists( "some key", 2, 3 );  # False
-   $db->lexists( "some key", 3 );     # True
+   $db->lexists( "some_key", 2 );     # False
+   $db->lexists( "some_key", 2, 3 );  # False
+   $db->lexists( "some_key", 3 );     # True
 
 =item lexists ( key )
 
 Determines if a key exists in the first level hash (H)oA.
 
-   if ( $db->lexists( "some key" ) ) { ... }
+   if ( $db->lexists( "some_key" ) ) { ... }
 
 =item lget ( key, index [, index, ... ] )
 
@@ -1726,16 +1740,16 @@ Gets the values of all given list indices. The C<undef> value is retuned for
 indices which do not exists in the list stored at key. Likewise, the C<undef>
 value is returned if the key does not exists in the first level hash (H)oA.
 
-   $val = $db->lget( "some key", 20 );
+   $val = $db->lget( "some_key", 20 );
 
-   ( $val1, $val2 ) = $db->lget( "some key", 0, 1 );
+   ( $val1, $val2 ) = $db->lget( "some_key", 0, 1 );
 
 =item lget ( key )
 
 Gets the C<MCE::Shared::Array> object for the list stored at key or C<undef> if
 the key does not exists in the first level hash (H)oA.
 
-   $ar_obj = $db->lget( "some key" );
+   $ar_obj = $db->lget( "some_key" );
 
 =item lkeys ( key, [ index [, index, ... ] ] )
 
@@ -1745,9 +1759,9 @@ not exist will have the C<undef> value. In scalar context, returns the size of
 the object, either the list store at key or the first level hash.
 
    @keys    = $db->lkeys;
-   @indices = $db->lkeys( "some key" );
-   @indices = $db->lkeys( "some key", 0, 1 );
-   $len     = $db->lkeys( "some key" );
+   @indices = $db->lkeys( "some_key" );
+   @indices = $db->lkeys( "some_key", 0, 1 );
+   $len     = $db->lkeys( "some_key" );
    $len     = $db->lkeys;
 
 =item lkeys ( key, "query string" )
@@ -1756,10 +1770,10 @@ Returns only indices stored at key that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 
-   @keys = $db->lkeys( "some key", "val eq some value" );
-   @keys = $db->lkeys( "some key", "key >= 50 :AND val =~ /sun|moon/" );
-   @keys = $db->lkeys( "some key", "val eq sun :OR val eq moon" );
-   $len  = $db->lkeys( "some key", "key =~ /$pattern/" );
+   @keys = $db->lkeys( "some_key", "val eq some_value" );
+   @keys = $db->lkeys( "some_key", "key >= 50 :AND val =~ /sun|moon/" );
+   @keys = $db->lkeys( "some_key", "val eq sun :OR val eq moon" );
+   $len  = $db->lkeys( "some_key", "key =~ /$pattern/" );
 
 =item lkeys ( "query string" )
 
@@ -1790,9 +1804,9 @@ In scalar context, returns the size of the object, either the list store at key
 or the first level hash.
 
    @pairs = $db->lpairs;                 # ( key => aref, ... )
-   @pairs = $db->lpairs( "some key" );   # ( index => value, ... )
-   @pairs = $db->lpairs( "some key", 0, 1 );
-   $len   = $db->lpairs( "some key" );
+   @pairs = $db->lpairs( "some_key" );   # ( index => value, ... )
+   @pairs = $db->lpairs( "some_key", 0, 1 );
+   $len   = $db->lpairs( "some_key" );
    $len   = $db->lpairs;
 
 =item lpairs ( key, "query string" )
@@ -1802,10 +1816,10 @@ It returns an empty list if the search found nothing. The syntax for the
 C<query string> is described above. In scalar context, returns the size of
 the resulting list.
 
-   @pairs = $db->lpairs( "some key", "val eq some value" );
-   @pairs = $db->lpairs( "some key", "key >= 50 :AND val =~ /sun|moon/" );
-   @pairs = $db->lpairs( "some key", "val eq sun :OR val eq moon" );
-   $len   = $db->lpairs( "some key", "key =~ /$pattern/" );
+   @pairs = $db->lpairs( "some_key", "val eq some_value" );
+   @pairs = $db->lpairs( "some_key", "key >= 50 :AND val =~ /sun|moon/" );
+   @pairs = $db->lpairs( "some_key", "val eq sun :OR val eq moon" );
+   $len   = $db->lpairs( "some_key", "key =~ /$pattern/" );
 
 =item lpairs ( "query string" )
 
@@ -1828,7 +1842,7 @@ no elements in the list, returns the undefined value.
 Prepends one or multiple values to the head of the list stored at key and
 returns the new length.
 
-   $len = $db->lpush( "some key", "val1", "val2" );
+   $len = $db->lpush( "some_key", "val1", "val2" );
 
 =item lrange ( key, start, stop )
 
@@ -1840,8 +1854,8 @@ An empty list is returned if C<start> is larger than the end of the list.
 C<stop> is set to the last index of the list if larger than the actual end
 of the list.
 
-   @list = $db->lrange( "some key", 20, 29 );
-   @list = $db->lrange( "some key", -4, -1 );
+   @list = $db->lrange( "some_key", 20, 29 );
+   @list = $db->lrange( "some_key", -4, -1 );
 
 =item lset ( key, index, value [, index, value, ... ] )
 
@@ -1849,8 +1863,8 @@ Sets the value of an element in a list by its index and returns its new value.
 Multiple index_value pairs may be set all at once. In that case, the length of
 the list is returned.
 
-   $val = $db->lset( "some key", 2, "value" );
-   $len = $db->lset( "some key", 0 => "val1", 1 => "val2" );
+   $val = $db->lset( "some_key", 2, "value" );
+   $len = $db->lset( "some_key", 0 => "val1", 1 => "val2" );
 
 =item lshift
 
@@ -1911,9 +1925,9 @@ Removes the elements designated by C<offset> and C<length> from the array
 stored at key, and replaces them with the elements of C<list>, if any.
 The behavior is similar to the Perl C<splice> function.
 
-   @items = $db->lsplice( "some key", 20, 2, @list );
-   @items = $db->lsplice( "some key", 20, 2 );
-   @items = $db->lsplice( "some key", 20 );
+   @items = $db->lsplice( "some_key", 20, 2, @list );
+   @items = $db->lsplice( "some_key", 20, 2 );
+   @items = $db->lsplice( "some_key", 20 );
 
 =item lvals ( key, [ index [, index, ... ] ] )
 
@@ -1924,9 +1938,9 @@ returns the size of the object, either the list store at key or the first level
 hash.
 
    @arefs = $db->lvals;
-   @vals  = $db->lvals( "some key" );
-   @vals  = $db->lvals( "some key", 0, 1 );
-   $len   = $db->lvals( "some key" );
+   @vals  = $db->lvals( "some_key" );
+   @vals  = $db->lvals( "some_key", 0, 1 );
+   $len   = $db->lvals( "some_key" );
    $len   = $db->lvals;
 
 =item lvals ( key, "query string" )
@@ -1935,10 +1949,10 @@ Returns only values stored at key that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 
-   @keys = $db->lvals( "some key", "val eq some value" );
-   @keys = $db->lvals( "some key", "key >= 50 :AND val =~ /sun|moon/" );
-   @keys = $db->lvals( "some key", "val eq sun :OR val eq moon" );
-   $len  = $db->lvals( "some key", "key =~ /$pattern/" );
+   @keys = $db->lvals( "some_key", "val eq some_value" );
+   @keys = $db->lvals( "some_key", "key >= 50 :AND val =~ /sun|moon/" );
+   @keys = $db->lvals( "some_key", "val eq sun :OR val eq moon" );
+   $len  = $db->lvals( "some_key", "key =~ /$pattern/" );
 
 =item lvals ( "query string" )
 
@@ -1961,7 +1975,7 @@ no elements in the list, returns the undefined value.
 Appends one or multiple values to the tail of the list stored at key and
 returns the new length.
 
-   $len = $db->rpush( "some key", "val1", "val2" );
+   $len = $db->rpush( "some_key", "val1", "val2" );
 
 =back
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_012';
+our $VERSION = '1.699_013';
 
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
@@ -304,7 +304,7 @@ MCE::Shared::Hash - Hash helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Hash version 1.699_012
+This document describes MCE::Shared::Hash version 1.699_013
 
 =head1 SYNOPSIS
 
@@ -448,8 +448,8 @@ keys. Keys that do not exist in the hash will have the C<undef> value.
 Deletes and returns the value by given key or C<undef> if the key does not
 exists in the hash.
 
-   $val = $ha->delete( "some key" );
-   $val = delete $ha->{ "some key" };
+   $val = $ha->delete( "some_key" );
+   $val = delete $ha->{ "some_key" };
 
 =item del
 
@@ -459,8 +459,8 @@ C<del> is an alias for C<delete>.
 
 Determines if a key exists in the hash.
 
-   if ( $ha->exists( "some key" ) ) { ... }
-   if ( exists $ha->{ "some key" } ) { ... }
+   if ( $ha->exists( "some_key" ) ) { ... }
+   if ( exists $ha->{ "some_key" } ) { ... }
 
 =item flush ( key [, key, ... ] )
 
@@ -470,8 +470,8 @@ Same as C<clone>. Though, clears all existing items before returning.
 
 Gets the value of a hash key or C<undef> if the key does not exists.
 
-   $val = $ha->get( "some key" );
-   $val = $ha->{ "some key" };
+   $val = $ha->get( "some_key" );
+   $val = $ha->{ "some_key" };
 
 =item iterator ( key [, key, ... ] )
 
@@ -497,8 +497,8 @@ Returns a code reference for iterating a list of key-value pairs that match
 the given criteria. It returns an empty list if the search found nothing.
 The syntax for the C<query string> is described above.
 
-   $iter = $ha->iterator( "val eq some value" );
-   $iter = $ha->iterator( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   $iter = $ha->iterator( "val eq some_value" );
+   $iter = $ha->iterator( "key eq some_key :AND val =~ /sun|moon|air|wind/" );
    $iter = $ha->iterator( "val eq sun :OR val eq moon :OR val eq foo" );
    $iter = $ha->iterator( "key =~ /$pattern/" );
 
@@ -522,8 +522,8 @@ Returns only keys that match the given criteria. It returns an empty list
 if the search found nothing. The syntax for the C<query string> is described
 above. In scalar context, returns the size of the resulting list.
 
-   @keys = $ha->keys( "val eq some value" );
-   @keys = $ha->keys( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   @keys = $ha->keys( "val eq some_value" );
+   @keys = $ha->keys( "key eq some_key :AND val =~ /sun|moon|air|wind/" );
    @keys = $ha->keys( "val eq sun :OR val eq moon :OR val eq foo" );
    $len  = $ha->keys( "key =~ /$pattern/" );
 
@@ -586,8 +586,8 @@ Returns only key-value pairs that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 
-   @pairs = $ha->pairs( "val eq some value" );
-   @pairs = $ha->pairs( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   @pairs = $ha->pairs( "val eq some_value" );
+   @pairs = $ha->pairs( "key eq some_key :AND val =~ /sun|moon|air|wind/" );
    @pairs = $ha->pairs( "val eq sun :OR val eq moon :OR val eq foo" );
    $len   = $ha->pairs( "key =~ /$pattern/" );
 
@@ -614,8 +614,8 @@ Returns only values that match the given criteria. It returns an empty list
 if the search found nothing. The syntax for the C<query string> is described
 above. In scalar context, returns the size of the resulting list.
 
-   @vals = $ha->values( "val eq some value" );
-   @vals = $ha->values( "key eq some key :AND val =~ /sun|moon|air|wind/" );
+   @vals = $ha->values( "val eq some_value" );
+   @vals = $ha->values( "key eq some_key :AND val =~ /sun|moon|air|wind/" );
    @vals = $ha->values( "val eq sun :OR val eq moon :OR val eq foo" );
    $len  = $ha->values( "key =~ /$pattern/" );
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.699_012';
+our $VERSION = '1.699_013';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -312,7 +312,7 @@ MCE::Shared - MCE extension for sharing data between workers
 
 =head1 VERSION
 
-This document describes MCE::Shared version 1.699_012
+This document describes MCE::Shared version 1.699_013
 
 =head1 SYNOPSIS
 
@@ -814,79 +814,42 @@ This applies to shared array, hash, and ordhash.
      'The' => 'Bluebirds'
    }, 'MCE::Shared::Hash' );
 
-=item rewind ( begin, end, [ step, format ] )
-
-Resets the parallel iterator for C<MCE::Shared::Sequence>.
-
-=item rewind ( ":hashes", key, "query string" )
-
-=item rewind ( ":hashes", key [, key, ... ] )
-
-=item rewind ( ":hashes", "query string" )
-
-=item rewind ( ":hashes" )
-
-Resets the parallel iterator for C<MCE::Shared::Minidb> Hashes (HoH).
-
-=item rewind ( ":lists", key, "query string" )
-
-=item rewind ( ":lists", key [, key, ... ] )
-
-=item rewind ( ":lists", "query string" )
-
-=item rewind ( ":lists" )
-
-Resets the parallel iterator for C<MCE::Shared::Minidb> Lists (HoA).
-
-=item rewind ( index, [, index, ... ] )
-
-=item rewind ( key, [, key, ... ] )
-
-=item rewind ( "query string" )
-
-Resets the parallel iterator for C<Array, Hash, and Ordhash>.
-
-=item rewind
-
 =item next
 
-C<rewind> and C<next> enable parallel iteration between workers for shared
-array, hash, minidb, ordhash, and sequence. Calling C<rewind> without an
-argument rewinds the iterator.
+The C<next> method provides parallel iteration between workers for shared
+C<array>, C<hash>, C<minidb>, C<ordhash>, and C<sequence>. In list context,
+returns the next key-value pair. This applies to C<array>, C<hash>, C<minidb>,
+and C<ordhash>. In scalar context, returns the next item. The C<undef> value
+is returned after iteration has completed.
 
-The syntax for C<query string> is described in each respective class module.
-For sequence, the construction for C<rewind> is the same as C<new>.
+Internally, the list of keys to return is set when the closure is constructed.
+Later keys added to the shared array or hash are not included. Subsequently,
+the C<undef> value is returned for deleted keys.
 
-=over 3
-
-=item * L<MCE::Shared::Array>
-
-=item * L<MCE::Shared::Hash>
-
-=item * L<MCE::Shared::Ordhash>
-
-=item * L<MCE::Shared::Minidb>
-
-=item * L<MCE::Shared::Sequence>
-
-=back
-
-Below is a demonstration for iterating through a shared list between workers.
+The following example iterates through a shared array in parallel.
 
    use MCE::Hobo;
    use MCE::Shared;
 
    my $ob = MCE::Shared->array( 'a' .. 'j' );
 
-   sub parallel {
-      my ($id) = @_;
-      while (defined (my $item = $ob->next)) {
-         print "$id: $item\n";
+   sub demo1 {
+      my ( $id ) = @_;
+      while ( my ( $index, $value ) = $ob->next ) {
+         print "$id: [ $index ] $value\n";
          sleep 1;
       }
    }
 
-   MCE::Hobo->new( \&parallel, $_ ) for 1 .. 3;
+   sub demo2 {
+      my ( $id ) = @_;
+      while ( defined ( my $value = $ob->next ) ) {
+         print "$id: $value\n";
+         sleep 1;
+      }
+   }
+
+   MCE::Hobo->new( \&demo2, $_ ) for 1 .. 3;
 
    # ... do other work ...
 
@@ -905,66 +868,158 @@ Below is a demonstration for iterating through a shared list between workers.
    1: h
    2: j
 
-There are two forms for iterating through a shared hash or ordhash object.
-The C<next> method is C<wantarray> aware providing key and value in list
-context and value in scalar context.
+The form is similar for C<sequence>. For large sequences, the C<bounds_only>
+option is recommended. Also, specify C<chunk_size> accordingly. This reduces
+the amount of traffic to and from the shared-manager process.
 
    use MCE::Hobo;
    use MCE::Shared;
 
-   my $ob = MCE::Shared->ordhash(
-      map {( "key_$_" => "val_$_" )} "a" .. "j"
+   my $N   = shift || 4_000_000;
+   my $pi  = MCE::Shared->scalar( 0.0 );
+
+   my $seq = MCE::Shared->sequence(
+      { chunk_size => 200_000, bounds_only => 1 },
+      0, $N - 1
    );
 
-   sub iter1 {
-      my ($id) = @_;
-      while ( my ($key, $val) = $ob->next ) {
-         print "$id: $key => $val\n";
-         sleep 1;
+   sub compute_pi {
+      my ( $wid ) = @_;
+
+      while ( my ( $beg, $end ) = $seq->next ) {
+         my ( $_pi, $t ) = ( 0.0 );
+         for my $i ( $beg .. $end ) {
+            $t = ( $i + 0.5 ) / $N;
+            $_pi += 4.0 / ( 1.0 + $t * $t );
+         }
+         $pi->incrby( $_pi );
       }
+
+      return;
    }
 
-   sub iter2 {
-      my ($id) = @_;
-      while ( defined (my $val = $ob->next) ) {
-         print "$id: $val\n";
-         sleep 1;
-      }
-   }
+   MCE::Hobo->create( \&compute_pi, $_ ) for ( 1 .. 8 );
 
-   MCE::Hobo->new(\&iter1, $_) for 1 .. 3;
+   # ... do other stuff ...
+
    $_->join() for MCE::Hobo->list();
 
-   $ob->rewind();
-
-   MCE::Hobo->new(\&iter2, $_) for 1 .. 3;
-   $_->join() for MCE::Hobo->list();
-
-Although the shared-manager process iterates items orderly, some workers may
-require more time than others. Therefore, output order is not guaranteed.
+   printf "pi = %0.13f\n", $pi->get / $N;
 
    # Output
 
-   1: key_a => val_a
-   2: key_b => val_b
-   3: key_c => val_c
-   1: key_d => val_d
-   3: key_f => val_f
-   2: key_e => val_e
-   1: key_g => val_g
-   3: key_i => val_i
-   2: key_h => val_h
-   1: key_j => val_j
-   1: val_a
-   2: val_b
-   3: val_c
-   3: val_f
-   1: val_d
-   2: val_e
-   3: val_h
-   1: val_g
-   2: val_i
-   3: val_j
+   3.1415926535898
+
+=item rewind ( index, [, index, ... ] )
+
+=item rewind ( key, [, key, ... ] )
+
+=item rewind ( "query string" )
+
+Rewinds the parallel iterator for L<MCE::Shared::Array>, L<MCE::Shared::Hash>,
+or L<MCE::Shared::Ordhash> when no arguments are given. Otherwise, resets the
+iterator with given criteria. The syntax for C<query string> is described in
+the shared module.
+
+   # rewind
+   $ar->rewind;
+   $oh->rewind;
+
+   # array
+   $ar->rewind( 0, 1 );
+   $ar->rewind( "val eq some_value" );
+   $ar->rewind( "key >= 50 :AND val =~ /sun|moon|air|wind/" );
+   $ar->rewind( "val eq sun :OR val eq moon :OR val eq foo" );
+   $ar->rewind( "key =~ /$pattern/" );
+
+   while ( my ( $index, $value ) = $ar->next ) {
+      ...
+   }
+
+   # hash, ordhash
+   $oh->rewind( "key1", "key2" );
+   $oh->rewind( "val eq some_value" );
+   $oh->rewind( "key eq some_key :AND val =~ /sun|moon|air|wind/" );
+   $oh->rewind( "val eq sun :OR val eq moon :OR val eq foo" );
+   $oh->rewind( "key =~ /$pattern/" );
+
+   while ( my ( $key, $value ) = $oh->next ) {
+      ...
+   }
+
+=item rewind ( ":hashes", key, "query string" )
+
+=item rewind ( ":hashes", key [, key, ... ] )
+
+=item rewind ( ":hashes", "query string" )
+
+=item rewind ( ":hashes" )
+
+=item rewind ( ":lists", key, "query string" )
+
+=item rewind ( ":lists", key [, key, ... ] )
+
+=item rewind ( ":lists", "query string" )
+
+=item rewind ( ":lists" )
+
+Rewinds the parallel iterator for L<MCE::Shared::Minidb> when no arguments
+are given. Otherwise, resets the iterator with given criteria. The syntax
+for C<query string> is described in the shared module.
+
+The default parallel iterator for C<minidb> is C<":hashes">.
+
+   # rewind
+   $db->rewind;
+
+   # hash of hashes
+   $db->rewind( ":hashes", "some_key", "key eq some_value" );
+   $db->rewind( ":hashes", "some_key", "val eq some_value" );
+
+   while ( my ( $key, $value ) = $db->next ) {
+      ...
+   }
+
+   $db->rewind( ":hashes", "key1", "key2", "key3" );
+   $db->rewind( ":hashes", "some_field eq some_value" );
+   $db->rewind( ":hashes", "key =~ user" );
+   $db->rewind( ":hashes" );
+
+   while ( my ( $key, $href ) = $db->next ) {
+      ...
+   }
+
+   # hash of lists
+   $db->rewind( ":lists", "some_key", "key eq some_value" );
+   $db->rewind( ":lists", "some_key", "val eq some_value" );
+
+   while ( my ( $key, $value ) = $db->next ) {
+      ...
+   }
+
+   $db->rewind( ":lists", "key1", "key2", "key3" );
+   $db->rewind( ":lists", "some_index eq some_value" );
+   $db->rewind( ":lists", "key =~ user" );
+   $db->rewind( ":lists" );
+
+   while ( my ( $key, $aref ) = $db->next ) {
+      ...
+   }
+
+=item rewind ( { options }, begin, end [, step, format ] )
+
+=item rewind ( begin, end [, step, format ] )
+
+Rewinds the parallel iterator for L<MCE::Shared::Sequence> when no arguments
+are given. Otherwise, resets the iterator with given criteria.
+
+   $seq->rewind;
+   $seq->rewind( { chunk_size => 10, bounds_only => 1 }, 1, 100 );
+   $seq->rewind( 1, 100 );
+
+   while ( my ( $beg, $end ) = $seq->next ) {
+      ...
+   }
 
 =item store ( key, value )
 

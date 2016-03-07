@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_012';
+our $VERSION = '1.699_013';
 
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
@@ -388,7 +388,7 @@ MCE::Shared::Array - Array helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Array version 1.699_012
+This document describes MCE::Shared::Array version 1.699_013
 
 =head1 SYNOPSIS
 
@@ -605,7 +605,7 @@ Returns a code reference for iterating a list of index-value pairs that match
 the given criteria. It returns an empty list if the search found nothing.
 The syntax for the C<query string> is described above.
 
-   $iter = $ar->iterator( "val eq some value" );
+   $iter = $ar->iterator( "val eq some_value" );
    $iter = $ar->iterator( "key >= 50 :AND val =~ /sun|moon|air|wind/" );
    $iter = $ar->iterator( "val eq sun :OR val eq moon :OR val eq foo" );
    $iter = $ar->iterator( "key =~ /$pattern/" );
@@ -630,7 +630,7 @@ Returns only indices that match the given criteria. It returns an empty list
 if the search found nothing. The syntax for the C<query string> is described
 above. In scalar context, returns the size of the resulting list.
 
-   @keys = $ar->keys( "val eq some value" );
+   @keys = $ar->keys( "val eq some_value" );
    @keys = $ar->keys( "key >= 50 :AND val =~ /sun|moon|air|wind/" );
    @keys = $ar->keys( "val eq sun :OR val eq moon :OR val eq foo" );
    $len  = $ar->keys( "key =~ /$pattern/" );
@@ -693,7 +693,7 @@ Returns only index-value pairs that match the given criteria. It returns an
 empty list if the search found nothing. The syntax for the C<query string> is
 described above. In scalar context, returns the size of the resulting list.
 
-   @pairs = $ar->pairs( "val eq some value" );
+   @pairs = $ar->pairs( "val eq some_value" );
    @pairs = $ar->pairs( "key >= 50 :AND val =~ /sun|moon|air|wind/" );
    @pairs = $ar->pairs( "val eq sun :OR val eq moon :OR val eq foo" );
    $len   = $ar->pairs( "key =~ /$pattern/" );
@@ -796,7 +796,7 @@ Returns only values that match the given criteria. It returns an empty list
 if the search found nothing. The syntax for the C<query string> is described
 above. In scalar context, returns the size of the resulting list.
 
-   @keys = $ar->values( "val eq some value" );
+   @keys = $ar->values( "val eq some_value" );
    @keys = $ar->values( "key >= 50 :AND val =~ /sun|moon|air|wind/" );
    @keys = $ar->values( "val eq sun :OR val eq moon :OR val eq foo" );
    $len  = $ar->values( "key =~ /$pattern/" );

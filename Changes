@@ -1,21 +1,23 @@
 
 Revision history for Perl module MCE.
 
-1.699 Thu Mar 03 21:00:00 EST 2016
+1.699 Sun Mar 06 23:00:00 EST 2016
 
-  1.699_012 is the last development release for MCE 1.700.
+  * I have decided to make one more development release 1.699_013 before
+    releasing MCE 1.700. I want to review the documentation one last time
+    from MetaCPAN.
 
   [BUG FIXES]
 
   * Fixed race condition on Windows for non-threaded workers.
 
   * Updated MCE Models to not fail when running inside an eval statement.
-    This addresses [#105557] and [#105559]. Thank you, Benjamin McKeown.
+    This addresses (RT#105557) and (RT#105559). Thank you, Benjamin McKeown.
 
   * Added new MCE option loop_timeout to prevent the MCE Manager process
     from hanging perpetually. The manager process wrongly assumes a worker
     is still running when the worker died in an uncontrollable manner.
-    This resolves [#111780]. Thank you, Benjamin McKeown.
+    This resolves (RT#111780). Thank you, Benjamin McKeown.
 
   [ENHANCEMENTS]
 

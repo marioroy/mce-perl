@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized redefine );
 
-our $VERSION = '1.699_012';
+our $VERSION = '1.699_013';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -483,7 +483,7 @@ MCE::Hobo - A threads-like parallelization module
 
 =head1 VERSION
 
-This document describes MCE::Hobo version 1.699_012
+This document describes MCE::Hobo version 1.699_013
 
 =head1 SYNOPSIS
 
@@ -882,7 +882,11 @@ The inspiration for C<MCE::Hobo> comes from wanting C<threads>-like behavior
 for processes. Both can run side-by-side including safe-use by MCE workers.
 Likewise, the documentation resembles C<threads>.
 
-L<threads>
+=over 3
+
+=item * L<threads>
+
+=back
 
 =head1 SEE ALSO
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.699_012';
+our $VERSION = '1.699_013';
 
 use Scalar::Util qw( looks_like_number );
 use MCE::Shared::Base;
@@ -207,7 +207,7 @@ MCE::Shared::Sequence - Sequence helper class
 
 =head1 VERSION
 
-This document describes MCE::Shared::Sequence version 1.699_012
+This document describes MCE::Shared::Sequence version 1.699_013
 
 =head1 SYNOPSIS
 
@@ -279,25 +279,35 @@ If C<bounds_only => 1> is specified, the C<next> method computes the C<begin>
 and C<end> values only for the chunk and not the numbers in between (hence
 boundaries only).
 
+   # construction
    $seq1 = MCE::Shared->sequence(
       { chunk_size => 10, bounds_only => 0 },
       1, 20
    );
 
-   @chunk1 = $seq1->next;  # ( qw/  1  2  3  4  5  6  7  8  9 10 / )
-   @chunk2 = $seq1->next;  # ( qw/ 11 12 13 14 15 16 17 18 19 20 / )
+   # @chunk = $seq1->next;  # ( qw/  1  2  3  4  5  6  7  8  9 10 / )
+   # @chunk = $seq1->next;  # ( qw/ 11 12 13 14 15 16 17 18 19 20 / )
 
+   while ( my @chunk = $seq1->next ) { ... }
+
+   # construction
    $seq2 = MCE::Shared->sequence(
       { chunk_size => 10, bounds_only => 1 },
       1, 100
    );
 
-   ( $beg, $end ) = $seq2->next;  # (  1,  10 )
-   ( $beg, $end ) = $seq2->next;  # ( 11,  20 )
-   ( $beg, $end ) = $seq2->next;  # ( 21,  30 )
-      ...
-   ( $beg, $end ) = $seq2->next;  # ( 81,  90 )
-   ( $beg, $end ) = $seq2->next;  # ( 91, 100 )
+   # ( $beg, $end ) = $seq2->next;  # (  1,  10 )
+   # ( $beg, $end ) = $seq2->next;  # ( 11,  20 )
+   # ( $beg, $end ) = $seq2->next;  # ( 21,  30 )
+   #    ...
+   # ( $beg, $end ) = $seq2->next;  # ( 81,  90 )
+   # ( $beg, $end ) = $seq2->next;  # ( 91, 100 )
+
+   while ( my ( $beg, $end ) = $seq2->next ) {
+      for my $i ( $beg .. $end ) {
+         ...
+      }
+   }
 
 New values and options may be specified later with the C<rewind> method before
 calling C<next>.
