@@ -1,7 +1,7 @@
 
 Revision history for Perl module MCE.
 
-1.699 Sun Mar 06 23:00:00 EST 2016
+1.699 Tue Mar 08 12:00:00 EST 2016
 
   * I have decided to make one more development release 1.699_013 before
     releasing MCE 1.700. I want to review the documentation one last time
@@ -48,7 +48,8 @@ Revision history for Perl module MCE.
 
   * Added MCE::Hobo for running code asynchronously. This provides async/join
     functionality for processes similarly to async/join in threads. It includes
-    ->exit, ->kill, ->is_joinable, ->is_running, ->list, and more.
+    ->is_joinable, ->is_running, ->join, ->kill, ->list, ->waitall, ->waitone,
+    and other methods not metioned here.
 
   * Added MCE::Shared for sharing objects/data between threads/processes.
   * Added MCE::Shared::{ Array, Handle, Hash, Ordhash, and Scalar }.

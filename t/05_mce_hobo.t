@@ -3,9 +3,9 @@
 use strict;
 use warnings;
 
-use Test::More tests => 19;
+use Test::More tests => 21;
+use Time::HiRes qw(sleep);
 use MCE::Hobo;
-use Time::HiRes qw( sleep );
 
 {
    my ( $cnt, @procs, @list, %ret );
@@ -58,6 +58,44 @@ use Time::HiRes qw( sleep );
       ++$cnt;
       is ( $_->join, undef, 'check exit process'.$cnt );
    }
+}
+
+{
+   sub task {
+      my ( $id ) = @_;
+      sleep $id * 0.333;
+      return $id;
+   }
+
+   my @result;
+
+   MCE::Hobo->create(\&task, $_) for ( reverse 1 .. 3 );
+
+   while ( my $hobo = MCE::Hobo->waitone ) {
+      my $err = $hobo->error // 'no error';
+      my $res = $hobo->result;
+      my $pid = $hobo->pid;
+
+      push @result, $res;
+   }
+
+   is ( "@result", "1 2 3", 'check waitone' );
+
+   @result = ();
+
+   MCE::Hobo->create(\&task, $_) for ( reverse 1 .. 3 );
+
+   my @hobos = MCE::Hobo->waitall;
+
+   for my $hobo ( @hobos ) {
+      my $err = $hobo->error // 'no error';
+      my $res = $hobo->result;
+      my $pid = $hobo->pid;
+
+      push @result, $res;
+   }
+
+   is ( "@result", "1 2 3", 'check waitall' );
 }
 
 is ( MCE::Hobo->finish(), undef, 'check finish' );

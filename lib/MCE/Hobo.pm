@@ -202,9 +202,9 @@ sub create {
 
       ## Run.
       $_STAT->get($mgr_id)->set($wrk_id, "running");
-      my @results = eval { no strict 'refs'; $func->(@_) };
+      my @result = eval { no strict 'refs'; $func->(@_) };
 
-      $_DATA->get($mgr_id)->set($wrk_id, $_FREEZE->(\@results));
+      $_DATA->get($mgr_id)->set($wrk_id, $_FREEZE->(\@result));
       $_STAT->get($mgr_id)->set($wrk_id, "joinable: $@");
 
       _exit();
@@ -318,23 +318,23 @@ sub join {
    if ($mgr_id eq "$$.$_tid" && $mgr_id ne $wrk_id) {
       if (exists $self->{JOINED}) {
          (defined wantarray)
-            ? wantarray ? @{ $self->{RESULTS} } : $self->{RESULTS}->[-1]
+            ? wantarray ? @{ $self->{RESULT} } : $self->{RESULT}->[-1]
             : ();
       }
       else {
          waitpid($self->{PID}, 0);
 
-         my $results = $_DATA->get($mgr_id)->del($wrk_id);
-         my $error   = $_STAT->get($mgr_id)->del($wrk_id);
+         my $result = $_DATA->get($mgr_id)->del($wrk_id);
+         my $error  = $_STAT->get($mgr_id)->del($wrk_id);
 
-         $self->{ERROR}   = (length $error > 10) ? substr($error, 10) : "";
-         $self->{RESULTS} = (defined $results) ? $_THAW->($results) : [];
-         $self->{JOINED}  = 1;
+         $self->{ERROR}  = (length $error > 10) ? substr($error, 10) : "";
+         $self->{RESULT} = (defined $result) ? $_THAW->($result) : [];
+         $self->{JOINED} = 1;
 
          $_LIST->del($wrk_id);
 
          (defined wantarray)
-            ? wantarray ? @{ $self->{RESULTS} } : $self->{RESULTS}->[-1]
+            ? wantarray ? @{ $self->{RESULT} } : $self->{RESULT}->[-1]
             : ();
       }
    }
@@ -415,9 +415,61 @@ sub pending {
    (defined $_LIST) ? $_LIST->len : 0;
 }
 
-sub self { ref($_[0]) ? $_[0] : $_SELF; }
-sub pid  { ref($_[0]) ? $_[0]->{PID} : $_SELF->{PID}; }
-sub tid  { ref($_[0]) ? $_[0]->{WRK_ID} : $_SELF->{WRK_ID}; }
+sub pid {
+   ref($_[0]) ? $_[0]->{PID} : $_SELF->{PID};
+}
+
+sub result {
+   my ($self) = @_;
+   _croak('Usage: $hobo->result()') unless ref($self);
+
+   return $self->join() unless exists $self->{JOINED};
+   wantarray ? @{ $self->{RESULT} } : $self->{RESULT}->[-1];
+}
+
+sub self {
+   ref($_[0]) ? $_[0] : $_SELF;
+}
+
+sub tid {
+   ref($_[0]) ? $_[0]->{WRK_ID} : $_SELF->{WRK_ID};
+}
+
+sub waitall {
+   _croak('Usage: MCE::Hobo->waitall()') if ref($_[0]);
+   return () if (!defined $_LIST || !$_LIST->len);
+
+   if (defined wantarray) {
+      map { MCE::Hobo->waitone } 1 .. $_LIST->len;
+   }
+   else {
+      $_->join for MCE::Hobo->list;
+   }
+}
+
+sub waitone {
+   _croak('Usage: MCE::Hobo->waitone()') if ref($_[0]);
+   return undef if (!defined $_LIST || !$_LIST->len);
+
+   my $pid = CORE::wait();
+
+   my $mgr_id = "$$.$_tid";
+   my $wrk_id = "$pid.$_tid";
+
+   if ( $_DATA->exists($mgr_id) && ( my $self = $_LIST->del($wrk_id) ) ) {
+      my $result = $_DATA->get($mgr_id)->del($wrk_id);
+      my $error  = $_STAT->get($mgr_id)->del($wrk_id);
+
+      $self->{ERROR}  = (length $error > 10) ? substr($error, 10) : "";
+      $self->{RESULT} = (defined $result) ? $_THAW->($result) : [];
+      $self->{JOINED} = 1;
+
+      $self;
+   }
+   else {
+      undef;
+   }
+}
 
 sub yield {
    _croak('Usage: MCE::Hobo->yield()') if ref($_[0]);
@@ -503,12 +555,16 @@ This document describes MCE::Hobo version 1.699_013
    my @joinable = MCE::Hobo->list_joinable();
    my @count    = MCE::Hobo->pending();
 
+   # Joining is orderly, e.g. hobo1 is joined first, hobo2, hobo3.
    $_->join() for @hobos;
+
+   # Joining occurs immediately as hobo(s) complete execution.
+   1 while MCE::Hobo->waitone();
 
    my $hobo = mce_async { foreach (@files) { ... } };
    $hobo->join();
 
-   if (my $err = $hobo->error()) {
+   if ( my $err = $hobo->error() ) {
       warn("Hobo error: $err\n");
    }
 
@@ -522,7 +578,7 @@ This document describes MCE::Hobo version 1.699_013
    $pid = $hobo->pid();
 
    # Test hobo objects
-   if ($hobo1 == $hobo2) {
+   if ( $hobo1 == $hobo2 ) {
       ...
    }
 
@@ -535,10 +591,10 @@ This document describes MCE::Hobo version 1.699_013
    my $value = $hobo->join();
 
    # Check hobo's state
-   if ($hobo->is_running()) {
+   if ( $hobo->is_running() ) {
        sleep 1;
    }
-   if ($hobo->is_joinable()) {
+   if ( $hobo->is_joinable() ) {
        $hobo->join();
    }
 
@@ -568,12 +624,7 @@ The following is a parallel demonstration.
    use MCE::Shared Sereal => 1;  # Serialization via Sereal if available.
    use MCE::Shared::Ordhash;     # Ordered hash for non-shared use below.
 
-   # usage: head -20 file.txt | perl script.pl
-
-   # my $aa = MCE::Shared->array();    # OO with on-demand deref @{}
-   # my $ha = MCE::Shared->hash();     # OO with on-demand deref %{}
-   # my $oh = MCE::Shared->ordhash();  # OO with on-demand deref %{}
-   # my $va = MCE::Shared->scalar();   # OO interface only: ->set, ->get
+   # synopsis: head -20 file.txt | perl script.pl
 
    my $ifh  = MCE::Shared->handle( "<", \*STDIN  );  # shared
    my $ofh  = MCE::Shared->handle( ">", \*STDOUT );
@@ -585,8 +636,8 @@ The following is a parallel demonstration.
       while ( <$ifh> ) {
          printf {$ofh} "[ %4d ] %s", $., $_;
 
-       # $ary->[ $. - 1 ] = "[ ID $id ] read line $.\n" );  # dereference
-         $ary->set( $. - 1, "[ ID $id ] read line $.\n" );  # OO faster
+       # $ary->[ $. - 1 ] = "[ ID $id ] read line $.\n" );  # dereferencing
+         $ary->set( $. - 1, "[ ID $id ] read line $.\n" );  # faster via OO
       }
    }
 
@@ -661,7 +712,7 @@ It returns the hobo object, or undef if hobo creation failed.
 
    $hobo->join();
 
-   if (my $err = $hobo->error()) {
+   if ( my $err = $hobo->error() ) {
       warn("Hobo error: $err\n");
    }
 
@@ -675,30 +726,30 @@ The context (void, scalar or list) for the return value(s) for C<join> is
 determined at the time of joining and mostly C<wantarray> aware.
 
    my $hobo1 = MCE::Hobo->create( sub {
-      my @results = qw(foo bar baz);
-      return (@results);
+      my @res = qw(foo bar baz);
+      return (@res);
    });
 
-   my @res1 = $hobo1->join;  # ( foo, bar, baz )
-   my $res1 = $hobo1->join;  #   baz
+   my @res1 = $hobo1->join();  # ( foo, bar, baz )
+   my $res1 = $hobo1->join();  #   baz
 
    my $hobo2 = MCE::Hobo->create( sub {
       return 'foo';
    });
 
-   my @res2 = $hobo2->join;  # ( foo )
-   my $res2 = $hobo2->join;  #   foo
+   my @res2 = $hobo2->join();  # ( foo )
+   my $res2 = $hobo2->join();  #   foo
 
 =item $hobo1->equal( $hobo2 )
 
 Tests if two hobo objects are the same hobo or not. Hobo comparison is based
 on process IDs. This is overloaded to the more natural forms.
 
-    if ($hobo1 == $hobo2) {
+    if ( $hobo1 == $hobo2 ) {
         print("Hobos are the same\n");
     }
     # or
-    if ($hobo1 != $hobo2) {
+    if ( $hobo1 != $hobo2 ) {
         print("Hobos differ\n");
     }
 
@@ -762,8 +813,8 @@ immediately to not leave a zombie or defunct process.
    $hobo->kill('SIG...')->join();
 
 The following is a parallel demonstration comparing C<MCE::Shared> against
-C<Redis> and C<Redis::Fast> on a Fedora 23 VM. Joining is after all workers
-have been notified to quit.
+C<Redis> and C<Redis::Fast> on a Fedora 23 VM. Joining begins after all
+workers have been notified to quit.
 
    use Time::HiRes qw(time);
 
@@ -829,22 +880,76 @@ have been notified to quit.
    benchmark_this('Redis::Fast', 8, 5.0, \&parallel_redis, $rfast);
    benchmark_this('MCE::Shared', 8, 5.0, \&parallel_array);
 
-=item $hobo->list()
+=item MCE::Hobo->list()
 
 Returns a list of all hobos not yet joined.
 
-=item $hobo->list_running()
+   @hobos = MCE::Hobo->list();
+
+=item MCE::Hobo->list_running()
 
 Returns a list of all hobos that are still running.
 
-=item $hobo->list_joinable()
+   @hobos = MCE::Hobo->list_running();
+
+=item MCE::Hobo->list_joinable()
 
 Returns a list of all hobos that have completed running. Thus, ready to be
 joined without blocking.
 
-=item $hobo->pending()
+   @hobos = MCE::Hobo->list_joinable();
+
+=item MCE::Hobo->pending()
 
 Returns a count of all hobos not yet joined.
+
+   $count = MCE::Hobo->pending();
+
+=item $hobo->result()
+
+Returns the result obtained by C<join>, C<waitone>, or C<waitall>. If the
+process has not yet exited, waits for the corresponding hobo to complete its
+execution.
+
+   use MCE::Hobo;
+   use Time::HiRes qw(sleep);
+
+   sub task {
+      my ($id) = @_;
+      sleep $id * 0.333;
+      return $id;
+   }
+
+   MCE::Hobo->create('task', $_) for ( reverse 1 .. 3 );
+
+   # 1 while MCE::Hobo->waitone;
+
+   while ( my $hobo = MCE::Hobo->waitone() ) {
+      my $err = $hobo->error() // 'no error';
+      my $res = $hobo->result();
+      my $pid = $hobo->pid();
+
+      print "[$pid] $err : $res\n";
+   }
+
+Like C<join> described above, the context (void, scalar or list) for the
+return value(s) is determined at the time C<result> is called and mostly
+C<wantarray> aware.
+
+   my $hobo1 = MCE::Hobo->create( sub {
+      my @res = qw(foo bar baz);
+      return (@res);
+   });
+
+   my @res1 = $hobo1->result();  # ( foo, bar, baz )
+   my $res1 = $hobo1->result();  #   baz
+
+   my $hobo2 = MCE::Hobo->create( sub {
+      return 'foo';
+   });
+
+   my @res2 = $hobo2->result();  # ( foo )
+   my $res2 = $hobo2->result();  #   foo
 
 =item MCE::Hobo->self()
 
@@ -866,6 +971,52 @@ together as a string value.
 
 Class methods that allows a hobo to obtain its own ID.
 
+=item MCE::Hobo->waitone()
+
+=item MCE::Hobo->waitall()
+
+Meaningful for the manager process only, waits for one or all hobos to
+complete execution. Afterwards, returns the corresponding hobo(s). If a
+hobo does not exist, returns the C<undef> value or an empty list for
+C<waitone> and C<waitall> respectively.
+
+   use MCE::Hobo;
+   use Time::HiRes qw(sleep);
+
+   sub task {
+      my $id = shift;
+      sleep $id * 0.333;
+      return $id;
+   }
+
+   MCE::Hobo->create('task', $_) for ( reverse 1 .. 3 );
+
+   # join, traditional use case
+   $_->join() for MCE::Hobo->list();
+
+   # waitone, simplistic use case
+   1 while MCE::Hobo->waitone();
+
+   # waitone
+   while ( my $hobo = MCE::Hobo->waitone() ) {
+      my $err = $hobo->error() // 'no error';
+      my $res = $hobo->result();
+      my $pid = $hobo->pid();
+
+      print "[$pid] $err : $res\n";
+   }
+
+   # waitall
+   my @hobos = MCE::Hobo->waitall();
+
+   for ( @hobos ) {
+      my $err = $_->error() // 'no error';
+      my $res = $_->result();
+      my $pid = $_->pid();
+
+      print "[$pid] $err : $res\n";
+   }
+
 =item MCE::Hobo->yield( floating_seconds )
 
 Let this hobo yield CPU time to other hobos. By default, the class method
@@ -882,11 +1033,7 @@ The inspiration for C<MCE::Hobo> comes from wanting C<threads>-like behavior
 for processes. Both can run side-by-side including safe-use by MCE workers.
 Likewise, the documentation resembles C<threads>.
 
-=over 3
-
-=item * L<threads>
-
-=back
+The inspiration for C<waitall> and C<waitone> comes from C<Parallel::WorkUnit>.
 
 =head1 SEE ALSO
 
@@ -896,7 +1043,15 @@ Likewise, the documentation resembles C<threads>.
 
 =item * L<forks::BerkeleyDB>
 
+=item * L<Parallel::ForkManager>
+
+=item * L<Parallel::Loops>
+
+=item * L<Parallel::WorkUnit>
+
 =item * L<Thread::Tie>
+
+=item * L<threads>
 
 =back
 
