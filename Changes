@@ -1,11 +1,7 @@
 
 Revision history for Perl module MCE.
 
-1.699 Tue Mar 08 12:00:00 EST 2016
-
-  * I have decided to make one more development release 1.699_013 before
-    releasing MCE 1.700. I want to review the documentation one last time
-    from MetaCPAN.
+1.700 Tue Mar 08 15:30:00 EST 2016
 
   [BUG FIXES]
 
