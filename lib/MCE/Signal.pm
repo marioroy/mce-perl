@@ -502,10 +502,24 @@ This document describes MCE::Signal version 1.699_013
 
 =head1 SYNOPSIS
 
- use MCE::Signal qw( [-keep_tmp_dir] [-use_dev_shm] );
+ ## Creates tmp_dir under $ENV{TEMP} if defined, otherwise /tmp.
 
- use MCE;   ## MCE loads MCE::Signal when not present.
-            ## Include MCE::Signal first for options to take effect.
+ use MCE::Signal;
+
+ ## Attempts to create tmp_dir under /dev/shm if writable.
+
+ use MCE::Signal qw( -use_dev_shm );
+
+ ## Keeps tmp_dir after the script terminates.
+
+ use MCE::Signal qw( -keep_tmp_dir );
+ use MCE::Signal qw( -use_dev_shm -keep_tmp_dir );
+
+ ## MCE loads MCE::Signal by default when not present.
+ ## Therefore, load MCE::Signal first for options to take effect.
+
+ use MCE::Signal qw( -keep_tmp_dir -use_dev_shm );
+ use MCE;
 
 =head1 DESCRIPTION
 
@@ -530,7 +544,7 @@ As of MCE 1.405, MCE::Signal no longer calls setpgrp by default. Pass the
  use MCE::Signal qw(-setpgrp);   ## Not necessary for MCE 1.512 and above
  use MCE;
 
-The following are available arguments and their meanings.
+The following are available options and their meanings.
 
  -keep_tmp_dir     - The temporary directory is not removed during exiting
                      A message is displayed with the location afterwards
@@ -552,6 +566,9 @@ The following are available arguments and their meanings.
                         ./mce_script.pl < big_input_file | head -10
 
 Nothing is exported by default. Exportable are 1 variable and 2 subroutines.
+
+ use MCE::Signal qw( $tmp_dir stop_and_exit sys_cmd );
+ use MCE::Signal qw( :all );
 
  $tmp_dir          - Path to the temporary directory.
  stop_and_exit     - Described below
@@ -578,19 +595,6 @@ Perl script. For this reason, sys_cmd was added to MCE::Signal.
  use MCE;
 
  my $exit_status = sys_cmd($command);
-
-=head1 EXAMPLES
-
- ## Creates tmp_dir under $ENV{TEMP} if defined, otherwise /tmp
- use MCE::Signal;
- use MCE::Signal qw( :all );
-
- ## Attempt to create tmp_dir under /dev/shm if writable
- use MCE::Signal qw( -use_dev_shm );
-
- ## Keep tmp_dir after script terminates
- use MCE::Signal qw( -keep_tmp_dir );
- use MCE::Signal qw( -use_dev_shm -keep_tmp_dir );
 
 =head1 INDEX
 

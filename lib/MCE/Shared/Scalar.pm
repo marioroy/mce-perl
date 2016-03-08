@@ -119,14 +119,14 @@ This document describes MCE::Shared::Scalar version 1.699_013
    $len = $var->len();
 
    # sugar methods without having to call set/get explicitly
-   $val = $var->append( $string );            #   $val .= $string
-   $val = $var->decr();                       # --$val
-   $val = $var->decrby( $number );            #   $val -= $number
-   $val = $var->getdecr();                    #   $val--
-   $val = $var->getincr();                    #   $val++
-   $val = $var->incr();                       # ++$val
-   $val = $var->incrby( $number );            #   $val += $number
-   $old = $var->getset( $new );               #   $o = $v, $v = $n, $o
+   $val = $var->append( $string );     #   $val .= $string
+   $val = $var->decr();                # --$val
+   $val = $var->decrby( $number );     #   $val -= $number
+   $val = $var->getdecr();             #   $val--
+   $val = $var->getincr();             #   $val++
+   $val = $var->incr();                # ++$val
+   $val = $var->incrby( $number );     #   $val += $number
+   $old = $var->getset( $new );        #   $o = $v, $v = $n, $o
 
 =head1 DESCRIPTION
 

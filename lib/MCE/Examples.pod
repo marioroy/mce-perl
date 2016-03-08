@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-MCE::Examples - Various examples and demonstration
+MCE::Examples - Various examples and demonstrations
 
 =head1 VERSION
 

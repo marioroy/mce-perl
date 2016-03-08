@@ -1014,10 +1014,18 @@ Rewinds the parallel iterator for L<MCE::Shared::Sequence> when no arguments
 are given. Otherwise, resets the iterator with given criteria.
 
    $seq->rewind;
+
    $seq->rewind( { chunk_size => 10, bounds_only => 1 }, 1, 100 );
-   $seq->rewind( 1, 100 );
 
    while ( my ( $beg, $end ) = $seq->next ) {
+      for my $i ( $beg .. $end ) {
+         ...
+      }
+   }
+
+   $seq->rewind( 1, 100 );
+
+   while ( defined ( my $num = $seq->next ) ) {
       ...
    }
 
@@ -1061,12 +1069,13 @@ terminates.
 
 =item init
 
-This is called automatically by each MCE/Hobo worker immediately after being
-spawned. The effect is extra parallelism during inter-process communication.
-The optional ID (an integer) is modded in a round-robin fashion.
+This method is called automatically by each MCE or Hobo worker immediately
+after being spawned. The effect is extra parallelism during inter-process
+communication. The optional ID (an integer) is modded internally in a
+round-robin fashion.
 
-   MCE::Shared->init( ID );
    MCE::Shared->init();
+   MCE::Shared->init( ID );
 
 =back
 

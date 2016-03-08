@@ -147,22 +147,25 @@ This document describes MCE::Shared::Condvar version 1.699_013
    # conditional locking primitives
    $cv->lock();
    $cv->unlock();
+
    $cv->broadcast();
-   $cv->broadcast(0.05);        # delay before broadcasting
+   $cv->broadcast(0.05);     # delay before broadcasting
+
    $cv->signal();
-   $cv->signal(0.05);           # delay before signaling
+   $cv->signal(0.05);        # delay before signaling
+
    $cv->timedwait(2.5);
    $cv->wait();
 
    # sugar methods without having to call set/get explicitly
-   $val = $cv->append( $string );             #   $val .= $string
-   $val = $cv->decr();                        # --$val
-   $val = $cv->decrby( $number );             #   $val -= $number
-   $val = $cv->getdecr();                     #   $val--
-   $val = $cv->getincr();                     #   $val++
-   $val = $cv->incr();                        # ++$val
-   $val = $cv->incrby( $number );             #   $val += $number
-   $old = $cv->getset( $new );                #   $o = $v, $v = $n, $o
+   $val = $cv->append( $string );     #   $val .= $string
+   $val = $cv->decr();                # --$val
+   $val = $cv->decrby( $number );     #   $val -= $number
+   $val = $cv->getdecr();             #   $val--
+   $val = $cv->getincr();             #   $val++
+   $val = $cv->incr();                # ++$val
+   $val = $cv->incrby( $number );     #   $val += $number
+   $old = $cv->getset( $new );        #   $o = $v, $v = $n, $o
 
 =head1 DESCRIPTION
 
@@ -181,10 +184,10 @@ The following demonstrates barrier synchronization.
 
    my $microsecs = ($^O eq "cygwin") ? 0 : 200;
 
-   # The lock is released upon calling ->broadcast, ->signal, ->timedwait,
-   # or ->wait. For performance reasons, the variable is *not* re-locked
-   # after the call. Therefore, re-lock the variable for synchronization
-   # afterwards if necessary.
+   # The lock is released upon entering ->broadcast, ->signal, ->timedwait,
+   # and ->wait. For performance reasons, the condition variable is *not*
+   # re-locked prior to exiting the call. Therefore, obtain the lock when
+   # synchronization is desired subsequently.
 
    sub barrier_sync {
       usleep($microsecs) until $state->get eq "ready" or $state->get eq "up";
@@ -206,13 +209,11 @@ The following demonstrates barrier synchronization.
    }
 
    # Time taken from a 2.6 GHz machine running Mac OS X.
-   # If you want a fast barrier synchronization, let me know.
-   # I can add MCE::Shared::Barrier to behave like MCE Sync.
    #
-   #    threads::shared:   0.238s  threads
-   #      forks::shared:  36.426s  child processes
-   #        MCE::Shared:   0.397s  child processes
-   #           MCE Sync:   0.062s  child processes
+   # threads::shared:   0.238s  threads
+   #   forks::shared:  36.426s  child processes
+   #     MCE::Shared:   0.397s  child processes
+   #        MCE Sync:   0.062s  child processes
 
    sub user_func {
       my $id = MCE->wid;

@@ -279,7 +279,7 @@ If C<bounds_only => 1> is specified, the C<next> method computes the C<begin>
 and C<end> values only for the chunk and not the numbers in between (hence
 boundaries only).
 
-   # construction
+   # demo 1
    $seq1 = MCE::Shared->sequence(
       { chunk_size => 10, bounds_only => 0 },
       1, 20
@@ -288,9 +288,11 @@ boundaries only).
    # @chunk = $seq1->next;  # ( qw/  1  2  3  4  5  6  7  8  9 10 / )
    # @chunk = $seq1->next;  # ( qw/ 11 12 13 14 15 16 17 18 19 20 / )
 
-   while ( my @chunk = $seq1->next ) { ... }
+   while ( my @chunk = $seq1->next ) {
+      ...
+   }
 
-   # construction
+   # demo 2
    $seq2 = MCE::Shared->sequence(
       { chunk_size => 10, bounds_only => 1 },
       1, 100
@@ -309,31 +311,26 @@ boundaries only).
       }
    }
 
-New values and options may be specified later with the C<rewind> method before
-calling C<next>.
+Parameters may be given later with C<rewind> before calling C<next>.
 
    # non-shared
    use MCE::Shared::Sequence;
 
-   $seq = MCE::Shared::Sequence->new( -1, 1, 0.1, "%4.1f" );
-   $seq = MCE::Shared::Sequence->new( );
+   $seq = MCE::Shared::Sequence->new;
    $seq->rewind( -1, 1, 0.1, "%4.1f" );
 
    $seq = MCE::Shared::Sequence->new(
-      { chunk_size => 10, bounds_only => 1 },
-      1, 100
+      { chunk_size => 10, bounds_only => 1 }, 1, 100
    );
 
    # shared
    use MCE::Shared;
 
-   $seq = MCE::Shared->sequence( 1, 100 );
-   $seq = MCE::Shared->sequence( );
+   $seq = MCE::Shared->sequence;
    $seq->rewind( 1, 100 );
 
    $seq = MCE::Shared->sequence(
-      { chunk_size => 10, bounds_only => 1 },
-      1, 100
+      { chunk_size => 10, bounds_only => 1 }, 1, 100
    );
 
 =item next
@@ -341,27 +338,55 @@ calling C<next>.
 Returns the next computed sequence(s). An undefined value is returned when
 the computed C<begin> value exceeds the value held by C<end>.
 
-   # { chunk_size =>  1, bounds_only => 0 }  default
-     $num = $seq->next;
+   # default: { chunk_size => 1, bounds_only => 0 }
+   $seq = MCE::Shared->sequence( 1, 100 );
 
-   # { chunk_size => 10, bounds_only => 0 }
-     @chunk = $seq->next;
+   while ( defined ( my $num = $seq->next ) ) {
+      ...
+   }
 
-   # { chunk_size => 10, bounds_only => 1 }
-     ( $beg, $end ) = $seq->next;
+   # chunking
+   $seq = MCE::Shared->sequence(
+      { chunk_size => 10 }, 1, 100
+   );
+
+   while ( my @chunk = $seq->next ) {
+      ...
+   }
+
+   # chunking, boundaries only
+   $seq = MCE::Shared->sequence(
+      { chunk_size => 10, bounds_only => 1 }, 1, 100
+   );
+
+   while ( my ( $beg, $end ) = $seq->next ) {
+      for my $i ( $beg .. $end ) {
+         ...
+      }
+   }
 
 =item rewind ( { options }, begin, end [, step, format ] )
 
 =item rewind ( begin, end [, step, format ] )
 
-When arguments are specified, resets parameters internally. Otherwise, sets
-the initial value back to the value held by C<begin>.
-
-   $seq->rewind( 10, 1, -1 );
-   $seq->next; # repeatedly
+Sets the initial value back to the value held by C<begin> when no arguments
+are given. Otherwise, resets the sequence with given criteria.
 
    $seq->rewind;
-   $seq->next; # repeatedly
+
+   $seq->rewind( { chunk_size => 10, bounds_only => 1 }, 1, 100 );
+
+   while ( my ( $beg, $end ) = $seq->next ) {
+      for my $i ( $beg .. $end ) {
+         ...
+      }
+   }
+
+   $seq->rewind( 1, 100 );
+
+   while ( defined ( my $num = $seq->next ) ) {
+      ...
+   }
 
 =back
 
