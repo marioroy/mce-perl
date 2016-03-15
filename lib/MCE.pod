@@ -102,21 +102,19 @@ The following is a demonstration for parsing a huge log file in parallel.
 The next demonstration loops through a sequence of numbers with MCE::Flow.
 
    use MCE::Flow;
-   use MCE::Shared;
 
-   my $N  = shift || 4_000_000;
-   my $pi = MCE::Shared->scalar( 0.0 );
+   my $N = shift || 4_000_000;
 
    sub compute_pi {
-      my ( $wid, $beg_seq, $end_seq ) = @_;
-      my ( $_pi, $t ) = ( 0.0 );
+      my ( $beg_seq, $end_seq ) = @_;
+      my ( $pi, $t ) = ( 0.0 );
 
       foreach my $i ( $beg_seq .. $end_seq ) {
          $t = ( $i + 0.5 ) / $N;
-         $_pi += 4.0 / ( 1.0 + $t * $t );
+         $pi += 4.0 / ( 1.0 + $t * $t );
       }
 
-      $pi->incrby( $_pi );
+      MCE->gather( $pi );
    }
 
    # Compute bounds only, workers receive [ begin, end ] values
@@ -127,49 +125,13 @@ The next demonstration loops through a sequence of numbers with MCE::Flow.
       bounds_only => 1
    );
 
-   mce_flow_s sub {
-      compute_pi( MCE->wid, $_->[0], $_->[1] );
+   my @ret = mce_flow_s sub {
+      compute_pi( $_->[0], $_->[1] );
    }, 0, $N - 1;
 
-   printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
+   my $pi = 0.0;  $pi += $_ for @ret;
 
-Running asynchronously in the background is possible with MCE::Hobo,
-for threads-like behavior. Unlike threads, Hobo workers are spawned
-as processes having unique PIDs.
-
-   use MCE::Hobo;
-   use MCE::Shared;
-
-   my $N   = shift || 4_000_000;
-   my $pi  = MCE::Shared->scalar( 0.0 );
-
-   my $seq = MCE::Shared->sequence(
-      { chunk_size => 200_000, bounds_only => 1 },
-      0, $N - 1
-   );
-
-   sub compute_pi {
-      my ( $wid ) = @_;
-
-      while ( my ( $beg, $end ) = $seq->next ) {
-         my ( $_pi, $t ) = ( 0.0 );
-         for my $i ( $beg .. $end ) {
-            $t = ( $i + 0.5 ) / $N;
-            $_pi += 4.0 / ( 1.0 + $t * $t );
-         }
-         $pi->incrby( $_pi );
-      }
-
-      return;
-   }
-
-   MCE::Hobo->create( \&compute_pi, $_ ) for ( 1 .. 8 );
-
-   # ... do other stuff ...
-
-   $_->join() for MCE::Hobo->list();
-
-   printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
+   printf "pi = %0.13f\n", $pi / $N;  # 3.1415926535898
 
 =head1 CORE MODULES
 
@@ -194,7 +156,7 @@ Utility functions for Many-Core Engine.
 
 =head1 MCE EXTRAS
 
-There are 6 add-on modules for use with MCE.
+There are 4 add-on modules for use with MCE.
 
 =over 3
 
@@ -202,11 +164,6 @@ There are 6 add-on modules for use with MCE.
 
 Provides a collection of sugar methods and output iterators for preserving
 output order.
-
-=item L<MCE::Hobo>
-
-Provides threads-like behavior for executing code asynchronously via child
-processes.
 
 =item L<MCE::Mutex>
 
@@ -223,33 +180,6 @@ threads.
 
 Enables workers to receive and pass on information orderly with zero
 involvement by the manager process while running.
-
-=item L<MCE::Shared>
-
-An extension for sharing data or objects supporting threads and processes.
-Nine classes are included for use with MCE::Shared.
-
-=over 3
-
-=item * L<MCE::Shared::Array>
-
-=item * L<MCE::Shared::Condvar>
-
-=item * L<MCE::Shared::Handle>
-
-=item * L<MCE::Shared::Hash>
-
-=item * L<MCE::Shared::Minidb>
-
-=item * L<MCE::Shared::Ordhash>
-
-=item * L<MCE::Shared::Queue>
-
-=item * L<MCE::Shared::Scalar>
-
-=item * L<MCE::Shared::Sequence>
-
-=back
 
 =back
 
@@ -315,19 +245,19 @@ allows 3 options; :manager, :worker, and :getter.
 
 =head1 REQUIREMENTS
 
-Perl 5.10.1 or later. PDL::IO::Storable is required in scripts running PDL.
+Perl 5.8.0 or later. PDL::IO::Storable is required in scripts running PDL.
 
 =head1 SOURCE AND FURTHER READING
 
-The source, examples, and cookbook are hosted at GitHub.
+The source, cookbook, and examples are hosted at GitHub.
 
 =over 3
 
 =item * L<https://github.com/marioroy/mce-perl>
 
-=item * L<https://github.com/marioroy/mce-examples>
-
 =item * L<https://github.com/marioroy/mce-cookbook>
+
+=item * L<https://github.com/marioroy/mce-examples>
 
 =back
 

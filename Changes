@@ -1,6 +1,15 @@
 
 Revision history for Perl module MCE.
 
+1.701 Tue Mar 15 12:00:00 EST 2016
+
+  * Some folks have expressed a wish for running MCE 1.7 with Perl v5.8.
+    To restore support for Perl v5.8, removed MCE::Shared and MCE::Hobo
+    from the MCE 1.701 distribution.
+
+  * MCE::Shared will be released after MCE 1.700 is deleted from CPAN.
+    Thank you for your patience during this transition.
+
 1.700 Tue Mar 08 15:30:00 EST 2016
 
   [BUG FIXES]

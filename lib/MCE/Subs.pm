@@ -389,7 +389,7 @@ MCE methods are described in L<MCE::Core>.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>
 
 =head1 AUTHOR
 

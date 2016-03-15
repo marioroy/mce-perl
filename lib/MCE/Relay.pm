@@ -566,7 +566,7 @@ is chunk_id driven (or task_wid when not processing input), thus orderly.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>
 
 =head1 AUTHOR
 

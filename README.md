@@ -1,6 +1,6 @@
 ## Many-Core Engine for Perl
 
-This document describes MCE version 1.700.
+This document describes MCE version 1.701.
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
@@ -94,21 +94,19 @@ The next demonstration loops through a sequence of numbers with MCE::Flow.
 
 ```perl
  use MCE::Flow;
- use MCE::Shared;
 
- my $N  = shift || 4_000_000;
- my $pi = MCE::Shared->scalar( 0.0 );
+ my $N = shift || 4_000_000;
 
  sub compute_pi {
-    my ( $wid, $beg_seq, $end_seq ) = @_;
-    my ( $_pi, $t ) = ( 0.0 );
+    my ( $beg_seq, $end_seq ) = @_;
+    my ( $pi, $t ) = ( 0.0 );
 
     foreach my $i ( $beg_seq .. $end_seq ) {
        $t = ( $i + 0.5 ) / $N;
-       $_pi += 4.0 / ( 1.0 + $t * $t );
+       $pi += 4.0 / ( 1.0 + $t * $t );
     }
 
-    $pi->incrby( $_pi );
+    MCE->gather( $pi );
  }
 
  # Compute bounds only, workers receive [ begin, end ] values
@@ -119,51 +117,13 @@ The next demonstration loops through a sequence of numbers with MCE::Flow.
     bounds_only => 1
  );
 
- mce_flow_s sub {
-    compute_pi( MCE->wid, $_->[0], $_->[1] );
+ my @ret = mce_flow_s sub {
+    compute_pi( $_->[0], $_->[1] );
  }, 0, $N - 1;
 
- printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
-```
+ my $pi = 0.0;  $pi += $_ for @ret;
 
-Running asynchronously in the background is possible with MCE::Hobo,
-for threads-like behavior. Unlike threads, Hobo workers are spawned
-as processes having unique PIDs.
-
-```perl
- use MCE::Hobo;
- use MCE::Shared;
-
- my $N   = shift || 4_000_000;
- my $pi  = MCE::Shared->scalar( 0.0 );
-
- my $seq = MCE::Shared->sequence(
-    { chunk_size => 200_000, bounds_only => 1 },
-    0, $N - 1
- );
-
- sub compute_pi {
-    my ( $wid ) = @_;
-
-    while ( my ( $beg, $end ) = $seq->next ) {
-       my ( $_pi, $t ) = ( 0.0 );
-       for my $i ( $beg .. $end ) {
-          $t = ( $i + 0.5 ) / $N;
-          $_pi += 4.0 / ( 1.0 + $t * $t );
-       }
-       $pi->incrby( $_pi );
-    }
-
-    return;
- }
-
- MCE::Hobo->create( \&compute_pi, $_ ) for ( 1 .. 8 );
-
- # ... do other stuff ...
-
- $_->join() for MCE::Hobo->list();
-
- printf "pi = %0.13f\n", $pi->get / $N;  # 3.1415926535898
+ printf "pi = %0.13f\n", $pi / $N;  # 3.1415926535898
 ```
 
 ### Installation and Dependencies
@@ -178,7 +138,7 @@ To install this module type the following:
     make test
     make install
 
-This module requires Perl 5.10.1 or later to run. By default, MCE spawns threads
+This module requires Perl 5.8.0 or later to run. By default, MCE spawns threads
 on Windows and child processes otherwise for Cygwin and Unix platforms. The use
 of threads requires that you include threads support prior to loading MCE.
 
@@ -188,8 +148,7 @@ of threads requires that you include threads support prior to loading MCE.
 
 ![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Supported_OS.png)
 
-Minimally, MCE utilizes the following modules, which are packaged with Perl
-normally:
+MCE utilizes the following modules, which are typically installed with Perl:
 
     bytes
     constant
@@ -197,14 +156,13 @@ normally:
     Fcntl
     File::Path
     IO::Handle
+    POSIX
     Scalar::Util
     Socket
     Storable 2.04+
     Symbol
     Test::More 0.45+ (for make test only)
     Time::HiRes
-
-Optionally, install IO::FDPass, used by MCE::Shared::Server if available.
 
 ### Further Reading
 

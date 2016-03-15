@@ -74,7 +74,7 @@ Golden, David
   Particularly, the use of overload. I didn't know that was possible.
 
   For the time during collaborative efforts in making Hash::Ordered faster.
-  I learned a trick or two along the way. Maybe, three. But, possibly four.
+  I learned some new tricks along the way.
 
   Thank you for alarming me of the memory leaks with the on-demand hash
   dereferencing inside MCE::Shared::Ordhash. MCE::Shared::Object was also

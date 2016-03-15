@@ -2111,7 +2111,7 @@ The interval.pl example above is included with MCE.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Shared>
+L<MCE|MCE>
 
 =head1 AUTHOR
 

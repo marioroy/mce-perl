@@ -15,8 +15,6 @@ our $VERSION = '1.700';
 
 use MCE::Util qw( $LF );
 
-our @CARP_NOT = qw( MCE::Shared MCE );
-
 my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
 my $_tid = $_has_threads ? threads->tid() : 0;
 
@@ -194,7 +192,7 @@ completes. Optionally, the method is C<wantarray> aware.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>
 
 =head1 AUTHOR
 

@@ -15,17 +15,10 @@ our $VERSION = '1.700';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
-## no critic (BuiltinFunctions::ProhibitStringyEval)
 
-use Scalar::Util qw( looks_like_number refaddr );
+use Scalar::Util qw( looks_like_number );
 use MCE::Util qw( $LF );
 use bytes;
-
-use overload (
-   q("")    => sub { sprintf "%s=HASH(0x%x)", ref($_[0]), refaddr($_[0]) },
-   q(0+)    => sub { refaddr($_[0]) },
-   fallback => 1
-);
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -2088,7 +2081,7 @@ module.
 
 =head1 INDEX
 
-L<MCE|MCE>, L<MCE::Core>, L<MCE::Shared>
+L<MCE|MCE>, L<MCE::Core>
 
 =head1 AUTHOR
 
