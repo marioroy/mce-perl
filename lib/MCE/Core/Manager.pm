@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.700';
+our $VERSION = '1.702';
 
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
