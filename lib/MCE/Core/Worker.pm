@@ -33,7 +33,7 @@ use bytes;
 
 {
    my (
-      $_dest, $_len, $_tag, $_task_id, $_user_func, $_value, $_want_id,
+      $_dest, $_len, $_tag, $_task_id, $_user_func, $_val, $_wa,
       $_DAT_LOCK, $_DAT_W_SOCK, $_DAU_W_SOCK, $_chn, $_lock_chn,
       $_dat_ex, $_dat_un
    );
@@ -43,14 +43,13 @@ use bytes;
 
    $_dest_function[SENDTO_FILEV2] = sub {         ## Content >> File
 
-      return unless (defined $_value);
+      return unless (defined $_val);
       local $\ = undef if (defined $\);
 
       if (length ${ $_[0] }) {
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_F_SND . $LF . $_chn . $LF;
-         print {$_DAU_W_SOCK} $_value . $LF . length(${ $_[0] }) . $LF;
-         print {$_DAU_W_SOCK} ${ $_[0] };
+         print {$_DAT_W_SOCK} OUTPUT_F_SND.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} $_val.$LF . length(${ $_[0] }).$LF, ${ $_[0] };
          $_dat_un->() if $_lock_chn;
       }
 
@@ -59,14 +58,13 @@ use bytes;
 
    $_dest_function[SENDTO_FD] = sub {             ## Content >> File descriptor
 
-      return unless (defined $_value);
+      return unless (defined $_val);
       local $\ = undef if (defined $\);
 
       if (length ${ $_[0] }) {
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_D_SND . $LF . $_chn . $LF;
-         print {$_DAU_W_SOCK} $_value . $LF . length(${ $_[0] }) . $LF;
-         print {$_DAU_W_SOCK} ${ $_[0] };
+         print {$_DAT_W_SOCK} OUTPUT_D_SND.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} $_val.$LF . length(${ $_[0] }).$LF, ${ $_[0] };
          $_dat_un->() if $_lock_chn;
       }
 
@@ -79,9 +77,8 @@ use bytes;
 
       if (length ${ $_[0] }) {
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_O_SND . $LF . $_chn . $LF;
-         print {$_DAU_W_SOCK} length(${ $_[0] }) . $LF;
-         print {$_DAU_W_SOCK} ${ $_[0] };
+         print {$_DAT_W_SOCK} OUTPUT_O_SND.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} length(${ $_[0] }).$LF, ${ $_[0] };
          $_dat_un->() if $_lock_chn;
       }
 
@@ -94,9 +91,8 @@ use bytes;
 
       if (length ${ $_[0] }) {
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_E_SND . $LF . $_chn . $LF;
-         print {$_DAU_W_SOCK} length(${ $_[0] }) . $LF;
-         print {$_DAU_W_SOCK} ${ $_[0] };
+         print {$_DAT_W_SOCK} OUTPUT_E_SND.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} length(${ $_[0] }).$LF, ${ $_[0] };
          $_dat_un->() if $_lock_chn;
       }
 
@@ -107,14 +103,14 @@ use bytes;
 
    sub _do_callback {
 
-      my ($self, $_buf, $_aref);  ($self, $_value, $_aref) = @_;
+      my ($self, $_buf, $_aref);  ($self, $_val, $_aref) = @_;
 
       unless (defined wantarray) {
-         $_want_id = WANTS_UNDEF;
+         $_wa = WANTS_UNDEF;
       } elsif (wantarray) {
-         $_want_id = WANTS_ARRAY;
+         $_wa = WANTS_ARRAY;
       } else {
-         $_want_id = WANTS_SCALAR;
+         $_wa = WANTS_SCALAR;
       }
 
       ## Crossover: Send arguments
@@ -126,9 +122,8 @@ use bytes;
             $_len = length $_buf; local $\ = undef if (defined $\);
 
             $_dat_ex->() if $_lock_chn;
-            print {$_DAT_W_SOCK} $_tag . $LF . $_chn . $LF;
-            print {$_DAU_W_SOCK} $_want_id . $LF . $_value . $LF . $_len . $LF;
-            print {$_DAU_W_SOCK} $_buf;
+            print {$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF;
+            print {$_DAU_W_SOCK} $_wa.$LF . $_val.$LF . $_len.$LF, $_buf;
 
          }
          else {                                   ## Scalar >> Callback
@@ -136,9 +131,8 @@ use bytes;
             $_len = length $_aref->[0]; local $\ = undef if (defined $\);
 
             $_dat_ex->() if $_lock_chn;
-            print {$_DAT_W_SOCK} $_tag . $LF . $_chn . $LF;
-            print {$_DAU_W_SOCK} $_want_id . $LF . $_value . $LF . $_len . $LF;
-            print {$_DAU_W_SOCK} $_aref->[0];
+            print {$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF;
+            print {$_DAU_W_SOCK} $_wa.$LF . $_val.$LF . $_len.$LF, $_aref->[0];
          }
       }
       else {                                      ## No Args >> Callback
@@ -146,17 +140,17 @@ use bytes;
          local $\ = undef if (defined $\);
 
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} $_tag . $LF . $_chn . $LF;
-         print {$_DAU_W_SOCK} $_want_id . $LF . $_value . $LF;
+         print {$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} $_wa.$LF . $_val.$LF;
       }
 
       ## Crossover: Receive return value
 
-      if ($_want_id == WANTS_UNDEF) {
+      if ($_wa == WANTS_UNDEF) {
          $_dat_un->() if $_lock_chn;
          return;
       }
-      elsif ($_want_id == WANTS_ARRAY) {
+      elsif ($_wa == WANTS_ARRAY) {
          local $/ = $LF if (!$/ || $/ ne $LF);
          chomp($_len = <$_DAU_W_SOCK>);
 
@@ -167,14 +161,14 @@ use bytes;
       }
       else {
          local $/ = $LF if (!$/ || $/ ne $LF);
-         chomp($_want_id = <$_DAU_W_SOCK>);
+         chomp($_wa = <$_DAU_W_SOCK>);
          chomp($_len     = <$_DAU_W_SOCK>);
 
          if ($_len >= 0) {
             read($_DAU_W_SOCK, $_buf, $_len || 0);
             $_dat_un->() if $_lock_chn;
 
-            return $_buf if ($_want_id == WANTS_SCALAR);
+            return $_buf if ($_wa == WANTS_SCALAR);
             return $self->{thaw}($_buf);
          }
          else {
@@ -203,9 +197,8 @@ use bytes;
             $_len = length $_aref->[0]; local $\ = undef if (defined $\);
 
             $_dat_ex->() if $_lock_chn;
-            print {$_DAT_W_SOCK} $_tag . $LF . $_chn . $LF;
-            print {$_DAU_W_SOCK} $_task_id . $LF . $_len . $LF;
-            print {$_DAU_W_SOCK} $_aref->[0];
+            print {$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF;
+            print {$_DAU_W_SOCK} $_task_id.$LF . $_len.$LF, $_aref->[0];
             $_dat_un->() if $_lock_chn;
 
             return;
@@ -219,8 +212,8 @@ use bytes;
       local $\ = undef if (defined $\);
 
       $_dat_ex->() if $_lock_chn;
-      print {$_DAT_W_SOCK} $_tag . $LF . $_chn . $LF;
-      print {$_DAU_W_SOCK} $_task_id . $LF . $_len . $LF, $_buf;
+      print {$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF;
+      print {$_DAU_W_SOCK} $_task_id.$LF . $_len.$LF, $_buf;
       $_dat_un->() if $_lock_chn;
 
       return;
@@ -232,7 +225,7 @@ use bytes;
 
       my $_data_ref; my $self = shift;
 
-      $_dest = shift; $_value = shift;
+      $_dest = shift; $_val = shift;
 
       if (scalar @_ > 1) {
          $_data_ref = \join('', @_);
@@ -313,7 +306,7 @@ use bytes;
 
       my ($self) = @_;
 
-      $_dest = $_len = $_task_id = $_user_func = $_value = $_want_id = undef;
+      $_dest = $_len = $_task_id = $_user_func = $_val = $_wa = undef;
       $_DAT_LOCK = $_DAT_W_SOCK = $_DAU_W_SOCK = $_chn = $_lock_chn = undef;
       $_dat_ex = $_dat_un = $_tag = undef;
 
@@ -472,12 +465,12 @@ sub _worker_do {
    $_DAT_LOCK->lock() if $_lock_chn;
 
    if (exists $self->{_rla_return}) {
-      print {$_DAT_W_SOCK} OUTPUT_W_RLA . $LF . $_chn . $LF;
-      print {$_DAU_W_SOCK} (delete $self->{_rla_return}) . $LF;
+      print {$_DAT_W_SOCK} OUTPUT_W_RLA.$LF . $_chn.$LF;
+      print {$_DAU_W_SOCK} (delete $self->{_rla_return}).$LF;
    }
 
-   print {$_DAT_W_SOCK} OUTPUT_W_DNE . $LF . $_chn . $LF;
-   print {$_DAU_W_SOCK} $_task_id . $LF;
+   print {$_DAT_W_SOCK} OUTPUT_W_DNE.$LF . $_chn.$LF;
+   print {$_DAU_W_SOCK} $_task_id.$LF;
 
    $_DAT_LOCK->unlock() if $_lock_chn;
 
@@ -516,7 +509,7 @@ sub _worker_loop {
 
          ## Wait for the next job request.
          $_response = <$_COM_W_SOCK>;
-         print {$_COM_W_SOCK} $_wid . $LF;
+         print {$_COM_W_SOCK} $_wid.$LF;
 
          ## End loop if invalid response.
          last unless (defined $_response);
@@ -535,7 +528,7 @@ sub _worker_loop {
             chomp($_len = <$_COM_W_SOCK>);
             read $_COM_W_SOCK, $_buf, $_len;
 
-            print {$_COM_W_SOCK} $_wid . $LF;
+            print {$_COM_W_SOCK} $_wid.$LF;
             $_com_un->();
 
             $self->{user_data} = $self->{thaw}($_buf);
@@ -553,7 +546,7 @@ sub _worker_loop {
             chomp($_len = <$_COM_W_SOCK>);
             read $_COM_W_SOCK, $_buf, $_len;
 
-            print {$_COM_W_SOCK} $_wid . $LF;
+            print {$_COM_W_SOCK} $_wid.$LF;
             $_com_un->();
 
             $_params_ref = $self->{thaw}($_buf);

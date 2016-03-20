@@ -261,6 +261,19 @@ The source, cookbook, and examples are hosted at GitHub.
 
 =back
 
+=head1 SEE ALSO
+
+C<MCE::Shared> provides data sharing capabilities for C<MCE>. It includes
+C<MCE::Hobo> for running code asynchronously.
+
+=over 3
+
+=item * L<MCE::Shared>
+
+=item * L<MCE::Hobo>
+
+=back
+
 =head1 AUTHOR
 
 Mario E. Roy, S<E<lt>marioeroy AT gmail DOT comE<gt>>

@@ -1,9 +1,11 @@
 
 Revision history for Perl module MCE.
 
-1.702 Tue Mar 15 17:00:00 EST 2016
+1.703 Sat Mar 19 23:00:00 EST 2016
 
-  [BUG FIXES]
+  * Completed IPC optimizations for 1.7.
+
+1.702 Tue Mar 15 17:00:00 EST 2016
 
   * Bumped version.
 

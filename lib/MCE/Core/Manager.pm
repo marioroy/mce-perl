@@ -90,12 +90,7 @@ sub _output_loop {
       my $_buf = $self->{freeze}($_[0]);
          $_len = length $_buf; local $\ = undef if (defined $\);
 
-      if ($_len < FAST_SEND_SIZE) {
-         print {$_DAU_R_SOCK} $_len . $LF . $_buf;
-      } else {
-         print {$_DAU_R_SOCK} $_len . $LF;
-         print {$_DAU_R_SOCK} $_buf;
-      }
+      print {$_DAU_R_SOCK} $_len.$LF, $_buf;
 
       return;
    };
@@ -105,12 +100,7 @@ sub _output_loop {
       my $_buf = $self->{freeze}($_[0]);
          $_len = length $_buf; local $\ = undef if (defined $\);
 
-      if ($_len < FAST_SEND_SIZE) {
-         print {$_DAU_R_SOCK} WANTS_REF . $LF . $_len . $LF . $_buf;
-      } else {
-         print {$_DAU_R_SOCK} WANTS_REF . $LF . $_len . $LF;
-         print {$_DAU_R_SOCK} $_buf;
-      }
+      print {$_DAU_R_SOCK} WANTS_REF.$LF . $_len.$LF, $_buf;
 
       return;
    };
@@ -120,12 +110,7 @@ sub _output_loop {
       $_len = (defined $_[0]) ? length $_[0] : -1;
       local $\ = undef if (defined $\);
 
-      if ($_len < FAST_SEND_SIZE) {
-         print {$_DAU_R_SOCK} WANTS_SCALAR . $LF . $_len . $LF . $_[0];
-      } else {
-         print {$_DAU_R_SOCK} WANTS_SCALAR . $LF . $_len . $LF;
-         print {$_DAU_R_SOCK} $_[0];
-      }
+      print {$_DAU_R_SOCK} WANTS_SCALAR.$LF . $_len.$LF, $_[0];
 
       return;
    };
@@ -278,7 +263,8 @@ sub _output_loop {
 
          if ($_offset_pos >= $_input_size || $_aborted) {
             local $\ = undef if (defined $\);
-            print {$_DAU_R_SOCK} '0' . $LF;
+            print {$_DAU_R_SOCK} '0'.$LF;
+
             return;
          }
 
@@ -299,14 +285,7 @@ sub _output_loop {
          }
 
          $_len = length $_buf; local $\ = undef if (defined $\);
-
-         if ($_len < FAST_SEND_SIZE) {
-            print {$_DAU_R_SOCK} $_len . $LF . (++$_chunk_id) . $LF . $_buf;
-         } else {
-            print {$_DAU_R_SOCK} $_len . $LF . (++$_chunk_id) . $LF;
-            print {$_DAU_R_SOCK} $_buf;
-         }
-
+         print {$_DAU_R_SOCK} $_len.$LF . (++$_chunk_id).$LF, $_buf;
          $_offset_pos += $_chunk_size;
 
          return;
@@ -321,7 +300,8 @@ sub _output_loop {
 
          if ($_eof_flag || $_aborted) {
             local $\ = undef if (defined $\);
-            print {$_DAU_R_SOCK} '0' . $LF;
+            print {$_DAU_R_SOCK} '0'.$LF;
+
             return;
          }
 
@@ -360,15 +340,9 @@ sub _output_loop {
          $_len = length $_buf; local $\ = undef if (defined $\);
 
          if ($_len) {
-            if ($_len < FAST_SEND_SIZE) {
-               print {$_DAU_R_SOCK} $_len . $LF . (++$_chunk_id) . $LF . $_buf;
-            } else {
-               print {$_DAU_R_SOCK} $_len . $LF . (++$_chunk_id) . $LF;
-               print {$_DAU_R_SOCK} $_buf;
-            }
-         }
-         else {
-            print {$_DAU_R_SOCK} '0' . $LF;
+            print {$_DAU_R_SOCK} $_len.$LF . (++$_chunk_id).$LF, $_buf;
+         } else {
+            print {$_DAU_R_SOCK} '0'.$LF;
          }
 
          return;
@@ -379,7 +353,8 @@ sub _output_loop {
 
          if ($_aborted) {
             local $\ = undef if (defined $\);
-            print {$_DAU_R_SOCK} '-1' . $LF;
+            print {$_DAU_R_SOCK} '-1'.$LF;
+
             return;
          }
 
@@ -388,33 +363,19 @@ sub _output_loop {
          if (scalar @_ret_a > 1 || ref $_ret_a[0]) {
             $_buf = $self->{freeze}( [ @_ret_a ] );
             $_len = length $_buf; local $\ = undef if (defined $\);
-
-            if ($_len < FAST_SEND_SIZE) {
-               print {$_DAU_R_SOCK}
-                  $_len . '1' . $LF . (++$_chunk_id) . $LF . $_buf;
-            } else {
-               print {$_DAU_R_SOCK} $_len . '1' . $LF . (++$_chunk_id) . $LF;
-               print {$_DAU_R_SOCK} $_buf;
-            }
+            print {$_DAU_R_SOCK} $_len.'1'.$LF . (++$_chunk_id).$LF, $_buf;
 
             return;
          }
          elsif (defined $_ret_a[0]) {
             $_len = length $_ret_a[0]; local $\ = undef if (defined $\);
-
-            if ($_len < FAST_SEND_SIZE) {
-               print {$_DAU_R_SOCK}
-                  $_len . '0' . $LF . (++$_chunk_id) . $LF . $_ret_a[0];
-            } else {
-               print {$_DAU_R_SOCK} $_len . '0' . $LF . (++$_chunk_id) . $LF;
-               print {$_DAU_R_SOCK} $_ret_a[0];
-            }
+            print {$_DAU_R_SOCK} $_len.'0'.$LF . (++$_chunk_id).$LF, $_ret_a[0];
 
             return;
          }
 
          local $\ = undef if (defined $\);
-         print {$_DAU_R_SOCK} '-1' . $LF;
+         print {$_DAU_R_SOCK} '-1'.$LF;
          $_aborted = 1;
 
          return;
@@ -657,7 +618,7 @@ sub _output_loop {
             : $self->{_total_running};
 
          if (++$_sync_cnt == $_total_running) {
-            for (1 .. $_total_running) { 1 until syswrite $_BSB_W_SOCK, $LF }
+            for (1 .. $_total_running) { 1 until syswrite $_BSB_W_SOCK, $LF; }
             undef $_syn_flag;
          }
 
@@ -671,7 +632,7 @@ sub _output_loop {
                ? $self->{_task}->[0]->{_total_running}
                : $self->{_total_running};
 
-            for (1 .. $_total_running) { 1 until syswrite $_BSE_W_SOCK, $LF }
+            for (1 .. $_total_running) { 1 until syswrite $_BSE_W_SOCK, $LF; }
          }
 
          return;
@@ -828,7 +789,7 @@ sub _output_loop {
          print {$_DAT_W_SOCK} 'NOOP'.$LF . '0'.$LF;
       };
 
-      while (1) {
+      while ( $self->{_total_running} ) {
          alarm $_timeout;
          $_func = <$_DAT_R_SOCK>;
          $_DAU_R_SOCK = $_channels->[ <$_DAT_R_SOCK> ];
@@ -839,8 +800,6 @@ sub _output_loop {
          } elsif (exists $_plugin_function->{$_func}) {
             $_plugin_function->{$_func}();
          }
-
-         last unless $self->{_total_running};
       }
    }
 
@@ -848,7 +807,7 @@ sub _output_loop {
    ## Exit loop when all workers have completed processing.
 
    else {
-      while (1) {
+      while ( $self->{_total_running} ) {
          $_func = <$_DAT_R_SOCK>;
          $_DAU_R_SOCK = $_channels->[ <$_DAT_R_SOCK> ];
 
@@ -857,8 +816,6 @@ sub _output_loop {
          } elsif (exists $_plugin_function->{$_func}) {
             $_plugin_function->{$_func}();
          }
-
-         last unless $self->{_total_running};
       }
    }
 

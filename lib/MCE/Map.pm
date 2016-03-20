@@ -17,7 +17,7 @@ our $VERSION = '1.702';
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
-use Scalar::Util qw( looks_like_number );
+use Scalar::Util qw( looks_like_number weaken );
 use Storable ();
 use MCE::Signal;
 
@@ -299,6 +299,7 @@ sub run (&@) {
                   binmode $_MEM_FH, ':raw';
                   while (<$_MEM_FH>) { push @_a, &{ $_code }; }
                   close   $_MEM_FH;
+                  weaken  $_MEM_FH;
                }
                else {
                   if (ref $_chunk_ref) {
@@ -319,6 +320,7 @@ sub run (&@) {
                   binmode $_MEM_FH, ':raw';
                   while (<$_MEM_FH>) { $_cnt++; &{ $_code }; }
                   close   $_MEM_FH;
+                  weaken  $_MEM_FH;
                }
                else {
                   if (ref $_chunk_ref) {

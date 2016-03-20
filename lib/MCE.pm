@@ -42,7 +42,7 @@ BEGIN {
    eval 'PDL::no_clone_skip_warning()' if $INC{'PDL.pm'};
 }
 
-use Scalar::Util qw( looks_like_number refaddr );
+use Scalar::Util qw( looks_like_number refaddr weaken );
 use Time::HiRes qw( sleep time );
 
 use Symbol qw( qualify_to_ref );
@@ -112,19 +112,19 @@ BEGIN {
       chunk_size max_retries max_workers task_name tmp_dir user_args
    )) {
       *{ $_p } = sub () {
-         my $x = shift; my $self = ref($x) ? $x : $MCE;
+         my $self = shift; $self = $MCE unless ref($self);
          return $self->{$_p};
       };
    }
    for my $_p (qw( chunk_id sess_dir task_id task_wid wid )) {
       *{ $_p } = sub () {
-         my $x = shift; my $self = ref($x) ? $x : $MCE;
+         my $self = shift; $self = $MCE unless ref($self);
          return $self->{"_${_p}"};
       };
    }
    for my $_p (qw( freeze thaw )) {
       *{ $_p } = sub () {
-         my $x = shift; my $self = ref($x) ? $x : $MCE;
+         my $self = shift; $self = $MCE unless ref($self);
          return $self->{$_p}(@_);
       };
    }
@@ -217,7 +217,6 @@ sub import {
 
 use constant {
 
-   FAST_SEND_SIZE => 1024 * 64 + 128,   # Use one print call if N < size
    MAX_CHUNK_SIZE => 1024 * 1024 * 64,  # Maximum chunk size allowed
 
    DATA_CHANNELS  => 8,        # Max data channels
@@ -466,7 +465,7 @@ sub new {
 
 sub spawn {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    @_ = ();
 
@@ -690,7 +689,7 @@ sub forseq {
 
 sub process {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    _validate_runstate($self, 'MCE::process');
 
@@ -738,7 +737,7 @@ sub relay (;&) {
 
 sub restart_worker {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    @_ = ();
 
@@ -783,7 +782,7 @@ sub restart_worker {
 
 sub run {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    _croak('MCE::run: method is not allowed by the worker process')
       if ($self->{_wid});
@@ -994,14 +993,14 @@ sub run {
 
       ## Submit params data to workers.
       for my $_i (1 .. $_total_workers) {
-         print {$_COM_R_SOCK} $_i . $LF;
+         print {$_COM_R_SOCK} $_i.$LF;
          chomp($_wid = <$_COM_R_SOCK>);
 
          if (!$_has_user_tasks || exists $_task0_wids{$_wid}) {
-            print {$_COM_R_SOCK} length($_frozen_params) . $LF . $_frozen_params;
+            print {$_COM_R_SOCK} length($_frozen_params).$LF, $_frozen_params;
             $self->{_state}->[$_wid]->{_params} = \%_params;
          } else {
-            print {$_COM_R_SOCK} length($_frozen_nodata) . $LF . $_frozen_nodata;
+            print {$_COM_R_SOCK} length($_frozen_nodata).$LF, $_frozen_nodata;
             $self->{_state}->[$_wid]->{_params} = \%_params_nodata;
          }
 
@@ -1078,7 +1077,7 @@ sub run {
 
 sub send {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    _croak('MCE::send: method is not allowed by the worker process')
       if ($self->{_wid});
@@ -1123,17 +1122,10 @@ sub send {
    my $_len          = length $_frozen_data;
 
    ## Submit data to worker.
-   print {$_COM_R_SOCK} '_data' . $LF;
-
+   print {$_COM_R_SOCK} '_data'.$LF;
    <$_COM_R_SOCK>;
 
-   if ($_len < FAST_SEND_SIZE) {
-      print {$_COM_R_SOCK} $_len . $LF . $_frozen_data;
-   } else {
-      print {$_COM_R_SOCK} $_len . $LF;
-      print {$_COM_R_SOCK} $_frozen_data;
-   }
-
+   print {$_COM_R_SOCK} $_len.$LF, $_frozen_data;
    <$_COM_R_SOCK>;
 
    if (defined $_submit_delay && $_submit_delay > 0.0) {
@@ -1153,7 +1145,7 @@ sub send {
 
 sub shutdown {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
    my $_no_lock = shift || 0;
 
    @_ = ();
@@ -1193,7 +1185,7 @@ sub shutdown {
    {
       lock $_EXT_LOCK if $_is_MSWin32;
       for (1 .. $_total_workers) {
-         print {$_COM_R_SOCK} '_exit' . $LF;
+         print {$_COM_R_SOCK} '_exit'.$LF;
          <$_COM_R_SOCK>;
       }
    }
@@ -1261,7 +1253,7 @@ sub shutdown {
 
 sub sync {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    return unless ($self->{_wid});
 
@@ -1279,13 +1271,13 @@ sub sync {
    local $\ = undef if (defined $\); local $/ = $LF if (!$/ || $/ ne $LF);
 
    ## Notify the manager process (begin).
-   print {$_DAT_W_SOCK} OUTPUT_B_SYN . $LF . $_chn . $LF;
+   print {$_DAT_W_SOCK} OUTPUT_B_SYN.$LF . $_chn.$LF;
 
    ## Wait here until all workers (task_id 0) have synced.
    1 until sysread $_BSB_R_SOCK, $_buffer, 1;
 
    ## Notify the manager process (end).
-   print {$_DAT_W_SOCK} OUTPUT_E_SYN . $LF . $_chn . $LF;
+   print {$_DAT_W_SOCK} OUTPUT_E_SYN.$LF . $_chn.$LF;
 
    ## Wait here until all workers (task_id 0) have un-synced.
    1 until sysread $_BSE_R_SOCK, $_buffer, 1;
@@ -1295,7 +1287,7 @@ sub sync {
 
 sub yield {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    return unless ($self->{_i_wrk_st});
    return unless ($self->{_task_wid});
@@ -1327,7 +1319,7 @@ sub yield {
 
 sub abort {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    my $_QUE_R_SOCK = $self->{_que_r_sock};
    my $_QUE_W_SOCK = $self->{_que_w_sock};
@@ -1351,11 +1343,11 @@ sub abort {
          $_DAT_LOCK->lock() if $_lock_chn;
 
          if (exists $self->{_rla_return}) {
-            print {$_DAT_W_SOCK} OUTPUT_W_RLA . $LF . $_chn . $LF;
-            print {$_DAU_W_SOCK} (delete $self->{_rla_return}) . $LF;
+            print {$_DAT_W_SOCK} OUTPUT_W_RLA.$LF . $_chn.$LF;
+            print {$_DAU_W_SOCK} (delete $self->{_rla_return}).$LF;
          }
 
-         print {$_DAT_W_SOCK} OUTPUT_W_ABT . $LF . $_chn . $LF;
+         print {$_DAT_W_SOCK} OUTPUT_W_ABT.$LF . $_chn.$LF;
 
          $_DAT_LOCK->unlock() if $_lock_chn;
       }
@@ -1368,7 +1360,7 @@ sub abort {
 
 sub exit {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    my $_exit_status = (defined $_[0]) ? $_[0] : $?;
    my $_exit_msg    = (defined $_[1]) ? $_[1] : '';
@@ -1402,22 +1394,22 @@ sub exit {
       $_DAT_LOCK->lock() if $_lock_chn;
 
       if (exists $self->{_rla_return}) {
-         print {$_DAT_W_SOCK} OUTPUT_W_RLA . $LF . $_chn . $LF;
-         print {$_DAU_W_SOCK} (delete $self->{_rla_return}) . $LF;
+         print {$_DAT_W_SOCK} OUTPUT_W_RLA.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} (delete $self->{_rla_return}).$LF;
       }
 
-      print {$_DAT_W_SOCK} OUTPUT_W_EXT . $LF . $_chn . $LF;
+      print {$_DAT_W_SOCK} OUTPUT_W_EXT.$LF . $_chn.$LF;
       print {$_DAU_W_SOCK}
-         $_task_id . $LF . $self->{_wid} . $LF . $self->{_exit_pid} . $LF .
-         $_exit_status . $LF . $_exit_id . $LF . $_len . $LF . $_exit_msg
+         $_task_id.$LF . $self->{_wid}.$LF . $self->{_exit_pid}.$LF .
+         $_exit_status.$LF . $_exit_id.$LF . $_len.$LF . $_exit_msg
       ;
 
       if ($self->{_retry} && $self->{_retry}->[2]--) {
          my $_buf = $self->{freeze}($self->{_retry});
-         print {$_DAU_W_SOCK} length($_buf) . $LF . $_buf;
+         print {$_DAU_W_SOCK} length($_buf).$LF, $_buf;
       }
       else {
-         print {$_DAU_W_SOCK} '0' . $LF;
+         print {$_DAU_W_SOCK} '0'.$LF;
       }
 
       <$_DAU_W_SOCK>;
@@ -1444,7 +1436,7 @@ sub exit {
 
 sub last {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    _croak('MCE::last: method is not allowed by the manager process')
       unless ($self->{_wid});
@@ -1458,7 +1450,7 @@ sub last {
 
 sub next {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    _croak('MCE::next: method is not allowed by the manager process')
       unless ($self->{_wid});
@@ -1472,7 +1464,7 @@ sub next {
 
 sub pid {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    if (defined $self->{_pid}) {
       $self->{_pid};
@@ -1488,7 +1480,7 @@ sub pid {
 
 sub status {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    _croak('MCE::status: method is not allowed by the worker process')
       if ($self->{_wid});
@@ -1506,7 +1498,7 @@ sub status {
 
 sub do {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    _croak('MCE::do: method is not allowed by the manager process')
       unless ($self->{_wid});
@@ -1528,7 +1520,7 @@ sub do {
 
 sub gather {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    _croak('MCE::gather: method is not allowed by the manager process')
       unless ($self->{_wid});
@@ -1551,7 +1543,7 @@ sub gather {
 
    sub sendto {
 
-      my $x = shift; my $self = ref($x) ? $x : $MCE;
+      my $self = shift; $self = $MCE unless ref($self);
       my $_to = shift;
 
       _croak('MCE::sendto: method is not allowed by the manager process')
@@ -1606,8 +1598,8 @@ sub gather {
 
 sub print {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
-   my $_fd = 0; my ($_glob, $_data_ref);
+   my $self = shift; $self = $MCE unless ref($self);
+   my ($_fd, $_glob, $_data_ref);
 
    if (ref $_[0] && defined ($_fd = fileno($_[0]))) {
       $_glob = shift;
@@ -1628,8 +1620,8 @@ sub print {
 
 sub printf {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
-   my $_fd = 0; my ($_glob, $_fmt, $_data);
+   my $self = shift; $self = $MCE unless ref($self);
+   my ($_fd, $_glob, $_fmt, $_data);
 
    if (ref $_[0] && defined ($_fd = fileno($_[0]))) {
       $_glob = shift;
@@ -1645,8 +1637,8 @@ sub printf {
 
 sub say {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
-   my $_fd = 0; my ($_glob, $_data);
+   my $self = shift; $self = $MCE unless ref($self);
+   my ($_fd, $_glob, $_data);
 
    if (ref $_[0] && defined ($_fd = fileno($_[0]))) {
       $_glob = shift;
@@ -1681,7 +1673,7 @@ sub _croak {
 
 sub _get_max_workers {
 
-   my $x = shift; my $self = ref($x) ? $x : $MCE;
+   my $self = shift; $self = $MCE unless ref($self);
 
    if (defined $self->{user_tasks}) {
       if (defined $self->{user_tasks}->[0]->{max_workers}) {
@@ -1698,21 +1690,22 @@ sub _sync_buffer_to_array {
 
    local $_; my $_cnt = 0;
 
-   open my $_MEM_FILE, '<', $_buffer_ref;
-   binmode $_MEM_FILE;
+   open my $_MEM_FH, '<', $_buffer_ref;
+   binmode $_MEM_FH, ':raw';
 
    unless (length $_chop_str) {
-      $_array_ref->[$_cnt++] = $_ while (<$_MEM_FILE>);
+      $_array_ref->[$_cnt++] = $_ while (<$_MEM_FH>);
    }
    else {
-      $_array_ref->[$_cnt++] = <$_MEM_FILE>;
-      while (<$_MEM_FILE>) {
+      $_array_ref->[$_cnt++] = <$_MEM_FH>;
+      while (<$_MEM_FH>) {
          $_array_ref->[$_cnt  ]  = $_chop_str;
          $_array_ref->[$_cnt++] .= $_;
       }
    }
 
-   close $_MEM_FILE; undef $_MEM_FILE;
+   close  $_MEM_FH;
+   weaken $_MEM_FH;
 
    return;
 }

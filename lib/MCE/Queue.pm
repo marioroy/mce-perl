@@ -133,7 +133,9 @@ my %_valid_fields_new = map { $_ => 1 } qw(
 my $_all = {};
 my $_qid = 0;
 
-sub CLONE { $_tid = threads->tid() }
+sub CLONE {
+   $_tid = threads->tid() if $_has_threads;
+}
 
 sub DESTROY {
    my ($_Q) = @_;
@@ -800,23 +802,23 @@ sub _heap_insert_high {
 
          if ($_cnt) {
             unless (defined $_items[0]) {
-               print {$_DAU_R_SOCK} '-1' . $LF;
+               print {$_DAU_R_SOCK} '-1'.$LF;
             } else {
                $_buf = $_MCE->{freeze}(\@_items);
-               print {$_DAU_R_SOCK} length($_buf) . $LF, $_buf;
+               print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
             }
          }
          else {
             unless (defined $_buf) {
-               print {$_DAU_R_SOCK} '-1' . $LF;
+               print {$_DAU_R_SOCK} '-1'.$LF;
             }
             else {
                if (ref $_buf) {
-                  $_buf  = $_MCE->{freeze}($_buf) . '1';
+                  $_buf  = $_MCE->{freeze}($_buf).'1';
                } else {
                   $_buf .= '0';
                }
-               print {$_DAU_R_SOCK} length($_buf) . $LF, $_buf;
+               print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
             }
          }
 
@@ -842,24 +844,24 @@ sub _heap_insert_high {
             my $_buf = $_Q->_dequeue();
 
             unless (defined $_buf) {
-               print {$_DAU_R_SOCK} '-1' . $LF;
+               print {$_DAU_R_SOCK} '-1'.$LF;
             } else {
                if (ref $_buf) {
-                  $_buf  = $_MCE->{freeze}($_buf) . '1';
+                  $_buf  = $_MCE->{freeze}($_buf).'1';
                } else {
                   $_buf .= '0';
                }
-               print {$_DAU_R_SOCK} length($_buf) . $LF, $_buf;
+               print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
             }
          }
          else {
             my @_items; push(@_items, $_Q->_dequeue()) for (1 .. $_cnt);
 
             unless (defined $_items[0]) {
-               print {$_DAU_R_SOCK} '-1' . $LF;
+               print {$_DAU_R_SOCK} '-1'.$LF;
             } else {
                my $_buf = $_MCE->{freeze}(\@_items);
-               print {$_DAU_R_SOCK} length($_buf) . $LF, $_buf;
+               print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
             }
          }
 
@@ -880,7 +882,7 @@ sub _heap_insert_high {
 
          chomp($_id = <$_DAU_R_SOCK>);
 
-         print {$_DAU_R_SOCK} $_all->{$_id}->_pending() . $LF;
+         print {$_DAU_R_SOCK} $_all->{$_id}->_pending().$LF;
 
          return;
       },
@@ -944,14 +946,14 @@ sub _heap_insert_high {
          $_buf = $_Q->_peek($_i);
 
          unless (defined $_buf) {
-            print {$_DAU_R_SOCK} -1 . $LF;
+            print {$_DAU_R_SOCK} '-1'.$LF;
          } else {
             if (ref $_buf) {
-               $_buf  = $_MCE->{freeze}($_buf) . '1';
+               $_buf  = $_MCE->{freeze}($_buf).'1';
             } else {
                $_buf .= '0';
             }
-            print {$_DAU_R_SOCK} length($_buf) . $LF . $_buf;
+            print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
          }
 
          return;
@@ -968,14 +970,14 @@ sub _heap_insert_high {
          $_buf = $_Q->_peekp($_p, $_i);
 
          unless (defined $_buf) {
-            print {$_DAU_R_SOCK} -1 . $LF;
+            print {$_DAU_R_SOCK} '-1'.$LF;
          } else {
             if (ref $_buf) {
-               $_buf  = $_MCE->{freeze}($_buf) . '1';
+               $_buf  = $_MCE->{freeze}($_buf).'1';
             } else {
                $_buf .= '0';
             }
-            print {$_DAU_R_SOCK} length($_buf) . $LF . $_buf;
+            print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
          }
 
          return;
@@ -991,9 +993,9 @@ sub _heap_insert_high {
          $_buf = $_Q->_peekh($_i);
 
          unless (defined $_buf) {
-            print {$_DAU_R_SOCK} -1 . $LF;
+            print {$_DAU_R_SOCK} '-1'.$LF;
          } else {
-            print {$_DAU_R_SOCK} length($_buf) . $LF . $_buf;
+            print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
          }
 
          return;
@@ -1007,7 +1009,7 @@ sub _heap_insert_high {
          $_Q   = $_all->{$_id};
          $_buf = $_MCE->{freeze}([ $_Q->_heap() ]);
 
-         print {$_DAU_R_SOCK} length($_buf) . $LF . $_buf;
+         print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
 
          return;
       },
@@ -1300,8 +1302,8 @@ sub _mce_m_insertp {
       local $\ = undef if (defined $\);
 
       $_dat_ex->() if $_lock_chn;
-      print {$_DAT_W_SOCK} OUTPUT_W_QUE . $LF . $_chn . $LF;
-      print {$_DAU_W_SOCK} $_Q->{_id} . $LF . $_t . $LF;
+      print {$_DAT_W_SOCK} OUTPUT_W_QUE.$LF . $_chn.$LF;
+      print {$_DAU_W_SOCK} $_Q->{_id}.$LF . $_t.$LF;
       $_dat_un->() if $_lock_chn;
 
       1 until sysread $_Q->{_ar_sock}, $_next, 1;  # block
@@ -1322,8 +1324,8 @@ sub _mce_m_insertp {
          local $/ = $LF if (!$/ || $/ ne $LF);
 
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_C_QUE . $LF . $_chn . $LF;
-         print {$_DAU_W_SOCK} $_Q->{_id} . $LF;
+         print {$_DAT_W_SOCK} OUTPUT_C_QUE.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} $_Q->{_id}.$LF;
          <$_DAU_W_SOCK>;
 
          $_dat_un->() if $_lock_chn;
@@ -1434,8 +1436,8 @@ sub _mce_m_insertp {
       local $/ = $LF if (!$/ || $/ ne $LF);
 
       $_dat_ex->() if $_lock_chn;
-      print {$_DAT_W_SOCK} OUTPUT_N_QUE . $LF . $_chn . $LF;
-      print {$_DAU_W_SOCK} $_Q->{_id} . $LF;
+      print {$_DAT_W_SOCK} OUTPUT_N_QUE.$LF . $_chn.$LF;
+      print {$_DAU_W_SOCK} $_Q->{_id}.$LF;
 
       chomp($_pending = <$_DAU_W_SOCK>);
       $_dat_un->() if $_lock_chn;
@@ -1454,11 +1456,9 @@ sub _mce_m_insertp {
 
       if (scalar @_ > 1 || ref $_[0] || !defined $_[0]) {
          $_tmp = $_MCE->{freeze}([ @_ ]);
-         $_buf = $_Q->{_id} . $LF . $_i . $LF .
-            (length($_tmp) + 1) . $LF . $_tmp . '1';
+         $_buf = $_Q->{_id}.$LF . $_i.$LF . (length($_tmp) + 1).$LF . $_tmp.'1';
       } else {
-         $_buf = $_Q->{_id} . $LF . $_i . $LF .
-            (length($_[0]) + 1) . $LF . $_[0] . '0';
+         $_buf = $_Q->{_id}.$LF . $_i.$LF . (length($_[0]) + 1).$LF . $_[0].'0';
       }
 
       $_req1->(OUTPUT_I_QUE, $_buf, '');
@@ -1479,11 +1479,11 @@ sub _mce_m_insertp {
 
       if (scalar @_ > 1 || ref $_[0] || !defined $_[0]) {
          $_tmp = $_MCE->{freeze}([ @_ ]);
-         $_buf = $_Q->{_id} . $LF . $_p . $LF . $_i . $LF .
-            (length($_tmp) + 1) . $LF . $_tmp . '1';
+         $_buf = $_Q->{_id}.$LF . $_p.$LF . $_i.$LF .
+            (length($_tmp) + 1).$LF . $_tmp.'1';
       } else {
-         $_buf = $_Q->{_id} . $LF . $_p . $LF . $_i . $LF .
-            (length($_[0]) + 1) . $LF . $_[0] . '0';
+         $_buf = $_Q->{_id}.$LF . $_p.$LF . $_i.$LF .
+            (length($_[0]) + 1).$LF . $_[0].'0';
       }
 
       $_req1->(OUTPUT_I_QUP, $_buf, '');
@@ -1506,8 +1506,8 @@ sub _mce_m_insertp {
          local $/ = $LF if (!$/ || $/ ne $LF);
 
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_P_QUE . $LF . $_chn . $LF;
-         print {$_DAU_W_SOCK} $_Q->{_id} . $LF . $_i . $LF;
+         print {$_DAT_W_SOCK} OUTPUT_P_QUE.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} $_Q->{_id}.$LF . $_i.$LF;
 
          chomp($_len = <$_DAU_W_SOCK>);
 
@@ -1538,8 +1538,8 @@ sub _mce_m_insertp {
          local $/ = $LF if (!$/ || $/ ne $LF);
 
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_P_QUP . $LF . $_chn . $LF;
-         print {$_DAU_W_SOCK} $_Q->{_id} . $LF . $_p . $LF . $_i . $LF;
+         print {$_DAT_W_SOCK} OUTPUT_P_QUP.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} $_Q->{_id}.$LF . $_p.$LF . $_i.$LF;
 
          chomp($_len = <$_DAU_W_SOCK>);
 
@@ -1568,8 +1568,8 @@ sub _mce_m_insertp {
          local $/ = $LF if (!$/ || $/ ne $LF);
 
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_P_QUH . $LF . $_chn . $LF;
-         print {$_DAU_W_SOCK} $_Q->{_id} . $LF . $_i . $LF;
+         print {$_DAT_W_SOCK} OUTPUT_P_QUH.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} $_Q->{_id}.$LF . $_i.$LF;
 
          chomp($_len = <$_DAU_W_SOCK>);
 
@@ -1597,8 +1597,8 @@ sub _mce_m_insertp {
          local $/ = $LF if (!$/ || $/ ne $LF);
 
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_H_QUE . $LF . $_chn . $LF;
-         print {$_DAU_W_SOCK} $_Q->{_id} . $LF;
+         print {$_DAT_W_SOCK} OUTPUT_H_QUE.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} $_Q->{_id}.$LF;
 
          chomp($_len = <$_DAU_W_SOCK>);
 
