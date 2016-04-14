@@ -3,8 +3,11 @@
 use strict;
 use warnings;
 
-use Test::More tests => 5;
-use MCE;
+use Test::More;
+
+BEGIN {
+   use_ok 'MCE';
+}
 
 my (@ans, @rpl, $mce);
 
@@ -109,4 +112,6 @@ $mce->run;
 
 is(join('', sort @ans), '1234', 'test4: check that list is correct');
 is(join('', sort @rpl), '2468', 'test5: check that hash is correct');
+
+done_testing;
 

@@ -3,8 +3,11 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
-use MCE;
+use Test::More;
+
+BEGIN {
+   use_ok 'MCE';
+}
 
 sub callback1 {
    my ($a_ref, $h_ref, $s_ref) = @_;
@@ -40,4 +43,6 @@ my $mce = MCE->new(
 );
 
 $mce->run;
+
+done_testing;
 

@@ -160,7 +160,7 @@ Mertens, David
 Mughal, Zakariyya
 
   First, Demian Riccardi introduced me to Devel::IPerl by Zakariyya. The die
-  handlers in MCE brake the user experience. It seems that looking at $^S
+  handlers in MCE broke the user experience. It seems that looking at $^S
   (for Perl state) is not enough. MCE v1.600 fixes this once and for all.
   The answer is in perl-5.20.1/cpan/CGI/lib/CGI/Carp.pm (Carp::longmess).
 
@@ -178,6 +178,11 @@ Riccardi, Demian
   I received a message from Demian asking for mce_map. His message requested
   ( my @a = mce_map { ... } 1..100 ). Five models were introduced in v1.500;
   MCE::Flow, MCE::Grep, MCE::Loop, MCE::Map, and MCE::Stream.
+
+  Find capability were limited in MCE::Shared 1.001. For example, not able to
+  mix :AND(s) and :OR(s) together. One day, I clicked on recent distributions
+  on metacpan.org and came across HackaMol::Roles::SelectionRole. The trick
+  is to eval the query string together with grep or map. Thank you Demian.
 
 Rowe, Jillian
 

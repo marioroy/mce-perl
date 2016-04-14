@@ -3,9 +3,16 @@
 use strict;
 use warnings;
 
-use Test::More tests => 32;
-use MCE::Flow max_workers => 1;
-use MCE::Queue;
+use Test::More;
+
+BEGIN {
+   use_ok 'MCE::Flow';
+   use_ok 'MCE::Queue';
+}
+
+MCE::Flow::init {
+   max_workers => 1
+};
 
 ###############################################################################
 
@@ -169,4 +176,6 @@ mce_flow sub {
 };
 
 MCE::Flow::finish;
+
+done_testing;
 

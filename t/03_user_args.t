@@ -3,8 +3,15 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
-use MCE::Flow max_workers => 1;
+use Test::More;
+
+BEGIN {
+   use_ok 'MCE::Flow';
+}
+
+MCE::Flow::init {
+   max_workers => 1
+};
 
 sub check_hello {
    my ($arg1, $arg2) = @_;
@@ -45,4 +52,6 @@ mce_flow { user_args => [ 'sunny', 'today' ] }, \&task;
 ##  Shutdown workers.
 
 MCE::Flow::finish;
+
+done_testing;
 

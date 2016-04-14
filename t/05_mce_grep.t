@@ -3,8 +3,11 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
-use MCE::Grep;
+use Test::More;
+
+BEGIN {
+   use_ok 'MCE::Grep';
+}
 
 ##  preparation
 
@@ -44,6 +47,8 @@ MCE::Grep::finish;
 ##  cleanup
 
 unlink $in_file;
+
+done_testing;
 
 __DATA__
 1

@@ -1,6 +1,20 @@
 
 Revision history for Perl module MCE.
 
+1.704 Thu Apr 14 05:00:00 EST 2016
+
+  [BUG FIXES]
+
+  * Fixed restart on the Windows platform, bug introduced in 1.700.
+  * Reached *stable* on all major platforms for MCE 1.7x.
+
+  [ENHANCEMENTS]
+
+  * Enabled auto-destroy for MCE objects.
+  * Enabled freeze callbacks for Sereal.
+  * Switched bug tracking to Github.
+  * Tweaked test scripts.
+
 1.703 Sat Mar 19 23:00:00 EST 2016
 
   * Completed IPC optimizations for 1.7.

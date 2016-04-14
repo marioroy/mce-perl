@@ -3,8 +3,11 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
-use MCE::Step;
+use Test::More;
+
+BEGIN {
+   use_ok 'MCE::Step';
+}
 
 ##  preparation
 
@@ -84,6 +87,8 @@ MCE::Step::finish;
 ##  cleanup
 
 unlink $in_file;
+
+done_testing;
 
 __DATA__
 1

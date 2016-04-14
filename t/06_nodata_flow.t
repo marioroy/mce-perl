@@ -3,8 +3,11 @@
 use strict;
 use warnings;
 
-use Test::More tests => 1;
-use MCE::Flow;
+use Test::More;
+
+BEGIN {
+   use_ok 'MCE::Flow';
+}
 
 MCE::Flow::init {
    max_workers => 4
@@ -19,4 +22,6 @@ my @a = mce_flow sub {
 is( join('', sort @a), '2468', 'check gathered data' );
 
 MCE::Flow::finish;
+
+done_testing;
 

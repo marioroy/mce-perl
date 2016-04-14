@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.703';
+our $VERSION = '1.704';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -53,8 +53,11 @@ sub import {
 
       if ( $_arg eq 'sereal' ) {
          if (shift eq '1') {
-            local $@; eval 'use Sereal qw(encode_sereal decode_sereal)';
-            $FREEZE = \&encode_sereal, $THAW = \&decode_sereal unless $@;
+            local $@; eval 'use Sereal qw( encode_sereal decode_sereal )';
+            if ( !$@ ) {
+               $FREEZE = sub { encode_sereal( @_, { freeze_callbacks => 1 } ) };
+               $THAW   = \&decode_sereal;
+            }
          }
          next;
       }
@@ -85,9 +88,7 @@ sub import {
 }
 
 END {
-   return if (defined $_MCE && $_MCE->wid);
-
-   finish();
+   $_MCE = undef;
 }
 
 ###############################################################################
@@ -111,10 +112,12 @@ sub init (@) {
    return;
 }
 
-sub finish () {
+sub finish (@) {
+
+   shift if (defined $_[0] && $_[0] eq 'MCE::Flow');
 
    if (defined $_MCE && $_MCE->{_spawned}) {
-      MCE::_save_state(); $_MCE->shutdown(); MCE::_restore_state();
+      MCE::_save_state(); $_MCE->shutdown(@_); MCE::_restore_state();
    }
 
    @_prev_c = (); @_prev_n = (); @_prev_t = (); @_prev_w = ();
@@ -422,7 +425,7 @@ sub run (@) {
       $MCE::MCE->{_rla_return} = delete $_MCE->{_rla_return};
    }
 
-   if ($^S) {
+   if ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
       ## shutdown if in eval state
       MCE::_save_state(); $_MCE->shutdown(); MCE::_restore_state();
    }
@@ -490,7 +493,7 @@ MCE::Flow - Parallel flow model for building creative applications
 
 =head1 VERSION
 
-This document describes MCE::Flow version 1.703
+This document describes MCE::Flow version 1.704
 
 =head1 DESCRIPTION
 

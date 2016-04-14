@@ -3,9 +3,12 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
-use MCE::Flow;
-use MCE::Queue;
+use Test::More;
+
+BEGIN {
+   use_ok 'MCE::Flow';
+   use_ok 'MCE::Queue';
+}
 
 ##  preparation
 
@@ -97,6 +100,8 @@ MCE::Flow::finish;
 ##  cleanup
 
 unlink $in_file;
+
+done_testing;
 
 __DATA__
 1

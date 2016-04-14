@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.703';
+our $VERSION = '1.704';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -19,10 +19,10 @@ our $VERSION = '1.703';
 
 use Carp ();
 
-my $_has_threads;
+my ($_has_threads, $_tid);
 
 BEGIN {
-   local $@; local $SIG{__DIE__} = \&_NOOP;
+   local $@; local $SIG{__DIE__};
 
    ## Forking is emulated under the Windows enviornment, excluding Cygwin.
    ## MCE 1.514+ will load the 'threads' module by default on Windows.
@@ -37,7 +37,8 @@ BEGIN {
       }
    }
 
-   $_has_threads = $INC{'threads/shared.pm'} ? 1 : 0;
+   $_has_threads = $INC{'threads.pm'} ? 1 : 0;
+   $_tid = $_has_threads ? threads->tid() : 0;
 
    eval 'PDL::no_clone_skip_warning()' if $INC{'PDL.pm'};
 }
@@ -75,7 +76,7 @@ BEGIN {
    ## _chunk_id _mce_sid _mce_tid _pids _run_mode _single_dim _thrs _tids _wid
    ## _exiting _exit_pid _total_exited _total_running _total_workers _task_wid
    ## _send_cnt _sess_dir _spawned _state _status _task _task_id _wrk_status
-   ## _init_total_workers _last_sref _mgr_live _rla_data _rla_return
+   ## _init_pid _init_total_workers _last_sref _mgr_live _rla_data _rla_return
    ##
    ## _bsb_r_sock _bsb_w_sock _bse_r_sock _bse_w_sock _com_r_sock _com_w_sock
    ## _dat_r_sock _dat_w_sock _que_r_sock _que_w_sock _rla_r_sock _rla_w_sock
@@ -166,8 +167,11 @@ sub import {
 
       if ( $_arg eq 'sereal' ) {
          if (shift eq '1') {
-            local $@; eval 'use Sereal qw(encode_sereal decode_sereal)';
-            $FREEZE = \&encode_sereal, $THAW = \&decode_sereal unless $@;
+            local $@; eval 'use Sereal qw( encode_sereal decode_sereal )';
+            if ( !$@ ) {
+               $FREEZE = sub { encode_sereal( @_, { freeze_callbacks => 1 } ) };
+               $THAW   = \&decode_sereal;
+            }
          }
          next;
       }
@@ -260,27 +264,20 @@ use constant {
    WANTS_REF      => 3         # Callee wants H/A/S ref
 };
 
-my (%_mce_sess_dir, %_mce_spawned); my $_mce_count = 0;
+my $_mce_count = 0;
 
-MCE::Signal::_set_session_vars(\%_mce_sess_dir, \%_mce_spawned);
-
-sub _clean_sessions {
-   my ($_mce_sid) = @_;
-   for my $_s (keys %_mce_spawned) {
-      delete $_mce_spawned{$_s} unless ($_s eq $_mce_sid);
-   }
-   return;
-}
-sub _clear_session {
-   my ($_mce_sid) = @_;
-   delete $_mce_spawned{$_mce_sid};
-   for my $_s (keys %_mce_spawned) {
-      (delete $_mce_spawned{$_s})->shutdown(1);
-   }
-   return;
+sub CLONE {
+   $_tid = threads->tid() if $_has_threads;
 }
 
-sub DESTROY {}
+sub DESTROY {
+   my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
+   $_[0]->shutdown(1) if $_[0] && $_[0]->{_init_pid} eq $_pid;
+}
+
+END {
+   $MCE = $TOP_HDLR = undef;
+}
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -355,7 +352,7 @@ sub new {
       $self{_init_total_workers} = $self{max_workers};
       $self{_chunk_id} = $self{_task_wid} = $self{_wrk_status} = 0;
       $self{_spawned}  = $self{_task_id}  = $self{_wid} = 0;
-      $self{_data_channels} = 1;
+      $self{_init_pid} = 0;
 
       return \%self;
    }
@@ -364,6 +361,8 @@ sub new {
       _croak("MCE::new: ($_p) is not a valid constructor argument")
          unless (exists $_valid_fields_new{$_p});
    }
+
+   $self{_init_pid} = ($_has_threads) ? $$ .'.'. $_tid : $$;
 
    if (defined $self{use_threads}) {
       if (!$_has_threads && $self{use_threads} ne '0') {
@@ -472,8 +471,8 @@ sub spawn {
    _croak('MCE::spawn: method is not allowed by the worker process')
       if ($self->{_wid});
 
-   ## Return if workers have already been spawned.
-   return $self if ($self->{_spawned});
+   ## Return if workers have already been spawned or if module instance.
+   return $self if ($self->{_spawned} || exists $self->{_module_instance});
 
    ## The shared server must be running if present.
    MCE::Shared::start() if ($INC{'MCE/Shared.pm'});
@@ -514,13 +513,11 @@ sub spawn {
       $TOP_HDLR = $self;
    }
    elsif (!$TOP_HDLR->{_mgr_live} && !$TOP_HDLR->{_wid}) {
-      $TOP_HDLR->shutdown if ($_is_MSWin32);
       $TOP_HDLR = $self;
    }
    elsif (refaddr($self) != refaddr($TOP_HDLR)) {
       _croak('Running parallel MCE instances is not supported on Windows')
          if ($_is_MSWin32);
-
       $self->{_data_channels} = 1 if ($self->{_data_channels} > 1);
       $self->{_lock_chn} = 1 if ($self->{_init_total_workers} > 1);
    }
@@ -550,8 +547,6 @@ sub spawn {
 
       $_sess_dir = $self->{_sess_dir} = "$_tmp_dir/$_mce_sid." . (++$_cnt)
          while ( !(mkdir $_sess_dir, 0770) );
-
-      $_mce_sess_dir{$_sess_dir} = 1;
    }
 
    ## -------------------------------------------------------------------------
@@ -592,8 +587,6 @@ sub spawn {
    ## -------------------------------------------------------------------------
 
    ## Spawn workers.
-   $_mce_spawned{$_mce_sid} = $self;
-
    $self->{_pids}   = [], $self->{_thrs}  = [], $self->{_tids} = [];
    $self->{_status} = [], $self->{_state} = [], $self->{_task} = [];
 
@@ -1154,24 +1147,21 @@ sub shutdown {
    return unless (defined $MCE::Signal::tmp_dir);
    return unless ($self->{_spawned});
 
-   ## Wait for workers to complete processing before shutting down.
    _validate_runstate($self, 'MCE::shutdown');
 
+   ## Wait for workers to complete processing before shutting down.
    $self->run(0) if ($self->{_send_cnt});
 
    local $SIG{__DIE__}  = \&_die;
    local $SIG{__WARN__} = \&_warn;
 
-   lock $_MCE_LOCK if ($_has_threads && ! $_no_lock);
+   lock $_MCE_LOCK if ($_has_threads && !$_no_lock);
 
    my $_COM_R_SOCK     = $self->{_com_r_sock};
    my $_data_channels  = $self->{_data_channels};
    my $_total_workers  = $self->{_total_workers};
    my $_sess_dir       = $self->{_sess_dir};
    my $_mce_sid        = $self->{_mce_sid};
-
-   ## Delete entry.
-   delete $_mce_spawned{$_mce_sid};
 
    if (defined $TOP_HDLR && refaddr($self) == refaddr($TOP_HDLR)) {
       $TOP_HDLR = undef;
@@ -1229,7 +1219,6 @@ sub shutdown {
          }
       }
       rmdir "$_sess_dir";
-      delete $_mce_sess_dir{$_sess_dir};
    }
 
    ## Reset instance.
@@ -1371,10 +1360,6 @@ sub exit {
    _croak('MCE::exit: method is not allowed by the manager process')
       unless ($self->{_wid});
 
-   MCE::Signal::stop_and_exit('__DIE__') unless ($self->{_running});
-
-   _clear_session( $self->{_mce_sid} );
-
    my $_chn        = $self->{_chn};
    my $_DAT_LOCK   = $self->{_dat_lock};
    my $_DAT_W_SOCK = $self->{_dat_w_sock}->[0];
@@ -1412,13 +1397,16 @@ sub exit {
          print {$_DAU_W_SOCK} '0'.$LF;
       }
 
-      <$_DAU_W_SOCK>;
+      <$_DAU_W_SOCK> unless ($^O eq 'MSWin32');
 
       $_DAT_LOCK->unlock() if $_lock_chn;
    }
 
+   ## Check for any Hobo workers not yet joined.
+   MCE::Hobo->finish() if $INC{'MCE/Hobo.pm'};
+
    ## Exit thread/child process.
-   $SIG{__DIE__} = $SIG{__WARN__} = sub {};
+   $SIG{__DIE__} = $SIG{__WARN__} = sub { };
 
    if ($_has_threads && threads->can('exit')) {
       if ($_is_MSWin32) { lock $_EXT_LOCK; sleep 0.002; }
@@ -1763,8 +1751,11 @@ sub _dispatch {
    $self->{_pid} = ($_is_thread) ? $$ .'.'. threads->tid() : $$;
    _worker_main(@_args, \@_plugin_worker_init, $_is_MSWin32);
 
+   ## Check for any Hobo workers not yet joined.
+   MCE::Hobo->finish() if $INC{'MCE/Hobo.pm'};
+
    ## Exit thread/child process.
-   $SIG{__DIE__} = $SIG{__WARN__} = sub {};
+   $SIG{__DIE__} = $SIG{__WARN__} = sub { };
 
    if ($_has_threads && threads->can('exit')) {
       if ($_is_MSWin32) { lock $_EXT_LOCK; sleep 0.002; }

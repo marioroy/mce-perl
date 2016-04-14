@@ -3,8 +3,11 @@
 use strict;
 use warnings;
 
-use Test::More tests => 9;
-use MCE::Stream;
+use Test::More;
+
+BEGIN {
+   use_ok 'MCE::Stream';
+}
 
 ##  preparation
 
@@ -77,6 +80,8 @@ MCE::Stream::finish;
 ##  cleanup
 
 unlink $in_file;
+
+done_testing;
 
 __DATA__
 1

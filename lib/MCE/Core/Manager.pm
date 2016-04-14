@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.703';
+our $VERSION = '1.704';
 
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
@@ -192,7 +192,7 @@ sub _output_loop {
             $self->{_wrk_status} = $_exit_status;
          }
 
-         print {$_DAU_R_SOCK} $LF;
+         print {$_DAU_R_SOCK} $LF unless ($^O eq 'MSWin32');
 
          ## Reap child/thread. Note: Win32 uses negative PIDs.
 
@@ -803,8 +803,7 @@ sub _output_loop {
       }
    }
 
-   ## Otherwise, wait on requests *without* timeout capability.
-   ## Exit loop when all workers have completed processing.
+   ## Wait on requests *without* timeout capability.
 
    else {
       while ( $self->{_total_running} ) {

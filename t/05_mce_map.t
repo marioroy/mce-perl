@@ -3,8 +3,11 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
-use MCE::Map;
+use Test::More;
+
+BEGIN {
+   use_ok 'MCE::Map';
+}
 
 ##  preparation
 
@@ -45,6 +48,8 @@ MCE::Map::finish;
 ##  cleanup
 
 unlink $in_file;
+
+done_testing;
 
 __DATA__
 1

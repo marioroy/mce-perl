@@ -3,8 +3,11 @@
 use strict;
 use warnings;
 
-use Test::More tests => 3;
-use MCE;
+use Test::More;
+
+BEGIN {
+   use_ok 'MCE';
+}
 
 my @ans;
 
@@ -53,4 +56,6 @@ is(
 );
 
 $mce->shutdown();
+
+done_testing;
 

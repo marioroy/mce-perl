@@ -11,35 +11,31 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.703';
+our $VERSION = '1.704';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
 our ($display_die_with_localtime, $display_warn_with_localtime);
 our ($main_proc_id, $prog_name, $tmp_dir);
-my  ($_has_threads);
 
 use Carp ();
 
 BEGIN {
    $main_proc_id =  $$;
-
    $prog_name    =  $0;
    $prog_name    =~ s{^.*[\\/]}{}g;
    $prog_name    =  'perl' if ($prog_name eq '-e' || $prog_name eq '-');
 
    if ($^O eq 'MSWin32' && !defined $threads::VERSION) {
-      local $@; local $SIG{__DIE__} = \&_NOOP;
+      local $@; local $SIG{__DIE__};
       eval 'use threads; use threads::shared';
    }
    elsif (defined $threads::VERSION) {
       unless (defined $threads::shared::VERSION) {
-         local $@; local $SIG{__DIE__} = \&_NOOP;
+         local $@; local $SIG{__DIE__};
          eval 'use threads::shared';
       }
    }
-
-   $_has_threads = $INC{'threads/shared.pm'} ? 1 : 0;
 }
 
 use File::Path ();
@@ -99,31 +95,31 @@ sub import {
    Exporter::import($_class, @_export_args);
 
    ## Sets the current process group for the current process.
-   setpgrp(0,0) if ($_setpgrp == 1 && $^O ne 'MSWin32');
+   setpgrp(0,0) if ($_setpgrp == 1 && !$_is_MSWin32);
 
-   my ($_tmp_dir_base, $_count); $_count = 0;
+   my ($_count, $_tmp_base_dir) = (0);
 
    if (exists $ENV{TEMP} && -d $ENV{TEMP} && -w $ENV{TEMP}) {
       if ($_is_MSWin32) {
-         $_tmp_dir_base = $ENV{TEMP} . '/mce';
-         mkdir $_tmp_dir_base unless (-d $_tmp_dir_base);
+         $_tmp_base_dir = $ENV{TEMP} . '/mce';
+         mkdir $_tmp_base_dir unless (-d $_tmp_base_dir);
       } else {
-         $_tmp_dir_base = $ENV{TEMP};
+         $_tmp_base_dir = $ENV{TEMP};
       }
    }
    else {
-      $_tmp_dir_base = ($_use_dev_shm && -d '/dev/shm' && -w '/dev/shm')
+      $_tmp_base_dir = ($_use_dev_shm && -d '/dev/shm' && -w '/dev/shm')
          ? '/dev/shm' : '/tmp';
    }
 
-   _croak("Error: MCE::Signal: ($_tmp_dir_base) is not writeable")
-      if (! exists $ENV{'MOBASTARTUPDIR'} && ! -w $_tmp_dir_base);
+   _croak("Error: MCE::Signal: ($_tmp_base_dir) is not writeable")
+      if (! exists $ENV{'MOBASTARTUPDIR'} && ! -w $_tmp_base_dir);
 
    ## Remove tainted'ness from $tmp_dir.
-   ($tmp_dir) = "$_tmp_dir_base/$prog_name.$$.$_count" =~ /(.*)/;
+   ($tmp_dir) = "$_tmp_base_dir/$prog_name.$$.$_count" =~ /(.*)/;
 
    while ( !(mkdir $tmp_dir, 0770) ) {
-      ($tmp_dir) = ("$_tmp_dir_base/$prog_name.$$.".(++$_count)) =~ /(.*)/;
+      ($tmp_dir) = ("$_tmp_base_dir/$prog_name.$$.".(++$_count)) =~ /(.*)/;
    }
 
    return;
@@ -135,13 +131,6 @@ sub import {
 ##
 ###############################################################################
 
-my ($_mce_sess_dir_ref, $_mce_spawned_ref);
-
-sub _set_session_vars {
-   ($_mce_sess_dir_ref, $_mce_spawned_ref) = @_;
-   return;
-}
-
 ## Set traps to catch signals.
 $SIG{XCPU} = \&stop_and_exit if (exists $SIG{XCPU});   ## UNIX SIG 24
 $SIG{XFSZ} = \&stop_and_exit if (exists $SIG{XFSZ});   ## UNIX SIG 25
@@ -152,26 +141,12 @@ $SIG{PIPE} = \&stop_and_exit;                          ## UNIX SIG 13
 $SIG{QUIT} = \&stop_and_exit;                          ## UNIX SIG  3
 $SIG{TERM} = \&stop_and_exit;                          ## UNIX SIG 15
 
-## For a more reliable MCE, $SIG{CHLD} is set to 'DEFAULT'. MCE handles
-## the reaping of its children, especially when running multiple MCEs
-## simultaneously.
-##
-$SIG{CHLD} = 'DEFAULT' unless ($_is_MSWin32);
+## MCE handles the reaping of its children.
+$SIG{CHLD} = 'DEFAULT' unless $_is_MSWin32;
 
-###############################################################################
-## ----------------------------------------------------------------------------
 ## Call stop_and_exit when exiting the script.
-##
-###############################################################################
-
 END {
-   my $_exit_status = $?;
-
-   MCE::Signal->_shutdown_mce($_exit_status)
-      if (defined $_mce_spawned_ref);
-
-   MCE::Signal->stop_and_exit($_exit_status)
-      if ($$ == $main_proc_id);
+   MCE::Signal->stop_and_exit($?) if ($$ == $main_proc_id);
 }
 
 ###############################################################################
@@ -200,10 +175,10 @@ sub sys_cmd {
 
    ## Kill the process group if command caught SIGINT or SIGQUIT.
 
-   CORE::kill('INT',  $main_proc_id, ($_is_MSWin32 ? -$$ : -getpgrp))
+   CORE::kill('INT',  $main_proc_id, $_is_MSWin32 ? -$$ : -getpgrp)
       if $_sig_no == 2;
 
-   CORE::kill('QUIT', $main_proc_id, ($_is_MSWin32 ? -$$ : -getpgrp))
+   CORE::kill('QUIT', $main_proc_id, $_is_MSWin32 ? -$$ : -getpgrp)
       if $_sig_no == 3;
 
    return $_exit_status;
@@ -236,7 +211,6 @@ sub stop_and_exit {
    if (exists $_sig_name_lkup{$_sig_name}) {
       $_exit_status     = $MCE::Signal::KILLED = $_is_sig = 1;
       $SIG{$_sig_name}  = \&_NOOP;
-      $_mce_spawned_ref = undef;
    }
    else {
       $_exit_status = $_sig_name if ($_sig_name =~ /^\d+$/);
@@ -248,7 +222,7 @@ sub stop_and_exit {
 
    ## For the main process.
    if ($_is_main_proc) {
-      lock $_handler_cnt if $_has_threads;
+      lock $_handler_cnt if $INC{'threads/shared.pm'};
 
       if (++$_handler_cnt == 1) {
          open my $_FH, '>>', "$tmp_dir/stopped";
@@ -298,12 +272,6 @@ sub stop_and_exit {
 
          ## Remove temp directory.
          if (defined $tmp_dir && $tmp_dir ne '' && -d $tmp_dir) {
-            if (defined $_mce_sess_dir_ref) {
-               for my $_sess_dir (keys %{ $_mce_sess_dir_ref }) {
-                  File::Path::rmtree($_sess_dir);
-                  delete $_mce_sess_dir_ref->{$_sess_dir};
-               }
-            }
             if ($_keep_tmp_dir == 1) {
                print {*STDERR} "$prog_name: saved tmp_dir = $tmp_dir\n";
             } elsif ($tmp_dir ne '/tmp' && $tmp_dir ne '/var/tmp') {
@@ -328,35 +296,47 @@ sub stop_and_exit {
    }
 
    ## Otherwise, for child processes.
-   elsif ($_is_sig == 1 && -d $tmp_dir) {
+   elsif ($_is_sig == 1 && $tmp_dir && -d $tmp_dir) {
+      lock $_handler_cnt if $INC{'threads/shared.pm'};
+
       if (++$_handler_cnt == 1) {
-
-         ## Obtain lock.
-         open my $CHILD_LOCK, '+>>', "$tmp_dir/child.lock";
-         flock $CHILD_LOCK, LOCK_EX;
-
-         ## Notify the main process that I've died.
-         if ($_sig_name eq '__DIE__' && ! -f "$tmp_dir/died") {
-            local $@; eval {
-               open my $_FH, '>>', "$tmp_dir/died";
-               close   $_FH;
-            };
+         if ($^O eq 'MSWin32') {
+            if ($_keep_tmp_dir == 1) {
+               print {*STDERR} "$prog_name: saved tmp_dir = $tmp_dir\n";
+            } elsif ($tmp_dir ne '/tmp' && $tmp_dir ne '/var/tmp') {
+               File::Path::rmtree($tmp_dir);
+            }
+            $tmp_dir = undef;
+            CORE::kill('KILL', $main_proc_id, -$$);
          }
+         else {
+            ## Obtain lock.
+            open my $CHILD_LOCK, '+>>', "$tmp_dir/child.lock";
+            flock $CHILD_LOCK, LOCK_EX;
 
-         ## Signal process group to terminate.
-         if (! -f "$tmp_dir/killed" && ! -f "$tmp_dir/stopped") {
-            local $@; eval {
-               open my $_FH, '>>', "$tmp_dir/killed";
-               close   $_FH;
-            };
-            ($_sig_name eq 'PIPE')
-               ? CORE::kill('PIPE', $main_proc_id, -$$)
-               : CORE::kill('INT', $main_proc_id, -$$);
+            ## Notify the main process that I've died.
+            if ($_sig_name eq '__DIE__' && ! -f "$tmp_dir/died") {
+               local $@; eval {
+                  open my $_FH, '>>', "$tmp_dir/died";
+                  close   $_FH;
+               };
+            }
+
+            ## Signal process group to terminate.
+            if (! -f "$tmp_dir/killed" && ! -f "$tmp_dir/stopped") {
+               local $@; eval {
+                  open my $_FH, '>>', "$tmp_dir/killed";
+                  close   $_FH;
+               };
+               ($_sig_name eq 'PIPE')
+                  ? CORE::kill('PIPE', $main_proc_id, -$$)
+                  : CORE::kill('INT', $main_proc_id, -$$);
+            }
+
+            ## Release lock.
+            flock $CHILD_LOCK, LOCK_UN;
+            close $CHILD_LOCK;
          }
-
-         ## Release lock.
-         flock $CHILD_LOCK, LOCK_UN;
-         close $CHILD_LOCK;
       }
    }
 
@@ -368,41 +348,6 @@ sub stop_and_exit {
    }
 
    CORE::exit($_exit_status);
-}
-
-###############################################################################
-## ----------------------------------------------------------------------------
-## Shutdown MCEs that were previously initiated by this process ID and are
-## still running.
-##
-###############################################################################
-
-sub _shutdown_mce {
-
-   shift @_ if (defined $_[0] && $_[0] eq 'MCE::Signal');
-   my $_exit_status = $_[0] || $?;
-
-   if (defined $_mce_spawned_ref && !$MCE::Signal::KILLED) {
-      my $_tid = ($INC{'threads.pm'}) ? threads->tid() : '';
-         $_tid = '' unless defined $_tid;
-
-      for my $_mce_sid (keys %{ $_mce_spawned_ref }) {
-         if ($_mce_spawned_ref->{$_mce_sid}->wid()) {
-            if ($_mce_spawned_ref->{$_mce_sid}->pid() == $$) {
-               $_mce_spawned_ref->{$_mce_sid}->exit($_exit_status);
-            }
-         }
-         else {
-            if ($_mce_sid =~ /\A$$\.$_tid\./) {
-               $_mce_spawned_ref->{$_mce_sid}->shutdown();
-            }
-         }
-
-         delete $_mce_spawned_ref->{$_mce_sid};
-      }
-   }
-
-   return;
 }
 
 ###############################################################################
@@ -498,7 +443,7 @@ MCE::Signal - Temporary directory creation/cleanup and signal handling
 
 =head1 VERSION
 
-This document describes MCE::Signal version 1.703
+This document describes MCE::Signal version 1.704
 
 =head1 SYNOPSIS
 
@@ -531,9 +476,7 @@ and terminates itself.
 
 The location of the temp directory resides under $ENV{TEMP} if defined,
 otherwise /dev/shm if writeable and -use_dev_shm is specified, or /tmp.
-
-The temp dir resides under $ENV{TEMP}/mce/ for native Perl on Microsoft
-Windows.
+On Windows, the temp directory resides under $ENV{TEMP}/mce/ for native Perl.
 
 As of MCE 1.405, MCE::Signal no longer calls setpgrp by default. Pass the
 -setpgrp option to MCE::Signal to call setpgrp.

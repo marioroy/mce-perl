@@ -3,9 +3,16 @@
 use strict;
 use warnings;
 
-use Test::More tests => 40;
-use MCE::Flow max_workers => 1;
-use MCE::Queue;
+use Test::More;
+
+BEGIN {
+   use_ok 'MCE::Flow';
+   use_ok 'MCE::Queue';
+}
+
+MCE::Flow::init {
+   max_workers => 1
+};
 
 ###############################################################################
 
@@ -171,4 +178,6 @@ is( $q->peekh(-2), '7',   'lowest, check peekh at index -2' );
 @r = $q->dequeue(10);
 
 is( join('', @r), 'abcdefghij', 'highest, check dequeue' );
+
+done_testing;
 

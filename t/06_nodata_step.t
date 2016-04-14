@@ -3,8 +3,11 @@
 use strict;
 use warnings;
 
-use Test::More tests => 1;
-use MCE::Step;
+use Test::More;
+
+BEGIN {
+   use_ok 'MCE::Step';
+}
 
 MCE::Step::init {
    max_workers => 4
@@ -19,4 +22,6 @@ my @a = mce_step sub {
 is( join('', sort @a), '2468', 'check gathered data' );
 
 MCE::Step::finish;
+
+done_testing;
 

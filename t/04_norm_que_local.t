@@ -3,8 +3,11 @@
 use strict;
 use warnings;
 
-use Test::More tests => 32;
-use MCE::Queue;
+use Test::More;
+
+BEGIN {
+   use_ok 'MCE::Queue';
+}
 
 ###############################################################################
 
@@ -123,4 +126,6 @@ is( $q->peek(-13),   'm', 'lifo, check peek at index -13' );
 is( $q->peek(-14),   'n', 'lifo, check peek at index -14' );
 is( $q->peek(-15), undef, 'lifo, check peek at index -15' );
 is( $q->peek(-20), undef, 'lifo, check peek at index -20' );
+
+done_testing;
 

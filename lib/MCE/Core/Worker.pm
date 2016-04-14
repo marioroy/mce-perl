@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.703';
+our $VERSION = '1.704';
 
 ## Items below are folded into MCE.
 
@@ -351,7 +351,6 @@ sub _worker_do {
    @_ = ();
 
    ## Set options.
-   $self->{_running}    = 1;
    $self->{_abort_msg}  = $_params_ref->{_abort_msg};
    $self->{_run_mode}   = $_params_ref->{_run_mode};
    $self->{_single_dim} = $_params_ref->{_single_dim};
@@ -473,8 +472,6 @@ sub _worker_do {
    print {$_DAU_W_SOCK} $_task_id.$LF;
 
    $_DAT_LOCK->unlock() if $_lock_chn;
-
-   $self->{_running} = 0;
 
    return;
 }
@@ -598,7 +595,6 @@ sub _worker_main {
    $self->{_task_wid} = (defined $_task_wid) ? $_task_wid : $_wid;
    $self->{_task}     = $_task;
    $self->{_wid}      = $_wid;
-   $self->{_running}  = 0;
 
    ## Define exit pid and DIE handler.
    my $_use_threads = (defined $_task->{use_threads})
@@ -629,7 +625,7 @@ sub _worker_main {
          }
       }
 
-      local $SIG{__DIE__} = sub {}; local $\ = undef;
+      local $SIG{__DIE__}; local $\ = undef;
       my $_die_msg = (defined $_[0]) ? $_[0] : '';
       print {*STDERR} $_die_msg;
 
@@ -680,8 +676,6 @@ sub _worker_main {
       _pids _state _status _thrs _tids
    ) };
 
-   MCE::_clean_sessions($_mce_sid);
-
    ## Call MCE::Shared's init routine if present; enables parallel IPC.
    MCE::Shared::init($_wid) if ($INC{'MCE/Shared.pm'});
 
@@ -693,7 +687,7 @@ sub _worker_main {
    ## Begin processing if worker was added during processing. Otherwise,
    ## respond back to the main process if the last worker spawned.
    if (defined $_params) {
-      sleep 0.002; _worker_do($self, $_params);
+      _worker_do($self, $_params);
       undef $_params;
    }
    elsif ($_is_MSWin32) {
@@ -708,8 +702,6 @@ sub _worker_main {
 
    $self->{_com_lock} = undef;
    $self->{_dat_lock} = undef;
-
-   MCE::_clear_session($_mce_sid);
 
    return;
 }
