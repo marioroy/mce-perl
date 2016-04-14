@@ -1,6 +1,10 @@
 
 Revision history for Perl module MCE.
 
+1.705 Thu Apr 14 10:00:00 EST 2016
+
+  * Bumped version for Test::More to 0.88. Thank you Paul Howarth.
+
 1.704 Thu Apr 14 05:00:00 EST 2016
 
   [BUG FIXES]
