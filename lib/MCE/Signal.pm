@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.705';
+our $VERSION = '1.706';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -266,7 +266,7 @@ sub stop_and_exit {
             if ($_sig_name eq 'PIPE') {
                sleep 0.015 for (1..2);
             } else {
-               sleep 0.065 for (1..3);
+               sleep 0.060 for (1..3);
             }
          }
 
@@ -344,7 +344,7 @@ sub stop_and_exit {
 
    ## Exit with status.
    if ($_is_sig == 1 && $_no_kill9 == 0) {
-      sleep 0.065 for (1..5);
+      sleep 0.060 for (1..5);
    }
 
    CORE::exit($_exit_status);
@@ -443,7 +443,7 @@ MCE::Signal - Temporary directory creation/cleanup and signal handling
 
 =head1 VERSION
 
-This document describes MCE::Signal version 1.705
+This document describes MCE::Signal version 1.706
 
 =head1 SYNOPSIS
 

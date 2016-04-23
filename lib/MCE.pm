@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.705';
+our $VERSION = '1.706';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -762,7 +762,7 @@ sub restart_worker {
       _dispatch_child($self, $_wid, $_task, $_task_id, $_task_wid, $_params);
    }
 
-   sleep 0.001;
+   sleep 0.001;  # this sleeps for 0.015 on Windows and Cygwin
 
    return;
 }
@@ -1409,7 +1409,7 @@ sub exit {
    $SIG{__DIE__} = $SIG{__WARN__} = sub { };
 
    if ($_has_threads && threads->can('exit')) {
-      if ($_is_MSWin32) { lock $_EXT_LOCK; sleep 0.002; }
+      if ($_is_MSWin32) { lock $_EXT_LOCK; }
       threads->exit($_exit_status);
    }
    elsif ($self->{posix_exit}) {
@@ -1758,7 +1758,7 @@ sub _dispatch {
    $SIG{__DIE__} = $SIG{__WARN__} = sub { };
 
    if ($_has_threads && threads->can('exit')) {
-      if ($_is_MSWin32) { lock $_EXT_LOCK; sleep 0.002; }
+      if ($_is_MSWin32) { lock $_EXT_LOCK; }
       threads->exit(0);
    }
    elsif ($self->{posix_exit}) {
@@ -1797,7 +1797,7 @@ sub _dispatch_thread {
    if (defined $self->{spawn_delay} && $self->{spawn_delay} > 0.0) {
       sleep $self->{spawn_delay};
    } elsif ($_wid % 4 == 0) {
-      sleep 0.001;
+      sleep 0.001;  # this sleeps for 0.015 on Windows and Cygwin
    }
 
    return;
@@ -1829,7 +1829,7 @@ sub _dispatch_child {
    if (defined $self->{spawn_delay} && $self->{spawn_delay} > 0.0) {
       sleep $self->{spawn_delay};
    } elsif ($_is_winenv && $_wid % 4 == 0) {
-      sleep 0.001;
+      sleep 0.015;
    }
 
    return;

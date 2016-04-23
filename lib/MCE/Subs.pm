@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.705';
+our $VERSION = '1.706';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -206,7 +206,7 @@ MCE::Subs - Exports functions mapped directly to MCE methods
 
 =head1 VERSION
 
-This document describes MCE::Subs version 1.705
+This document describes MCE::Subs version 1.706
 
 =head1 SYNOPSIS
 

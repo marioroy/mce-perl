@@ -14,7 +14,7 @@ package MCE::Core::Input::Handle;
 use strict;
 use warnings;
 
-our $VERSION = '1.705';
+our $VERSION = '1.706';
 
 ## Items below are folded into MCE.
 
@@ -22,6 +22,7 @@ package MCE;
 
 no warnings qw( threads recursion uninitialized );
 
+use Fcntl qw( SEEK_CUR );
 use bytes;
 
 my $_que_read_size = $MCE::_que_read_size;
@@ -32,6 +33,12 @@ my $_que_template  = $MCE::_que_template;
 ## Worker process -- Read handle.
 ##
 ###############################################################################
+
+sub _systell {
+   my $_off;
+   1 until defined ( $_off = sysseek($_[0], 0, SEEK_CUR) );
+   $_off;
+}
 
 sub _worker_read_handle {
 
@@ -101,7 +108,7 @@ sub _worker_read_handle {
       }
 
       ## Read data.
-      if ($_chunk_size <= MAX_RECS_SIZE) {        ## One or many records.
+      if ($_chunk_size <= MAX_RECS_SIZE) {        # One or many records.
          local $/ = $_RS if ($_RS_FLG);
          seek $_IN_FILE, $_offset_pos, 0;
 
@@ -146,7 +153,7 @@ sub _worker_read_handle {
          1 until syswrite $_QUE_W_SOCK,
             pack($_que_template, $_chunk_id, tell $_IN_FILE);
       }
-      else {                                      ## Large chunk.
+      else {                                      # Large chunk.
          local $/ = $_RS if ($_RS_FLG);
 
          if ($_parallel_io && ! $_RS_FLG) {
@@ -160,16 +167,29 @@ sub _worker_read_handle {
                $_tmp_cs -= length <$_IN_FILE> || 0;
             }
 
-            if (read($_IN_FILE, $_, $_tmp_cs, $_p) == $_tmp_cs) {
-               $_ .= <$_IN_FILE>;
+            if ($_proc_type == READ_FILE) {
+               1 until defined ( sysseek $_IN_FILE, tell( $_IN_FILE ), 0 );
+               1 until defined ( sysread $_IN_FILE, $_, $_tmp_cs, $_p );
+               seek $_IN_FILE, _systell( $_IN_FILE ), 0;
             }
+            else {
+               read $_IN_FILE, $_, $_tmp_cs, $_p;
+            }
+
+            $_ .= <$_IN_FILE>;
          }
          else {
-            seek $_IN_FILE, $_offset_pos, 0;
-
-            if (read($_IN_FILE, $_, $_chunk_size, $_p) == $_chunk_size) {
-               $_ .= <$_IN_FILE>;
+            if ($_proc_type == READ_FILE) {
+               1 until defined ( sysseek $_IN_FILE, $_offset_pos, 0 );
+               1 until defined ( sysread $_IN_FILE, $_, $_chunk_size, $_p );
+               seek $_IN_FILE, _systell( $_IN_FILE ), 0;
             }
+            else {
+               seek $_IN_FILE, $_offset_pos, 0;
+               read $_IN_FILE, $_, $_chunk_size, $_p;
+            }
+
+            $_ .= <$_IN_FILE>;
 
             1 until syswrite $_QUE_W_SOCK,
                pack($_que_template, $_chunk_id, tell $_IN_FILE);

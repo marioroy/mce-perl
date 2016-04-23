@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.705';
+our $VERSION = '1.706';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -278,7 +278,7 @@ sub _sock_ready {
       while (1) {
          ioctl($_socket, 0x4004667f, $_ptr_bytes);  # Ditto
          return if $_val_bytes ne $_zero_bytes;
-         $_count = 0, sleep 0.008 if ++$_count > 1618;
+         $_count = 0, sleep 0.015 if ++$_count > 1618;
       }
    }
 }
@@ -334,18 +334,18 @@ sub _parse_chunk_size {
       if ( (defined $_params && ref $_params->{input_data} eq 'CODE') ||
            (defined $_input_data && ref $_input_data eq 'CODE')
       ) {
-         ## Iterators may optionally use chunk_size to determine how much
-         ## to return per iteration. The default is 1 for MCE Models, same
-         ## as for the Core API. The user_func receives an array_ref
-         ## regardless if 1 or higher.
-         ##
-         ## sub make_iter {
-         ##    ...
-         ##    return sub {
-         ##       my ($chunk_size) = @_;
-         ##       ...
-         ##    };
-         ## }
+         # Iterators may optionally use chunk_size to determine how much
+         # to return per iteration. The default is 1 for MCE Models, same
+         # as for the Core API. The user_func receives an array_ref
+         # regardless if 1 or higher.
+         #
+         # sub make_iter {
+         #    ...
+         #    return sub {
+         #       my ($chunk_size) = @_;
+         #       ...
+         #    };
+         # }
          return 1;
       }
 
@@ -380,14 +380,14 @@ sub _parse_chunk_size {
          } elsif ($_ref eq '') {
             $_size = -s $_params->{_file};
          } else {
-            $_size = 0; $_chunk_size = 245_760;
+            $_size = 0; $_chunk_size = 393_216;  # 384K
          }
 
          $_is_file = 1;
       }
       elsif (defined $_input_data) {
          if (ref $_input_data eq 'GLOB' || ref($_input_data) =~ /^IO::/) {
-            $_is_file = 1; $_size = 0; $_chunk_size = 245_760;
+            $_is_file = 1; $_size = 0; $_chunk_size = 393_216;  # 384K
          }
          elsif (ref $_input_data eq 'SCALAR') {
             $_is_file = 1; $_size = length ${ $_input_data };
@@ -397,7 +397,7 @@ sub _parse_chunk_size {
       if (defined $_is_file) {
          if ($_size) {
             $_chunk_size = int($_size / $_max_workers / 24 + 0.5);
-            $_chunk_size = 4_194_304 if $_chunk_size > 4_194_304;  ## 4M
+            $_chunk_size = 5_242_880 if $_chunk_size > 5_242_880;  # 5M
             $_chunk_size = 2 if $_chunk_size <= 8192;
          }
       }
@@ -427,7 +427,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.705
+This document describes MCE::Util version 1.706
 
 =head1 SYNOPSIS
 

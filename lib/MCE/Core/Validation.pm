@@ -14,7 +14,7 @@ package MCE::Core::Validation;
 use strict;
 use warnings;
 
-our $VERSION = '1.705';
+our $VERSION = '1.706';
 
 ## Items below are folded into MCE.
 
