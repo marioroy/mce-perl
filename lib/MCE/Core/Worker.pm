@@ -14,11 +14,12 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.706';
+our $VERSION = '1.707';
 
 ## Items below are folded into MCE.
 
-package MCE;
+package # hide from rpm
+   MCE;
 
 no warnings qw( threads recursion uninitialized );
 

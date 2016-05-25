@@ -1,19 +1,31 @@
 
 Revision history for Perl module MCE.
 
+1.707 Wed May 25 16:00:00 EST 2016
+
+  [BUG FIXES]
+
+  * Fixed logic when workers exit. Improved reliability on Windows.
+
+  [ENHANCEMENTS]
+
+  * Applied MCE-1.700-provides.patch from RedHat. Thank you, Paul Howarth.
+
+  * Added META.json to the distribution.
+
 1.706 Fri Apr 22 21:30:00 EST 2016
 
   [ENHANCEMENTS]
 
   * Time::HiRes sleep resolution is 15 milliseconds on Windows and Cygwin.
-    Adjusted timeout values accordingly. Thank you Daniel Dragan.
+    Adjusted timeout values accordingly. Thank you, Daniel Dragan.
 
   * Reinstated the hack for faster IO when use_slurpio => 1 is specified.
     Tuned chunk_size => 'auto'.
 
 1.705 Thu Apr 14 10:00:00 EST 2016
 
-  * Bumped version for Test::More to 0.88. Thank you Paul Howarth.
+  * Bumped version for Test::More to 0.88. Thank you, Paul Howarth.
 
 1.704 Thu Apr 14 05:00:00 EST 2016
 

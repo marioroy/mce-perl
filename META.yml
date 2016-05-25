@@ -1,113 +1,115 @@
---- #YAML:1.0
-name:               MCE
-version:            1.706
-abstract:           Many-Core Engine for Perl providing parallel processing capabilities
+---
+abstract: 'Many-Core Engine for Perl providing parallel processing capabilities'
 author:
-    - Mario E. Roy <marioeroy AT gmail DOT com>
-license:            perl
-distribution_type:  module
-configure_requires:
-    ExtUtils::MakeMaker:  0
+  - 'Mario E. Roy <marioeroy AT gmail DOT com>'
 build_requires:
-    ExtUtils::MakeMaker:  0
-    Test::More:           0.88
-requires:
-    base:          0
-    bytes:         0
-    Carp:          0
-    constant:      0
-    Fcntl:         0
-    File::Path:    0
-    Getopt::Long:  0
-    IO::Handle:    0
-    perl:          5.008
-    POSIX:         0
-    Scalar::Util:  0
-    Socket:        0
-    Storable:      2.04
-    strict:        0
-    Symbol:        0
-    Time::HiRes:   0
-    warnings:      0
-resources:
-    bugtracker:  https://github.com/marioroy/mce-perl/issues
-    homepage:    https://github.com/marioroy/mce-perl
-    license:     http://dev.perl.org/licenses/
-    repository:  https://github.com/marioroy/mce-perl.git
-provides:
-    MCE:
-        file:     lib/MCE.pm
-        version:  1.706
-    MCE::Candy:
-        file:     lib/MCE/Candy.pm
-        version:  1.706
-    MCE::Core::Input::Generator:
-        file:     lib/MCE/Core/Input/Generator.pm
-        version:  1.706
-    MCE::Core::Input::Handle:
-        file:     lib/MCE/Core/Input/Handle.pm
-        version:  1.706
-    MCE::Core::Input::Iterator:
-        file:     lib/MCE/Core/Input/Iterator.pm
-        version:  1.706
-    MCE::Core::Input::Request:
-        file:     lib/MCE/Core/Input/Request.pm
-        version:  1.706
-    MCE::Core::Input::Sequence:
-        file:     lib/MCE/Core/Input/Sequence.pm
-        version:  1.706
-    MCE::Core::Manager:
-        file:     lib/MCE/Core/Manager.pm
-        version:  1.706
-    MCE::Core::Validation:
-        file:     lib/MCE/Core/Validation.pm
-        version:  1.706
-    MCE::Core::Worker:
-        file:     lib/MCE/Core/Worker.pm
-        version:  1.706
-    MCE::Flow:
-        file:     lib/MCE/Flow.pm
-        version:  1.706
-    MCE::Grep:
-        file:     lib/MCE/Grep.pm
-        version:  1.706
-    MCE::Loop:
-        file:     lib/MCE/Loop.pm
-        version:  1.706
-    MCE::Map:
-        file:     lib/MCE/Map.pm
-        version:  1.706
-    MCE::Mutex:
-        file:     lib/MCE/Mutex.pm
-        version:  1.706
-    MCE::Queue:
-        file:     lib/MCE/Queue.pm
-        version:  1.706
-    MCE::Relay:
-        file:     lib/MCE/Relay.pm
-        version:  1.706
-    MCE::Signal:
-        file:     lib/MCE/Signal.pm
-        version:  1.706
-    MCE::Step:
-        file:     lib/MCE/Step.pm
-        version:  1.706
-    MCE::Stream:
-        file:     lib/MCE/Stream.pm
-        version:  1.706
-    MCE::Subs:
-        file:     lib/MCE/Subs.pm
-        version:  1.706
-    MCE::Util:
-        file:     lib/MCE/Util.pm
-        version:  1.706
-no_index:
-    directory:
-        - t
-        - inc
-    file:
-        - bin/mce_grep
-generated_by:       ExtUtils::MakeMaker version 6.55_02
+  ExtUtils::MakeMaker: '0'
+  Test::More: '0.88'
+  perl: '5.008'
+configure_requires:
+  ExtUtils::MakeMaker: '0'
+  perl: '5.008'
+dynamic_config: 0
+generated_by: 'ExtUtils::MakeMaker version 6.55_02, CPAN::Meta::Converter version 2.150001'
+license: perl
 meta-spec:
-    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
-    version:  1.4
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: '1.4'
+name: MCE
+no_index:
+  directory:
+    - t
+    - inc
+  file:
+    - bin/mce_grep
+provides:
+  MCE:
+    file: lib/MCE.pm
+    version: '1.707'
+  MCE::Candy:
+    file: lib/MCE/Candy.pm
+    version: '1.707'
+  MCE::Core::Input::Generator:
+    file: lib/MCE/Core/Input/Generator.pm
+    version: '1.707'
+  MCE::Core::Input::Handle:
+    file: lib/MCE/Core/Input/Handle.pm
+    version: '1.707'
+  MCE::Core::Input::Iterator:
+    file: lib/MCE/Core/Input/Iterator.pm
+    version: '1.707'
+  MCE::Core::Input::Request:
+    file: lib/MCE/Core/Input/Request.pm
+    version: '1.707'
+  MCE::Core::Input::Sequence:
+    file: lib/MCE/Core/Input/Sequence.pm
+    version: '1.707'
+  MCE::Core::Manager:
+    file: lib/MCE/Core/Manager.pm
+    version: '1.707'
+  MCE::Core::Validation:
+    file: lib/MCE/Core/Validation.pm
+    version: '1.707'
+  MCE::Core::Worker:
+    file: lib/MCE/Core/Worker.pm
+    version: '1.707'
+  MCE::Flow:
+    file: lib/MCE/Flow.pm
+    version: '1.707'
+  MCE::Grep:
+    file: lib/MCE/Grep.pm
+    version: '1.707'
+  MCE::Loop:
+    file: lib/MCE/Loop.pm
+    version: '1.707'
+  MCE::Map:
+    file: lib/MCE/Map.pm
+    version: '1.707'
+  MCE::Mutex:
+    file: lib/MCE/Mutex.pm
+    version: '1.707'
+  MCE::Queue:
+    file: lib/MCE/Queue.pm
+    version: '1.707'
+  MCE::Relay:
+    file: lib/MCE/Relay.pm
+    version: '1.707'
+  MCE::Signal:
+    file: lib/MCE/Signal.pm
+    version: '1.707'
+  MCE::Step:
+    file: lib/MCE/Step.pm
+    version: '1.707'
+  MCE::Stream:
+    file: lib/MCE/Stream.pm
+    version: '1.707'
+  MCE::Subs:
+    file: lib/MCE/Subs.pm
+    version: '1.707'
+  MCE::Util:
+    file: lib/MCE/Util.pm
+    version: '1.707'
+requires:
+  Carp: '0'
+  Fcntl: '0'
+  File::Path: '0'
+  Getopt::Long: '0'
+  IO::Handle: '0'
+  POSIX: '0'
+  Scalar::Util: '0'
+  Socket: '0'
+  Storable: '2.04'
+  Symbol: '0'
+  Time::HiRes: '0'
+  base: '0'
+  bytes: '0'
+  constant: '0'
+  perl: '5.008'
+  strict: '0'
+  warnings: '0'
+resources:
+  bugtracker: https://github.com/marioroy/mce-perl/issues
+  homepage: https://github.com/marioroy/mce-perl
+  license: http://dev.perl.org/licenses/
+  repository: https://github.com/marioroy/mce-perl.git
+version: '1.707'

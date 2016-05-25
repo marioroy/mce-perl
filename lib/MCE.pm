@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.706';
+our $VERSION = '1.707';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -19,7 +19,7 @@ our $VERSION = '1.706';
 
 use Carp ();
 
-my ($_has_threads, $_tid);
+my ($_has_threads, $_tid, $_oid);
 
 BEGIN {
    local $@; local $SIG{__DIE__};
@@ -39,6 +39,7 @@ BEGIN {
 
    $_has_threads = $INC{'threads.pm'} ? 1 : 0;
    $_tid = $_has_threads ? threads->tid() : 0;
+   $_oid = "$$.$_tid";
 
    eval 'PDL::no_clone_skip_warning()' if $INC{'PDL.pm'};
 }
@@ -142,7 +143,6 @@ BEGIN {
 use constant { SELF => 0, CHUNK => 1, CID => 2 };
 
 our $_MCE_LOCK : shared = 1;
-our $_RUN_LOCK : shared = 1;
 our $_WIN_LOCK : shared = 1;
 our $_EXT_LOCK : shared = 1;
 
@@ -434,7 +434,7 @@ sub new {
    $self{_last_sref} = (ref $self{input_data} eq 'SCALAR')
       ? refaddr($self{input_data}) : 0;
 
-   my $_data_channels = DATA_CHANNELS;
+   my $_data_channels = ($_oid eq "$$.$_tid") ? DATA_CHANNELS : 2;
    my $_total_workers = 0;
 
    if (defined $self{user_tasks}) {
@@ -474,7 +474,7 @@ sub spawn {
    ## Return if workers have already been spawned or if module instance.
    return $self if ($self->{_spawned} || exists $self->{_module_instance});
 
-   ## The shared server must be running if present.
+   ## Start the shared-manager process if present.
    MCE::Shared::start() if ($INC{'MCE/Shared.pm'});
 
    ## Load input module.
@@ -509,17 +509,14 @@ sub spawn {
    my $_die_handler  = $SIG{__DIE__};  $SIG{__DIE__}  = \&_die;
    my $_warn_handler = $SIG{__WARN__}; $SIG{__WARN__} = \&_warn;
 
-   if (!defined $TOP_HDLR) {
-      $TOP_HDLR = $self;
-   }
-   elsif (!$TOP_HDLR->{_mgr_live} && !$TOP_HDLR->{_wid}) {
+   if (!defined $TOP_HDLR || (!$TOP_HDLR->{_mgr_live} && !$TOP_HDLR->{_wid})) {
       $TOP_HDLR = $self;
    }
    elsif (refaddr($self) != refaddr($TOP_HDLR)) {
-      _croak('Running parallel MCE instances is not supported on Windows')
+      _croak('Running nested MCE sessions is not supported on Windows')
          if ($_is_MSWin32);
-      $self->{_data_channels} = 1 if ($self->{_data_channels} > 1);
-      $self->{_lock_chn} = 1 if ($self->{_init_total_workers} > 1);
+      $self->{_data_channels} = 2 if ($self->{_data_channels} > 2);
+      $self->{_lock_chn}      = 1 if ($self->{_init_total_workers} > 1);
    }
 
    ## Configure tid/sid for this instance here, not in the new method above.
@@ -963,8 +960,7 @@ sub run {
       local $\ = undef; local $/ = $LF;
 
       ## Obtain lock.
-      lock $_MCE_LOCK if ($_has_threads &&  $_is_winenv);
-      lock $_RUN_LOCK if ($_has_threads && !$_is_winenv);
+      lock $_MCE_LOCK if ($_has_threads);
 
       my ($_frozen_nodata, $_wid, %_task0_wids);
       my $_BSE_W_SOCK    = $self->{_bse_w_sock};
@@ -1291,7 +1287,7 @@ sub yield {
 
    sleep $_delay if ($_delay > 0.0);
 
-   if ($_count && $_count > 2_000_000_000) {
+   if ($_count && $_count > 2e9) {
       $self->{_i_wrk_st} = time;
    }
 
@@ -1408,7 +1404,7 @@ sub exit {
    ## Exit thread/child process.
    $SIG{__DIE__} = $SIG{__WARN__} = sub { };
 
-   if ($_has_threads && threads->can('exit')) {
+   if ($self->{use_threads} || ($_has_threads && $_is_MSWin32)) {
       if ($_is_MSWin32) { lock $_EXT_LOCK; }
       threads->exit($_exit_status);
    }
@@ -1757,7 +1753,7 @@ sub _dispatch {
    ## Exit thread/child process.
    $SIG{__DIE__} = $SIG{__WARN__} = sub { };
 
-   if ($_has_threads && threads->can('exit')) {
+   if ($self->{use_threads} || ($_has_threads && $_is_MSWin32)) {
       if ($_is_MSWin32) { lock $_EXT_LOCK; }
       threads->exit(0);
    }

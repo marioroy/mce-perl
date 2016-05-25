@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.706';
+our $VERSION = '1.707';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -256,29 +256,25 @@ sub _sock_pair {
 
 sub _sock_ready {
 
-   return if (
-      !defined $_[1] && !$INC{'MCE/Hobo.pm'} && defined $MCE::VERSION
-   );
-
    my ($_val_bytes, $_socket, $_timeout) = ("\x00\x00\x00\x00", @_);
    my $_ptr_bytes = unpack('I', pack('P', $_val_bytes));
+   my ($_count, $_retries) = (1, 0);
 
-   if ($_timeout) {
-      $_timeout += time();
-      while (1) {
-         ioctl($_socket, 0x4004667f, $_ptr_bytes);  # MSWin32 FIONREAD
-       # return '' if unpack('I', $_val_bytes);     # unpack isn't needed here
-         return '' if $_val_bytes ne $_zero_bytes;  # this completes 2x faster
-         return 1  if time() > $_timeout;
-         sleep 0.045;
+   while (1) {
+      ioctl($_socket, 0x4004667f, $_ptr_bytes);   # MSWin32 FIONREAD
+    # return '' if unpack('I', $_val_bytes);      # unpack isn't needed here
+      return '' if $_val_bytes ne $_zero_bytes;   # str compare is 2x faster
+      return 1  if $_timeout && time > $_timeout;
+
+      # delay so not to consume a CPU from non-blocking ioctl
+      if ($_count) {
+         if (++$_count > 1280) {
+            $_count = 1, sleep 0.015;
+            $_count = 0 if ++$_retries == 3;
+         }
       }
-   }
-   else {
-      my $_count = 0;
-      while (1) {
-         ioctl($_socket, 0x4004667f, $_ptr_bytes);  # Ditto
-         return if $_val_bytes ne $_zero_bytes;
-         $_count = 0, sleep 0.015 if ++$_count > 1618;
+      else {
+         sleep 0.045;
       }
    }
 }
@@ -427,7 +423,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.706
+This document describes MCE::Util version 1.707
 
 =head1 SYNOPSIS
 

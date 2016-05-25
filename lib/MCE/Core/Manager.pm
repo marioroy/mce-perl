@@ -14,13 +14,14 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.706';
+our $VERSION = '1.707';
 
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 ## Items below are folded into MCE.
 
-package MCE;
+package # hide from rpm
+   MCE;
 
 no warnings qw( threads recursion uninitialized );
 
@@ -806,7 +807,7 @@ sub _output_loop {
    ## Wait on requests *without* timeout capability.
 
    else {
-      while ( $self->{_total_running} ) {
+      while ($self->{_total_running}) {
          $_func = <$_DAT_R_SOCK>;
          $_DAU_R_SOCK = $_channels->[ <$_DAT_R_SOCK> ];
 

@@ -5,6 +5,8 @@ Credits
 LICENSE
 MANIFEST
 MANIFEST.SKIP
+META.json
+META.yml
 README.md
 bin/mce_grep
 lib/MCE.pm
@@ -56,4 +58,3 @@ t/05_mce_step.t
 t/05_mce_stream.t
 t/06_nodata_flow.t
 t/06_nodata_step.t
-META.yml
