@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.707';
+our $VERSION = '1.708';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -25,11 +25,9 @@ use MCE::Relay;
 ##
 ###############################################################################
 
-my $_imported;
-
 sub import {
 
-   my $_class = shift; return if ($_imported++);
+   my $_class = shift;
 
    my $_g_flg = 0; my $_m_flg = 0; my $_w_flg = 0;
    my $_flag = sub { 1 }; my $_package = caller;
@@ -206,7 +204,7 @@ MCE::Subs - Exports functions mapped directly to MCE methods
 
 =head1 VERSION
 
-This document describes MCE::Subs version 1.707
+This document describes MCE::Subs version 1.708
 
 =head1 SYNOPSIS
 

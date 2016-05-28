@@ -1,6 +1,19 @@
 
 Revision history for Perl module MCE.
 
+1.708 Sat May 28 14:00:00 EST 2016
+
+  [BUG FIXES]
+
+  * Improved import routine in MCE Models and MCE::Subs. This resolves an
+    issue where functions are not exported; e.g. mce_flow, mce_flow_s.
+
+  [ENHANCEMENTS]
+
+  * Added support for IO::TieCombine handles. This enables MCE->print and
+    MCE->sendto to work reliably with App::Cmd and App::Cmd::Tester.
+    See Testing and Capturing Output in MCE::Examples.
+
 1.707 Wed May 25 16:00:00 EST 2016
 
   [BUG FIXES]

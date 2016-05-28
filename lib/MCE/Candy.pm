@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.707';
+our $VERSION = '1.708';
 
 our @CARP_NOT = qw( MCE );
 
@@ -169,7 +169,8 @@ sub out_iter_array {
 
 sub out_iter_fh {
 
-   my $_fh = shift; my %_tmp; my $_order_id = 1;
+   my $_fh =  $_[0]; my %_tmp; my $_order_id = 1;
+      $_fh = \$_[0] if (!ref $_fh && ref \$_[0]);
 
    MCE::_croak('The argument to (out_iter_fh) is not a supported file handle.')
       unless (ref($_fh) eq 'GLOB' || ref($_fh) =~ /^IO::/);
@@ -209,7 +210,7 @@ MCE::Candy - Sugar methods and output iterators
 
 =head1 VERSION
 
-This document describes MCE::Candy version 1.707
+This document describes MCE::Candy version 1.708
 
 =head1 DESCRIPTION
 

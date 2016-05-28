@@ -5,7 +5,7 @@ MCE::Examples - Various examples and demonstrations
 
 =head1 VERSION
 
-This document describes MCE::Examples version 1.707
+This document describes MCE::Examples version 1.708
 
 =head1 INCLUDED WITH THE DISTRIBUTION
 
@@ -676,6 +676,129 @@ first come, first serve basis.
    Worker 3 is exiting
    Worker 1 says Hey there: 4
    Worker 1 is exiting
+
+=head1 TESTING AND CAPTURING OUTPUT
+
+Capturing C<STDERR> and C<STDOUT> is possible with L<App::Cmd::Tester>.
+MCE v1.708 or later is required to run the demonstration.
+
+   use App::Cmd::Tester;
+   use MCE;
+
+   my $mce = MCE->new(
+      max_workers => 4,
+
+      user_func => sub {
+         my $wid = MCE->wid;
+
+         # MCE->sendto('stderr', "$wid: sendto err\n");
+         # MCE->sendto(\*STDERR, "$wid: sendto err\n");
+           MCE->print(\*STDERR, "$wid: print err\n");
+
+         # MCE->sendto('stdout', "$wid: sendto out\n");
+         # MCE->sendto(\*STDOUT, "$wid: sendto out\n");
+         # MCE->print(\*STDOUT, "$wid: print out\n");
+           MCE->print("$wid: print out\n");
+      }
+   );
+
+   my $result = test_app(
+      $mce => []
+   );
+
+   print "# stderr\n";
+   print $result->stderr;
+   print "\n";
+
+   print "# stdout\n";
+   print $result->stdout;
+   print "\n";
+
+   print "# output\n";
+   print $result->output;
+   print "\n";
+
+   print "# exit code\n";
+   print $result->exit_code;
+   print "\n\n";
+
+   -- Output
+
+   # stderr
+   3: print err
+   4: print err
+   1: print err
+   2: print err
+
+   # stdout
+   3: print out
+   4: print out
+   1: print out
+   2: print out
+
+   # output
+   3: print err
+   3: print out
+   4: print err
+   1: print err
+   4: print out
+   1: print out
+   2: print err
+   2: print out
+
+   # exit code
+   0
+
+The next demonstration captures a sequence of numbers orderly. The slot name
+for C<IO::TieCombine> must be C<stdout> or C<stderr> for MCE->print to work.
+
+   use MCE::Flow;
+   use MCE::Candy;
+   use IO::TieCombine;
+
+   my $hub = IO::TieCombine->new;
+
+   {
+      tie local *STDOUT, $hub, 'stdout';
+
+      MCE::Flow::init {
+         max_workers => 4,
+         chunk_size  => 500,
+         bounds_only => 1,
+         gather      => MCE::Candy::out_iter_fh(\*STDOUT),
+      };
+
+      mce_flow_s sub {
+         my ($mce, $seq, $chunk_id) = @_;
+         my $output = '';
+
+         for my $n ( $seq->[0] .. $seq->[1] ) {
+            $output .= "$n\n";
+         }
+
+         # do this if output order is not required
+         # $mce->print(\*STDOUT, $output);
+
+         # or this if preserving output order is desired
+           $mce->gather($chunk_id, $output);
+
+      }, 1, 100000;
+
+      MCE::Flow::finish;
+   }
+
+   my $content = $hub->slot_contents('stdout');
+   my $answer  = join("", map { "$_\n" } 1..100000);
+
+   if ($content eq $answer) {
+      print "ordered: yes\n";
+   } else {
+      print "ordered: no\n";
+   }
+
+   -- Ouput
+
+   ordered: yes
 
 =head1 INDEX
 

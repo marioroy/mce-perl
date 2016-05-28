@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.707';
+our $VERSION = '1.708';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -38,9 +38,19 @@ my $THAW    = \&Storable::thaw;
 my ($_MCE, $_imported); my ($_params, $_prev_c); my $_tag = 'MCE::Map';
 
 sub import {
-   my $_class = shift; return if ($_imported++);
+   my $_class = shift;
+
+   ## Import functions.
+   no strict 'refs'; no warnings 'redefine';
+   my $_pkg = caller;
+
+   *{ $_pkg.'::mce_map_f' } = \&run_file;
+   *{ $_pkg.'::mce_map_s' } = \&run_seq;
+   *{ $_pkg.'::mce_map'   } = \&run;
 
    ## Process module arguments.
+   return if $_imported++;
+
    while (my $_argument = shift) {
       my $_arg = lc $_argument;
 
@@ -74,14 +84,6 @@ sub import {
 
    _validate_number($CHUNK_SIZE, 'CHUNK_SIZE')
       unless ($CHUNK_SIZE eq 'auto');
-
-   ## Import functions.
-   no strict 'refs'; no warnings 'redefine';
-   my $_pkg = caller;
-
-   *{ $_pkg.'::mce_map_f' } = \&run_file;
-   *{ $_pkg.'::mce_map_s' } = \&run_seq;
-   *{ $_pkg.'::mce_map'   } = \&run;
 
    return;
 }
@@ -449,7 +451,7 @@ MCE::Map - Parallel map model similar to the native map function
 
 =head1 VERSION
 
-This document describes MCE::Map version 1.707
+This document describes MCE::Map version 1.708
 
 =head1 SYNOPSIS
 

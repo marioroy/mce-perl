@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.707';
+our $VERSION = '1.708';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -40,9 +40,19 @@ my ($_params, @_prev_c, @_prev_n, @_prev_t, @_prev_w, @_user_tasks, @_queue);
 my ($_MCE, $_imported, $_last_task_id, %_lkup); my $_tag = 'MCE::Step';
 
 sub import {
-   my $_class = shift; return if ($_imported++);
+   my $_class = shift;
+
+   ## Import functions.
+   no strict 'refs'; no warnings 'redefine';
+   my $_pkg = caller;
+
+   *{ $_pkg.'::mce_step_f' } = \&run_file;
+   *{ $_pkg.'::mce_step_s' } = \&run_seq;
+   *{ $_pkg.'::mce_step'   } = \&run;
 
    ## Process module arguments.
+   return if $_imported++;
+
    while (my $_argument = shift) {
       my $_arg = lc $_argument;
 
@@ -79,14 +89,6 @@ sub import {
       unless ($CHUNK_SIZE eq 'auto');
 
    require MCE::Queue; MCE::Queue->import();
-
-   ## Import functions.
-   no strict 'refs'; no warnings 'redefine';
-   my $_pkg = caller;
-
-   *{ $_pkg.'::mce_step_f' } = \&run_file;
-   *{ $_pkg.'::mce_step_s' } = \&run_seq;
-   *{ $_pkg.'::mce_step'   } = \&run;
 
    return;
 }
@@ -710,7 +712,7 @@ MCE::Step - Parallel step model for building creative steps
 
 =head1 VERSION
 
-This document describes MCE::Step version 1.707
+This document describes MCE::Step version 1.708
 
 =head1 DESCRIPTION
 

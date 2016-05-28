@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.707';
+our $VERSION = '1.708';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -41,9 +41,19 @@ my ($_params, @_prev_c, @_prev_m, @_prev_n, @_prev_w, @_user_tasks, @_queue);
 my ($_MCE, $_imported); my $_tag = 'MCE::Stream';
 
 sub import {
-   my $_class = shift; return if ($_imported++);
+   my $_class = shift;
+
+   ## Import functions.
+   no strict 'refs'; no warnings 'redefine';
+   my $_pkg = caller;
+
+   *{ $_pkg.'::mce_stream_f' } = \&run_file;
+   *{ $_pkg.'::mce_stream_s' } = \&run_seq;
+   *{ $_pkg.'::mce_stream'   } = \&run;
 
    ## Process module arguments.
+   return if $_imported++;
+
    while (my $_argument = shift) {
       my $_arg = lc $_argument;
 
@@ -84,14 +94,6 @@ sub import {
       unless ($CHUNK_SIZE eq 'auto');
 
    require MCE::Queue; MCE::Queue->import();
-
-   ## Import functions.
-   no strict 'refs'; no warnings 'redefine';
-   my $_pkg = caller;
-
-   *{ $_pkg.'::mce_stream_f' } = \&run_file;
-   *{ $_pkg.'::mce_stream_s' } = \&run_seq;
-   *{ $_pkg.'::mce_stream'   } = \&run;
 
    return;
 }
@@ -659,7 +661,7 @@ MCE::Stream - Parallel stream model for chaining multiple maps and greps
 
 =head1 VERSION
 
-This document describes MCE::Stream version 1.707
+This document describes MCE::Stream version 1.708
 
 =head1 SYNOPSIS
 

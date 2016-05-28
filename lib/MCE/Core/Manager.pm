@@ -14,8 +14,9 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.707';
+our $VERSION = '1.708';
 
+## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 ## Items below are folded into MCE.
@@ -716,7 +717,7 @@ sub _output_loop {
       binmode $_MCE_STDOUT;
    }
    else {
-      open $_MCE_STDOUT, '>&=STDOUT';
+      $_MCE_STDOUT = \*STDOUT;
       binmode $_MCE_STDOUT;
    }
 
@@ -726,7 +727,7 @@ sub _output_loop {
       binmode $_MCE_STDERR;
    }
    else {
-      open $_MCE_STDERR, '>&=STDERR';
+      $_MCE_STDERR = \*STDERR;
       binmode $_MCE_STDERR;
    }
 
@@ -841,8 +842,10 @@ sub _output_loop {
 
    select $_old_hndl;
 
-   close $_MCE_STDOUT; undef $_MCE_STDOUT;
-   close $_MCE_STDERR; undef $_MCE_STDERR;
+   eval q{
+      close $_MCE_STDOUT if (fileno $_MCE_STDOUT > 2);
+      close $_MCE_STDERR if (fileno $_MCE_STDERR > 2);
+   };
 
    return;
 }

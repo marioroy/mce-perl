@@ -14,7 +14,7 @@ package MCE::Core::Input::Request;
 use strict;
 use warnings;
 
-our $VERSION = '1.707';
+our $VERSION = '1.708';
 
 ## Items below are folded into MCE.
 

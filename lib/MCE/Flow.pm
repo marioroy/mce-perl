@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.707';
+our $VERSION = '1.708';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -39,9 +39,19 @@ my ($_params, @_prev_c, @_prev_n, @_prev_t, @_prev_w, @_user_tasks);
 my ($_MCE, $_imported); my $_tag = 'MCE::Flow';
 
 sub import {
-   my $_class = shift; return if ($_imported++);
+   my $_class = shift;
+
+   ## Import functions.
+   no strict 'refs'; no warnings 'redefine';
+   my $_pkg = caller;
+
+   *{ $_pkg.'::mce_flow_f' } = \&run_file;
+   *{ $_pkg.'::mce_flow_s' } = \&run_seq;
+   *{ $_pkg.'::mce_flow'   } = \&run;
 
    ## Process module arguments.
+   return if $_imported++;
+
    while (my $_argument = shift) {
       my $_arg = lc $_argument;
 
@@ -75,14 +85,6 @@ sub import {
 
    _validate_number($CHUNK_SIZE, 'CHUNK_SIZE')
       unless ($CHUNK_SIZE eq 'auto');
-
-   ## Import functions.
-   no strict 'refs'; no warnings 'redefine';
-   my $_pkg = caller;
-
-   *{ $_pkg.'::mce_flow_f' } = \&run_file;
-   *{ $_pkg.'::mce_flow_s' } = \&run_seq;
-   *{ $_pkg.'::mce_flow'   } = \&run;
 
    return;
 }
@@ -493,7 +495,7 @@ MCE::Flow - Parallel flow model for building creative applications
 
 =head1 VERSION
 
-This document describes MCE::Flow version 1.707
+This document describes MCE::Flow version 1.708
 
 =head1 DESCRIPTION
 
