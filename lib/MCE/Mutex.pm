@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.708';
+our $VERSION = '1.799_01';
 
 use MCE::Util qw( $LF );
 
@@ -28,7 +28,7 @@ sub DESTROY {
 
    $_obj->unlock() if ($_obj->{ $_pid });
 
-   if ($_arg eq 'shutdown' || $_obj->{'init_pid'} eq $_pid) {
+   if ($_obj->{'init_pid'} eq $_pid || $_arg eq 'shutdown') {
       MCE::Util::_destroy_socks($_obj, qw(_w_sock _r_sock));
    }
 
@@ -112,7 +112,7 @@ MCE::Mutex - Locking for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Mutex version 1.708
+This document describes MCE::Mutex version 1.799_01
 
 =head1 SYNOPSIS
 

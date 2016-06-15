@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.708';
+our $VERSION = '1.799_01';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -26,41 +26,46 @@ use bytes;
 ##
 ###############################################################################
 
-our ($HIGHEST, $LOWEST, $FIFO, $LIFO, $LILO, $FILO) = (1, 0, 1, 0, 1, 0);
+our ($HIGHEST,$LOWEST, $FIFO,$LIFO, $LILO,$FILO) = (1,0, 1,0, 1,0);
 
-my ($AWAIT, $FAST, $PORDER, $TYPE) = (0, 0, $HIGHEST, $FIFO);
-my $_imported;
+my ($_def, $_imported) = ({});
 
 sub import {
-   my $_class = shift; return if ($_imported++);
+   my ($_class, $_pkg) = (shift, caller);
 
    ## Process module arguments.
+   my $_p = $_def->{$_pkg} = {
+      AWAIT => 0, FAST => 0, PORDER => $HIGHEST, TYPE => $FIFO,
+   };
+
    while (my $_argument = shift) {
       my $_arg = lc $_argument;
 
       if ( $_arg eq 'await' ) {
          _croak('Error: (AWAIT) must be 1 or 0')
             if (!defined $_[0] || ($_[0] ne '1' && $_[0] ne '0'));
-         $AWAIT = shift ; next;
+         $_p->{AWAIT} = shift; next;
       }
       if ( $_arg eq 'fast' ) {
          _croak('Error: (FAST) must be 1 or 0')
             if (!defined $_[0] || ($_[0] ne '1' && $_[0] ne '0'));
-         $FAST = shift ; next;
+         $_p->{FAST} = shift; next;
       }
       if ( $_arg eq 'porder' ) {
          _croak('Error: (PORDER) must be 1 or 0')
             if (!defined $_[0] || ($_[0] ne '1' && $_[0] ne '0'));
-         $PORDER = shift ; next;
+         $_p->{PORDER} = shift; next;
       }
       if ( $_arg eq 'type' ) {
          _croak('Error: (TYPE) must be 1 or 0')
             if (!defined $_[0] || ($_[0] ne '1' && $_[0] ne '0'));
-         $TYPE = shift ; next;
+         $_p->{TYPE} = shift; next;
       }
 
       _croak("Error: ($_argument) invalid module option");
    }
+
+   return if $_imported++;
 
    ## Define public methods to internal methods.
    no strict 'refs'; no warnings 'redefine';
@@ -121,7 +126,7 @@ use constant {
 
 ## Attributes used internally.
 ## _qr_sock _qw_sock _datp _datq _heap _id _init_pid _nb_flag _porder _type
-## _ar_sock _aw_sock _asem _tsem _standalone
+## _ar_sock _aw_sock _asem _tsem
 
 my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
 my $_tid = $_has_threads ? threads->tid() : 0;
@@ -158,6 +163,7 @@ sub DESTROY {
 
 sub new {
    my ($_class, %_argv) = @_;
+   my $_pkg = caller;
 
    @_ = ();
 
@@ -174,13 +180,14 @@ sub new {
                        # fyi, _datp will always dequeue before _datq
 
    $_Q->{_await} = (exists $_argv{await} && defined $_argv{await})
-      ? $_argv{await} : $AWAIT;
+      ? $_argv{await} : $_def->{$_pkg}{AWAIT} || 0;
    $_Q->{_fast} = (exists $_argv{fast} && defined $_argv{fast})
-      ? $_argv{fast} : $FAST;
+      ? $_argv{fast} : $_def->{$_pkg}{FAST} || 0;
+
    $_Q->{_porder} = (exists $_argv{porder} && defined $_argv{porder})
-      ? $_argv{porder} : $PORDER;
+      ? $_argv{porder} : $_def->{$_pkg}{PORDER} || $HIGHEST;
    $_Q->{_type} = (exists $_argv{type} && defined $_argv{type})
-      ? $_argv{type} : $TYPE;
+      ? $_argv{type} : $_def->{$_pkg}{TYPE} || $FIFO;
 
    ## -------------------------------------------------------------------------
 
@@ -188,6 +195,7 @@ sub new {
       if ($_Q->{_await} ne '1' && $_Q->{_await} ne '0');
    _croak('Queue: (fast) must be 1 or 0')
       if ($_Q->{_fast} ne '1' && $_Q->{_fast} ne '0');
+
    _croak('Queue: (porder) must be 1 or 0')
       if ($_Q->{_porder} ne '1' && $_Q->{_porder} ne '0');
    _croak('Queue: (type) must be 1 or 0')
@@ -211,20 +219,15 @@ sub new {
    ## -------------------------------------------------------------------------
 
    if (defined $MCE::VERSION) {
-      if (MCE->wid == 0) {
-         $_Q->{_init_pid} = $_has_threads ? $$ .'.'. $_tid : $$;
-         $_Q->{_id} = ++$_qid; $_all->{$_qid} = $_Q;
-         $_Q->{_dsem} = 0 if ($_Q->{_fast});
+      $_Q->{_init_pid} = $_has_threads ? $$ .'.'. $_tid : $$;
+      $_Q->{_id} = ++$_qid; $_all->{$_qid} = $_Q;
+      $_Q->{_dsem} = 0 if ($_Q->{_fast});
 
-         MCE::Util::_sock_pair($_Q, qw(_qr_sock _qw_sock));
-         MCE::Util::_sock_pair($_Q, qw(_ar_sock _aw_sock)) if $_Q->{_await};
+      MCE::Util::_sock_pair($_Q, qw(_qr_sock _qw_sock));
+      MCE::Util::_sock_pair($_Q, qw(_ar_sock _aw_sock)) if $_Q->{_await};
 
-         if (exists $_argv{queue} && scalar @{ $_argv{queue} }) {
-            1 until syswrite $_Q->{_qw_sock}, $LF;
-         }
-      }
-      else {
-         $_Q->{_standalone} = 1;
+      if (exists $_argv{queue} && scalar @{ $_argv{queue} }) {
+         1 until syswrite $_Q->{_qw_sock}, $LF;
       }
    }
 
@@ -1251,8 +1254,7 @@ sub _mce_m_insertp {
    };
 
    sub _mce_w_init {
-      ($_MCE) = @_;
-
+      ($_MCE)      = @_;
       $_chn        = $_MCE->{_chn};
       $_DAT_LOCK   = $_MCE->{_dat_lock};
       $_DAT_W_SOCK = $_MCE->{_dat_w_sock}->[0];
@@ -1290,7 +1292,7 @@ sub _mce_m_insertp {
    sub _mce_w_await {
       my $_Q = shift; my $_t = shift || 0;
 
-      return $_Q->_await() if (exists $_Q->{_standalone});
+      return $_Q->_mce_m_await() if (exists $_all->{ $_Q->{_id} });
 
       _croak('Queue: (await) is not enabled for this queue')
          unless ($_Q->{_await});
@@ -1314,7 +1316,7 @@ sub _mce_m_insertp {
    sub _mce_w_clear {
       my ($_Q) = @_;
 
-      return $_Q->_clear() if (exists $_Q->{_standalone});
+      return $_Q->_mce_m_clear() if (exists $_all->{ $_Q->{_id} });
 
       if ($_Q->{_fast}) {
          warn "Queue: (clear) is not allowed for fast => 1\n";
@@ -1339,7 +1341,7 @@ sub _mce_m_insertp {
    sub _mce_w_enqueue {
       my ($_buf, $_tmp); my $_Q = shift;
 
-      return $_Q->_enqueue(@_) if (exists $_Q->{_standalone});
+      return $_Q->_mce_m_enqueue(@_) if (exists $_all->{ $_Q->{_id} });
       return unless (scalar @_);
 
       if (@_ > 1 || ref($_[0])) {
@@ -1366,7 +1368,7 @@ sub _mce_m_insertp {
       _croak('Queue: (enqueuep priority) is not an integer')
          if (!looks_like_number($_p) || int($_p) != $_p);
 
-      return $_Q->_enqueuep($_p, @_) if (exists $_Q->{_standalone});
+      return $_Q->_mce_m_enqueuep($_p, @_) if (exists $_all->{ $_Q->{_id} });
       return unless (scalar @_);
 
       if (@_ > 1 || ref($_[0])) {
@@ -1392,7 +1394,7 @@ sub _mce_m_insertp {
    sub _mce_w_dequeue {
       my $_buf; my ($_Q, $_cnt) = @_;
 
-      return $_Q->_dequeue(@_) if (exists $_Q->{_standalone});
+      return $_Q->_mce_m_dequeue($_cnt) if (exists $_all->{ $_Q->{_id} });
 
       if (defined $_cnt && $_cnt ne '1') {
          _croak('Queue: (dequeue count argument) is not valid')
@@ -1409,7 +1411,7 @@ sub _mce_m_insertp {
    sub _mce_w_dequeue_nb {
       my $_buf; my ($_Q, $_cnt) = @_;
 
-      return $_Q->_dequeue(@_) if (exists $_Q->{_standalone});
+      return $_Q->_mce_m_dequeue_nb($_cnt) if (exists $_all->{ $_Q->{_id} });
 
       if ($_Q->{_fast}) {
          warn "Queue: (dequeue_nb) is not allowed for fast => 1\n";
@@ -1430,7 +1432,7 @@ sub _mce_m_insertp {
    sub _mce_w_pending {
       my ($_Q) = @_;
 
-      return $_Q->_pending(@_) if (exists $_Q->{_standalone});
+      return $_Q->_pending() if (exists $_all->{ $_Q->{_id} });
 
       local $\ = undef if (defined $\);
       local $/ = $LF if (!$/ || $/ ne $LF);
@@ -1451,7 +1453,7 @@ sub _mce_m_insertp {
       _croak('Queue: (insert index) is not an integer')
          if (!looks_like_number($_i) || int($_i) != $_i);
 
-      return $_Q->_insert($_i, @_) if (exists $_Q->{_standalone});
+      return $_Q->_mce_m_insert($_i, @_) if (exists $_all->{ $_Q->{_id} });
       return unless (scalar @_);
 
       if (scalar @_ > 1 || ref $_[0] || !defined $_[0]) {
@@ -1474,7 +1476,7 @@ sub _mce_m_insertp {
       _croak('Queue: (insertp index) is not an integer')
          if (!looks_like_number($_i) || int($_i) != $_i);
 
-      return $_Q->_insertp($_p, $_i, @_) if (exists $_Q->{_standalone});
+      return $_Q->_mce_m_insertp($_p, $_i, @_) if (exists $_all->{ $_Q->{_id} });
       return unless (scalar @_);
 
       if (scalar @_ > 1 || ref $_[0] || !defined $_[0]) {
@@ -1499,7 +1501,7 @@ sub _mce_m_insertp {
       _croak('Queue: (peek index) is not an integer')
          if (!looks_like_number($_i) || int($_i) != $_i);
 
-      return $_Q->_peek($_i, @_) if (exists $_Q->{_standalone});
+      return $_Q->_peek($_i, @_) if (exists $_all->{ $_Q->{_id} });
 
       {
          local $\ = undef if (defined $\);
@@ -1531,7 +1533,7 @@ sub _mce_m_insertp {
       _croak('Queue: (peekp index) is not an integer')
          if (!looks_like_number($_i) || int($_i) != $_i);
 
-      return $_Q->_peekp($_p, $_i, @_) if (exists $_Q->{_standalone});
+      return $_Q->_peekp($_p, $_i, @_) if (exists $_all->{ $_Q->{_id} });
 
       {
          local $\ = undef if (defined $\);
@@ -1561,7 +1563,7 @@ sub _mce_m_insertp {
       _croak('Queue: (peekh index) is not an integer')
          if (!looks_like_number($_i) || int($_i) != $_i);
 
-      return $_Q->_peekh($_i, @_) if (exists $_Q->{_standalone});
+      return $_Q->_peekh($_i, @_) if (exists $_all->{ $_Q->{_id} });
 
       {
          local $\ = undef if (defined $\);
@@ -1590,7 +1592,7 @@ sub _mce_m_insertp {
    sub _mce_w_heap {
       my $_buf; my ($_Q) = @_;
 
-      return $_Q->_heap(@_) if (exists $_Q->{_standalone});
+      return $_Q->_heap() if (exists $_all->{ $_Q->{_id} });
 
       {
          local $\ = undef if (defined $\);
@@ -1627,7 +1629,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.708
+This document describes MCE::Queue version 1.799_01
 
 =head1 SYNOPSIS
 
@@ -2039,7 +2041,7 @@ numbers, not the data.
    @h = $q->heap;   # $MCE::Queue::LOWEST
    # Heap contains: 4, 5, 6
 
-=head1 ACKNOWLEDGEMENTS
+=head1 ACKNOWLEDGMENTS
 
 =over 3
 
@@ -2074,7 +2076,7 @@ simultaneously; e.g.
 
 =item L<Parallel::DataPipe>
 
-The recursion example, in the sysopsis above, was largely adopted from this
+The recursion example, in the synopsis above, was largely adopted from this
 module.
 
 =back

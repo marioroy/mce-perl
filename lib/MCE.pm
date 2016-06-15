@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.708';
+our $VERSION = '1.799_01';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -19,7 +19,7 @@ our $VERSION = '1.708';
 
 use Carp ();
 
-my ($_has_threads, $_tid, $_oid);
+my ($_has_threads, $_freeze, $_thaw, $_tid, $_oid);
 
 BEGIN {
    local $@; local $SIG{__DIE__};
@@ -42,6 +42,22 @@ BEGIN {
    $_oid = "$$.$_tid";
 
    eval 'PDL::no_clone_skip_warning()' if $INC{'PDL.pm'};
+   eval 'use PDL::IO::Storable' if $INC{'PDL.pm'};
+
+   if (!exists $INC{'PDL.pm'}) {
+      eval 'use Sereal qw( encode_sereal decode_sereal )';
+      if ( !$@ ) {
+         $_freeze = sub { encode_sereal( @_, { freeze_callbacks => 1 } ) };
+         $_thaw   = \&decode_sereal;
+      }
+   }
+   if (!defined $_freeze) {
+      require Storable;
+      $_freeze = \&Storable::freeze;
+      $_thaw   = \&Storable::thaw;
+   }
+
+   return;
 }
 
 use Scalar::Util qw( looks_like_number refaddr weaken );
@@ -49,14 +65,13 @@ use Time::HiRes qw( sleep time );
 
 use Symbol qw( qualify_to_ref );
 use Socket qw( SOL_SOCKET SO_RCVBUF );
-use Storable ();
 
 use MCE::Util qw( $LF );
 use MCE::Signal;
 use MCE::Mutex;
 use bytes;
 
-our ($MCE, $_que_template, $_que_read_size);
+our ($MCE, $RLA, $_que_template, $_que_read_size);
 our (%_valid_fields_new);
 
 my  ($TOP_HDLR, $_is_MSWin32, $_is_winenv, $_prev_mce);
@@ -81,7 +96,7 @@ BEGIN {
    ##
    ## _bsb_r_sock _bsb_w_sock _bse_r_sock _bse_w_sock _com_r_sock _com_w_sock
    ## _dat_r_sock _dat_w_sock _que_r_sock _que_w_sock _rla_r_sock _rla_w_sock
-   ## _data_channels _lock_chn _mutex_n
+   ## _data_channels _lock_chn _mutex_n _caller
 
    %_valid_fields_new = map { $_ => 1 } qw(
       max_workers tmp_dir use_threads user_tasks task_end task_name freeze thaw
@@ -131,6 +146,8 @@ BEGIN {
       };
    }
 
+   $RLA = {};
+
    return;
 }
 
@@ -143,69 +160,49 @@ BEGIN {
 use constant { SELF => 0, CHUNK => 1, CID => 2 };
 
 our $_MCE_LOCK : shared = 1;
-our $_WIN_LOCK : shared = 1;
-our $_EXT_LOCK : shared = 1;
 
-my  $TMP_DIR = $MCE::Signal::tmp_dir;
-my  $FREEZE  = \&Storable::freeze;
-my  $THAW    = \&Storable::thaw;
-
-my ($MAX_WORKERS, $CHUNK_SIZE) = (1, 1);
-my ($_imported);
+my ($_def, $_imported) = ({});
 
 sub import {
-   my $_class = shift; return if ($_imported++);
+
+   my ($_class, $_pkg) = (shift, caller);
+   my $_p = $_def->{$_pkg} = {};
 
    ## Process module arguments.
    while ( my $_argument = shift ) {
       my $_arg = lc $_argument;
 
-      $MAX_WORKERS = shift, next if ( $_arg eq 'max_workers' );
-      $CHUNK_SIZE  = shift, next if ( $_arg eq 'chunk_size' );
-      $FREEZE      = shift, next if ( $_arg eq 'freeze' );
-      $THAW        = shift, next if ( $_arg eq 'thaw' );
+      $_p->{MAX_WORKERS} = shift, next if ( $_arg eq 'max_workers' );
+      $_p->{CHUNK_SIZE}  = shift, next if ( $_arg eq 'chunk_size' );
+      $_p->{TMP_DIR}     = shift, next if ( $_arg eq 'tmp_dir' );
+      $_p->{FREEZE}      = shift, next if ( $_arg eq 'freeze' );
+      $_p->{THAW}        = shift, next if ( $_arg eq 'thaw' );
 
-      if ( $_arg eq 'sereal' ) {
-         if (shift eq '1') {
-            local $@; eval 'use Sereal qw( encode_sereal decode_sereal )';
-            if ( !$@ ) {
-               $FREEZE = sub { encode_sereal( @_, { freeze_callbacks => 1 } ) };
-               $THAW   = \&decode_sereal;
-            }
-         }
-         next;
-      }
-      if ( $_arg eq 'tmp_dir' ) {
-         $TMP_DIR = shift;
-         my $_e1 = 'is not a directory or does not exist';
-         my $_e2 = 'is not writeable';
-         _croak("Error: ($TMP_DIR) $_e1") unless -d $TMP_DIR;
-         _croak("Error: ($TMP_DIR) $_e2") unless -w $TMP_DIR;
-         next;
-      }
       if ( $_arg eq 'export_const' || $_arg eq 'const' ) {
-         if (shift eq '1') {
+         if ( shift eq '1' ) {
             no strict 'refs'; no warnings 'redefine';
-            my $_package = caller;
-            *{ $_package . '::SELF'  } = \&SELF;
-            *{ $_package . '::CHUNK' } = \&CHUNK;
-            *{ $_package . '::CID'   } = \&CID;
+            *{ $_pkg.'::SELF'  } = \&SELF;
+            *{ $_pkg.'::CHUNK' } = \&CHUNK;
+            *{ $_pkg.'::CID'   } = \&CID;
          }
          next;
       }
+
+      ## Sereal, if available, is used automatically by MCE 1.800 onwards.
+      next if ( $_arg eq 'sereal' );
 
       _croak("Error: ($_argument) invalid module option");
    }
+
+   return if $_imported++;
 
    ## Preload essential modules.
    require MCE::Core::Validation;
    require MCE::Core::Manager;
    require MCE::Core::Worker;
 
-   {
-      no strict 'refs'; no warnings 'redefine';
-      *{ 'MCE::_parse_max_workers' } = \&MCE::Util::_parse_max_workers;
-   }
+   no strict 'refs'; no warnings 'redefine';
+   *{ 'MCE::_parse_max_workers' } = \&MCE::Util::_parse_max_workers;
 
    ## Instantiate a module-level instance.
    $MCE = MCE->new( _module_instance => 1, max_workers => 0 );
@@ -223,7 +220,9 @@ use constant {
 
    MAX_CHUNK_SIZE => 1024 * 1024 * 64,  # Maximum chunk size allowed
 
-   DATA_CHANNELS  => 8,        # Max data channels
+   # Max data channels. This cannot be greater than 8 on MSWin32.
+   DATA_CHANNELS  => ($^O eq 'MSWin32') ? 8 : 12,
+
    MAX_RECS_SIZE  => 8192,     # Reads number of records if N <= value
                                # Reads number of bytes if N > value
 
@@ -271,8 +270,7 @@ sub CLONE {
 }
 
 sub DESTROY {
-   my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
-   $_[0]->shutdown(1) if $_[0] && $_[0]->{_init_pid} eq $_pid;
+   $_[0]->shutdown(1) if ( $_[0] && $_[0]->{_init_pid} eq "$$.$_tid" );
 }
 
 END {
@@ -335,18 +333,18 @@ sub _save_state    { $_prev_mce = $MCE; return; }
 sub new {
 
    my ($class, %self) = @_;
+   my $_pkg = exists $self{pkg} ? delete $self{pkg} : caller;
 
    @_ = ();
 
    bless(\%self, ref($class) || $class);
 
-   ## Public options.
-   $self{max_workers}  ||= $MAX_WORKERS;
-   $self{chunk_size}   ||= $CHUNK_SIZE;
-   $self{tmp_dir}      ||= $TMP_DIR;
-   $self{freeze}       ||= $FREEZE;
-   $self{thaw}         ||= $THAW;
-   $self{task_name}    ||= 'MCE';
+   $self{task_name}   ||= 'MCE';
+   $self{max_workers} ||= $_def->{$_pkg}{MAX_WORKERS} || 1;
+   $self{chunk_size}  ||= $_def->{$_pkg}{CHUNK_SIZE}  || 1;
+   $self{tmp_dir}     ||= $_def->{$_pkg}{TMP_DIR}     || $MCE::Signal::tmp_dir;
+   $self{freeze}      ||= $_def->{$_pkg}{FREEZE}      || $_freeze;
+   $self{thaw}        ||= $_def->{$_pkg}{THAW}        || $_thaw;
 
    if (exists $self{_module_instance}) {
       $self{_init_total_workers} = $self{max_workers};
@@ -362,7 +360,7 @@ sub new {
          unless (exists $_valid_fields_new{$_p});
    }
 
-   $self{_init_pid} = ($_has_threads) ? $$ .'.'. $_tid : $$;
+   $self{_caller} = $_pkg, $self{_init_pid} = "$$.$_tid";
 
    if (defined $self{use_threads}) {
       if (!$_has_threads && $self{use_threads} ne '0') {
@@ -429,12 +427,12 @@ sub new {
    $self{_wid}        = 0;  # Worker ID, starts at 1 per MCE instance
    $self{_wrk_status} = 0;  # For saving exit status when worker exits
 
-   $self{chunk_size} = MAX_CHUNK_SIZE if ($self{chunk_size} > MAX_CHUNK_SIZE);
+   $self{chunk_size}  = MAX_CHUNK_SIZE if ($self{chunk_size} > MAX_CHUNK_SIZE);
 
-   $self{_last_sref} = (ref $self{input_data} eq 'SCALAR')
+   $self{_last_sref}  = (ref $self{input_data} eq 'SCALAR')
       ? refaddr($self{input_data}) : 0;
 
-   my $_data_channels = ($_oid eq "$$.$_tid") ? DATA_CHANNELS : 2;
+   my $_data_channels = ($_oid eq "$$.$_tid") ? DATA_CHANNELS : 4;
    my $_total_workers = 0;
 
    if (defined $self{user_tasks}) {
@@ -503,8 +501,7 @@ sub spawn {
       require POSIX unless $INC{'POSIX.pm'};
    }
 
-   lock $_MCE_LOCK if ($_has_threads);  # Obtain MCE lock
-   lock $_WIN_LOCK if ($_is_MSWin32);
+   lock $_MCE_LOCK if ($self->{use_threads});  # Obtain MCE lock
 
    my $_die_handler  = $SIG{__DIE__};  $SIG{__DIE__}  = \&_die;
    my $_warn_handler = $SIG{__WARN__}; $SIG{__WARN__} = \&_warn;
@@ -513,10 +510,8 @@ sub spawn {
       $TOP_HDLR = $self;
    }
    elsif (refaddr($self) != refaddr($TOP_HDLR)) {
-      _croak('Running nested MCE sessions is not supported on Windows')
-         if ($_is_MSWin32);
-      $self->{_data_channels} = 2 if ($self->{_data_channels} > 2);
-      $self->{_lock_chn}      = 1 if ($self->{_init_total_workers} > 1);
+      $self->{_data_channels} = 4 if ($self->{_data_channels} > 4);
+      $self->{_lock_chn}      = 1 if ($self->{_init_total_workers} > 4);
    }
 
    ## Configure tid/sid for this instance here, not in the new method above.
@@ -960,7 +955,7 @@ sub run {
       local $\ = undef; local $/ = $LF;
 
       ## Obtain lock.
-      lock $_MCE_LOCK if ($_has_threads);
+      lock $_MCE_LOCK if ($self->{use_threads});
 
       my ($_frozen_nodata, $_wid, %_task0_wids);
       my $_BSE_W_SOCK    = $self->{_bse_w_sock};
@@ -1151,7 +1146,7 @@ sub shutdown {
    local $SIG{__DIE__}  = \&_die;
    local $SIG{__WARN__} = \&_warn;
 
-   lock $_MCE_LOCK if ($_has_threads && !$_no_lock);
+   lock $_MCE_LOCK if ($self->{use_threads} && !$_no_lock);
 
    my $_COM_R_SOCK     = $self->{_com_r_sock};
    my $_data_channels  = $self->{_data_channels};
@@ -1168,12 +1163,9 @@ sub shutdown {
    ## Notify workers to exit loop.
    local ($!, $?); local $\ = undef; local $/ = $LF;
 
-   {
-      lock $_EXT_LOCK if $_is_MSWin32;
-      for (1 .. $_total_workers) {
-         print {$_COM_R_SOCK} '_exit'.$LF;
-         <$_COM_R_SOCK>;
-      }
+   for (1 .. $_total_workers) {
+      print {$_COM_R_SOCK} '_exit'.$LF;
+      <$_COM_R_SOCK>;
    }
 
    ## Reap children and/or threads.
@@ -1218,8 +1210,8 @@ sub shutdown {
    }
 
    ## Reset instance.
-   @{$self->{_pids}}  = (), @{$self->{_thrs}}   = (), @{$self->{_tids}} = ();
-   @{$self->{_state}} = (), @{$self->{_status}} = (), @{$self->{_task}} = ();
+   $self->{_pids}  = $self->{_thrs}   = $self->{_tids} = undef;
+   $self->{_state} = $self->{_status} = $self->{_task} = undef;
 
    $self->{_mce_sid}  = $self->{_mce_tid}  = $self->{_sess_dir} = undef;
    $self->{_chunk_id} = $self->{_send_cnt} = $self->{_spawned}  = 0;
@@ -1259,12 +1251,14 @@ sub sync {
    print {$_DAT_W_SOCK} OUTPUT_B_SYN.$LF . $_chn.$LF;
 
    ## Wait here until all workers (task_id 0) have synced.
+   MCE::Util::_sock_ready($_BSB_R_SOCK) if $_is_MSWin32;
    1 until sysread $_BSB_R_SOCK, $_buffer, 1;
 
    ## Notify the manager process (end).
    print {$_DAT_W_SOCK} OUTPUT_E_SYN.$LF . $_chn.$LF;
 
    ## Wait here until all workers (task_id 0) have un-synced.
+   MCE::Util::_sock_ready($_BSE_R_SOCK) if $_is_MSWin32;
    1 until sysread $_BSE_R_SOCK, $_buffer, 1;
 
    return;
@@ -1402,10 +1396,7 @@ sub exit {
    MCE::Hobo->finish() if $INC{'MCE/Hobo.pm'};
 
    ## Exit thread/child process.
-   $SIG{__DIE__} = $SIG{__WARN__} = sub { };
-
    if ($self->{use_threads} || ($_has_threads && $_is_MSWin32)) {
-      if ($_is_MSWin32) { lock $_EXT_LOCK; }
       threads->exit($_exit_status);
    }
    elsif ($self->{posix_exit}) {
@@ -1769,16 +1760,13 @@ sub _dispatch {
 
    ## Begin worker.
    $self->{_pid} = ($_is_thread) ? $$ .'.'. threads->tid() : $$;
-   _worker_main(@_args, \@_plugin_worker_init, $_is_MSWin32);
+   _worker_main(@_args, \@_plugin_worker_init);
 
    ## Check for any Hobo workers not yet joined.
    MCE::Hobo->finish() if $INC{'MCE/Hobo.pm'};
 
    ## Exit thread/child process.
-   $SIG{__DIE__} = $SIG{__WARN__} = sub { };
-
    if ($self->{use_threads} || ($_has_threads && $_is_MSWin32)) {
-      if ($_is_MSWin32) { lock $_EXT_LOCK; }
       threads->exit(0);
    }
    elsif ($self->{posix_exit}) {

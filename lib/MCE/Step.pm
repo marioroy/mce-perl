@@ -11,17 +11,25 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.708';
+our $VERSION = '1.799_01';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use Scalar::Util qw( looks_like_number );
-use Storable ();
-use MCE::Signal;
+use MCE;
+use MCE::Queue;
 
 our @CARP_NOT = qw( MCE );
+
+my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
+my $_tid = $_has_threads ? threads->tid() : 0;
+my $_caller;
+
+sub CLONE {
+   $_tid = threads->tid() if $_has_threads;
+}
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -29,72 +37,54 @@ our @CARP_NOT = qw( MCE );
 ##
 ###############################################################################
 
-my ($MAX_WORKERS, $CHUNK_SIZE) = ('auto', 'auto');
-
-my $TMP_DIR = $MCE::Signal::tmp_dir;
-my $FREEZE  = \&Storable::freeze;
-my $THAW    = \&Storable::thaw;
-my $FAST    = 0;
-
-my ($_params, @_prev_c, @_prev_n, @_prev_t, @_prev_w, @_user_tasks, @_queue);
-my ($_MCE, $_imported, $_last_task_id, %_lkup); my $_tag = 'MCE::Step';
+my ($_MCE, $_def, $_params, $_tag) = ({}, {}, {}, 'MCE::Step');
+my ($_prev_c, $_prev_n, $_prev_t, $_prev_w) = ({}, {}, {}, {});
+my ($_user_tasks, $_queue, $_last_task_id, $_lkup) = ({}, {}, {}, {});
 
 sub import {
-   my $_class = shift;
+   my ($_class, $_pkg) = (shift, caller);
+
+   my $_p = $_def->{$_pkg} = {
+      MAX_WORKERS => 'auto',
+      CHUNK_SIZE  => 'auto',
+      FAST        => 0,
+   };
 
    ## Import functions.
    no strict 'refs'; no warnings 'redefine';
-   my $_pkg = caller;
 
    *{ $_pkg.'::mce_step_f' } = \&run_file;
    *{ $_pkg.'::mce_step_s' } = \&run_seq;
    *{ $_pkg.'::mce_step'   } = \&run;
 
    ## Process module arguments.
-   return if $_imported++;
-
-   while (my $_argument = shift) {
+   while ( my $_argument = shift ) {
       my $_arg = lc $_argument;
 
-      $MAX_WORKERS = shift, next if ( $_arg eq 'max_workers' );
-      $CHUNK_SIZE  = shift, next if ( $_arg eq 'chunk_size' );
-      $FREEZE      = shift, next if ( $_arg eq 'freeze' );
-      $THAW        = shift, next if ( $_arg eq 'thaw' );
-      $TMP_DIR     = shift, next if ( $_arg eq 'tmp_dir' );
-      $FAST        = shift, next if ( $_arg eq 'fast' );
+      $_p->{MAX_WORKERS} = shift, next if ( $_arg eq 'max_workers' );
+      $_p->{CHUNK_SIZE}  = shift, next if ( $_arg eq 'chunk_size' );
+      $_p->{TMP_DIR}     = shift, next if ( $_arg eq 'tmp_dir' );
+      $_p->{FREEZE}      = shift, next if ( $_arg eq 'freeze' );
+      $_p->{THAW}        = shift, next if ( $_arg eq 'thaw' );
+      $_p->{FAST}        = shift, next if ( $_arg eq 'fast' );
 
-      if ( $_arg eq 'sereal' ) {
-         if (shift eq '1') {
-            local $@; eval 'use Sereal qw( encode_sereal decode_sereal )';
-            if ( !$@ ) {
-               $FREEZE = sub { encode_sereal( @_, { freeze_callbacks => 1 } ) };
-               $THAW   = \&decode_sereal;
-            }
-         }
-         next;
-      }
+      ## Sereal, if available, is used automatically by MCE 1.800 onwards.
+      next if ( $_arg eq 'sereal' );
 
       _croak("Error: ($_argument) invalid module option");
    }
 
-   ## Preload essential modules.
-   require MCE; MCE->import(
-      freeze => $FREEZE, thaw => $THAW, tmp_dir => $TMP_DIR
-   );
+   $_p->{MAX_WORKERS} = MCE::Util::_parse_max_workers($_p->{MAX_WORKERS});
 
-   $MAX_WORKERS = MCE::Util::_parse_max_workers($MAX_WORKERS);
-   _validate_number($MAX_WORKERS, 'MAX_WORKERS');
-
-   _validate_number($CHUNK_SIZE, 'CHUNK_SIZE')
-      unless ($CHUNK_SIZE eq 'auto');
-
-   require MCE::Queue; MCE::Queue->import();
+   _validate_number($_p->{MAX_WORKERS}, 'MAX_WORKERS');
+   _validate_number($_p->{CHUNK_SIZE}, 'CHUNK_SIZE')
+      unless ($_p->{CHUNK_SIZE} eq 'auto');
 
    return;
 }
 
 END {
-   $_MCE = undef;
+   $_params = $_prev_c = $_queue = $_user_tasks = $_MCE = undef;
 }
 
 ###############################################################################
@@ -106,10 +96,11 @@ END {
 sub _task_end {
 
    my ($_mce, $_task_id, $_task_name) = @_;
+   my $_pid = $_mce->{_init_pid}.'.'.$_mce->{_caller};
 
    if (defined $_mce->{user_tasks}->[$_task_id + 1]) {
       my $n_workers = $_mce->{user_tasks}->[$_task_id + 1]->{max_workers};
-      $_queue[$_task_id]->enqueue((undef) x $n_workers);
+      $_queue->{$_pid}[$_task_id]->enqueue((undef) x $n_workers);
    }
 
    $_params->{task_end}->($_mce, $_task_id, $_task_name)
@@ -129,18 +120,19 @@ sub _task_end {
 
    sub MCE::step {
 
-      my $x = shift; my $self = ref($x) ? $x : $_MCE;
+      my $x = shift; my $self = ref($x) ? $x : $MCE::MCE;
+      my $_pid = $self->{_init_pid}.'.'.$self->{_caller};
 
       _croak('MCE::step: method is not allowed by the manager process')
          unless ($self->{_wid});
 
       my $_task_id = $self->{_task_id};
 
-      if ($_task_id < $_last_task_id) {
+      if ($_task_id < $_last_task_id->{$_pid}) {
          if (scalar @_ > 1 || ref $_[0] || !defined $_[0]) {
-            $_queue[$_task_id]->enqueue($self->freeze([ @_ ]).'1');
+            $_queue->{$_pid}[$_task_id]->enqueue($self->freeze([ @_ ]).'1');
          } else {
-            $_queue[$_task_id]->enqueue($_[0].'0');
+            $_queue->{$_pid}[$_task_id]->enqueue($_[0].'0');
          }
       }
       else {
@@ -154,29 +146,31 @@ sub _task_end {
 
    sub MCE::enq {
 
-      my $x = shift; my $self = ref($x) ? $x : $_MCE; my $_name = shift;
+      my $x = shift; my $self = ref($x) ? $x : $MCE::MCE;
+      my $_pid = $self->{_init_pid}.'.'.$self->{_caller};
+      my $_name = shift;
 
       _croak('MCE::enq: method is not allowed by the manager process')
          unless ($self->{_wid});
       _croak('MCE::enq: (task_name) is not specified or valid')
-         if (!defined $_name || !exists $_lkup{$_name});
+         if (!defined $_name || !exists $_lkup->{$_pid}{$_name});
       _croak('MCE::enq: stepping to same task or backwards is not allowed')
-         if ($_lkup{$_name} <= $self->{_task_id});
+         if ($_lkup->{$_pid}{$_name} <= $self->{_task_id});
 
-      my $_task_id = $_lkup{$_name} - 1;
+      my $_task_id = $_lkup->{$_pid}{$_name} - 1;
 
-      if ($_task_id < $_last_task_id) {
+      if ($_task_id < $_last_task_id->{$_pid}) {
          if (scalar @_ > 1) {
             my @_items = map {
                (ref $_ || !defined $_) ? $self->freeze([ $_ ]).'1' : $_.'0';
             } @_;
-            $_queue[$_task_id]->enqueue(@_items);
+            $_queue->{$_pid}[$_task_id]->enqueue(@_items);
          }
          elsif (!defined $_[0] || ref $_[0]) {
-            $_queue[$_task_id]->enqueue($self->freeze([ @_ ]).'1');
+            $_queue->{$_pid}[$_task_id]->enqueue($self->freeze([ @_ ]).'1');
          }
          else {
-            $_queue[$_task_id]->enqueue($_[0].'0');
+            $_queue->{$_pid}[$_task_id]->enqueue($_[0].'0');
          }
       }
       else {
@@ -190,32 +184,33 @@ sub _task_end {
 
    sub MCE::enqp {
 
-      my $x = shift; my $self = ref($x) ? $x : $_MCE;
+      my $x = shift; my $self = ref($x) ? $x : $MCE::MCE;
+      my $_pid = $self->{_init_pid}.'.'.$self->{_caller};
       my ($_name, $_p) = (shift, shift);
 
       _croak('MCE::enqp: method is not allowed by the manager process')
          unless ($self->{_wid});
       _croak('MCE::enqp: (task_name) is not specified or valid')
-         if (!defined $_name || !exists $_lkup{$_name});
+         if (!defined $_name || !exists $_lkup->{$_pid}{$_name});
       _croak('MCE::enqp: stepping to same task or backwards is not allowed')
-         if ($_lkup{$_name} <= $self->{_task_id});
+         if ($_lkup->{$_pid}{$_name} <= $self->{_task_id});
       _croak('MCE::enqp: (priority) is not an integer')
          if (!looks_like_number($_p) || int($_p) != $_p);
 
-      my $_task_id = $_lkup{$_name} - 1;
+      my $_task_id = $_lkup->{$_pid}{$_name} - 1;
 
-      if ($_task_id < $_last_task_id) {
+      if ($_task_id < $_last_task_id->{$_pid}) {
          if (scalar @_ > 1) {
             my @_items = map {
                (ref $_ || !defined $_) ? $self->freeze([ $_ ]).'1' : $_.'0';
             } @_;
-            $_queue[$_task_id]->enqueuep($_p, @_items);
+            $_queue->{$_pid}[$_task_id]->enqueuep($_p, @_items);
          }
          elsif (!defined $_[0] || ref $_[0]) {
-            $_queue[$_task_id]->enqueuep($_p, $self->freeze([ @_ ]).'1');
+            $_queue->{$_pid}[$_task_id]->enqueuep($_p, $self->freeze([ @_ ]).'1');
          }
          else {
-            $_queue[$_task_id]->enqueuep($_p, $_[0].'0');
+            $_queue->{$_pid}[$_task_id]->enqueuep($_p, $_[0].'0');
          }
       }
       else {
@@ -229,22 +224,24 @@ sub _task_end {
 
    sub MCE::await {
 
-      my $x = shift; my $self = ref($x) ? $x : $_MCE; my $_name = shift;
+      my $x = shift; my $self = ref($x) ? $x : $MCE::MCE;
+      my $_pid = $self->{_init_pid}.'.'.$self->{_caller};
+      my $_name = shift;
 
       _croak('MCE::await: method is not allowed by the manager process')
          unless ($self->{_wid});
       _croak('MCE::await: (task_name) is not specified or valid')
-         if (!defined $_name || !exists $_lkup{$_name});
+         if (!defined $_name || !exists $_lkup->{$_pid}{$_name});
       _croak('MCE::await: awaiting from same task or backwards is not allowed')
-         if ($_lkup{$_name} <= $self->{_task_id});
+         if ($_lkup->{$_pid}{$_name} <= $self->{_task_id});
 
-      my $_task_id = $_lkup{$_name} - 1;  my $_t = shift || 0;
+      my $_task_id = $_lkup->{$_pid}{$_name} - 1;  my $_t = shift || 0;
 
       _croak('MCE::await: (threshold) is not an integer')
          if (!looks_like_number($_t) || int($_t) != $_t);
 
-      if ($_task_id < $_last_task_id) {
-         $_queue[$_task_id]->await($_t);
+      if ($_task_id < $_last_task_id->{$_pid}) {
+         $_queue->{$_pid}[$_task_id]->await($_t);
       } else {
          _croak('MCE::await: method is not allowed by the last task');
       }
@@ -264,11 +261,9 @@ sub init (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Step');
 
-   if (MCE->wid) {
-      @_ = (); _croak("$_tag: (init) is not allowed by the worker process");
-   }
+   my $_pid = "$$.$_tid.".caller();
 
-   finish(); $_params = (ref $_[0] eq 'HASH') ? shift : { @_ };
+   finish(); $_params->{$_pid} = (ref $_[0] eq 'HASH') ? shift : { @_ };
 
    @_ = ();
 
@@ -279,15 +274,26 @@ sub finish (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Step');
 
-   if (defined $_MCE && $_MCE->{_spawned}) {
-      MCE::_save_state(); $_MCE->shutdown(@_); MCE::_restore_state();
+   my $_pid = "$$.$_tid.".caller();
+
+   if (defined $_MCE->{$_pid}) {
+      MCE::_save_state(), $_MCE->{$_pid}->shutdown(@_), MCE::_restore_state()
+         if $_MCE->{$_pid}->{_spawned};
+
+      delete $_lkup->{$_pid};
+      delete $_last_task_id->{$_pid};
+
+      delete $_user_tasks->{$_pid};
+      delete $_prev_c->{$_pid};
+      delete $_prev_n->{$_pid};
+      delete $_prev_t->{$_pid};
+      delete $_prev_w->{$_pid};
+
+      if (defined $_queue->{$_pid}) {
+         $_->DESTROY() for (@{ $_queue->{$_pid} });
+         delete $_queue->{$_pid};
+      }
    }
-
-   $_->DESTROY() for (@_queue); @_queue = ();
-
-   @_prev_c = (); @_prev_n = (); @_prev_t = (); @_prev_w = ();
-
-   @_user_tasks = (); %_lkup = ();
 
    return;
 }
@@ -303,13 +309,14 @@ sub run_file (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Step');
 
    my ($_file, $_pos); my $_start_pos = (ref $_[0] eq 'HASH') ? 2 : 1;
+   my $_pid = "$$.$_tid.".caller();  $_caller = caller();
 
-   if (defined $_params) {
-      delete $_params->{input_data} if (exists $_params->{input_data});
-      delete $_params->{sequence}   if (exists $_params->{sequence});
+   if (defined (my $_p = $_params->{$_pid})) {
+      delete $_p->{input_data} if (exists $_p->{input_data});
+      delete $_p->{sequence}   if (exists $_p->{sequence});
    }
    else {
-      $_params = {};
+      $_params->{$_pid} = {};
    }
 
    for my $_i ($_start_pos .. @_ - 1) {
@@ -321,13 +328,13 @@ sub run_file (@) {
    }
 
    if (defined $_file && ref $_file eq '' && $_file ne '') {
-      _croak("$_tag: ($_file) does not exist") unless (-e $_file);
-      _croak("$_tag: ($_file) is not readable") unless (-r $_file);
+      _croak("$_tag: ($_file) does not exist")      unless (-e $_file);
+      _croak("$_tag: ($_file) is not readable")     unless (-r $_file);
       _croak("$_tag: ($_file) is not a plain file") unless (-f $_file);
-      $_params->{_file} = $_file;
+      $_params->{$_pid}{_file} = $_file;
    }
    elsif (ref $_file eq 'GLOB' || ref $_file eq 'SCALAR' || ref($_file) =~ /^IO::/) {
-      $_params->{_file} = $_file;
+      $_params->{$_pid}{_file} = $_file;
    }
    else {
       _croak("$_tag: (file) is not specified or valid");
@@ -351,14 +358,15 @@ sub run_seq (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Step');
 
    my ($_begin, $_end, $_pos); my $_start_pos = (ref $_[0] eq 'HASH') ? 2 : 1;
+   my $_pid = "$$.$_tid.".caller();  $_caller = caller();
 
-   if (defined $_params) {
-      delete $_params->{sequence}   if (exists $_params->{sequence});
-      delete $_params->{input_data} if (exists $_params->{input_data});
-      delete $_params->{_file}      if (exists $_params->{_file});
+   if (defined (my $_p = $_params->{$_pid})) {
+      delete $_p->{sequence}   if (exists $_p->{sequence});
+      delete $_p->{input_data} if (exists $_p->{input_data});
+      delete $_p->{_file}      if (exists $_p->{_file});
    }
    else {
-      $_params = {};
+      $_params->{$_pid} = {};
    }
 
    for my $_i ($_start_pos .. @_ - 1) {
@@ -369,17 +377,17 @@ sub run_seq (@) {
 
          if ($_ref eq '') {
             $_begin = $_[$_pos]; $_end = $_[$_pos + 1];
-            $_params->{sequence} = [
+            $_params->{$_pid}{sequence} = [
                $_[$_pos], $_[$_pos + 1], $_[$_pos + 2], $_[$_pos + 3]
             ];
          }
          elsif ($_ref eq 'HASH') {
             $_begin = $_[$_pos]->{begin}; $_end = $_[$_pos]->{end};
-            $_params->{sequence} = $_[$_pos];
+            $_params->{$_pid}{sequence} = $_[$_pos];
          }
          elsif ($_ref eq 'ARRAY') {
             $_begin = $_[$_pos]->[0]; $_end = $_[$_pos]->[1];
-            $_params->{sequence} = $_[$_pos];
+            $_params->{$_pid}{sequence} = $_[$_pos];
          }
 
          last;
@@ -387,15 +395,13 @@ sub run_seq (@) {
    }
 
    _croak("$_tag: (sequence) is not specified or valid")
-      unless (exists $_params->{sequence});
-
+      unless (exists $_params->{$_pid}{sequence});
    _croak("$_tag: (begin) is not specified for sequence")
       unless (defined $_begin);
-
    _croak("$_tag: (end) is not specified for sequence")
       unless (defined $_end);
 
-   $_params->{sequence_run} = 1;
+   $_params->{$_pid}{sequence_run} = 1;
 
    if (defined $_pos) {
       pop @_ for ($_pos .. @_ - 1);
@@ -414,14 +420,13 @@ sub run (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Step');
 
-   if (MCE->wid) {
-      @_ = (); _croak("$_tag: (run) is not allowed by the worker process");
-   }
+   my $_pkg = defined $_caller ? $_caller : caller();  $_caller = undef;
+   my $_pid = "$$.$_tid.$_pkg";
 
    if (ref $_[0] eq 'HASH') {
-      $_params = {} unless defined $_params;
+      $_params->{$_pid} = {} unless defined $_params->{$_pid};
       for my $_p (keys %{ $_[0] }) {
-         $_params->{$_p} = $_[0]->{$_p};
+         $_params->{$_pid}{$_p} = $_[0]->{$_p};
       }
 
       shift;
@@ -431,44 +436,44 @@ sub run (@) {
 
    my (@_code, @_name, @_thrs, @_wrks); my $_init_mce = 0; my $_pos = 0;
 
-   %_lkup = ();
+   %{ $_lkup->{$_pid} } = ();
 
    while (ref $_[0] eq 'CODE') {
       push @_code, $_[0];
 
-      push @_name, (defined $_params && ref $_params->{task_name} eq 'ARRAY')
-         ? $_params->{task_name}->[$_pos] : undef;
-      push @_thrs, (defined $_params && ref $_params->{use_threads} eq 'ARRAY')
-         ? $_params->{use_threads}->[$_pos] : undef;
-      push @_wrks, (defined $_params && ref $_params->{max_workers} eq 'ARRAY')
-         ? $_params->{max_workers}->[$_pos] : undef;
-
-      $_lkup{ $_name[ $_pos ] } = $_pos if (defined $_name[ $_pos ]);
-
-      if (!defined $_prev_c[$_pos] || $_prev_c[$_pos] != $_code[$_pos]) {
-         $_init_mce = 1;
+      if (defined (my $_p = $_params->{$_pid})) {
+         push @_name, (ref $_p->{task_name} eq 'ARRAY')
+            ? $_p->{task_name}->[$_pos] : undef;
+         push @_thrs, (ref $_p->{use_threads} eq 'ARRAY')
+            ? $_p->{use_threads}->[$_pos] : undef;
+         push @_wrks, (ref $_p->{max_workers} eq 'ARRAY')
+            ? $_p->{max_workers}->[$_pos] : undef;
       }
 
-      {
-         no warnings;
-         $_init_mce = 1 if ($_prev_n[$_pos] ne $_name[$_pos]);
-         $_init_mce = 1 if ($_prev_t[$_pos] ne $_thrs[$_pos]);
-         $_init_mce = 1 if ($_prev_w[$_pos] ne $_wrks[$_pos]);
-      }
+      $_lkup->{$_pid}{ $_name[ $_pos ] } = $_pos if (defined $_name[ $_pos ]);
 
-      $_prev_c[$_pos] = $_code[$_pos];
-      $_prev_n[$_pos] = $_name[$_pos];
-      $_prev_t[$_pos] = $_thrs[$_pos];
-      $_prev_w[$_pos] = $_wrks[$_pos];
+      $_init_mce = 1 if (
+         !defined $_prev_c->{$_pid}[$_pos] ||
+         $_prev_c->{$_pid}[$_pos] != $_code[$_pos]
+      );
+
+      $_init_mce = 1 if ($_prev_n->{$_pid}[$_pos] ne $_name[$_pos]);
+      $_init_mce = 1 if ($_prev_t->{$_pid}[$_pos] ne $_thrs[$_pos]);
+      $_init_mce = 1 if ($_prev_w->{$_pid}[$_pos] ne $_wrks[$_pos]);
+
+      $_prev_c->{$_pid}[$_pos] = $_code[$_pos];
+      $_prev_n->{$_pid}[$_pos] = $_name[$_pos];
+      $_prev_t->{$_pid}[$_pos] = $_thrs[$_pos];
+      $_prev_w->{$_pid}[$_pos] = $_wrks[$_pos];
 
       shift; $_pos++;
    }
 
-   if (defined $_prev_c[$_pos]) {
-      pop @_prev_c for ($_pos .. @_prev_c - 1);
-      pop @_prev_n for ($_pos .. @_prev_n - 1);
-      pop @_prev_t for ($_pos .. @_prev_t - 1);
-      pop @_prev_w for ($_pos .. @_prev_w - 1);
+   if (defined $_prev_c->{$_pid}[$_pos]) {
+      pop @{ $_prev_c->{$_pid} } for ($_pos .. $#{ $_prev_c->{$_pid } });
+      pop @{ $_prev_n->{$_pid} } for ($_pos .. $#{ $_prev_n->{$_pid } });
+      pop @{ $_prev_t->{$_pid} } for ($_pos .. $#{ $_prev_t->{$_pid } });
+      pop @{ $_prev_w->{$_pid} } for ($_pos .. $#{ $_prev_w->{$_pid } });
 
       $_init_mce = 1;
    }
@@ -477,13 +482,14 @@ sub run (@) {
 
    ## -------------------------------------------------------------------------
 
-   my $_input_data; my $_max_workers = $MAX_WORKERS; my $_r = ref $_[0];
+   my $_input_data; my $_max_workers = $_def->{$_pkg}{MAX_WORKERS};
+   my $_r = ref $_[0];
 
    if ($_r eq 'ARRAY' || $_r eq 'GLOB' || $_r eq 'SCALAR' || $_r =~ /^IO::/) {
       $_input_data = shift;
    }
 
-   if (defined $_params) { my $_p = $_params;
+   if (defined (my $_p = $_params->{$_pid})) {
       $_max_workers = MCE::Util::_parse_max_workers($_p->{max_workers})
          if (exists $_p->{max_workers} && ref $_p->{max_workers} ne 'ARRAY');
 
@@ -497,40 +503,43 @@ sub run (@) {
    }
 
    my $_chunk_size = MCE::Util::_parse_chunk_size(
-      $CHUNK_SIZE, $_max_workers, $_params, $_input_data, scalar @_
+      $_def->{$_pkg}{CHUNK_SIZE}, $_max_workers, $_params->{$_pid},
+      $_input_data, scalar @_
    );
 
-   if (defined $_params) {
-      if (exists $_params->{_file}) {
-         $_input_data = delete $_params->{_file};
-      }
-      else {
-         $_input_data = $_params->{input_data} if exists $_params->{input_data};
+   if (defined (my $_p = $_params->{$_pid})) {
+      if (exists $_p->{_file}) {
+         $_input_data = delete $_p->{_file};
+      } else {
+         $_input_data = $_p->{input_data} if exists $_p->{input_data};
       }
    }
 
-   MCE::_save_state();
-
    ## -------------------------------------------------------------------------
 
+   MCE::_save_state();
+
    if ($_init_mce) {
-      $_MCE->shutdown() if (defined $_MCE);
+      $_MCE->{$_pid}->shutdown() if (defined $_MCE->{$_pid});
+      $_queue->{$_pid} = [] if (!defined $_queue->{$_pid});
 
-      pop( @_queue )->DESTROY for (@_code .. @_queue);
+      my $_Q = $_queue->{$_pid};
+      pop(@{ $_Q })->DESTROY for (@_code .. @{ $_Q });
 
-      push @_queue, MCE::Queue->new(fast => $FAST, await => 1)
-         for (@_queue .. @_code - 2);
+      push @{ $_Q }, MCE::Queue->new(fast => $_def->{$_pkg}{FAST}, await => 1)
+         for (@{ $_Q } .. @_code - 2);
 
-      _gen_user_tasks(\@_queue, \@_code, \@_name, \@_thrs, \@_wrks, $_chunk_size);
-      $_last_task_id = @_code - 1;
+      _gen_user_tasks($_pid,$_Q, \@_code,\@_name,\@_thrs,\@_wrks, $_chunk_size);
 
-      my %_options = (
+      $_last_task_id->{$_pid} = @_code - 1;
+
+      my %_opts = (
          max_workers => $_max_workers, task_name => $_tag,
-         user_tasks  => \@_user_tasks, task_end  => \&_task_end,
+         user_tasks  => $_user_tasks->{$_pid}, task_end  => \&_task_end,
       );
 
-      if (defined $_params) {
-         local $_; my $_p = $_params;
+      if (defined (my $_p = $_params->{$_pid})) {
+         local $_;
 
          for (keys %{ $_p }) {
             next if ($_ eq 'max_workers' && ref $_p->{max_workers} eq 'ARRAY');
@@ -545,68 +554,70 @@ sub run (@) {
             _croak("MCE::Step: ($_) is not a valid constructor argument")
                unless (exists $MCE::_valid_fields_new{$_});
 
-            $_options{$_} = $_p->{$_};
+            $_opts{$_} = $_p->{$_};
          }
       }
 
-      $_MCE = MCE->new(%_options);
+      for my $_k (qw/ tmp_dir freeze thaw /) {
+         $_opts{$_k} = $_def->{$_pkg}{uc($_k)}
+            if (exists $_def->{$_pkg}{uc($_k)} && !exists $_opts{$_k});
+      }
+
+      $_MCE->{$_pid} = MCE->new(pkg => $_pkg, %_opts);
    }
    else {
       ## Workers may persist after running. Thus, updating the MCE instance.
       ## These options do not require respawning.
-      if (defined $_params) {
-         for my $_p (qw(
+      if (defined (my $_p = $_params->{$_pid})) {
+         for my $_k (qw(
             RS interval stderr_file stdout_file user_error user_output
             job_delay submit_delay on_post_exit on_post_run user_args
             flush_file flush_stderr flush_stdout gather max_retries
          )) {
-            $_MCE->{$_p} = $_params->{$_p} if (exists $_params->{$_p});
+            $_MCE->{$_pid}->{$_k} = $_p->{$_k} if (exists $_p->{$_k});
          }
       }
    }
 
    ## -------------------------------------------------------------------------
 
-   my @_a; my $_wa = wantarray; $_MCE->{gather} = \@_a if (defined $_wa);
+   my @_a; my $_wa = wantarray; $_MCE->{$_pid}->{gather} = \@_a if (defined $_wa);
 
    if (defined $_input_data) {
       @_ = ();
-      $_MCE->process({ chunk_size => $_chunk_size }, $_input_data);
-      delete $_MCE->{input_data};
+      $_MCE->{$_pid}->process({ chunk_size => $_chunk_size }, $_input_data);
+      delete $_MCE->{$_pid}->{input_data};
    }
    elsif (scalar @_) {
-      $_MCE->process({ chunk_size => $_chunk_size }, \@_);
-      delete $_MCE->{input_data};
+      $_MCE->{$_pid}->process({ chunk_size => $_chunk_size }, \@_);
+      delete $_MCE->{$_pid}->{input_data};
    }
    else {
-      if (defined $_params && exists $_params->{sequence}) {
-         $_MCE->run({
-            chunk_size => $_chunk_size, sequence => $_params->{sequence}
+      if (defined $_params->{$_pid} && exists $_params->{$_pid}{sequence}) {
+         $_MCE->{$_pid}->run({
+             chunk_size => $_chunk_size,
+             sequence   => $_params->{$_pid}{sequence}
          }, 0);
-         if (exists $_params->{sequence_run}) {
-            delete $_params->{sequence_run};
-            delete $_params->{sequence};
+         if (exists $_params->{$_pid}{sequence_run}) {
+             delete $_params->{$_pid}{sequence_run};
+             delete $_params->{$_pid}{sequence};
          }
-         delete $_MCE->{sequence};
+         delete $_MCE->{$_pid}{sequence};
       }
       else {
-         $_MCE->run({ chunk_size => $_chunk_size }, 0);
+         $_MCE->{$_pid}->run({ chunk_size => $_chunk_size }, 0);
       }
    }
 
-   delete $_MCE->{gather} if (defined $_wa);
+   delete $_MCE->{$_pid}->{gather} if (defined $_wa);
+
+   if ($^S || $ENV{'PERL_IPERL_RUNNING'} || $INC{'MCE/Hobo.pm'}) {
+      $_MCE->{$_pid}->shutdown(); # shutdown if in eval state
+      $_->DESTROY() for (@{ $_queue->{$_pid} });
+      delete $_queue->{$_pid};
+   }
 
    MCE::_restore_state();
-
-   if (exists $_MCE->{_rla_return}) {
-      $MCE::MCE->{_rla_return} = delete $_MCE->{_rla_return};
-   }
-
-   if ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
-      ## shutdown if in eval state
-      MCE::_save_state(); $_MCE->shutdown(); MCE::_restore_state();
-      $_->DESTROY() for (@_queue); @_queue = ();
-   }
 
    return ((defined $_wa) ? @_a : ());
 }
@@ -624,10 +635,10 @@ sub _croak {
 
 sub _gen_user_func {
 
-   my ($_queue_ref, $_code_ref, $_chunk_size, $_pos) = @_;
+   my ($_qref, $_cref, $_chunk_size, $_pos) = @_;
 
-   my $_q_in  = $_queue_ref->[$_pos - 1];
-   my $_c_ref = $_code_ref->[$_pos];
+   my $_q_in = $_qref->[$_pos - 1];
+   my $_code = $_cref->[$_pos];
 
    return sub {
       my ($_mce) = @_;
@@ -640,9 +651,9 @@ sub _gen_user_func {
       while (defined (local $_ = $_q_in->dequeue())) {
          if (chop $_) {
             my $_args = $_mce->thaw($_);  $_ = $_args->[0];
-            $_c_ref->($_mce, @{ $_args });
+            $_code->($_mce, @{ $_args });
          } else {
-            $_c_ref->($_mce, $_);
+            $_code->($_mce, $_);
          }
       }
 
@@ -654,26 +665,24 @@ sub _gen_user_func {
 
 sub _gen_user_tasks {
 
-   my (
-      $_queue_ref, $_code_ref, $_name_ref, $_thrs_ref, $_wrks_ref, $_chunk_size
-   ) = @_;
+   my ($_pid, $_qref, $_cref, $_nref, $_tref, $_wref, $_chunk_size) = @_;
 
-   @_user_tasks = ();
+   @{ $_user_tasks->{$_pid} } = ();
 
-   push @_user_tasks, {
-      task_name   => $_name_ref->[0],
-      use_threads => $_thrs_ref->[0],
-      max_workers => $_wrks_ref->[0],
-      user_func   => sub { $_code_ref->[0]->(@_); return; }
+   push @{ $_user_tasks->{$_pid} }, {
+      task_name   => $_nref->[0],
+      use_threads => $_tref->[0],
+      max_workers => $_wref->[0],
+      user_func   => sub { $_cref->[0]->(@_); return; }
    };
 
-   for my $_pos (1 .. @{ $_code_ref } - 1) {
-      push @_user_tasks, {
-         task_name   => $_name_ref->[$_pos],
-         use_threads => $_thrs_ref->[$_pos],
-         max_workers => $_wrks_ref->[$_pos],
+   for my $_pos (1 .. @{ $_cref } - 1) {
+      push @{ $_user_tasks->{$_pid} }, {
+         task_name   => $_nref->[$_pos],
+         use_threads => $_tref->[$_pos],
+         max_workers => $_wref->[$_pos],
          user_func   => _gen_user_func(
-            $_queue_ref, $_code_ref, $_chunk_size, $_pos
+            $_qref, $_cref, $_chunk_size, $_pos
          )
       };
    }
@@ -712,7 +721,7 @@ MCE::Step - Parallel step model for building creative steps
 
 =head1 VERSION
 
-This document describes MCE::Step version 1.708
+This document describes MCE::Step version 1.799_01
 
 =head1 DESCRIPTION
 
@@ -955,18 +964,19 @@ The following list options which may be overridden when loading the module.
    use JSON::XS qw( encode_json decode_json );
 
    use MCE::Step
-         fast => 1,                       ## Default 0 (fast dequeue)
-         max_workers => 8,                ## Default 'auto'
-         chunk_size => 500,               ## Default 'auto'
-         tmp_dir => "/path/to/app/tmp",   ## $MCE::Signal::tmp_dir
-         freeze => \&encode_sereal,       ## \&Storable::freeze
-         thaw => \&decode_sereal          ## \&Storable::thaw
+       max_workers => 8,                # Default 'auto'
+       chunk_size => 500,               # Default 'auto'
+       tmp_dir => "/path/to/app/tmp",   # $MCE::Signal::tmp_dir
+       freeze => \&encode_sereal,       # \&Storable::freeze
+       thaw => \&decode_sereal,         # \&Storable::thaw
+       fast => 1                        # Default 0 (fast dequeue)
    ;
 
 There is a simpler way to enable Sereal. The following will attempt to use
 Sereal if available, otherwise defaults to Storable for serialization.
+From MCE 1.800 onwards, this is done automatically.
 
-   use MCE::Step Sereal => 1;
+   use MCE::Flow Sereal => 1;
 
 =head1 CUSTOMIZING MCE
 

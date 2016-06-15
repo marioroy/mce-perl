@@ -11,17 +11,24 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.708';
+our $VERSION = '1.799_01';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use Scalar::Util qw( looks_like_number );
-use Storable ();
-use MCE::Signal;
+use MCE;
 
 our @CARP_NOT = qw( MCE );
+
+my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
+my $_tid = $_has_threads ? threads->tid() : 0;
+my $_caller;
+
+sub CLONE {
+   $_tid = threads->tid() if $_has_threads;
+}
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -29,67 +36,50 @@ our @CARP_NOT = qw( MCE );
 ##
 ###############################################################################
 
-my ($MAX_WORKERS, $CHUNK_SIZE) = ('auto', 'auto');
-
-my $TMP_DIR = $MCE::Signal::tmp_dir;
-my $FREEZE  = \&Storable::freeze;
-my $THAW    = \&Storable::thaw;
-
-my ($_MCE, $_imported); my ($_params, $_prev_c); my $_tag = 'MCE::Loop';
+my ($_MCE, $_def, $_params, $_prev_c, $_tag) = ({}, {}, {}, {}, 'MCE::Loop');
 
 sub import {
-   my $_class = shift;
+   my ($_class, $_pkg) = (shift, caller);
+
+   my $_p = $_def->{$_pkg} = {
+      MAX_WORKERS => 'auto',
+      CHUNK_SIZE  => 'auto',
+   };
 
    ## Import functions.
    no strict 'refs'; no warnings 'redefine';
-   my $_pkg = caller;
 
    *{ $_pkg.'::mce_loop_f' } = \&run_file;
    *{ $_pkg.'::mce_loop_s' } = \&run_seq;
    *{ $_pkg.'::mce_loop'   } = \&run;
 
    ## Process module arguments.
-   return if $_imported++;
-
-   while (my $_argument = shift) {
+   while ( my $_argument = shift ) {
       my $_arg = lc $_argument;
 
-      $MAX_WORKERS = shift, next if ( $_arg eq 'max_workers' );
-      $CHUNK_SIZE  = shift, next if ( $_arg eq 'chunk_size' );
-      $FREEZE      = shift, next if ( $_arg eq 'freeze' );
-      $THAW        = shift, next if ( $_arg eq 'thaw' );
-      $TMP_DIR     = shift, next if ( $_arg eq 'tmp_dir' );
+      $_p->{MAX_WORKERS} = shift, next if ( $_arg eq 'max_workers' );
+      $_p->{CHUNK_SIZE}  = shift, next if ( $_arg eq 'chunk_size' );
+      $_p->{TMP_DIR}     = shift, next if ( $_arg eq 'tmp_dir' );
+      $_p->{FREEZE}      = shift, next if ( $_arg eq 'freeze' );
+      $_p->{THAW}        = shift, next if ( $_arg eq 'thaw' );
 
-      if ( $_arg eq 'sereal' ) {
-         if (shift eq '1') {
-            local $@; eval 'use Sereal qw( encode_sereal decode_sereal )';
-            if ( !$@ ) {
-               $FREEZE = sub { encode_sereal( @_, { freeze_callbacks => 1 } ) };
-               $THAW   = \&decode_sereal;
-            }
-         }
-         next;
-      }
+      ## Sereal, if available, is used automatically by MCE 1.800 onwards.
+      next if ( $_arg eq 'sereal' );
 
       _croak("Error: ($_argument) invalid module option");
    }
 
-   ## Preload essential modules.
-   require MCE; MCE->import(
-      freeze => $FREEZE, thaw => $THAW, tmp_dir => $TMP_DIR
-   );
+   $_p->{MAX_WORKERS} = MCE::Util::_parse_max_workers($_p->{MAX_WORKERS});
 
-   $MAX_WORKERS = MCE::Util::_parse_max_workers($MAX_WORKERS);
-   _validate_number($MAX_WORKERS, 'MAX_WORKERS');
-
-   _validate_number($CHUNK_SIZE, 'CHUNK_SIZE')
-      unless ($CHUNK_SIZE eq 'auto');
+   _validate_number($_p->{MAX_WORKERS}, 'MAX_WORKERS');
+   _validate_number($_p->{CHUNK_SIZE}, 'CHUNK_SIZE')
+      unless ($_p->{CHUNK_SIZE} eq 'auto');
 
    return;
 }
 
 END {
-   $_MCE = undef;
+   $_params = $_prev_c = $_MCE = undef;
 }
 
 ###############################################################################
@@ -102,11 +92,9 @@ sub init (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Loop');
 
-   if (MCE->wid) {
-      @_ = (); _croak("$_tag: (init) is not allowed by the worker process");
-   }
+   my $_pid = "$$.$_tid.".caller();
 
-   finish(); $_params = (ref $_[0] eq 'HASH') ? shift : { @_ };
+   finish(); $_params->{$_pid} = (ref $_[0] eq 'HASH') ? shift : { @_ };
 
    @_ = ();
 
@@ -117,11 +105,14 @@ sub finish (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Loop');
 
-   if (defined $_MCE && $_MCE->{_spawned}) {
-      MCE::_save_state(); $_MCE->shutdown(@_); MCE::_restore_state();
-   }
+   my $_pid = "$$.$_tid.".caller();
 
-   $_prev_c = undef;
+   if (defined $_MCE->{$_pid}) {
+      MCE::_save_state(), $_MCE->{$_pid}->shutdown(@_), MCE::_restore_state()
+         if $_MCE->{$_pid}->{_spawned};
+
+      delete $_prev_c->{$_pid};
+   }
 
    return;
 }
@@ -137,23 +128,24 @@ sub run_file (&@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Loop');
 
    my $_code = shift; my $_file = shift;
+   my $_pid  = "$$.$_tid.".caller();  $_caller = caller();
 
-   if (defined $_params) {
-      delete $_params->{input_data} if (exists $_params->{input_data});
-      delete $_params->{sequence}   if (exists $_params->{sequence});
+   if (defined (my $_p = $_params->{$_pid})) {
+      delete $_p->{input_data} if (exists $_p->{input_data});
+      delete $_p->{sequence}   if (exists $_p->{sequence});
    }
    else {
-      $_params = {};
+      $_params->{$_pid} = {};
    }
 
    if (defined $_file && ref $_file eq '' && $_file ne '') {
-      _croak("$_tag: ($_file) does not exist") unless (-e $_file);
-      _croak("$_tag: ($_file) is not readable") unless (-r $_file);
+      _croak("$_tag: ($_file) does not exist")      unless (-e $_file);
+      _croak("$_tag: ($_file) is not readable")     unless (-r $_file);
       _croak("$_tag: ($_file) is not a plain file") unless (-f $_file);
-      $_params->{_file} = $_file;
+      $_params->{$_pid}{_file} = $_file;
    }
    elsif (ref $_file eq 'GLOB' || ref $_file eq 'SCALAR' || ref($_file) =~ /^IO::/) {
-      $_params->{_file} = $_file;
+      $_params->{$_pid}{_file} = $_file;
    }
    else {
       _croak("$_tag: (file) is not specified or valid");
@@ -175,28 +167,29 @@ sub run_seq (&@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Loop');
 
    my $_code = shift;
+   my $_pid  = "$$.$_tid.".caller();  $_caller = caller();
 
-   if (defined $_params) {
-      delete $_params->{input_data} if (exists $_params->{input_data});
-      delete $_params->{_file}      if (exists $_params->{_file});
+   if (defined (my $_p = $_params->{$_pid})) {
+      delete $_p->{input_data} if (exists $_p->{input_data});
+      delete $_p->{_file}      if (exists $_p->{_file});
    }
    else {
-      $_params = {};
+      $_params->{$_pid} = {};
    }
 
    my ($_begin, $_end);
 
    if (ref $_[0] eq 'HASH') {
       $_begin = $_[0]->{begin}; $_end = $_[0]->{end};
-      $_params->{sequence} = $_[0];
+      $_params->{$_pid}{sequence} = $_[0];
    }
    elsif (ref $_[0] eq 'ARRAY') {
       $_begin = $_[0]->[0]; $_end = $_[0]->[1];
-      $_params->{sequence} = $_[0];
+      $_params->{$_pid}{sequence} = $_[0];
    }
    elsif (ref $_[0] eq '') {
       $_begin = $_[0]; $_end = $_[1];
-      $_params->{sequence} = [ @_ ];
+      $_params->{$_pid}{sequence} = [ @_ ];
    }
    else {
       _croak("$_tag: (sequence) is not specified or valid");
@@ -204,11 +197,10 @@ sub run_seq (&@) {
 
    _croak("$_tag: (begin) is not specified for sequence")
       unless (defined $_begin);
-
    _croak("$_tag: (end) is not specified for sequence")
       unless (defined $_end);
 
-   $_params->{sequence_run} = 1;
+   $_params->{$_pid}{sequence_run} = 1;
 
    @_ = ();
 
@@ -226,18 +218,17 @@ sub run (&@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Loop');
 
    my $_code = shift;
+   my $_pkg  = defined $_caller ? $_caller : caller();  $_caller = undef;
+   my $_pid  = "$$.$_tid.$_pkg";
 
-   if (MCE->wid) {
-      @_ = (); _croak("$_tag: (run) is not allowed by the worker process");
-   }
-
-   my $_input_data; my $_max_workers = $MAX_WORKERS; my $_r = ref $_[0];
+   my $_input_data; my $_max_workers = $_def->{$_pkg}{MAX_WORKERS};
+   my $_r = ref $_[0];
 
    if ($_r eq 'ARRAY' || $_r eq 'CODE' || $_r eq 'GLOB' || $_r eq 'SCALAR' || $_r =~ /^IO::/) {
       $_input_data = shift;
    }
 
-   if (defined $_params) { my $_p = $_params;
+   if (defined (my $_p = $_params->{$_pid})) {
       $_max_workers = MCE::Util::_parse_max_workers($_p->{max_workers})
          if (exists $_p->{max_workers});
 
@@ -247,85 +238,86 @@ sub run (&@) {
    }
 
    my $_chunk_size = MCE::Util::_parse_chunk_size(
-      $CHUNK_SIZE, $_max_workers, $_params, $_input_data, scalar @_
+      $_def->{$_pkg}{CHUNK_SIZE}, $_max_workers, $_params->{$_pid},
+      $_input_data, scalar @_
    );
 
-   if (defined $_params) {
-      if (exists $_params->{_file}) {
-         $_input_data = delete $_params->{_file};
-      }
-      else {
-         $_input_data = $_params->{input_data} if exists $_params->{input_data};
+   if (defined (my $_p = $_params->{$_pid})) {
+      if (exists $_p->{_file}) {
+         $_input_data = delete $_p->{_file};
+      } else {
+         $_input_data = $_p->{input_data} if exists $_p->{input_data};
       }
    }
 
-   MCE::_save_state();
-
    ## -------------------------------------------------------------------------
 
-   if (!defined $_prev_c || $_prev_c != $_code) {
-      $_MCE->shutdown() if (defined $_MCE);
-      $_prev_c = $_code;
+   MCE::_save_state();
 
-      my %_options = (
+   if (!defined $_prev_c->{$_pid} || $_prev_c->{$_pid} != $_code) {
+      $_MCE->{$_pid}->shutdown() if (defined $_MCE->{$_pid});
+      $_prev_c->{$_pid} = $_code;
+
+      my %_opts = (
          max_workers => $_max_workers, task_name => $_tag,
          user_func => $_code,
       );
 
-      if (defined $_params) {
-         for my $_p (keys %{ $_params }) {
-            next if ($_p eq 'sequence_run');
-            next if ($_p eq 'input_data');
-            next if ($_p eq 'chunk_size');
+      if (defined (my $_p = $_params->{$_pid})) {
+         for my $_k (keys %{ $_p }) {
+            next if ($_k eq 'sequence_run');
+            next if ($_k eq 'input_data');
+            next if ($_k eq 'chunk_size');
 
-            _croak("MCE::Loop: ($_p) is not a valid constructor argument")
-               unless (exists $MCE::_valid_fields_new{$_p});
+            _croak("MCE::Loop: ($_k) is not a valid constructor argument")
+               unless (exists $MCE::_valid_fields_new{$_k});
 
-            $_options{$_p} = $_params->{$_p};
+            $_opts{$_k} = $_p->{$_k};
          }
       }
 
-      $_MCE = MCE->new(%_options);
+      for my $_k (qw/ tmp_dir freeze thaw /) {
+         $_opts{$_k} = $_def->{$_pkg}{uc($_k)}
+            if (exists $_def->{$_pkg}{uc($_k)} && !exists $_opts{$_k});
+      }
+
+      $_MCE->{$_pid} = MCE->new(pkg => $_pkg, %_opts);
    }
 
    ## -------------------------------------------------------------------------
 
-   my @_a; my $_wa = wantarray; $_MCE->{gather} = \@_a if (defined $_wa);
+   my @_a; my $_wa = wantarray; $_MCE->{$_pid}->{gather} = \@_a if (defined $_wa);
 
    if (defined $_input_data) {
       @_ = ();
-      $_MCE->process({ chunk_size => $_chunk_size }, $_input_data);
-      delete $_MCE->{input_data};
+      $_MCE->{$_pid}->process({ chunk_size => $_chunk_size }, $_input_data);
+      delete $_MCE->{$_pid}->{input_data};
    }
    elsif (scalar @_) {
-      $_MCE->process({ chunk_size => $_chunk_size }, \@_);
-      delete $_MCE->{input_data};
+      $_MCE->{$_pid}->process({ chunk_size => $_chunk_size }, \@_);
+      delete $_MCE->{$_pid}->{input_data};
    }
    else {
-      if (defined $_params && exists $_params->{sequence}) {
-         $_MCE->run({
-            chunk_size => $_chunk_size, sequence => $_params->{sequence}
+      if (defined $_params->{$_pid} && exists $_params->{$_pid}{sequence}) {
+         $_MCE->{$_pid}->run({
+             chunk_size => $_chunk_size,
+             sequence   => $_params->{$_pid}{sequence}
          }, 0);
-         if (exists $_params->{sequence_run}) {
-            delete $_params->{sequence_run};
-            delete $_params->{sequence};
+         if (exists $_params->{$_pid}{sequence_run}) {
+             delete $_params->{$_pid}{sequence_run};
+             delete $_params->{$_pid}{sequence};
          }
-         delete $_MCE->{sequence};
+         delete $_MCE->{$_pid}{sequence};
       }
    }
 
-   delete $_MCE->{gather} if (defined $_wa);
+   delete $_MCE->{$_pid}->{gather} if (defined $_wa);
+
+   if ($^S || $ENV{'PERL_IPERL_RUNNING'} || $INC{'MCE/Hobo.pm'}) {
+      $_MCE->{$_pid}->shutdown(); # shutdown if in eval state
+   }
 
    MCE::_restore_state();
-
-   if (exists $_MCE->{_rla_return}) {
-      $MCE::MCE->{_rla_return} = delete $_MCE->{_rla_return};
-   }
-
-   if ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
-      ## shutdown if in eval state
-      MCE::_save_state(); $_MCE->shutdown(); MCE::_restore_state();
-   }
 
    return ((defined $_wa) ? @_a : ());
 }
@@ -372,7 +364,7 @@ MCE::Loop - Parallel loop model for building creative loops
 
 =head1 VERSION
 
-This document describes MCE::Loop version 1.708
+This document describes MCE::Loop version 1.799_01
 
 =head1 DESCRIPTION
 
@@ -521,17 +513,18 @@ The following list options which may be overridden when loading the module.
    use JSON::XS qw( encode_json decode_json );
 
    use MCE::Loop
-         max_workers => 4,                ## Default 'auto'
-         chunk_size => 100,               ## Default 'auto'
-         tmp_dir => "/path/to/app/tmp",   ## $MCE::Signal::tmp_dir
-         freeze => \&encode_sereal,       ## \&Storable::freeze
-         thaw => \&decode_sereal          ## \&Storable::thaw
+       max_workers => 4,                # Default 'auto'
+       chunk_size => 100,               # Default 'auto'
+       tmp_dir => "/path/to/app/tmp",   # $MCE::Signal::tmp_dir
+       freeze => \&encode_sereal,       # \&Storable::freeze
+       thaw => \&decode_sereal          # \&Storable::thaw
    ;
 
 There is a simpler way to enable Sereal. The following will attempt to use
 Sereal if available, otherwise defaults to Storable for serialization.
+From MCE 1.800 onwards, this is done automatically.
 
-   use MCE::Loop Sereal => 1;
+   use MCE::Flow Sereal => 1;
 
 =head1 CUSTOMIZING MCE
 

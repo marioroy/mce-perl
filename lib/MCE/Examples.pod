@@ -5,7 +5,7 @@ MCE::Examples - Various examples and demonstrations
 
 =head1 VERSION
 
-This document describes MCE::Examples version 1.708
+This document describes MCE::Examples version 1.799_01
 
 =head1 INCLUDED WITH THE DISTRIBUTION
 
@@ -603,7 +603,7 @@ times faster.
 =head1 MANY WORKERS RUNNING IN PARALLEL
 
 There are occasions when one wants several workers to run in parallel without
-having to specify input_data or seqeunce. These two options are optional in
+having to specify input_data or sequence. These two options are optional in
 MCE. The "do" and "sendto" methods, for sending data to the manager process,
 are demonstrated below. Both process serially by the manager process on a
 first come, first serve basis.

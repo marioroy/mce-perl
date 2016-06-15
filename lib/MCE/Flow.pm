@@ -11,17 +11,24 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.708';
+our $VERSION = '1.799_01';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use Scalar::Util qw( looks_like_number );
-use Storable ();
-use MCE::Signal;
+use MCE;
 
 our @CARP_NOT = qw( MCE );
+
+my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
+my $_tid = $_has_threads ? threads->tid() : 0;
+my $_caller;
+
+sub CLONE {
+   $_tid = threads->tid() if $_has_threads;
+}
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -29,68 +36,52 @@ our @CARP_NOT = qw( MCE );
 ##
 ###############################################################################
 
-my ($MAX_WORKERS, $CHUNK_SIZE) = ('auto', 'auto');
-
-my $TMP_DIR = $MCE::Signal::tmp_dir;
-my $FREEZE  = \&Storable::freeze;
-my $THAW    = \&Storable::thaw;
-
-my ($_params, @_prev_c, @_prev_n, @_prev_t, @_prev_w, @_user_tasks);
-my ($_MCE, $_imported); my $_tag = 'MCE::Flow';
+my ($_MCE, $_def, $_params, $_tag) = ({}, {}, {}, 'MCE::Flow');
+my ($_prev_c, $_prev_n, $_prev_t, $_prev_w) = ({}, {}, {}, {});
+my ($_user_tasks) = ({});
 
 sub import {
-   my $_class = shift;
+   my ($_class, $_pkg) = (shift, caller);
+
+   my $_p = $_def->{$_pkg} = {
+      MAX_WORKERS => 'auto',
+      CHUNK_SIZE  => 'auto',
+   };
 
    ## Import functions.
    no strict 'refs'; no warnings 'redefine';
-   my $_pkg = caller;
 
    *{ $_pkg.'::mce_flow_f' } = \&run_file;
    *{ $_pkg.'::mce_flow_s' } = \&run_seq;
    *{ $_pkg.'::mce_flow'   } = \&run;
 
    ## Process module arguments.
-   return if $_imported++;
-
-   while (my $_argument = shift) {
+   while ( my $_argument = shift ) {
       my $_arg = lc $_argument;
 
-      $MAX_WORKERS = shift, next if ( $_arg eq 'max_workers' );
-      $CHUNK_SIZE  = shift, next if ( $_arg eq 'chunk_size' );
-      $FREEZE      = shift, next if ( $_arg eq 'freeze' );
-      $THAW        = shift, next if ( $_arg eq 'thaw' );
-      $TMP_DIR     = shift, next if ( $_arg eq 'tmp_dir' );
+      $_p->{MAX_WORKERS} = shift, next if ( $_arg eq 'max_workers' );
+      $_p->{CHUNK_SIZE}  = shift, next if ( $_arg eq 'chunk_size' );
+      $_p->{TMP_DIR}     = shift, next if ( $_arg eq 'tmp_dir' );
+      $_p->{FREEZE}      = shift, next if ( $_arg eq 'freeze' );
+      $_p->{THAW}        = shift, next if ( $_arg eq 'thaw' );
 
-      if ( $_arg eq 'sereal' ) {
-         if (shift eq '1') {
-            local $@; eval 'use Sereal qw( encode_sereal decode_sereal )';
-            if ( !$@ ) {
-               $FREEZE = sub { encode_sereal( @_, { freeze_callbacks => 1 } ) };
-               $THAW   = \&decode_sereal;
-            }
-         }
-         next;
-      }
+      ## Sereal, if available, is used automatically by MCE 1.800 onwards.
+      next if ( $_arg eq 'sereal' );
 
       _croak("Error: ($_argument) invalid module option");
    }
 
-   ## Preload essential modules.
-   require MCE; MCE->import(
-      freeze => $FREEZE, thaw => $THAW, tmp_dir => $TMP_DIR
-   );
+   $_p->{MAX_WORKERS} = MCE::Util::_parse_max_workers($_p->{MAX_WORKERS});
 
-   $MAX_WORKERS = MCE::Util::_parse_max_workers($MAX_WORKERS);
-   _validate_number($MAX_WORKERS, 'MAX_WORKERS');
-
-   _validate_number($CHUNK_SIZE, 'CHUNK_SIZE')
-      unless ($CHUNK_SIZE eq 'auto');
+   _validate_number($_p->{MAX_WORKERS}, 'MAX_WORKERS');
+   _validate_number($_p->{CHUNK_SIZE}, 'CHUNK_SIZE')
+      unless ($_p->{CHUNK_SIZE} eq 'auto');
 
    return;
 }
 
 END {
-   $_MCE = undef;
+   $_params = $_prev_c = $_user_tasks = $_MCE = undef;
 }
 
 ###############################################################################
@@ -103,11 +94,9 @@ sub init (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Flow');
 
-   if (MCE->wid) {
-      @_ = (); _croak("$_tag: (init) is not allowed by the worker process");
-   }
+   my $_pid = "$$.$_tid.".caller();
 
-   finish(); $_params = (ref $_[0] eq 'HASH') ? shift : { @_ };
+   finish(); $_params->{$_pid} = (ref $_[0] eq 'HASH') ? shift : { @_ };
 
    @_ = ();
 
@@ -118,13 +107,18 @@ sub finish (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Flow');
 
-   if (defined $_MCE && $_MCE->{_spawned}) {
-      MCE::_save_state(); $_MCE->shutdown(@_); MCE::_restore_state();
+   my $_pid = "$$.$_tid.".caller();
+
+   if (defined $_MCE->{$_pid}) {
+      MCE::_save_state(), $_MCE->{$_pid}->shutdown(@_), MCE::_restore_state()
+         if $_MCE->{$_pid}->{_spawned};
+
+      delete $_user_tasks->{$_pid};
+      delete $_prev_c->{$_pid};
+      delete $_prev_n->{$_pid};
+      delete $_prev_t->{$_pid};
+      delete $_prev_w->{$_pid};
    }
-
-   @_prev_c = (); @_prev_n = (); @_prev_t = (); @_prev_w = ();
-
-   @_user_tasks = ();
 
    return;
 }
@@ -140,13 +134,14 @@ sub run_file (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Flow');
 
    my ($_file, $_pos); my $_start_pos = (ref $_[0] eq 'HASH') ? 2 : 1;
+   my $_pid = "$$.$_tid.".caller();  $_caller = caller();
 
-   if (defined $_params) {
-      delete $_params->{input_data} if (exists $_params->{input_data});
-      delete $_params->{sequence}   if (exists $_params->{sequence});
+   if (defined (my $_p = $_params->{$_pid})) {
+      delete $_p->{input_data} if (exists $_p->{input_data});
+      delete $_p->{sequence}   if (exists $_p->{sequence});
    }
    else {
-      $_params = {};
+      $_params->{$_pid} = {};
    }
 
    for my $_i ($_start_pos .. @_ - 1) {
@@ -158,13 +153,13 @@ sub run_file (@) {
    }
 
    if (defined $_file && ref $_file eq '' && $_file ne '') {
-      _croak("$_tag: ($_file) does not exist") unless (-e $_file);
-      _croak("$_tag: ($_file) is not readable") unless (-r $_file);
+      _croak("$_tag: ($_file) does not exist")      unless (-e $_file);
+      _croak("$_tag: ($_file) is not readable")     unless (-r $_file);
       _croak("$_tag: ($_file) is not a plain file") unless (-f $_file);
-      $_params->{_file} = $_file;
+      $_params->{$_pid}{_file} = $_file;
    }
    elsif (ref $_file eq 'GLOB' || ref $_file eq 'SCALAR' || ref($_file) =~ /^IO::/) {
-      $_params->{_file} = $_file;
+      $_params->{$_pid}{_file} = $_file;
    }
    else {
       _croak("$_tag: (file) is not specified or valid");
@@ -188,14 +183,15 @@ sub run_seq (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Flow');
 
    my ($_begin, $_end, $_pos); my $_start_pos = (ref $_[0] eq 'HASH') ? 2 : 1;
+   my $_pid = "$$.$_tid.".caller();  $_caller = caller();
 
-   if (defined $_params) {
-      delete $_params->{sequence}   if (exists $_params->{sequence});
-      delete $_params->{input_data} if (exists $_params->{input_data});
-      delete $_params->{_file}      if (exists $_params->{_file});
+   if (defined (my $_p = $_params->{$_pid})) {
+      delete $_p->{sequence}   if (exists $_p->{sequence});
+      delete $_p->{input_data} if (exists $_p->{input_data});
+      delete $_p->{_file}      if (exists $_p->{_file});
    }
    else {
-      $_params = {};
+      $_params->{$_pid} = {};
    }
 
    for my $_i ($_start_pos .. @_ - 1) {
@@ -206,17 +202,17 @@ sub run_seq (@) {
 
          if ($_ref eq '') {
             $_begin = $_[$_pos]; $_end = $_[$_pos + 1];
-            $_params->{sequence} = [
+            $_params->{$_pid}{sequence} = [
                $_[$_pos], $_[$_pos + 1], $_[$_pos + 2], $_[$_pos + 3]
             ];
          }
          elsif ($_ref eq 'HASH') {
             $_begin = $_[$_pos]->{begin}; $_end = $_[$_pos]->{end};
-            $_params->{sequence} = $_[$_pos];
+            $_params->{$_pid}{sequence} = $_[$_pos];
          }
          elsif ($_ref eq 'ARRAY') {
             $_begin = $_[$_pos]->[0]; $_end = $_[$_pos]->[1];
-            $_params->{sequence} = $_[$_pos];
+            $_params->{$_pid}{sequence} = $_[$_pos];
          }
 
          last;
@@ -224,15 +220,13 @@ sub run_seq (@) {
    }
 
    _croak("$_tag: (sequence) is not specified or valid")
-      unless (exists $_params->{sequence});
-
+      unless (exists $_params->{$_pid}{sequence});
    _croak("$_tag: (begin) is not specified for sequence")
       unless (defined $_begin);
-
    _croak("$_tag: (end) is not specified for sequence")
       unless (defined $_end);
 
-   $_params->{sequence_run} = 1;
+   $_params->{$_pid}{sequence_run} = 1;
 
    if (defined $_pos) {
       pop @_ for ($_pos .. @_ - 1);
@@ -251,14 +245,13 @@ sub run (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Flow');
 
-   if (MCE->wid) {
-      @_ = (); _croak("$_tag: (run) is not allowed by the worker process");
-   }
+   my $_pkg = defined $_caller ? $_caller : caller();  $_caller = undef;
+   my $_pid = "$$.$_tid.$_pkg";
 
    if (ref $_[0] eq 'HASH') {
-      $_params = {} unless defined $_params;
+      $_params->{$_pid} = {} unless defined $_params->{$_pid};
       for my $_p (keys %{ $_[0] }) {
-         $_params->{$_p} = $_[0]->{$_p};
+         $_params->{$_pid}{$_p} = $_[0]->{$_p};
       }
 
       shift;
@@ -271,37 +264,37 @@ sub run (@) {
    while (ref $_[0] eq 'CODE') {
       push @_code, $_[0];
 
-      push @_name, (defined $_params && ref $_params->{task_name} eq 'ARRAY')
-         ? $_params->{task_name}->[$_pos] : undef;
-      push @_thrs, (defined $_params && ref $_params->{use_threads} eq 'ARRAY')
-         ? $_params->{use_threads}->[$_pos] : undef;
-      push @_wrks, (defined $_params && ref $_params->{max_workers} eq 'ARRAY')
-         ? $_params->{max_workers}->[$_pos] : undef;
-
-      if (!defined $_prev_c[$_pos] || $_prev_c[$_pos] != $_code[$_pos]) {
-         $_init_mce = 1;
+      if (defined (my $_p = $_params->{$_pid})) {
+         push @_name, (ref $_p->{task_name} eq 'ARRAY')
+            ? $_p->{task_name}->[$_pos] : undef;
+         push @_thrs, (ref $_p->{use_threads} eq 'ARRAY')
+            ? $_p->{use_threads}->[$_pos] : undef;
+         push @_wrks, (ref $_p->{max_workers} eq 'ARRAY')
+            ? $_p->{max_workers}->[$_pos] : undef;
       }
 
-      {
-         no warnings;
-         $_init_mce = 1 if ($_prev_n[$_pos] ne $_name[$_pos]);
-         $_init_mce = 1 if ($_prev_t[$_pos] ne $_thrs[$_pos]);
-         $_init_mce = 1 if ($_prev_w[$_pos] ne $_wrks[$_pos]);
-      }
+      $_init_mce = 1 if (
+         !defined $_prev_c->{$_pid}[$_pos] ||
+         $_prev_c->{$_pid}[$_pos] != $_code[$_pos]
+      );
 
-      $_prev_c[$_pos] = $_code[$_pos];
-      $_prev_n[$_pos] = $_name[$_pos];
-      $_prev_t[$_pos] = $_thrs[$_pos];
-      $_prev_w[$_pos] = $_wrks[$_pos];
+      $_init_mce = 1 if ($_prev_n->{$_pid}[$_pos] ne $_name[$_pos]);
+      $_init_mce = 1 if ($_prev_t->{$_pid}[$_pos] ne $_thrs[$_pos]);
+      $_init_mce = 1 if ($_prev_w->{$_pid}[$_pos] ne $_wrks[$_pos]);
+
+      $_prev_c->{$_pid}[$_pos] = $_code[$_pos];
+      $_prev_n->{$_pid}[$_pos] = $_name[$_pos];
+      $_prev_t->{$_pid}[$_pos] = $_thrs[$_pos];
+      $_prev_w->{$_pid}[$_pos] = $_wrks[$_pos];
 
       shift; $_pos++;
    }
 
-   if (defined $_prev_c[$_pos]) {
-      pop @_prev_c for ($_pos .. @_prev_c - 1);
-      pop @_prev_n for ($_pos .. @_prev_n - 1);
-      pop @_prev_t for ($_pos .. @_prev_t - 1);
-      pop @_prev_w for ($_pos .. @_prev_w - 1);
+   if (defined $_prev_c->{$_pid}[$_pos]) {
+      pop @{ $_prev_c->{$_pid} } for ($_pos .. $#{ $_prev_c->{$_pid } });
+      pop @{ $_prev_n->{$_pid} } for ($_pos .. $#{ $_prev_n->{$_pid } });
+      pop @{ $_prev_t->{$_pid} } for ($_pos .. $#{ $_prev_t->{$_pid } });
+      pop @{ $_prev_w->{$_pid} } for ($_pos .. $#{ $_prev_w->{$_pid } });
 
       $_init_mce = 1;
    }
@@ -310,13 +303,14 @@ sub run (@) {
 
    ## -------------------------------------------------------------------------
 
-   my $_input_data; my $_max_workers = $MAX_WORKERS; my $_r = ref $_[0];
+   my $_input_data; my $_max_workers = $_def->{$_pkg}{MAX_WORKERS};
+   my $_r = ref $_[0];
 
    if ($_r eq 'ARRAY' || $_r eq 'GLOB' || $_r eq 'SCALAR' || $_r =~ /^IO::/) {
       $_input_data = shift;
    }
 
-   if (defined $_params) { my $_p = $_params;
+   if (defined (my $_p = $_params->{$_pid})) {
       $_max_workers = MCE::Util::_parse_max_workers($_p->{max_workers})
          if (exists $_p->{max_workers} && ref $_p->{max_workers} ne 'ARRAY');
 
@@ -330,33 +324,34 @@ sub run (@) {
    }
 
    my $_chunk_size = MCE::Util::_parse_chunk_size(
-      $CHUNK_SIZE, $_max_workers, $_params, $_input_data, scalar @_
+      $_def->{$_pkg}{CHUNK_SIZE}, $_max_workers, $_params->{$_pid},
+      $_input_data, scalar @_
    );
 
-   if (defined $_params) {
-      if (exists $_params->{_file}) {
-         $_input_data = delete $_params->{_file};
-      }
-      else {
-         $_input_data = $_params->{input_data} if exists $_params->{input_data};
+   if (defined (my $_p = $_params->{$_pid})) {
+      if (exists $_p->{_file}) {
+         $_input_data = delete $_p->{_file};
+      } else {
+         $_input_data = $_p->{input_data} if exists $_p->{input_data};
       }
    }
 
-   MCE::_save_state();
-
    ## -------------------------------------------------------------------------
 
-   if ($_init_mce) {
-      $_MCE->shutdown() if (defined $_MCE);
-      _gen_user_tasks(\@_code, \@_name, \@_thrs, \@_wrks);
+   MCE::_save_state();
 
-      my %_options = (
+   if ($_init_mce) {
+      $_MCE->{$_pid}->shutdown() if (defined $_MCE->{$_pid});
+
+      _gen_user_tasks($_pid, \@_code, \@_name, \@_thrs, \@_wrks);
+
+      my %_opts = (
          max_workers => $_max_workers, task_name => $_tag,
-         user_tasks  => \@_user_tasks,
+         user_tasks  => $_user_tasks->{$_pid},
       );
 
-      if (defined $_params) {
-         local $_; my $_p = $_params;
+      if (defined (my $_p = $_params->{$_pid})) {
+         local $_;
 
          for (keys %{ $_p }) {
             next if ($_ eq 'max_workers' && ref $_p->{max_workers} eq 'ARRAY');
@@ -370,67 +365,68 @@ sub run (@) {
             _croak("MCE::Flow: ($_) is not a valid constructor argument")
                unless (exists $MCE::_valid_fields_new{$_});
 
-            $_options{$_} = $_p->{$_};
+            $_opts{$_} = $_p->{$_};
          }
       }
 
-      $_MCE = MCE->new(%_options);
+      for my $_k (qw/ tmp_dir freeze thaw /) {
+         $_opts{$_k} = $_def->{$_pkg}{uc($_k)}
+            if (exists $_def->{$_pkg}{uc($_k)} && !exists $_opts{$_k});
+      }
+
+      $_MCE->{$_pid} = MCE->new(pkg => $_pkg, %_opts);
    }
    else {
       ## Workers may persist after running. Thus, updating the MCE instance.
       ## These options do not require respawning.
-      if (defined $_params) {
-         for my $_p (qw(
+      if (defined (my $_p = $_params->{$_pid})) {
+         for my $_k (qw(
             RS interval stderr_file stdout_file user_error user_output
             job_delay submit_delay on_post_exit on_post_run user_args
             flush_file flush_stderr flush_stdout gather max_retries
          )) {
-            $_MCE->{$_p} = $_params->{$_p} if (exists $_params->{$_p});
+            $_MCE->{$_pid}->{$_k} = $_p->{$_k} if (exists $_p->{$_k});
          }
       }
    }
 
    ## -------------------------------------------------------------------------
 
-   my @_a; my $_wa = wantarray; $_MCE->{gather} = \@_a if (defined $_wa);
+   my @_a; my $_wa = wantarray; $_MCE->{$_pid}->{gather} = \@_a if (defined $_wa);
 
    if (defined $_input_data) {
       @_ = ();
-      $_MCE->process({ chunk_size => $_chunk_size }, $_input_data);
-      delete $_MCE->{input_data};
+      $_MCE->{$_pid}->process({ chunk_size => $_chunk_size }, $_input_data);
+      delete $_MCE->{$_pid}->{input_data};
    }
    elsif (scalar @_) {
-      $_MCE->process({ chunk_size => $_chunk_size }, \@_);
-      delete $_MCE->{input_data};
+      $_MCE->{$_pid}->process({ chunk_size => $_chunk_size }, \@_);
+      delete $_MCE->{$_pid}->{input_data};
    }
    else {
-      if (defined $_params && exists $_params->{sequence}) {
-         $_MCE->run({
-            chunk_size => $_chunk_size, sequence => $_params->{sequence}
+      if (defined $_params->{$_pid} && exists $_params->{$_pid}{sequence}) {
+         $_MCE->{$_pid}->run({
+             chunk_size => $_chunk_size,
+             sequence   => $_params->{$_pid}{sequence}
          }, 0);
-         if (exists $_params->{sequence_run}) {
-            delete $_params->{sequence_run};
-            delete $_params->{sequence};
+         if (exists $_params->{$_pid}{sequence_run}) {
+             delete $_params->{$_pid}{sequence_run};
+             delete $_params->{$_pid}{sequence};
          }
-         delete $_MCE->{sequence};
+         delete $_MCE->{$_pid}{sequence};
       }
       else {
-         $_MCE->run({ chunk_size => $_chunk_size }, 0);
+         $_MCE->{$_pid}->run({ chunk_size => $_chunk_size }, 0);
       }
    }
 
-   delete $_MCE->{gather} if (defined $_wa);
+   delete $_MCE->{$_pid}->{gather} if (defined $_wa);
+
+   if ($^S || $ENV{'PERL_IPERL_RUNNING'} || $INC{'MCE/Hobo.pm'}) {
+      $_MCE->{$_pid}->shutdown(); # shutdown if in eval state
+   }
 
    MCE::_restore_state();
-
-   if (exists $_MCE->{_rla_return}) {
-      $MCE::MCE->{_rla_return} = delete $_MCE->{_rla_return};
-   }
-
-   if ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
-      ## shutdown if in eval state
-      MCE::_save_state(); $_MCE->shutdown(); MCE::_restore_state();
-   }
 
    return ((defined $_wa) ? @_a : ());
 }
@@ -448,12 +444,12 @@ sub _croak {
 
 sub _gen_user_tasks {
 
-   my ($_code_ref, $_name_ref, $_thrs_ref, $_wrks_ref) = @_;
+   my ($_pid, $_code_ref, $_name_ref, $_thrs_ref, $_wrks_ref) = @_;
 
-   @_user_tasks = ();
+   @{ $_user_tasks->{$_pid} } = ();
 
    for (my $_i = 0; $_i < @{ $_code_ref }; $_i++) {
-      push @_user_tasks, {
+      push @{ $_user_tasks->{$_pid} }, {
          task_name   => $_name_ref->[$_i],
          use_threads => $_thrs_ref->[$_i],
          max_workers => $_wrks_ref->[$_i],
@@ -495,7 +491,7 @@ MCE::Flow - Parallel flow model for building creative applications
 
 =head1 VERSION
 
-This document describes MCE::Flow version 1.708
+This document describes MCE::Flow version 1.799_01
 
 =head1 DESCRIPTION
 
@@ -786,15 +782,16 @@ The following list options which may be overridden when loading the module.
    use JSON::XS qw( encode_json decode_json );
 
    use MCE::Flow
-         max_workers => 8,                ## Default 'auto'
-         chunk_size => 500,               ## Default 'auto'
-         tmp_dir => "/path/to/app/tmp",   ## $MCE::Signal::tmp_dir
-         freeze => \&encode_sereal,       ## \&Storable::freeze
-         thaw => \&decode_sereal          ## \&Storable::thaw
+       max_workers => 8,                # Default 'auto'
+       chunk_size => 500,               # Default 'auto'
+       tmp_dir => "/path/to/app/tmp",   # $MCE::Signal::tmp_dir
+       freeze => \&encode_sereal,       # \&Storable::freeze
+       thaw => \&decode_sereal          # \&Storable::thaw
    ;
 
 There is a simpler way to enable Sereal. The following will attempt to use
 Sereal if available, otherwise defaults to Storable for serialization.
+From MCE 1.800 onwards, this is done automatically.
 
    use MCE::Flow Sereal => 1;
 

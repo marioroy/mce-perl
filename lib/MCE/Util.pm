@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.708';
+our $VERSION = '1.799_01';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -187,27 +187,24 @@ sub _destroy_socks {
 sub _pipe_pair {
 
    my ($_obj, $_r_sock, $_w_sock, $_i) = @_;
-   my $_hndl; local ($|, $!);
-
-   # Doing $_obj->{$_r_sock}->autoflush(1) adds ~ 5% additional memory
-   # consumption from having to load IO::Handle.
+   local ($|, $!);
 
    if (defined $_i) {
       pipe($_obj->{$_r_sock}->[$_i], $_obj->{$_w_sock}->[$_i])
          or die "pipe: $!\n";
 
-      $_hndl = select $_obj->{$_r_sock}->[$_i]; $| = 1; # autoflush
-               select $_obj->{$_w_sock}->[$_i]; $| = 1;
+      # IO::Handle->autoflush does not exists on older Perl distros.
+      select((select($_obj->{$_r_sock}[$_i]), $| = 1)[0]);
+      select((select($_obj->{$_w_sock}[$_i]), $| = 1)[0]);
    }
    else {
       pipe($_obj->{$_r_sock}, $_obj->{$_w_sock})
          or die "pipe: $!\n";
 
-      $_hndl = select $_obj->{$_r_sock}; $| = 1; # ditto
-               select $_obj->{$_w_sock}; $| = 1;
+      # Ditto.
+      select((select($_obj->{$_r_sock}), $| = 1)[0]);
+      select((select($_obj->{$_w_sock}), $| = 1)[0]);
    }
-
-   select $_hndl;
 
    return;
 }
@@ -215,10 +212,9 @@ sub _pipe_pair {
 sub _sock_pair {
 
    my ($_obj, $_r_sock, $_w_sock, $_i, $_size) = @_;
-   my $_hndl; local ($|, $!);
+   local ($|, $!);
 
    $_size = 16384 unless defined $_size;
-   # Ditto on not calling autoflush(1).
 
    if (defined $_i) {
       socketpair( $_obj->{$_r_sock}->[$_i], $_obj->{$_w_sock}->[$_i],
@@ -231,8 +227,9 @@ sub _sock_pair {
          setsockopt($_obj->{$_w_sock}->[$_i], SOL_SOCKET, SO_RCVBUF, int $_size);
       }
 
-      $_hndl = select $_obj->{$_r_sock}->[$_i]; $| = 1; # autoflush
-               select $_obj->{$_w_sock}->[$_i]; $| = 1;
+      # IO::Handle->autoflush does not exists on older Perl distros.
+      select((select($_obj->{$_r_sock}[$_i]), $| = 1)[0]);
+      select((select($_obj->{$_w_sock}[$_i]), $| = 1)[0]);
    }
    else {
       socketpair( $_obj->{$_r_sock}, $_obj->{$_w_sock},
@@ -245,37 +242,38 @@ sub _sock_pair {
          setsockopt($_obj->{$_w_sock}, SOL_SOCKET, SO_RCVBUF, int $_size);
       }
 
-      $_hndl = select $_obj->{$_r_sock}; $| = 1; # ditto
-               select $_obj->{$_w_sock}; $| = 1;
+      # Ditto.
+      select((select($_obj->{$_r_sock}), $| = 1)[0]);
+      select((select($_obj->{$_w_sock}), $| = 1)[0]);
    }
-
-   select $_hndl;
 
    return;
 }
 
 sub _sock_ready {
 
-   my ($_val_bytes, $_socket, $_timeout) = ("\x00\x00\x00\x00", @_);
-   my $_ptr_bytes = unpack('I', pack('P', $_val_bytes));
-   my ($_count, $_retries) = (1, 0);
+   my ($_bytes, $_socket, $_timeout ) = ("\x00\x00\x00\x00", @_);
+   my ($_cnt, $_retries, $_ptr_bytes) = (1, 0, unpack('I', pack('P', $_bytes)));
+
+   $_timeout += time if $_timeout;
 
    while (1) {
       ioctl($_socket, 0x4004667f, $_ptr_bytes);   # MSWin32 FIONREAD
-    # return '' if unpack('I', $_val_bytes);      # unpack isn't needed here
-      return '' if $_val_bytes ne $_zero_bytes;   # str compare is 2x faster
+
+    # return '' if unpack('I', $_bytes);          # unpack not necessary
+      return '' if $_bytes ne $_zero_bytes;       # string compare, 2x faster
       return 1  if $_timeout && time > $_timeout;
 
-      # delay so not to consume a CPU from non-blocking ioctl
-      if ($_count) {
-         if (++$_count > 1280) {
-            $_count = 1, sleep 0.015;
-            $_count = 0 if ++$_retries == 3;
+      # delay to not consume a CPU from non-blocking ioctl
+      if ($_cnt) {
+         if (++$_cnt > 900) {
+            $_cnt = 1, sleep 0.015;
+            $_cnt = 0 if ++$_retries == 2;
          }
+         next;
       }
-      else {
-         sleep 0.045;
-      }
+
+      sleep 0.030;
    }
 }
 
@@ -423,7 +421,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.708
+This document describes MCE::Util version 1.799_01
 
 =head1 SYNOPSIS
 
@@ -474,7 +472,7 @@ In summary:
  4. One can specify max_workers explicity to a hard value
  5. MCE::Util::get_ncpu returns the actual # of lcores
 
-=head1 ACKNOWLEDGEMENTS
+=head1 ACKNOWLEDGMENTS
 
 The portable code for detecting the number of processors was adopted from
 L<Test::Smoke::SysInfo>.

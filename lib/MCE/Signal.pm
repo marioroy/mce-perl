@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.708';
+our $VERSION = '1.799_01';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -443,7 +443,7 @@ MCE::Signal - Temporary directory creation/cleanup and signal handling
 
 =head1 VERSION
 
-This document describes MCE::Signal version 1.708
+This document describes MCE::Signal version 1.799_01
 
 =head1 SYNOPSIS
 
@@ -527,7 +527,7 @@ Pass 'INT' to terminate a spawned or running MCE session.
 
 =head2 sys_cmd ( $command )
 
-The system function in Perl ignores SIGNINT and SIGQUIT. These 2 signals are
+The system function in Perl ignores SIGINT and SIGQUIT. These 2 signals are
 sent to the command being executed via system() but not back to the underlying
 Perl script. For this reason, sys_cmd was added to MCE::Signal.
 

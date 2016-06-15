@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.708';
+our $VERSION = '1.799_01';
 
 ## Items below are folded into MCE.
 
@@ -500,6 +500,7 @@ sub _worker_loop {
    my $_com_un = sub { 1 until syswrite( $_COM_LOCK->{_w_sock}, '0' ) };
 
    while (1) {
+      MCE::Util::_sock_ready($_COM_W_SOCK) if ($^O eq 'MSWin32');
 
       {
          local $\ = undef; local $/ = $LF;
@@ -583,7 +584,7 @@ sub _worker_loop {
 sub _worker_main {
 
    my ( $self, $_wid, $_task, $_task_id, $_task_wid, $_params,
-        $_plugin_worker_init, $_is_MSWin32 ) = @_;
+        $_plugin_worker_init ) = @_;
 
    @_ = ();
 
@@ -656,16 +657,6 @@ sub _worker_main {
       $_chn = $self->{_chn} = $_wid % $self->{_data_channels} + 1;
    }
 
-   ## Unset the need for channel locking if only worker on the channel.
-   if ($self->{_lock_chn} && !exists $INC{'MCE/Hobo.pm'}) {
-      my $_data_channels = $self->{_data_channels};
-      if ($self->{_init_total_workers} < $_data_channels * 2) {
-         if ($_wid > $self->{_init_total_workers} % $_data_channels) {
-            $self->{_lock_chn} = 0 if ($_wid <= $_data_channels);
-         }
-      }
-   }
-
    ## Choose locks for DATA channels.
    $self->{_com_lock} = $self->{'_mutex_0'};
    $self->{_dat_lock} = $self->{'_mutex_'.$_chn} if ($self->{_lock_chn});
@@ -690,9 +681,6 @@ sub _worker_main {
    if (defined $_params) {
       _worker_do($self, $_params);
       undef $_params;
-   }
-   elsif ($_is_MSWin32) {
-      lock $MCE::_WIN_LOCK;
    }
 
    ## Enter worker loop.

@@ -5,7 +5,7 @@ MCE - Many-Core Engine for Perl providing parallel processing capabilities
 
 =head1 VERSION
 
-This document describes MCE version 1.708
+This document describes MCE version 1.799_01
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
@@ -173,7 +173,7 @@ Provides a simple semaphore implementation supporting threads and processes.
 
 Provides a hybrid queuing implementation for MCE supporting normal queues and
 priority queues from a single module. MCE::Queue exchanges data via the core
-engine to enable queueing to work for both children (spawned from fork) and
+engine to enable queuing to work for both children (spawned from fork) and
 threads.
 
 =item L<MCE::Relay>

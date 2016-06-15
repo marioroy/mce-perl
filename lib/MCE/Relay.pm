@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.708';
+our $VERSION = '1.799_01';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 
@@ -80,6 +80,8 @@ sub import {
 
       ($_MCE, $_DAU_R_SOCK_REF) = @_;
 
+      my $_caller = $_MCE->{_caller};
+
       ## Write initial relay data.
       if (defined $_MCE->{init_relay}) {
          my $_ref = ref $_MCE->{init_relay};
@@ -101,10 +103,11 @@ sub import {
          }
 
          print {$_RLA_W_SOCK} length($_init_relay) . $LF . $_init_relay;
-         delete $_MCE->{_rla_return} if (exists $_MCE->{_rla_return});
 
          $_rla_chunkid = $_rla_nextid = 0;
       }
+
+      delete $MCE::RLA->{$_caller};
 
       return;
    }
@@ -114,14 +117,15 @@ sub import {
       ## Obtain final relay data.
       if (defined $_MCE->{init_relay}) {
          my $_RLA_R_SOCK = $_MCE->{_rla_r_sock}->[$_rla_nextid];
-         my ($_len, $_ret); chomp($_len = <$_RLA_R_SOCK>);
+         my ($_caller, $_len, $_ret) = ($_MCE->{_caller});
 
+         chomp($_len = <$_RLA_R_SOCK>);
          read $_RLA_R_SOCK, $_ret, $_len;
 
          if (chop $_ret) {
-            $_MCE->{_rla_return} = $_MCE->{thaw}($_ret);
+            $MCE::RLA->{$_caller} = $_MCE->{thaw}($_ret);
          } else {
-            $_MCE->{_rla_return} = $_ret;
+            $MCE::RLA->{$_caller} = $_ret;
          }
       }
 
@@ -169,16 +173,21 @@ sub relay_final {
    _croak('MCE::relay_final: method is not allowed by the worker process')
       if ($self->{_wid});
 
-   if (exists $self->{_rla_return}) {
-      if (ref $self->{_rla_return} eq '') {
-         return delete $self->{_rla_return};
+   my $_caller = caller;
+
+   if (exists $MCE::RLA->{$_caller}) {
+      if (ref $MCE::RLA->{$_caller} eq '') {
+         return delete $MCE::RLA->{$_caller};
       }
-      elsif (ref $self->{_rla_return} eq 'HASH') {
-         return %{ delete $self->{_rla_return} };
+      elsif (ref $MCE::RLA->{$_caller} eq 'HASH') {
+         return %{ delete $MCE::RLA->{$_caller} };
       }
-      elsif (ref $self->{_rla_return} eq 'ARRAY') {
-         return @{ delete $self->{_rla_return} };
+      elsif (ref $MCE::RLA->{$_caller} eq 'ARRAY') {
+         return @{ delete $MCE::RLA->{$_caller} };
       }
+
+      # should not reach the following line
+      delete $MCE::RLA->{$_caller};
    }
 
    return;
@@ -322,7 +331,7 @@ MCE::Relay - Extends Many-Core Engine with relay capabilities
 
 =head1 VERSION
 
-This document describes MCE::Relay version 1.708
+This document describes MCE::Relay version 1.799_01
 
 =head1 SYNOPSIS
 

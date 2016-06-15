@@ -1,6 +1,24 @@
 
 Revision history for Perl module MCE.
 
+1.799_01 Wed Jun 15 02:30:00 EST 2016
+
+  [BUG FIXES]
+
+  * Fixed dequeue (count) in MCE::Queue for standalone mode.
+
+  [ENHANCEMENTS]
+
+  * Use Sereal automatically, for serialization, if available on the box.
+  * On Windows, improved stablity and feature parity with UNIX.
+
+  [NEW FEATURES]
+
+  * Added support for cyclical include of MCE Core, MCE Models, and
+    MCE Queue by scoping the configuration to the local package.
+
+    This resolves (RT#107384), bug reported by Kai Wasserbäch.
+
 1.708 Sat May 28 14:00:00 EST 2016
 
   [BUG FIXES]

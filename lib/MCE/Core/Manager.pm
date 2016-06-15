@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.708';
+our $VERSION = '1.799_01';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -807,6 +807,46 @@ sub _output_loop {
 
    ## Wait on requests *without* timeout capability.
 
+   elsif ($^O eq 'MSWin32') {
+      # The normal loop hangs on Windows when processes/threads start/exit.
+      # Using ioctl() properly, http://www.perlmonks.org/?node_id=780083
+
+      my ($_bytes, $_cnt, $_retries) = ("\x00\x00\x00\x00", 1, 0);
+      my ($_ptr_bytes, $_nbytes) = (unpack('I', pack('P', $_bytes)));
+
+      while (1) {
+         ioctl($_DAT_R_SOCK, 0x4004667f, $_ptr_bytes);  # MSWin32 FIONREAD
+
+         unless ($_nbytes = unpack('I', $_bytes)) {
+            # delay to not consume a CPU from non-blocking ioctl
+            if ($_cnt) {
+               if (++$_cnt > 900) {
+                  $_cnt = 1, sleep 0.015;
+                  $_cnt = 0 if ++$_retries == 2;
+               }
+               next;
+            }
+            sleep 0.030;
+            next;
+         }
+
+         $_cnt = 1, $_retries = 0;
+
+         do {
+            sysread($_DAT_R_SOCK, $_func, 8);
+            $_DAU_R_SOCK = $_channels->[ substr($_func, -2, 2, '') ];
+
+            if (exists $_core_output_function{$_func}) {
+               $_core_output_function{$_func}();
+            } elsif (exists $_plugin_function->{$_func}) {
+               $_plugin_function->{$_func}();
+            }
+
+         } while (($_nbytes -= 8) >= 8);
+
+         last unless $self->{_total_running};
+      }
+   }
    else {
       while ($self->{_total_running}) {
          $_func = <$_DAT_R_SOCK>;
