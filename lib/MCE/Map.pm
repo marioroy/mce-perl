@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.799_01';
+our $VERSION = '1.799_02';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -79,7 +79,7 @@ sub import {
 }
 
 END {
-   $_params = $_prev_c = $_MCE = undef;
+   %{ $_MCE } = ();
 }
 
 ###############################################################################
@@ -109,10 +109,9 @@ sub _gather {
 sub init (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Map');
+   MCE::Map->finish( my $_pkg = "$$.$_tid.".caller() );
 
-   my $_pid = "$$.$_tid.".caller();
-
-   finish(); $_params->{$_pid} = (ref $_[0] eq 'HASH') ? shift : { @_ };
+   $_params->{$_pkg} = (ref $_[0] eq 'HASH') ? shift : { @_ };
 
    @_ = ();
 
@@ -122,16 +121,19 @@ sub init (@) {
 sub finish (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Map');
+   my $_pkg = (defined $_[0]) ? shift : "$$.$_tid.".caller();
 
-   my $_pid = "$$.$_tid.".caller();
+   if ( $_pkg eq 'MCE::Shared::Server' ) {
+      MCE::Map->finish($_) for ( keys %{ $_MCE } );
+      %{ $_MCE } = ();
+   }
+   elsif ( exists $_MCE->{$_pkg} ) {
+      MCE::_save_state(), $_MCE->{$_pkg}->shutdown(@_), MCE::_restore_state()
+         if $_MCE->{$_pkg}{_spawned};
 
-   if (defined $_MCE->{$_pid}) {
-      MCE::_save_state(), $_MCE->{$_pid}->shutdown(@_), MCE::_restore_state()
-         if $_MCE->{$_pid}->{_spawned};
+      $_total_chunks = undef, undef %_tmp;
 
-      $_total_chunks = undef; undef %_tmp;
-
-      delete $_prev_c->{$_pid};
+      delete $_prev_c->{$_pkg};
    }
 
    return;
@@ -358,20 +360,20 @@ sub run (&@) {
 
    my $_cnt = 0; my $_wantarray = wantarray;
 
-   $_MCE->{$_pid}->{use_slurpio} = ($_chunk_size > &MCE::MAX_RECS_SIZE) ? 1 : 0;
-   $_MCE->{$_pid}->{user_args}   = [ $_wantarray ];
+   $_MCE->{$_pid}{use_slurpio} = ($_chunk_size > &MCE::MAX_RECS_SIZE) ? 1 : 0;
+   $_MCE->{$_pid}{user_args}   = [ $_wantarray ];
 
-   $_MCE->{$_pid}->{gather} = $_wantarray
+   $_MCE->{$_pid}{gather} = $_wantarray
       ? \&_gather : sub { $_cnt += $_[0]; return; };
 
    if (defined $_input_data) {
       @_ = ();
       $_MCE->{$_pid}->process({ chunk_size => $_chunk_size }, $_input_data);
-      delete $_MCE->{$_pid}->{input_data};
+      delete $_MCE->{$_pid}{input_data};
    }
    elsif (scalar @_) {
       $_MCE->{$_pid}->process({ chunk_size => $_chunk_size }, \@_);
-      delete $_MCE->{$_pid}->{input_data};
+      delete $_MCE->{$_pid}{input_data};
    }
    else {
       if (defined $_params->{$_pid} && exists $_params->{$_pid}{sequence}) {
@@ -445,7 +447,7 @@ MCE::Map - Parallel map model similar to the native map function
 
 =head1 VERSION
 
-This document describes MCE::Map version 1.799_01
+This document describes MCE::Map version 1.799_02
 
 =head1 SYNOPSIS
 
@@ -540,7 +542,7 @@ There is a simpler way to enable Sereal. The following will attempt to use
 Sereal if available, otherwise defaults to Storable for serialization.
 From MCE 1.800 onwards, this is done automatically.
 
-   use MCE::Flow Sereal => 1;
+   use MCE::Map Sereal => 1;
 
 =head1 CUSTOMIZING MCE
 

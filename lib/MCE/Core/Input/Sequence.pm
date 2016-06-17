@@ -14,7 +14,7 @@ package MCE::Core::Input::Sequence;
 use strict;
 use warnings;
 
-our $VERSION = '1.799_01';
+our $VERSION = '1.799_02';
 
 ## Items below are folded into MCE.
 
