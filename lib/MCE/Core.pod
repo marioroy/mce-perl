@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.799_02
+This document describes MCE::Core version 1.799_03
 
 =head1 SYNOPSIS
 
@@ -372,9 +372,11 @@ The following list options which may be overridden when loading the module.
 
 There is a simpler way to enable Sereal. The following will attempt to use
 Sereal if available, otherwise defaults to Storable for serialization.
-From MCE 1.800 onwards, this is done automatically.
 
    use MCE Sereal => 1;
+
+From MCE 1.800 onwards, this is done automatically if Sereal 3.008 or later
+is installed. Specify Sereal => 0 if Storable is desired.
 
 =head2 RUNNING
 

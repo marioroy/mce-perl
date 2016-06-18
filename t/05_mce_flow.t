@@ -49,7 +49,9 @@ my $q = MCE::Queue->new;
 
 sub task_a {
 
-   my @ans; my ($mce, $chunk_ref, $chunk_id) = @_;
+   my ($mce, $chunk_ref, $chunk_id) = @_;
+   my @ans; chomp @{ $chunk_ref };
+
    push @ans, map { $_ * 2 } @{ $chunk_ref };
 
    $q->enqueue( [ \@ans, $chunk_id ] );   # forward to task_b
@@ -58,7 +60,9 @@ sub task_a {
 sub task_b {
 
    while (defined (my $next_ref = $q->dequeue)) {
-      my @ans; my ($chunk_ref, $chunk_id) = @{ $next_ref };
+      my ($chunk_ref, $chunk_id) = @{ $next_ref };
+      my @ans;
+
       push @ans, map { $_ * 3 } @{ $chunk_ref };
 
       MCE->gather(\@ans, $chunk_id);      # send to output_iterator
@@ -92,7 +96,7 @@ is( join(' ', @a), $answers, 'check results for path' );
 mce_flow_f { gather => output_iterator(\@a) }, \&task_a, \&task_b, $fh_data;
 is( join(' ', @a), $answers, 'check results for glob' );
 
-mce_flow_s { gather => output_iterator(\@a) }, \&task_a, \&task_b, 1, 9, 1;
+mce_flow_s { gather => output_iterator(\@a) }, \&task_a, \&task_b, 1, 9;
 is( join(' ', @a), $answers, 'check results for sequence' );
 
 MCE::Flow::finish;

@@ -46,7 +46,7 @@ is( join(' ', @a), $answers, 'array: check results for path' );
 @a = mce_stream_f \&_task_b, \&_task_a, $fh_data;
 is( join(' ', @a), $answers, 'array: check results for glob' );
 
-@a = mce_stream_s \&_task_b, \&_task_a, 1, 9, 1;
+@a = mce_stream_s \&_task_b, \&_task_a, 1, 9;
 is( join(' ', @a), $answers, 'array: check results for sequence' );
 
 seek($fh_data, $fh_pos, 0);
@@ -63,14 +63,14 @@ is( join(' ', @a), $answers, 'array_ref: check results for path' );
 mce_stream_f \@a, \&_task_b, \&_task_a, $fh_data;
 is( join(' ', @a), $answers, 'array_ref: check results for glob' );
 
-mce_stream_s \@a, \&_task_b, \&_task_a, 1, 9, 1;
+mce_stream_s \@a, \&_task_b, \&_task_a, 1, 9;
 is( join(' ', @a), $answers, 'array_ref: check results for sequence' );
 
 MCE::Stream::finish;
 
 @a = mce_stream
    { mode => 'map',  code => sub { $_ * 2 * 3 } },
-   { mode => 'grep', code => sub { $_ % 3 == 0 } },
+   { mode => 'grep', code => sub { chomp; $_ % 3 == 0 } },
 ( 1..9 );
 
 is( join(' ', @a), $ans_mix, 'array: check results for mix_mode' );

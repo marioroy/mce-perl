@@ -40,7 +40,7 @@ is( join(' ', @a), $answers, 'block_ref: check results for path' );
 @a = mce_map_f \&_task, $fh_data;
 is( join(' ', @a), $answers, 'block_ref: check results for glob' );
 
-@a = mce_map_s \&_task, 1, 9, 1;
+@a = mce_map_s \&_task, 1, 9;
 is( join(' ', @a), $answers, 'block_ref: check results for sequence' );
 
 MCE::Map::finish;

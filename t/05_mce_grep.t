@@ -25,7 +25,7 @@ MCE::Grep::init {
    max_workers => 2
 };
 
-sub _task { $_ % 3 == 0 }
+sub _task { chomp; $_ % 3 == 0 }
 
 ##  mce_grep can take a code block, e.g: mce_grep { code } ( 1..9 )
 ##  below, workers will persist between runs
@@ -34,12 +34,12 @@ sub _task { $_ % 3 == 0 }
 is( join('', @a), '369', 'block_ref: check results for array' );
 
 @a = mce_grep_f \&_task, $in_file;
-is( join('', @a), "3\n6\n9\n", 'block_ref: check results for path' );
+is( join('', @a), '369', 'block_ref: check results for path' );
 
 @a = mce_grep_f \&_task, $fh_data;
-is( join('', @a), "3\n6\n9\n", 'block_ref: check results for glob' );
+is( join('', @a), '369', 'block_ref: check results for glob' );
 
-@a = mce_grep_s \&_task, 1, 9, 1;
+@a = mce_grep_s \&_task, 1, 9;
 is( join('', @a), '369', 'block_ref: check results for sequence' );
 
 MCE::Grep::finish;

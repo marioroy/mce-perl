@@ -1,7 +1,7 @@
 
 Revision history for Perl module MCE.
 
-1.799_02 Thu Jun 16 23:30:00 EST 2016
+1.799_03 Fri Jun 17 16:00:00 EST 2016
 
   [BUG FIXES]
 
@@ -9,14 +9,13 @@ Revision history for Perl module MCE.
 
   [ENHANCEMENTS]
 
-  * Use Sereal automatically, for serialization, if available on the box.
   * On Windows, improved stablity and feature parity with UNIX.
+  * Use Sereal 3.008+ automatically if available on the box.
 
   [NEW FEATURES]
 
   * Added support for cyclical include of MCE Core, MCE Models, and
     MCE Queue by scoping the configuration to the local package.
-
     This resolves (RT#107384), bug reported by Kai Wasserbäch.
 
 1.708 Sat May 28 14:00:00 EST 2016

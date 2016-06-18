@@ -46,7 +46,9 @@ sub output_iterator {
 
 sub _task {
 
-   my @ans; my ($mce, $chunk_ref, $chunk_id) = @_;
+   my ($mce, $chunk_ref, $chunk_id) = @_;
+   my @ans; chomp @{ $chunk_ref };
+
    push @ans, map { $_ * 2 * 3 } @{ $chunk_ref };
 
    MCE->gather(\@ans, $chunk_id);   # send to output_iterator
@@ -71,7 +73,7 @@ is( join(' ', @a), $answers, 'check results for path' );
 mce_loop_f \&_task, $fh_data;
 is( join(' ', @a), $answers, 'check results for glob' );
 
-mce_loop_s \&_task, 1, 9, 1;
+mce_loop_s \&_task, 1, 9;
 is( join(' ', @a), $answers, 'check results for sequence' );
 
 MCE::Loop::finish;

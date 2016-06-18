@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.799_02';
+our $VERSION = '1.799_03';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -63,8 +63,15 @@ sub import {
       $_p->{FREEZE}      = shift, next if ( $_arg eq 'freeze' );
       $_p->{THAW}        = shift, next if ( $_arg eq 'thaw' );
 
-      ## Sereal, if available, is used automatically by MCE 1.800 onwards.
-      next if ( $_arg eq 'sereal' );
+      ## Sereal 3.008+, if available, is used automatically by MCE 1.800.
+      if ( $_arg eq 'sereal' ) {
+         if ( shift eq '0' ) {
+            require Storable;
+            $_p->{FREEZE} = \&Storable::freeze;
+            $_p->{THAW}   = \&Storable::thaw;
+         }
+         next;
+      }
 
       _croak("Error: ($_argument) invalid module option");
    }
@@ -366,7 +373,7 @@ MCE::Loop - Parallel loop model for building creative loops
 
 =head1 VERSION
 
-This document describes MCE::Loop version 1.799_02
+This document describes MCE::Loop version 1.799_03
 
 =head1 DESCRIPTION
 
@@ -524,9 +531,11 @@ The following list options which may be overridden when loading the module.
 
 There is a simpler way to enable Sereal. The following will attempt to use
 Sereal if available, otherwise defaults to Storable for serialization.
-From MCE 1.800 onwards, this is done automatically.
 
    use MCE::Loop Sereal => 1;
+
+From MCE 1.800 onwards, this is done automatically if Sereal 3.008 or later
+is installed. Specify Sereal => 0 if Storable is desired.
 
 =head1 CUSTOMIZING MCE
 

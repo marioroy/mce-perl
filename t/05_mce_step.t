@@ -46,7 +46,9 @@ sub output_iterator {
 
 sub task_a {
 
-   my @ans; my ($mce, $chunk_ref, $chunk_id) = @_;
+   my ($mce, $chunk_ref, $chunk_id) = @_;
+   my @ans; chomp @{ $chunk_ref };
+
    push @ans, map { $_ * 2 } @{ $chunk_ref };
 
    MCE->step(\@ans, $chunk_id);           # forward to task_b
@@ -54,7 +56,9 @@ sub task_a {
 
 sub task_b {
 
-   my @ans; my ($mce, $chunk_ref, $chunk_id) = @_;
+   my ($mce, $chunk_ref, $chunk_id) = @_;
+   my @ans;
+
    push @ans, map { $_ * 3 } @{ $chunk_ref };
 
    MCE->gather(\@ans, $chunk_id);         # send to output_iterator
@@ -79,7 +83,7 @@ is( join(' ', @a), $answers, 'check results for path' );
 mce_step_f { gather => output_iterator(\@a) }, \&task_a, \&task_b, $fh_data;
 is( join(' ', @a), $answers, 'check results for glob' );
 
-mce_step_s { gather => output_iterator(\@a) }, \&task_a, \&task_b, 1, 9, 1;
+mce_step_s { gather => output_iterator(\@a) }, \&task_a, \&task_b, 1, 9;
 is( join(' ', @a), $answers, 'check results for sequence' );
 
 MCE::Step::finish;

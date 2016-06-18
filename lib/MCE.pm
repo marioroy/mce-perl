@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.799_02';
+our $VERSION = '1.799_03';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -45,7 +45,7 @@ BEGIN {
    eval 'use PDL::IO::Storable' if $INC{'PDL.pm'};
 
    if (!exists $INC{'PDL.pm'}) {
-      eval 'use Sereal qw( encode_sereal decode_sereal )';
+      eval 'use Sereal 3.008 qw( encode_sereal decode_sereal )';
       if ( !$@ ) {
          $_freeze = sub { encode_sereal( @_, { freeze_callbacks => 1 } ) };
          $_thaw   = \&decode_sereal;
@@ -189,7 +189,14 @@ sub import {
       }
 
       ## Sereal, if available, is used automatically by MCE 1.800 onwards.
-      next if ( $_arg eq 'sereal' );
+      if ( $_arg eq 'sereal' ) {
+         if ( shift eq '0' ) {
+            require Storable;
+            $_p->{FREEZE} = \&Storable::freeze;
+            $_p->{THAW}   = \&Storable::thaw;
+         }
+         next;
+      }
 
       _croak("Error: ($_argument) invalid module option");
    }
@@ -1393,7 +1400,7 @@ sub exit {
    }
 
    ## Check for any Hobo workers not yet joined.
-   MCE::Hobo->finish() if $INC{'MCE/Hobo.pm'};
+   MCE::Hobo->finish( __PACKAGE__ ) if $INC{'MCE/Hobo.pm'};
 
    ## Exit thread/child process.
    if ($self->{use_threads} || ($_has_threads && $_is_MSWin32)) {
@@ -1763,7 +1770,7 @@ sub _dispatch {
    _worker_main(@_args, \@_plugin_worker_init);
 
    ## Check for any Hobo workers not yet joined.
-   MCE::Hobo->finish() if $INC{'MCE/Hobo.pm'};
+   MCE::Hobo->finish( __PACKAGE__ ) if $INC{'MCE/Hobo.pm'};
 
    ## Exit thread/child process.
    if ($self->{use_threads} || ($_has_threads && $_is_MSWin32)) {
