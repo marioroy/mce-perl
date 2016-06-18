@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.799_03';
+our $VERSION = '1.800';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -25,7 +25,6 @@ our @CARP_NOT = qw( MCE );
 
 my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
 my $_tid = $_has_threads ? threads->tid() : 0;
-my $_caller;
 
 sub CLONE {
    $_tid = threads->tid() if $_has_threads;
@@ -282,7 +281,7 @@ sub finish (@) {
    my $_pkg = (defined $_[0]) ? shift : "$$.$_tid.".caller();
 
    if ( $_pkg eq 'MCE::Shared::Server' ) {
-      MCE::Step->finish($_) for ( keys %{ $_MCE } );
+      MCE::Step->finish($_, 1) for ( keys %{ $_MCE } );
       %{ $_MCE } = ();
    }
    elsif ( exists $_MCE->{$_pkg} ) {
@@ -319,7 +318,7 @@ sub run_file (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Step');
 
    my ($_file, $_pos); my $_start_pos = (ref $_[0] eq 'HASH') ? 2 : 1;
-   my $_pid = "$$.$_tid.".caller();  $_caller = caller();
+   my $_pid = "$$.$_tid.".caller();
 
    if (defined (my $_p = $_params->{$_pid})) {
       delete $_p->{input_data} if (exists $_p->{input_data});
@@ -368,7 +367,7 @@ sub run_seq (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Step');
 
    my ($_begin, $_end, $_pos); my $_start_pos = (ref $_[0] eq 'HASH') ? 2 : 1;
-   my $_pid = "$$.$_tid.".caller();  $_caller = caller();
+   my $_pid = "$$.$_tid.".caller();
 
    if (defined (my $_p = $_params->{$_pid})) {
       delete $_p->{sequence}   if (exists $_p->{sequence});
@@ -430,7 +429,7 @@ sub run (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Step');
 
-   my $_pkg = defined $_caller ? $_caller : caller();  $_caller = undef;
+   my $_pkg = caller() eq 'MCE::Step' ? caller(1) : caller();
    my $_pid = "$$.$_tid.$_pkg";
 
    if (ref $_[0] eq 'HASH') {
@@ -731,7 +730,7 @@ MCE::Step - Parallel step model for building creative steps
 
 =head1 VERSION
 
-This document describes MCE::Step version 1.799_03
+This document describes MCE::Step version 1.800
 
 =head1 DESCRIPTION
 

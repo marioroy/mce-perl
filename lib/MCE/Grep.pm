@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.799_03';
+our $VERSION = '1.800';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -24,7 +24,6 @@ our @CARP_NOT = qw( MCE );
 
 my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
 my $_tid = $_has_threads ? threads->tid() : 0;
-my $_caller;
 
 sub CLONE {
    $_tid = threads->tid() if $_has_threads;
@@ -131,7 +130,7 @@ sub finish (@) {
    my $_pkg = (defined $_[0]) ? shift : "$$.$_tid.".caller();
 
    if ( $_pkg eq 'MCE::Shared::Server' ) {
-      MCE::Grep->finish($_) for ( keys %{ $_MCE } );
+      MCE::Grep->finish($_, 1) for ( keys %{ $_MCE } );
       %{ $_MCE } = ();
    }
    elsif ( exists $_MCE->{$_pkg} ) {
@@ -157,7 +156,7 @@ sub run_file (&@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Grep');
 
    my $_code = shift; my $_file = shift;
-   my $_pid  = "$$.$_tid.".caller();  $_caller = caller();
+   my $_pid  = "$$.$_tid.".caller();
 
    if (defined (my $_p = $_params->{$_pid})) {
       delete $_p->{input_data} if (exists $_p->{input_data});
@@ -196,7 +195,7 @@ sub run_seq (&@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Grep');
 
    my $_code = shift;
-   my $_pid  = "$$.$_tid.".caller();  $_caller = caller();
+   my $_pid  = "$$.$_tid.".caller();
 
    if (defined (my $_p = $_params->{$_pid})) {
       delete $_p->{input_data} if (exists $_p->{input_data});
@@ -247,7 +246,7 @@ sub run (&@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Grep');
 
    my $_code = shift;  $_total_chunks = 0; undef %_tmp;
-   my $_pkg  = defined $_caller ? $_caller : caller();  $_caller = undef;
+   my $_pkg  = caller() eq 'MCE::Grep' ? caller(1) : caller();
    my $_pid  = "$$.$_tid.$_pkg";
 
    my $_input_data; my $_max_workers = $_def->{$_pkg}{MAX_WORKERS};
@@ -454,7 +453,7 @@ MCE::Grep - Parallel grep model similar to the native grep function
 
 =head1 VERSION
 
-This document describes MCE::Grep version 1.799_03
+This document describes MCE::Grep version 1.800
 
 =head1 SYNOPSIS
 

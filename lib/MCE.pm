@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.799_03';
+our $VERSION = '1.800';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -51,6 +51,7 @@ BEGIN {
          $_thaw   = \&decode_sereal;
       }
    }
+
    if (!defined $_freeze) {
       require Storable;
       $_freeze = \&Storable::freeze;
@@ -1217,8 +1218,8 @@ sub shutdown {
    }
 
    ## Reset instance.
-   $self->{_pids}  = $self->{_thrs}   = $self->{_tids} = undef;
-   $self->{_state} = $self->{_status} = $self->{_task} = undef;
+   undef @{$self->{_pids}};  undef @{$self->{_thrs}};   undef @{$self->{_tids}};
+   undef @{$self->{_state}}; undef @{$self->{_status}}; undef @{$self->{_task}};
 
    $self->{_mce_sid}  = $self->{_mce_tid}  = $self->{_sess_dir} = undef;
    $self->{_chunk_id} = $self->{_send_cnt} = $self->{_spawned}  = 0;
