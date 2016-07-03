@@ -11,17 +11,21 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.800';
+our $VERSION = '1.801';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
 use Socket qw( PF_UNIX PF_UNSPEC SOCK_STREAM SOL_SOCKET SO_SNDBUF SO_RCVBUF );
-use Time::HiRes qw( sleep );
+use Time::HiRes qw( sleep time );
 use base qw( Exporter );
 use bytes;
 
-my  $_is_winenv  = ($^O eq 'MSWin32' || $^O eq 'cygwin') ? 1 : 0;
-my  $_zero_bytes = "\x00\x00\x00\x00";
+my ($_is_winenv, $_zero_bytes);
+
+BEGIN {
+   $_is_winenv  = ( $^O =~ /mswin|mingw|msys|cygwin/i ) ? 1 : 0;
+   $_zero_bytes = "\x00\x00\x00\x00";
+}
 
 our $LF = "\012";  Internals::SvREADONLY($LF, 1);
 
@@ -110,7 +114,7 @@ sub get_ncpu {
          last OS_CHECK;
       };
 
-      /mswin|mingw|cygwin/ && do {
+      /mswin|mingw|msys|cygwin/ && do {
          if (exists $ENV{NUMBER_OF_PROCESSORS}) {
             $ncpu = $ENV{NUMBER_OF_PROCESSORS};
          }
@@ -134,20 +138,21 @@ sub get_ncpu {
 sub _destroy_pipes {
 
    my ($_obj, @_params) = @_;
-   local ($!, $?);
+
+   local ($!, $?); local $SIG{__DIE__} = sub { };
 
    for my $_p (@_params) {
-      if (defined $_obj->{$_p}) {
-         if (ref $_obj->{$_p} eq 'ARRAY') {
-            for my $_i (0 .. @{ $_obj->{$_p} } - 1) {
-               next unless (defined $_obj->{$_p}->[$_i]);
-               close $_obj->{$_p}->[$_i];
-               undef $_obj->{$_p}->[$_i];
-            }
+      next unless (defined $_obj->{$_p});
+
+      if (ref $_obj->{$_p} eq 'ARRAY') {
+         for my $_i (0 .. @{ $_obj->{$_p} } - 1) {
+            next unless (defined $_obj->{$_p}[$_i]);
+            close $_obj->{$_p}[$_i];
+            undef $_obj->{$_p}[$_i];
          }
-         else {
-            close $_obj->{$_p};
-         }
+      }
+      else {
+         close $_obj->{$_p};
          undef $_obj->{$_p};
       }
    }
@@ -158,25 +163,29 @@ sub _destroy_pipes {
 sub _destroy_socks {
 
    my ($_obj, @_params) = @_;
-   local ($!, $?);
+
+   local ($!, $?); local $SIG{__DIE__} = sub { };
 
    for my $_p (@_params) {
-      if (defined $_obj->{$_p}) {
-         if (ref $_obj->{$_p} eq 'ARRAY') {
-            for my $_i (0 .. @{ $_obj->{$_p} } - 1) {
-               next unless (defined $_obj->{$_p}->[$_i]);
-               ## an empty socket may not close immediately in Windows/Cygwin
-               syswrite $_obj->{$_p}->[$_i], '0' if ($_is_winenv); # hack
-               CORE::shutdown $_obj->{$_p}->[$_i], 2;
-               close $_obj->{$_p}->[$_i];
-               undef $_obj->{$_p}->[$_i];
+      next unless (defined $_obj->{$_p});
+
+      if (ref $_obj->{$_p} eq 'ARRAY') {
+         for my $_i (0 .. @{ $_obj->{$_p} } - 1) {
+            next unless (defined $_obj->{$_p}[$_i]);
+            if (fileno $_obj->{$_p}[$_i]) {
+               syswrite($_obj->{$_p}[$_i], '0') if $_is_winenv;
+               eval q{ CORE::shutdown($_obj->{$_p}[$_i], 2) };
             }
+            close $_obj->{$_p}[$_i];
+            undef $_obj->{$_p}[$_i];
          }
-         else {
-            syswrite $_obj->{$_p}, '0' if ($_is_winenv); # ditto
-            CORE::shutdown $_obj->{$_p}, 2;
-            close $_obj->{$_p};
+      }
+      else {
+         if (fileno $_obj->{$_p}) {
+            syswrite($_obj->{$_p}, '0') if $_is_winenv;
+            eval q{ CORE::shutdown($_obj->{$_p}, 2) };
          }
+         close $_obj->{$_p};
          undef $_obj->{$_p};
       }
    }
@@ -190,20 +199,19 @@ sub _pipe_pair {
    local ($|, $!);
 
    if (defined $_i) {
-      pipe($_obj->{$_r_sock}->[$_i], $_obj->{$_w_sock}->[$_i])
+      pipe($_obj->{$_r_sock}[$_i], $_obj->{$_w_sock}[$_i])
          or die "pipe: $!\n";
 
-      # IO::Handle->autoflush does not exists on older Perl distros.
-      select((select($_obj->{$_r_sock}[$_i]), $| = 1)[0]);
-      select((select($_obj->{$_w_sock}[$_i]), $| = 1)[0]);
+      # IO::Handle->autoflush not available in older Perl.
+      select(( select($_obj->{$_r_sock}[$_i]), $| = 1 )[0]);
+      select(( select($_obj->{$_w_sock}[$_i]), $| = 1 )[0]);
    }
    else {
       pipe($_obj->{$_r_sock}, $_obj->{$_w_sock})
          or die "pipe: $!\n";
 
-      # Ditto.
-      select((select($_obj->{$_r_sock}), $| = 1)[0]);
-      select((select($_obj->{$_w_sock}), $| = 1)[0]);
+      select(( select($_obj->{$_r_sock}), $| = 1 )[0]); # Ditto.
+      select(( select($_obj->{$_w_sock}), $| = 1 )[0]);
    }
 
    return;
@@ -217,19 +225,19 @@ sub _sock_pair {
    $_size = 16384 unless defined $_size;
 
    if (defined $_i) {
-      socketpair( $_obj->{$_r_sock}->[$_i], $_obj->{$_w_sock}->[$_i],
+      socketpair( $_obj->{$_r_sock}[$_i], $_obj->{$_w_sock}[$_i],
          PF_UNIX, SOCK_STREAM, PF_UNSPEC ) or die "socketpair: $!\n";
 
       if ($^O ne 'aix' && $^O ne 'linux') {
-         setsockopt($_obj->{$_r_sock}->[$_i], SOL_SOCKET, SO_SNDBUF, int $_size);
-         setsockopt($_obj->{$_r_sock}->[$_i], SOL_SOCKET, SO_RCVBUF, int $_size);
-         setsockopt($_obj->{$_w_sock}->[$_i], SOL_SOCKET, SO_SNDBUF, int $_size);
-         setsockopt($_obj->{$_w_sock}->[$_i], SOL_SOCKET, SO_RCVBUF, int $_size);
+         setsockopt($_obj->{$_r_sock}[$_i], SOL_SOCKET, SO_SNDBUF, int $_size);
+         setsockopt($_obj->{$_r_sock}[$_i], SOL_SOCKET, SO_RCVBUF, int $_size);
+         setsockopt($_obj->{$_w_sock}[$_i], SOL_SOCKET, SO_SNDBUF, int $_size);
+         setsockopt($_obj->{$_w_sock}[$_i], SOL_SOCKET, SO_RCVBUF, int $_size);
       }
 
-      # IO::Handle->autoflush does not exists on older Perl distros.
-      select((select($_obj->{$_r_sock}[$_i]), $| = 1)[0]);
-      select((select($_obj->{$_w_sock}[$_i]), $| = 1)[0]);
+      # IO::Handle->autoflush not available in older Perl.
+      select(( select($_obj->{$_r_sock}[$_i]), $| = 1 )[0]);
+      select(( select($_obj->{$_w_sock}[$_i]), $| = 1 )[0]);
    }
    else {
       socketpair( $_obj->{$_r_sock}, $_obj->{$_w_sock},
@@ -242,9 +250,8 @@ sub _sock_pair {
          setsockopt($_obj->{$_w_sock}, SOL_SOCKET, SO_RCVBUF, int $_size);
       }
 
-      # Ditto.
-      select((select($_obj->{$_r_sock}), $| = 1)[0]);
-      select((select($_obj->{$_w_sock}), $| = 1)[0]);
+      select(( select($_obj->{$_r_sock}), $| = 1 )[0]); # Ditto.
+      select(( select($_obj->{$_w_sock}), $| = 1 )[0]);
    }
 
    return;
@@ -252,25 +259,25 @@ sub _sock_pair {
 
 sub _sock_ready {
 
-   my ($_bytes, $_socket, $_timeout ) = ("\x00\x00\x00\x00", @_);
-   my ($_cnt, $_retries, $_ptr_bytes) = (1, 0, unpack('I', pack('P', $_bytes)));
+   my ($_socket, $_timeout) = @_;
+
+   my $_val_bytes = "\x00\x00\x00\x00";
+   my $_ptr_bytes = unpack( 'I', pack('P', $_val_bytes) );
+   my ($_count, $_start) = (1, time);
 
    $_timeout += time if $_timeout;
 
    while (1) {
-      ioctl($_socket, 0x4004667f, $_ptr_bytes);   # MSWin32 FIONREAD
+      # MSWin32 FIONREAD
+      ioctl($_socket, 0x4004667f, $_ptr_bytes);
 
-    # return '' if unpack('I', $_bytes);          # unpack not necessary
-      return '' if $_bytes ne $_zero_bytes;       # string compare, 2x faster
-      return 1  if $_timeout && time > $_timeout;
+      return '' if $_val_bytes ne $_zero_bytes;
+      return  1 if $_timeout && time > $_timeout;
 
-      # delay to not consume a CPU from non-blocking ioctl
-      if ($_cnt) {
-         if (++$_cnt > 900) {
-            $_cnt = 1, sleep 0.015;
-            $_cnt = 0 if ++$_retries == 2;
-         }
-         next;
+      if ($_count) {
+          # delay after a while to not consume a CPU core
+          $_count = 0 if ++$_count % 50 == 0 && time - $_start > 0.005;
+          next;
       }
 
       sleep 0.030;
@@ -357,9 +364,9 @@ sub _parse_chunk_size {
             $_step  = $_params->{sequence}->{step} || 1;
          }
          else {
-            $_begin = $_params->{sequence}->[0];
-            $_end   = $_params->{sequence}->[1];
-            $_step  = $_params->{sequence}->[2] || 1;
+            $_begin = $_params->{sequence}[0];
+            $_end   = $_params->{sequence}[1];
+            $_step  = $_params->{sequence}[2] || 1;
          }
 
          if (!defined $_input_data && !$_array_size) {
@@ -421,7 +428,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.800
+This document describes MCE::Util version 1.801
 
 =head1 SYNOPSIS
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.800';
+our $VERSION = '1.801';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -84,10 +84,6 @@ sub import {
    return;
 }
 
-END {
-   %{ $_MCE } = ();
-}
-
 ###############################################################################
 ## ----------------------------------------------------------------------------
 ## Init and finish routines.
@@ -111,16 +107,17 @@ sub finish (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Loop');
    my $_pkg = (defined $_[0]) ? shift : "$$.$_tid.".caller();
 
-   if ( $_pkg eq 'MCE::Shared::Server' ) {
-      MCE::Loop->finish($_, 1) for ( keys %{ $_MCE } );
-      %{ $_MCE } = ();
+   if ( $_pkg eq 'MCE' ) {
+      for my $_k ( keys %{ $_MCE } ) { MCE::Loop->finish($_k, 1); }
    }
-   elsif ( exists $_MCE->{$_pkg} ) {
-      MCE::_save_state(), $_MCE->{$_pkg}->shutdown(@_), MCE::_restore_state()
-         if $_MCE->{$_pkg}{_spawned};
+   elsif ( $_MCE->{$_pkg} && $_MCE->{$_pkg}{_init_pid} eq "$$.$_tid" ) {
+      $_MCE->{$_pkg}->shutdown(@_) if $_MCE->{$_pkg}{_spawned};
 
       delete $_prev_c->{$_pkg};
+      delete $_MCE->{$_pkg};
    }
+
+   @_ = ();
 
    return;
 }
@@ -319,13 +316,13 @@ sub run (&@) {
       }
    }
 
-   delete $_MCE->{$_pid}{gather} if (defined $_wa);
+   MCE::_restore_state();
 
-   if ($^S || $ENV{'PERL_IPERL_RUNNING'} || $INC{'MCE/Hobo.pm'}) {
+   if ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
       $_MCE->{$_pid}->shutdown(); # shutdown if in eval state
    }
 
-   MCE::_restore_state();
+   delete $_MCE->{$_pid}{gather} if (defined $_wa);
 
    return ((defined $_wa) ? @_a : ());
 }
@@ -372,7 +369,7 @@ MCE::Loop - Parallel loop model for building creative loops
 
 =head1 VERSION
 
-This document describes MCE::Loop version 1.800
+This document describes MCE::Loop version 1.801
 
 =head1 DESCRIPTION
 

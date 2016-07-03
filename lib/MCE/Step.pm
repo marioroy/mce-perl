@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.800';
+our $VERSION = '1.801';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -87,10 +87,6 @@ sub import {
       unless ($_p->{CHUNK_SIZE} eq 'auto');
 
    return;
-}
-
-END {
-   %{ $_MCE } = ();
 }
 
 ###############################################################################
@@ -280,13 +276,11 @@ sub finish (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Step');
    my $_pkg = (defined $_[0]) ? shift : "$$.$_tid.".caller();
 
-   if ( $_pkg eq 'MCE::Shared::Server' ) {
-      MCE::Step->finish($_, 1) for ( keys %{ $_MCE } );
-      %{ $_MCE } = ();
+   if ( $_pkg eq 'MCE' ) {
+      for my $_k ( keys %{ $_MCE } ) { MCE::Step->finish($_k, 1); }
    }
-   elsif ( exists $_MCE->{$_pkg} ) {
-      MCE::_save_state(), $_MCE->{$_pkg}->shutdown(@_), MCE::_restore_state()
-         if $_MCE->{$_pkg}{_spawned};
+   elsif ( $_MCE->{$_pkg} && $_MCE->{$_pkg}{_init_pid} eq "$$.$_tid" ) {
+      $_MCE->{$_pkg}->shutdown(@_) if $_MCE->{$_pkg}{_spawned};
 
       delete $_lkup->{$_pkg};
       delete $_last_task_id->{$_pkg};
@@ -296,6 +290,7 @@ sub finish (@) {
       delete $_prev_n->{$_pkg};
       delete $_prev_t->{$_pkg};
       delete $_prev_w->{$_pkg};
+      delete $_MCE->{$_pkg};
 
       if (defined $_queue->{$_pkg}) {
          local $_;
@@ -303,6 +298,8 @@ sub finish (@) {
          delete $_queue->{$_pkg};
       }
    }
+
+   @_ = ();
 
    return;
 }
@@ -538,9 +535,12 @@ sub run (@) {
       push @{ $_Q }, MCE::Queue->new(fast => $_def->{$_pkg}{FAST}, await => 1)
          for (@{ $_Q } .. @_code - 2);
 
-      _gen_user_tasks($_pid,$_Q, \@_code,\@_name,\@_thrs,\@_wrks, $_chunk_size);
-
       $_last_task_id->{$_pid} = @_code - 1;
+
+      ## must clear arrays for nested session to work with Perl < v5.14
+      _gen_user_tasks($_pid,$_Q, [@_code],[@_name],[@_thrs],[@_wrks], $_chunk_size);
+
+      @_code = @_name = @_thrs = @_wrks = ();
 
       my %_opts = (
          max_workers => $_max_workers, task_name => $_tag,
@@ -618,15 +618,15 @@ sub run (@) {
       }
    }
 
-   delete $_MCE->{$_pid}{gather} if (defined $_wa);
+   MCE::_restore_state();
 
-   if ($^S || $ENV{'PERL_IPERL_RUNNING'} || $INC{'MCE/Hobo.pm'}) {
+   if ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
       $_MCE->{$_pid}->shutdown(); # shutdown if in eval state
       $_->DESTROY() for (@{ $_queue->{$_pid} });
       delete $_queue->{$_pid};
    }
 
-   MCE::_restore_state();
+   delete $_MCE->{$_pid}{gather} if (defined $_wa);
 
    return ((defined $_wa) ? @_a : ());
 }
@@ -730,7 +730,7 @@ MCE::Step - Parallel step model for building creative steps
 
 =head1 VERSION
 
-This document describes MCE::Step version 1.800
+This document describes MCE::Step version 1.801
 
 =head1 DESCRIPTION
 

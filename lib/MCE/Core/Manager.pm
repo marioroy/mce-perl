@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.800';
+our $VERSION = '1.801';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -25,6 +25,9 @@ package # hide from rpm
    MCE;
 
 no warnings qw( threads recursion uninitialized );
+
+## POSIX is large. This will cover most platforms.
+use constant { _WNOHANG => $^O eq 'solaris' ? 64 : 1 };
 
 use bytes;
 
@@ -81,7 +84,8 @@ sub _output_loop {
       $_input_size, $_offset_pos, $_single_dim, @_gather, $_cs_one_flag,
       $_exit_id, $_exit_pid, $_exit_status, $_exit_wid, $_len, $_sync_cnt,
       $_BSB_W_SOCK, $_BSE_W_SOCK, $_DAT_R_SOCK, $_DAU_R_SOCK, $_MCE_STDERR,
-      $_I_FLG, $_O_FLG, $_I_SEP, $_O_SEP, $_RS, $_RS_FLG, $_MCE_STDOUT
+      $_I_FLG, $_O_FLG, $_I_SEP, $_O_SEP, $_RS, $_RS_FLG, $_MCE_STDOUT,
+      $_win32_ipc
    );
 
    ## -------------------------------------------------------------------------
@@ -141,7 +145,7 @@ sub _output_loop {
 
          if ($_task_id == 0 && defined $_syn_flag && $_sync_cnt) {
             if ($_sync_cnt == $_total_running) {
-               for (1 .. $_total_running) { 1 until syswrite $_BSB_W_SOCK, $LF }
+               for (1 .. $_total_running) { syswrite $_BSB_W_SOCK, $LF }
                undef $_syn_flag;
             }
          }
@@ -171,7 +175,7 @@ sub _output_loop {
 
          if ($_task_id == 0 && defined $_syn_flag && $_sync_cnt) {
             if ($_sync_cnt == $_total_running) {
-               for (1 .. $_total_running) { 1 until syswrite $_BSB_W_SOCK, $LF }
+               for (1 .. $_total_running) { syswrite $_BSB_W_SOCK, $LF }
                undef $_syn_flag;
             }
          }
@@ -193,8 +197,6 @@ sub _output_loop {
          if (abs($_exit_status) > abs($self->{_wrk_status})) {
             $self->{_wrk_status} = $_exit_status;
          }
-
-         print {$_DAU_R_SOCK} $LF unless ($^O eq 'MSWin32');
 
          ## Reap child/thread. Note: Win32 uses negative PIDs.
 
@@ -611,8 +613,7 @@ sub _output_loop {
       OUTPUT_B_SYN.$LF => sub {                   # Barrier sync - begin
 
          if (!defined $_sync_cnt || $_sync_cnt == 0) {
-            $_syn_flag = 1;
-            $_sync_cnt = 0;
+            $_syn_flag = 1, $_sync_cnt = 0;
          }
 
          my $_total_running = ($_has_user_tasks)
@@ -620,7 +621,7 @@ sub _output_loop {
             : $self->{_total_running};
 
          if (++$_sync_cnt == $_total_running) {
-            for (1 .. $_total_running) { 1 until syswrite $_BSB_W_SOCK, $LF; }
+            for (1 .. $_total_running) { syswrite $_BSB_W_SOCK, $LF }
             undef $_syn_flag;
          }
 
@@ -634,8 +635,17 @@ sub _output_loop {
                ? $self->{_task}->[0]->{_total_running}
                : $self->{_total_running};
 
-            for (1 .. $_total_running) { 1 until syswrite $_BSE_W_SOCK, $LF; }
+            for (1 .. $_total_running) { syswrite $_BSE_W_SOCK, $LF }
          }
+
+         return;
+      },
+
+      OUTPUT_S_IPC.$LF => sub {                   # Change to win32 IPC
+
+         syswrite $_DAT_R_SOCK, $LF;
+
+         $_win32_ipc = 1, goto _LOOP unless $_win32_ipc;
 
          return;
       },
@@ -644,7 +654,7 @@ sub _output_loop {
 
    ## -------------------------------------------------------------------------
 
-   local ($!, $_);
+   local ($!, $?, $_);
 
    $_has_user_tasks = (defined $self->{user_tasks}) ? 1 : 0;
    $_cs_one_flag = ($self->{chunk_size} == 1) ? 1 : 0;
@@ -749,6 +759,8 @@ sub _output_loop {
 
    my $_func; my $_channels = $self->{_dat_r_sock};
 
+   $_win32_ipc  = ( $ENV{'PERL_MCE_IPC'} eq 'win32' || $INC{'MCE/Hobo.pm'} );
+
    $_BSB_W_SOCK = $self->{_bsb_w_sock};
    $_BSE_W_SOCK = $self->{_bse_w_sock};
    $_DAT_R_SOCK = $self->{_dat_r_sock}->[0];
@@ -770,7 +782,9 @@ sub _output_loop {
    ## Wait on requests *with* timeout capability. Exit loop when all workers
    ## have completed processing or exited prematurely.
 
-   if ($self->{loop_timeout} && $self->{_pids} && $^O ne 'MSWin32') {
+   _LOOP:
+
+   if ($self->{loop_timeout} && @{ $self->{_tids} } == 0 && $^O ne 'MSWin32') {
       my ($_list, $_timeout) = ($self->{_pids}, $self->{loop_timeout});
       my ($_DAT_W_SOCK, $_pid) = ($self->{_dat_w_sock}->[0]);
 
@@ -780,7 +794,7 @@ sub _output_loop {
          alarm 0;
          for my $i (0 .. @{ $_list }) {
             if ($_pid = $_list->[$i]) {
-               if (waitpid($_pid, 1)) {
+               if (waitpid($_pid, _WNOHANG)) {
                   $self->{_total_exited}  += 1;
                   $self->{_total_running} -= 1;
                   $self->{_total_workers} -= 1;
@@ -807,33 +821,35 @@ sub _output_loop {
 
    ## Wait on requests *without* timeout capability.
 
-   elsif ($^O eq 'MSWin32') {
+   elsif ($^O eq 'MSWin32' && $_win32_ipc) {
       # The normal loop hangs on Windows when processes/threads start/exit.
       # Using ioctl() properly, http://www.perlmonks.org/?node_id=780083
 
-      my ($_bytes, $_cnt, $_retries) = ("\x00\x00\x00\x00", 1, 0);
-      my ($_ptr_bytes, $_nbytes) = (unpack('I', pack('P', $_bytes)));
+      my $_val_bytes = "\x00\x00\x00\x00";
+      my $_ptr_bytes = unpack( 'I', pack('P', $_val_bytes) );
+      my ($_count, $_done, $_nbytes, $_start) = (1, 0);
 
-      while (1) {
-         ioctl($_DAT_R_SOCK, 0x4004667f, $_ptr_bytes);  # MSWin32 FIONREAD
+      while (!$_done) {
+         $_start = time;
 
-         unless ($_nbytes = unpack('I', $_bytes)) {
-            # delay to not consume a CPU from non-blocking ioctl
-            if ($_cnt) {
-               if (++$_cnt > 900) {
-                  $_cnt = 1, sleep 0.015;
-                  $_cnt = 0 if ++$_retries == 2;
-               }
-               next;
+         # MSWin32 FIONREAD
+         IOCTL: ioctl($_DAT_R_SOCK, 0x4004667f, $_ptr_bytes);
+
+         unless ($_nbytes = unpack('I', $_val_bytes)) {
+            if ($_count) {
+                # delay after a while to not consume a CPU core
+                $_count = 0 if ++$_count % 50 == 0 && time - $_start > 0.005;
+            } else {
+                sleep 0.030;
             }
-            sleep 0.030;
-            next;
+            goto IOCTL;
          }
 
-         $_cnt = 1, $_retries = 0;
+         $_count = 1;
 
          do {
             sysread($_DAT_R_SOCK, $_func, 8);
+            $_done = 1, last() unless length($_func) == 8;
             $_DAU_R_SOCK = $_channels->[ substr($_func, -2, 2, '') ];
 
             if (exists $_core_output_function{$_func}) {
@@ -847,9 +863,25 @@ sub _output_loop {
          last unless $self->{_total_running};
       }
    }
+
+   elsif ($^O eq 'MSWin32') {
+      while ($self->{_total_running}) {
+         sysread($_DAT_R_SOCK, $_func, 8);
+         last() unless length($_func) == 8;
+         $_DAU_R_SOCK = $_channels->[ substr($_func, -2, 2, '') ];
+
+         if (exists $_core_output_function{$_func}) {
+            $_core_output_function{$_func}();
+         } elsif (exists $_plugin_function->{$_func}) {
+            $_plugin_function->{$_func}();
+         }
+      }
+   }
+
    else {
       while ($self->{_total_running}) {
          $_func = <$_DAT_R_SOCK>;
+         last() unless length($_func) == 6;
          $_DAU_R_SOCK = $_channels->[ <$_DAT_R_SOCK> ];
 
          if (exists $_core_output_function{$_func}) {

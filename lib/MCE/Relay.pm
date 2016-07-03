@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.800';
+our $VERSION = '1.801';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 
@@ -331,7 +331,7 @@ MCE::Relay - Extends Many-Core Engine with relay capabilities
 
 =head1 VERSION
 
-This document describes MCE::Relay version 1.800
+This document describes MCE::Relay version 1.801
 
 =head1 SYNOPSIS
 

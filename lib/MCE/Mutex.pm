@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.800';
+our $VERSION = '1.801';
 
 use MCE::Util qw( $LF );
 
@@ -28,8 +28,10 @@ sub DESTROY {
 
    $_obj->unlock() if ($_obj->{ $_pid });
 
-   if ($_obj->{'init_pid'} eq $_pid || $_arg eq 'shutdown') {
-      MCE::Util::_destroy_socks($_obj, qw(_w_sock _r_sock));
+   if ($_arg eq 'shutdown' || $_obj->{'init_pid'} eq $_pid) {
+      ($^O eq 'MSWin32')
+         ? MCE::Util::_destroy_pipes($_obj, qw(_w_sock _r_sock))
+         : MCE::Util::_destroy_socks($_obj, qw(_w_sock _r_sock));
    }
 
    return;
@@ -45,32 +47,29 @@ sub new {
    my ($_class, %_obj) = @_;
    $_obj{'init_pid'} = $_has_threads ? $$ .'.'. $_tid : $$;
 
-   MCE::Util::_sock_pair(\%_obj, qw(_r_sock _w_sock));
-   1 until syswrite($_obj{_w_sock}, '0');
+   ($^O eq 'MSWin32')
+      ? MCE::Util::_pipe_pair(\%_obj, qw(_r_sock _w_sock))
+      : MCE::Util::_sock_pair(\%_obj, qw(_r_sock _w_sock));
+
+   syswrite($_obj{_w_sock}, '0');
 
    return bless(\%_obj, $_class);
 }
 
 sub lock {
-   my ($_obj) = @_;
-   my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
+   my ($_pid, $_obj) = ($_has_threads ? $$ .'.'. $_tid : $$, @_);
 
-   unless ($_obj->{ $_pid }) {
-      1 until sysread($_obj->{_r_sock}, my $_b, 1);
-      $_obj->{ $_pid } = 1;
-   }
+   sysread($_obj->{_r_sock}, my($_b), 1), $_obj->{ $_pid } = 1
+      unless $_obj->{ $_pid };
 
    return;
 }
 
 sub unlock {
-   my ($_obj) = @_;
-   my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
+   my ($_pid, $_obj) = ($_has_threads ? $$ .'.'. $_tid : $$, @_);
 
-   if ($_obj->{ $_pid }) {
-      1 until syswrite($_obj->{_w_sock}, '0');
-      $_obj->{ $_pid } = 0;
-   }
+   syswrite($_obj->{_w_sock}, '0'), $_obj->{ $_pid } = 0
+      if $_obj->{ $_pid };
 
    return;
 }
@@ -112,7 +111,7 @@ MCE::Mutex - Locking for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Mutex version 1.800
+This document describes MCE::Mutex version 1.801
 
 =head1 SYNOPSIS
 

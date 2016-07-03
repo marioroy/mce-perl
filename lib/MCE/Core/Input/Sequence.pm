@@ -14,7 +14,7 @@ package MCE::Core::Input::Sequence;
 use strict;
 use warnings;
 
-our $VERSION = '1.800';
+our $VERSION = '1.801';
 
 ## Items below are folded into MCE.
 
@@ -77,15 +77,15 @@ sub _worker_sequence_queue {
    while (1) {
 
       ## Obtain the next chunk_id and sequence number.
-      1 until sysread $_QUE_R_SOCK, $_next, $_que_read_size;
+      sysread $_QUE_R_SOCK, $_next, $_que_read_size;
       ($_chunk_id, $_offset) = unpack($_que_template, $_next);
 
       if ($_offset >= $_abort) {
-         1 until syswrite $_QUE_W_SOCK, pack($_que_template, 0, $_offset);
+         syswrite $_QUE_W_SOCK, pack($_que_template, 0, $_offset);
          return;
       }
 
-      1 until syswrite $_QUE_W_SOCK,
+      syswrite $_QUE_W_SOCK,
          pack($_que_template, $_chunk_id + 1, $_offset + 1);
 
       $_chunk_id++;

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.800';
+our $VERSION = '1.801';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -24,17 +24,11 @@ my ($_has_threads, $_freeze, $_thaw, $_tid, $_oid);
 BEGIN {
    local $@; local $SIG{__DIE__};
 
-   ## Forking is emulated under the Windows enviornment, excluding Cygwin.
-   ## MCE 1.514+ will load the 'threads' module by default on Windows.
-   ## Folks may specify use_threads => 0 if threads is not desired.
-
-   if ($^O eq 'MSWin32' && !defined $threads::VERSION) {
+   if ($^O eq 'MSWin32' && !$INC{'threads.pm'}) {
       eval 'use threads; use threads::shared';
    }
-   elsif (defined $threads::VERSION) {
-      unless (defined $threads::shared::VERSION) {
-         eval 'use threads::shared';
-      }
+   elsif ($INC{'threads.pm'} && !$INC{'threads/shared.pm'}) {
+      eval 'use threads::shared';
    }
 
    $_has_threads = $INC{'threads.pm'} ? 1 : 0;
@@ -42,7 +36,7 @@ BEGIN {
    $_oid = "$$.$_tid";
 
    eval 'PDL::no_clone_skip_warning()' if $INC{'PDL.pm'};
-   eval 'use PDL::IO::Storable' if $INC{'PDL.pm'};
+   eval 'use PDL::IO::Storable'        if $INC{'PDL.pm'};
 
    if (!exists $INC{'PDL.pm'}) {
       eval 'use Sereal 3.008 qw( encode_sereal decode_sereal )';
@@ -120,8 +114,8 @@ BEGIN {
       RS parallel_io use_slurpio use_threads
    );
 
-   $_is_MSWin32 = ($^O eq 'MSWin32') ? 1 : 0;
-   $_is_winenv  = ($^O eq 'cygwin' || $_is_MSWin32) ? 1 : 0;
+   $_is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
+   $_is_winenv  = ( $^O =~ /mswin|mingw|msys|cygwin/i ) ? 1 : 0;
 
    ## Create accessor functions.
    no strict 'refs'; no warnings 'redefine';
@@ -161,6 +155,7 @@ BEGIN {
 use constant { SELF => 0, CHUNK => 1, CID => 2 };
 
 our $_MCE_LOCK : shared = 1;
+our $_WIN_LOCK : shared = 1;
 
 my ($_def, $_imported) = ({});
 
@@ -252,6 +247,7 @@ use constant {
    OUTPUT_D_SND   => 'D~SND',  # Send >> File descriptor
    OUTPUT_B_SYN   => 'B~SYN',  # Barrier sync - begin
    OUTPUT_E_SYN   => 'E~SYN',  # Barrier sync - end
+   OUTPUT_S_IPC   => 'S~IPC',  # Change to win32 IPC
 
    READ_FILE      => 0,        # Worker reads file handle
    READ_MEMORY    => 1,        # Worker reads memory handle
@@ -278,11 +274,23 @@ sub CLONE {
 }
 
 sub DESTROY {
-   $_[0]->shutdown(1) if ( $_[0] && $_[0]->{_init_pid} eq "$$.$_tid" );
+   if ( $_[0] && $_[0]->{_spawned} && $_[0]->{_init_pid} eq "$$.$_tid" ) {
+      $_[0]->shutdown(1);
+   }
 }
 
 END {
-   $MCE = $TOP_HDLR = undef;
+   if ( defined $MCE ) {
+      MCE::Flow->finish   ( 'MCE' ) if $INC{'MCE/Flow.pm'};
+      MCE::Grep->finish   ( 'MCE' ) if $INC{'MCE/Grep.pm'};
+      MCE::Loop->finish   ( 'MCE' ) if $INC{'MCE/Loop.pm'};
+      MCE::Map->finish    ( 'MCE' ) if $INC{'MCE/Map.pm'};
+      MCE::Step->finish   ( 'MCE' ) if $INC{'MCE/Step.pm'};
+      MCE::Stream->finish ( 'MCE' ) if $INC{'MCE/Stream.pm'};
+
+      $TOP_HDLR = undef if defined $TOP_HDLR;
+      $MCE      = undef;
+   }
 }
 
 ###############################################################################
@@ -358,7 +366,7 @@ sub new {
       $self{_init_total_workers} = $self{max_workers};
       $self{_chunk_id} = $self{_task_wid} = $self{_wrk_status} = 0;
       $self{_spawned}  = $self{_task_id}  = $self{_wid} = 0;
-      $self{_init_pid} = 0;
+      $self{_init_pid} = "$$.$_tid";
 
       return \%self;
    }
@@ -427,6 +435,8 @@ sub new {
    ## -------------------------------------------------------------------------
    ## Private options. Limit chunk_size.
 
+   my $_run_lock;
+
    $self{_chunk_id}   = 0;  # Chunk ID
    $self{_send_cnt}   = 0;  # Number of times data was sent via send
    $self{_spawned}    = 0;  # Have workers been spawned
@@ -436,6 +446,7 @@ sub new {
    $self{_wrk_status} = 0;  # For saving exit status when worker exits
 
    $self{chunk_size}  = MAX_CHUNK_SIZE if ($self{chunk_size} > MAX_CHUNK_SIZE);
+   $self{_run_lock}   = threads::shared::share($_run_lock) if $_is_MSWin32;
 
    $self{_last_sref}  = (ref $self{input_data} eq 'SCALAR')
       ? refaddr($self{input_data}) : 0;
@@ -472,7 +483,7 @@ sub spawn {
 
    my $self = shift; $self = $MCE unless ref($self);
 
-   @_ = ();
+   local $_; @_ = ();
 
    _croak('MCE::spawn: method is not allowed by the worker process')
       if ($self->{_wid});
@@ -480,8 +491,11 @@ sub spawn {
    ## Return if workers have already been spawned or if module instance.
    return $self if ($self->{_spawned} || exists $self->{_module_instance});
 
+   lock $_MCE_LOCK if $_has_threads;  # Obtain locks
+   lock $_WIN_LOCK if $_is_MSWin32;
+
    ## Start the shared-manager process if present.
-   MCE::Shared::start() if ($INC{'MCE/Shared.pm'});
+   MCE::Shared->start() if $INC{'MCE/Shared.pm'};
 
    ## Load input module.
    if (defined $self->{sequence}) {
@@ -504,22 +518,28 @@ sub spawn {
       }
    }
 
-   ## Load POSIX if requested.
-   if ($self->{posix_exit} && !$self->{use_threads}) {
-      require POSIX unless $INC{'POSIX.pm'};
-   }
-
-   lock $_MCE_LOCK if ($self->{use_threads});  # Obtain MCE lock
-
    my $_die_handler  = $SIG{__DIE__};  $SIG{__DIE__}  = \&_die;
    my $_warn_handler = $SIG{__WARN__}; $SIG{__WARN__} = \&_warn;
 
    if (!defined $TOP_HDLR || (!$TOP_HDLR->{_mgr_live} && !$TOP_HDLR->{_wid})) {
+      ## On Windows, must shutdown the last idle MCE session.
+      if ($_is_MSWin32 && defined $TOP_HDLR && $TOP_HDLR->{_spawned}) {
+         $TOP_HDLR->shutdown(1);
+      }
       $TOP_HDLR = $self;
    }
    elsif (refaddr($self) != refaddr($TOP_HDLR)) {
+      ## Reduce the maximum number of channels for nested sessions.
       $self->{_data_channels} = 4 if ($self->{_data_channels} > 4);
-      $self->{_lock_chn}      = 1 if ($self->{_init_total_workers} > 4);
+      $self->{_lock_chn} = 1 if ($self->{_init_total_workers} > 4);
+
+      ## On Windows, instruct the manager process to enable win32 IPC.
+      if ($_is_MSWin32 && $ENV{'PERL_MCE_IPC'} ne 'win32') {
+         $ENV{'PERL_MCE_IPC'} = 'win32'; local $\ = undef;
+         my $_DAT_W_SOCK = $TOP_HDLR->{_dat_w_sock}->[0];
+         print  {$_DAT_W_SOCK} OUTPUT_S_IPC.$LF . '0'.$LF;
+         sysread $_DAT_W_SOCK, my($_buf), 1;
+      }
    }
 
    ## Configure tid/sid for this instance here, not in the new method above.
@@ -612,17 +632,17 @@ sub spawn {
    else {
       my ($_task_id, $_wid);
 
-      $_task_id = $_wid = $self->{_total_workers} = 0;
+      $self->{_total_workers}  = 0;
+      $self->{_total_workers} += $_->{max_workers} for @{ $self->{user_tasks} };
 
-      $self->{_total_workers} += $_->{max_workers}
-         for (@{ $self->{user_tasks} });
+      # Must spawn processes first for extra stability on BSD/Darwin.
+      $_task_id = $_wid = 0;
 
       for my $_task (@{ $self->{user_tasks} }) {
          my $_tsk_use_threads = $_task->{use_threads};
 
          if (defined $_tsk_use_threads && $_tsk_use_threads == 1) {
-            _dispatch_thread($self, ++$_wid, $_task, $_task_id, $_)
-               for (1 .. $_task->{max_workers});
+            $_wid += $_task->{max_workers};
          } else {
             _dispatch_child($self, ++$_wid, $_task, $_task_id, $_)
                for (1 .. $_task->{max_workers});
@@ -631,6 +651,23 @@ sub spawn {
          $_task_id++;
       }
 
+      # Then, spawn threads last.
+      $_task_id = $_wid = 0;
+
+      for my $_task (@{ $self->{user_tasks} }) {
+         my $_tsk_use_threads = $_task->{use_threads};
+
+         if (defined $_tsk_use_threads && $_tsk_use_threads == 1) {
+            _dispatch_thread($self, ++$_wid, $_task, $_task_id, $_)
+               for (1 .. $_task->{max_workers});
+         } else {
+            $_wid += $_task->{max_workers};
+         }
+
+         $_task_id++;
+      }
+
+      # Save state.
       $_task_id = $_wid = 0;
 
       for my $_task (@{ $self->{user_tasks} }) {
@@ -762,7 +799,7 @@ sub restart_worker {
       _dispatch_child($self, $_wid, $_task, $_task_id, $_task_wid, $_params);
    }
 
-   sleep 0.001;  # this sleeps for 0.015 on Windows and Cygwin
+   sleep 0.015;
 
    return;
 }
@@ -920,67 +957,63 @@ sub run {
       }
    }
    else {                                            # Nodata mode
-      $_run_mode  = 'nodata';
-      $_abort_msg = undef;
+      $_abort_msg = undef, $_run_mode = 'nodata';
    }
 
    ## -------------------------------------------------------------------------
 
-   my $_bounds_only   = $self->{bounds_only};
-   my $_interval      = $self->{interval};
-   my $_sequence      = $self->{sequence};
-   my $_user_args     = $self->{user_args};
-   my $_use_slurpio   = $self->{use_slurpio};
-   my $_parallel_io   = $self->{parallel_io};
-   my $_max_retries   = $self->{max_retries};
-   my $_sess_dir      = $self->{_sess_dir};
    my $_total_workers = $self->{_total_workers};
    my $_send_cnt      = $self->{_send_cnt};
-   my $_RS            = $self->{RS};
 
-   ## Begin processing.
-   unless ($_send_cnt) {
+   if ($_send_cnt) {
+      $self->{_total_running} = $_send_cnt;
+      $self->{_task}->[0]->{_total_running} = $_send_cnt;
+   }
+   else {
+      $self->{_total_running} = $_total_workers;
+
+      my ($_frozen_nodata, $_wid, %_params_nodata, %_task0_wids);
+      my  $_COM_R_SOCK   = $self->{_com_r_sock};
+      my  $_submit_delay = $self->{submit_delay};
 
       my %_params = (
-         '_abort_msg'   => $_abort_msg,    '_run_mode'    => $_run_mode,
-         '_chunk_size'  => $_chunk_size,   '_single_dim'  => $_single_dim,
-         '_input_file'  => $_input_file,   '_interval'    => $_interval,
-         '_sequence'    => $_sequence,     '_bounds_only' => $_bounds_only,
-         '_use_slurpio' => $_use_slurpio,  '_parallel_io' => $_parallel_io,
-         '_user_args'   => $_user_args,    '_RS'          => $_RS,
-         '_max_retries' => $_max_retries,
+         '_abort_msg'   => $_abort_msg,  '_run_mode'   => $_run_mode,
+         '_input_file'  => $_input_file, '_chunk_size' => $_chunk_size,
+         '_single_dim'  => $_single_dim,
+         '_bounds_only' => $self->{bounds_only},
+         '_interval'    => $self->{interval},
+         '_max_retries' => $self->{max_retries},
+         '_parallel_io' => $self->{parallel_io},
+         '_sequence'    => $self->{sequence},
+         '_user_args'   => $self->{user_args},
+         '_use_slurpio' => $self->{use_slurpio},
+         '_RS'          => $self->{RS}
       );
-      my %_params_nodata = (
-         '_abort_msg'   => undef,          '_run_mode'    => 'nodata',
-         '_chunk_size'  => $_chunk_size,   '_single_dim'  => $_single_dim,
-         '_input_file'  => $_input_file,   '_interval'    => $_interval,
-         '_sequence'    => $_sequence,     '_bounds_only' => $_bounds_only,
-         '_use_slurpio' => $_use_slurpio,  '_parallel_io' => $_parallel_io,
-         '_user_args'   => $_user_args,    '_RS'          => $_RS,
-         '_max_retries' => $_max_retries,
-      );
+
+      my $_frozen_params = $self->{freeze}(\%_params);
+         $_frozen_params = length($_frozen_params).$LF . $_frozen_params;
+
+      if ($_has_user_tasks) {
+         %_params_nodata = ( %_params,
+            '_abort_msg' => undef, '_run_mode' => 'nodata'
+         );
+         $_frozen_nodata = $self->{freeze}(\%_params_nodata);
+         $_frozen_nodata = length($_frozen_nodata).$LF . $_frozen_nodata;
+
+         for my $_t (@{ $self->{_task} }) {
+            $_t->{_total_running} = $_t->{_total_workers};
+         }
+         for my $_i (1 .. @{ $self->{_state} } - 1) {
+            $_task0_wids{$_i} = 1 unless ($self->{_state}[$_i]{_task_id});
+         }
+      }
 
       local $\ = undef; local $/ = $LF;
-
-      ## Obtain lock.
-      lock $_MCE_LOCK if ($self->{use_threads});
-
-      my ($_frozen_nodata, $_wid, %_task0_wids);
-      my $_BSE_W_SOCK    = $self->{_bse_w_sock};
-      my $_COM_R_SOCK    = $self->{_com_r_sock};
-      my $_submit_delay  = $self->{submit_delay};
-      my $_frozen_params = $self->{freeze}(\%_params);
-
-      $_frozen_nodata = $self->{freeze}(\%_params_nodata) if ($_has_user_tasks);
-
-      if ($_has_user_tasks) { for my $_i (1 .. @{ $self->{_state} } - 1) {
-         $_task0_wids{$_i} = 1 unless ($self->{_state}->[$_i]->{_task_id});
-      }}
 
       ## Insert the first message into the queue if defined.
       if (defined $_first_msg) {
          my $_QUE_W_SOCK = $self->{_que_w_sock};
-         1 until syswrite $_QUE_W_SOCK, pack($_que_template, 0, $_first_msg);
+         syswrite $_QUE_W_SOCK, pack($_que_template, 0, $_first_msg);
       }
 
       ## Submit params data to workers.
@@ -989,11 +1022,11 @@ sub run {
          chomp($_wid = <$_COM_R_SOCK>);
 
          if (!$_has_user_tasks || exists $_task0_wids{$_wid}) {
-            print {$_COM_R_SOCK} length($_frozen_params).$LF, $_frozen_params;
-            $self->{_state}->[$_wid]->{_params} = \%_params;
+            print {$_COM_R_SOCK} $_frozen_params;
+            $self->{_state}[$_wid]{_params} = \%_params;
          } else {
-            print {$_COM_R_SOCK} length($_frozen_nodata).$LF, $_frozen_nodata;
-            $self->{_state}->[$_wid]->{_params} = \%_params_nodata;
+            print {$_COM_R_SOCK} $_frozen_nodata;
+            $self->{_state}[$_wid]{_params} = \%_params_nodata;
          }
 
          <$_COM_R_SOCK>;
@@ -1002,60 +1035,63 @@ sub run {
             sleep $_submit_delay;
          }
       }
-
-      ## Notify workers to begin processing.
-      for (1 .. $_total_workers) {
-         1 until syswrite $_BSE_W_SOCK, $LF;
-      }
    }
 
    ## -------------------------------------------------------------------------
 
    $self->{_total_exited} = 0;
 
-   if ($_send_cnt) {
-      $self->{_total_running} = $_send_cnt;
-      $self->{_task}->[0]->{_total_running} = $_send_cnt;
-   }
-   else {
-      $self->{_total_running} = $_total_workers;
-      if (defined $self->{user_tasks}) {
-         $_->{_total_running} = $_->{_total_workers} for (@{ $self->{_task} });
-      }
-   }
-
    ## Call the output function.
    if ($self->{_total_running} > 0) {
       $self->{_mgr_live}   = 1;
       $self->{_abort_msg}  = $_abort_msg;
-      $self->{_run_mode}   = $_run_mode;
       $self->{_single_dim} = $_single_dim;
+
+      lock $self->{_run_lock} if $_is_MSWin32;
+
+      if (!$_send_cnt) {
+         ## Notify workers to commence processing.
+         if ($_is_MSWin32) {
+            my $_buf = sprintf("%${_total_workers}s", "");
+            syswrite $self->{_bse_w_sock}, $_buf;
+         } else {
+            my $_BSE_W_SOCK = $self->{_bse_w_sock};
+            for my $_i (1 .. $_total_workers) {
+               syswrite $_BSE_W_SOCK, $LF;
+            }
+         }
+      }
 
       _output_loop( $self, $_input_data, $_input_glob,
          \%_plugin_function, \@_plugin_loop_begin, \@_plugin_loop_end
       );
 
-      undef $self->{_mgr_live};
-      undef $self->{_abort_msg};
-      undef $self->{_run_mode};
-      undef $self->{_single_dim};
+      $self->{_mgr_live} = $self->{_abort_msg} = $self->{_single_dim} = undef;
    }
 
-   unless ($_send_cnt) {
-      ## Remove the last message from the queue.
-      unless ($_run_mode eq 'nodata') {
-         if (defined $self->{_que_r_sock}) {
-            my $_QUE_R_SOCK = $self->{_que_r_sock};
-            1 until sysread $_QUE_R_SOCK, (my $_next), $_que_read_size;
-         }
+   ## Remove the last message from the queue.
+   if (!$_send_cnt && $_run_mode ne 'nodata') {
+      if (defined $self->{_que_r_sock}) {
+         my $_QUE_R_SOCK = $self->{_que_r_sock};
+         sysread $_QUE_R_SOCK, my($_next), $_que_read_size;
       }
    }
 
    $self->{_send_cnt} = 0;
 
-   ## Shutdown workers (also, if any workers have exited).
-   if ($_auto_shutdown == 1 || $self->{_total_exited} > 0) {
+   ## Shutdown workers.
+   if ( $_auto_shutdown || $self->{_total_exited} ) {
       $self->shutdown();
+   }
+   elsif (!defined $^S || $^S || $ENV{'PERL_IPERL_RUNNING'}) {
+      # running inside eval or IPerl, check stack trace
+      my $_t = Carp::longmess(); $_t =~ s/\teval [^\n]+\n$//;
+
+      if ( $_t =~ /^(?:[^\n]+\n){1,7}\teval / ||
+           $_t =~ /\n\teval [^\n]+\n\t(?:eval|Try)/ )
+      {
+         $self->shutdown();
+      }
    }
 
    return $self;
@@ -1143,8 +1179,8 @@ sub shutdown {
    @_ = ();
 
    ## Return if workers have not been spawned or have already been shutdown.
-   return unless (defined $MCE::Signal::tmp_dir);
    return unless ($self->{_spawned});
+   return unless (defined $MCE::Signal::tmp_dir);
 
    _validate_runstate($self, 'MCE::shutdown');
 
@@ -1153,8 +1189,6 @@ sub shutdown {
 
    local $SIG{__DIE__}  = \&_die;
    local $SIG{__WARN__} = \&_warn;
-
-   lock $_MCE_LOCK if ($self->{use_threads} && !$_no_lock);
 
    my $_COM_R_SOCK     = $self->{_com_r_sock};
    my $_data_channels  = $self->{_data_channels};
@@ -1168,8 +1202,10 @@ sub shutdown {
 
    ## -------------------------------------------------------------------------
 
+   lock $_MCE_LOCK if ($_has_threads && $_is_winenv && !$_no_lock);
+
    ## Notify workers to exit loop.
-   local ($!, $?); local $\ = undef; local $/ = $LF;
+   local ($!, $?, $_); local $\ = undef; local $/ = $LF;
 
    for (1 .. $_total_workers) {
       print {$_COM_R_SOCK} '_exit'.$LF;
@@ -1177,13 +1213,13 @@ sub shutdown {
    }
 
    ## Reap children and/or threads.
-   if (defined $self->{_pids} && @{ $self->{_pids} } > 0) {
+   if (@{ $self->{_pids} } > 0) {
       my $_list = $self->{_pids};
       for my $i (0 .. @{ $_list }) {
          waitpid $_list->[$i], 0 if ($_list->[$i]);
       }
    }
-   if (defined $self->{_thrs} && @{ $self->{_thrs} } > 0) {
+   if (@{ $self->{_thrs} } > 0) {
       my $_list = $self->{_thrs};
       for my $i (0 .. @{ $_list }) {
          ${ $_list->[$i] }->join() if ($_list->[$i]);
@@ -1251,23 +1287,22 @@ sub sync {
    my $_DAT_W_SOCK = $self->{_dat_w_sock}->[0];
    my $_BSB_R_SOCK = $self->{_bsb_r_sock};
    my $_BSE_R_SOCK = $self->{_bse_r_sock};
-   my $_buffer;
+   my $_buf;
 
-   local $\ = undef if (defined $\); local $/ = $LF if (!$/ || $/ ne $LF);
+   local $\ = undef if (defined $\);
 
-   ## Notify the manager process (begin).
+   ## Notify the manager process (barrier begin).
    print {$_DAT_W_SOCK} OUTPUT_B_SYN.$LF . $_chn.$LF;
 
-   ## Wait here until all workers (task_id 0) have synced.
+   ## Wait until all workers from (task_id 0) have synced.
    MCE::Util::_sock_ready($_BSB_R_SOCK) if $_is_MSWin32;
-   1 until sysread $_BSB_R_SOCK, $_buffer, 1;
+   sysread $_BSB_R_SOCK, $_buf, 1;
 
-   ## Notify the manager process (end).
+   ## Notify the manager process (barrier end).
    print {$_DAT_W_SOCK} OUTPUT_E_SYN.$LF . $_chn.$LF;
 
-   ## Wait here until all workers (task_id 0) have un-synced.
-   MCE::Util::_sock_ready($_BSE_R_SOCK) if $_is_MSWin32;
-   1 until sysread $_BSE_R_SOCK, $_buffer, 1;
+   ## Wait until all workers from (task_id 0) have un-synced.
+   sysread $_BSE_R_SOCK, $_buf, 1;
 
    return;
 }
@@ -1316,8 +1351,8 @@ sub abort {
       local $\ = undef;
 
       if ($_abort_msg > 0) {
-         1 until sysread  $_QUE_R_SOCK, (my $_next), $_que_read_size;
-         1 until syswrite $_QUE_W_SOCK, pack($_que_template, 0, $_abort_msg);
+         sysread  $_QUE_R_SOCK, my($_next), $_que_read_size;
+         syswrite $_QUE_W_SOCK, pack($_que_template, 0, $_abort_msg);
       }
 
       if ($self->{_wid} > 0) {
@@ -1395,24 +1430,10 @@ sub exit {
          print {$_DAU_W_SOCK} '0'.$LF;
       }
 
-      <$_DAU_W_SOCK> unless ($^O eq 'MSWin32');
-
       $_DAT_LOCK->unlock() if $_lock_chn;
    }
 
-   ## Check for any Hobo workers not yet joined.
-   MCE::Hobo->finish( __PACKAGE__ ) if $INC{'MCE/Hobo.pm'};
-
-   ## Exit thread/child process.
-   if ($self->{use_threads} || ($_has_threads && $_is_MSWin32)) {
-      threads->exit($_exit_status);
-   }
-   elsif ($self->{posix_exit}) {
-      require POSIX unless $INC{'POSIX.pm'};
-      POSIX::_exit($_exit_status);
-   }
-
-   CORE::exit($_exit_status);
+   _exit($self);
 }
 
 ## Worker immediately exits the chunking loop.
@@ -1678,6 +1699,24 @@ sub _croak {
    $\ = undef; goto &Carp::croak;
 }
 
+sub _exit {
+
+   my $self = shift;
+
+   ## Exit thread/child process.
+   $SIG{__DIE__}  = sub { } unless $_tid;
+   $SIG{__WARN__} = sub { };
+
+   if ($self->{use_threads}) {
+      threads->exit(0);
+   }
+   elsif ($self->{posix_exit} && !$_is_MSWin32) {
+      CORE::kill('KILL', $$);
+   }
+
+   CORE::exit(0);
+}
+
 sub _get_max_workers {
 
    my $self = shift; $self = $MCE unless ref($self);
@@ -1755,6 +1794,8 @@ sub _dispatch {
    ## To avoid (Scalars leaked: N) messages; fixed in Perl 5.12.x
    @_ = ();
 
+   $ENV{'PERL_MCE_IPC'} = 'win32' if ($_is_MSWin32 && $INC{'MCE/Hobo.pm'});
+
    ## Sets the seed of the base generator uniquely between workers.
    if ($INC{'Math/Random.pm'} && !$self->{use_threads}) {
       my ($_wid, $_cur_seed) = ($_args[1], Math::Random::random_get_seed());
@@ -1770,19 +1811,8 @@ sub _dispatch {
    $self->{_pid} = ($_is_thread) ? $$ .'.'. threads->tid() : $$;
    _worker_main(@_args, \@_plugin_worker_init);
 
-   ## Check for any Hobo workers not yet joined.
-   MCE::Hobo->finish( __PACKAGE__ ) if $INC{'MCE/Hobo.pm'};
-
-   ## Exit thread/child process.
-   if ($self->{use_threads} || ($_has_threads && $_is_MSWin32)) {
-      threads->exit(0);
-   }
-   elsif ($self->{posix_exit}) {
-      require POSIX unless $INC{'POSIX.pm'};
-      POSIX::_exit(0);
-   }
-
-   CORE::exit(0);
+   ## Exit worker.
+   _exit($self);
 }
 
 sub _dispatch_thread {
@@ -1812,8 +1842,6 @@ sub _dispatch_thread {
 
    if (defined $self->{spawn_delay} && $self->{spawn_delay} > 0.0) {
       sleep $self->{spawn_delay};
-   } elsif ($_wid % 4 == 0) {
-      sleep 0.001;  # this sleeps for 0.015 on Windows and Cygwin
    }
 
    return;
@@ -1844,8 +1872,6 @@ sub _dispatch_child {
 
    if (defined $self->{spawn_delay} && $self->{spawn_delay} > 0.0) {
       sleep $self->{spawn_delay};
-   } elsif ($_is_winenv && $_wid % 4 == 0) {
-      sleep 0.015;
    }
 
    return;

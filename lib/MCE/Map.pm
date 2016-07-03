@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.800';
+our $VERSION = '1.801';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -84,10 +84,6 @@ sub import {
    return;
 }
 
-END {
-   %{ $_MCE } = ();
-}
-
 ###############################################################################
 ## ----------------------------------------------------------------------------
 ## Gather callback for storing by chunk_id => chunk_ref into a hash.
@@ -129,18 +125,18 @@ sub finish (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Map');
    my $_pkg = (defined $_[0]) ? shift : "$$.$_tid.".caller();
 
-   if ( $_pkg eq 'MCE::Shared::Server' ) {
-      MCE::Map->finish($_, 1) for ( keys %{ $_MCE } );
-      %{ $_MCE } = ();
+   if ( $_pkg eq 'MCE' ) {
+      for my $_k ( keys %{ $_MCE } ) { MCE::Map->finish($_k, 1); }
    }
-   elsif ( exists $_MCE->{$_pkg} ) {
-      MCE::_save_state(), $_MCE->{$_pkg}->shutdown(@_), MCE::_restore_state()
-         if $_MCE->{$_pkg}{_spawned};
-
+   elsif ( $_MCE->{$_pkg} && $_MCE->{$_pkg}{_init_pid} eq "$$.$_tid" ) {
+      $_MCE->{$_pkg}->shutdown(@_) if $_MCE->{$_pkg}{_spawned};
       $_total_chunks = undef, undef %_tmp;
 
       delete $_prev_c->{$_pkg};
+      delete $_MCE->{$_pkg};
    }
+
+   @_ = ();
 
    return;
 }
@@ -395,11 +391,11 @@ sub run (&@) {
       }
    }
 
-   if ($^S || $ENV{'PERL_IPERL_RUNNING'} || $INC{'MCE/Hobo.pm'}) {
+   MCE::_restore_state();
+
+   if ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
       $_MCE->{$_pid}->shutdown(); # shutdown if in eval state
    }
-
-   MCE::_restore_state();
 
    if ($_wantarray) {
       return map { @{ $_ } } delete @_tmp{ 1 .. $_total_chunks };
@@ -453,7 +449,7 @@ MCE::Map - Parallel map model similar to the native map function
 
 =head1 VERSION
 
-This document describes MCE::Map version 1.800
+This document describes MCE::Map version 1.801
 
 =head1 SYNOPSIS
 

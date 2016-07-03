@@ -1,6 +1,22 @@
 
 Revision history for Perl module MCE.
 
+1.801 Sun Jul 03 00:30:00 EST 2016
+
+  [BUG FIXES]
+
+  * Fixed race condition in Queue->await.
+
+  [ENHANCEMENTS]
+
+  * MCE 1.801 is stable on all supported platforms.
+
+  * Completed work supporting cyclical include of MCE Core / Models.
+  * Updated MCE to support Perl included with Git Bash.
+
+  * Renamed temp dir from 'mce' to 'Perl-MCE' under user's %TEMP%
+    location on Windows. E.g. Native Perl, Cygwin, Git Bash.
+
 1.800 Sat Jun 18 16:30:00 EST 2016
 
   [BUG FIXES]

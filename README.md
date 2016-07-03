@@ -1,6 +1,6 @@
 ## Many-Core Engine for Perl
 
-This document describes MCE version 1.800.
+This document describes MCE version 1.801.
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
@@ -156,7 +156,6 @@ MCE utilizes the following modules, which are typically installed with Perl:
     Fcntl
     File::Path
     IO::Handle
-    POSIX
     Scalar::Util
     Socket
     Storable 2.04+

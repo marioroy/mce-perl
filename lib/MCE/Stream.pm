@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.800';
+our $VERSION = '1.801';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -94,10 +94,6 @@ sub import {
    return;
 }
 
-END {
-   %{ $_MCE } = ();
-}
-
 ###############################################################################
 ## ----------------------------------------------------------------------------
 ## Gather callback to ensure chunk order is preserved during gathering.
@@ -165,14 +161,11 @@ sub finish (@) {
    shift if (defined $_[0] && $_[0] eq 'MCE::Stream');
    my $_pkg = (defined $_[0]) ? shift : "$$.$_tid.".caller();
 
-   if ( $_pkg eq 'MCE::Shared::Server' ) {
-      MCE::Stream->finish($_, 1) for ( keys %{ $_MCE } );
-      %{ $_MCE } = ();
+   if ( $_pkg eq 'MCE' ) {
+      for my $_k ( keys %{ $_MCE } ) { MCE::Stream->finish($_k, 1); }
    }
-   elsif ( exists $_MCE->{$_pkg} ) {
-      MCE::_save_state(), $_MCE->{$_pkg}->shutdown(@_), MCE::_restore_state()
-         if $_MCE->{$_pkg}{_spawned};
-
+   elsif ( $_MCE->{$_pkg} && $_MCE->{$_pkg}{_init_pid} eq "$$.$_tid" ) {
+      $_MCE->{$_pkg}->shutdown(@_) if $_MCE->{$_pkg}{_spawned};
       $_gather_ref = $_order_id = undef, undef %_tmp;
 
       delete $_user_tasks->{$_pkg};
@@ -180,6 +173,7 @@ sub finish (@) {
       delete $_prev_m->{$_pkg};
       delete $_prev_n->{$_pkg};
       delete $_prev_w->{$_pkg};
+      delete $_MCE->{$_pkg};
 
       if (defined $_queue->{$_pkg}) {
          local $_;
@@ -187,6 +181,8 @@ sub finish (@) {
          delete $_queue->{$_pkg};
       }
    }
+
+   @_ = ();
 
    return;
 }
@@ -447,7 +443,10 @@ sub run (@) {
       push @{ $_Q }, MCE::Queue->new(fast => $_def->{$_pkg}{FAST})
          for (@{ $_Q } .. @_code - 2);
 
-      _gen_user_tasks($_pid, $_Q, \@_code, \@_mode, \@_name, \@_wrks);
+      ## must clear arrays for nested session to work with Perl < v5.14
+      _gen_user_tasks($_pid, $_Q, [@_code], [@_mode], [@_name], [@_wrks]);
+
+      @_code = @_mode = @_name = @_wrks = ();
 
       my %_opts = (
          max_workers => $_max_workers, task_name => $_tag,
@@ -519,13 +518,13 @@ sub run (@) {
       }
    }
 
-   if ($^S || $ENV{'PERL_IPERL_RUNNING'} || $INC{'MCE/Hobo.pm'}) {
+   MCE::_restore_state();
+
+   if ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
       $_MCE->{$_pid}->shutdown(); # shutdown if in eval state
       $_->DESTROY() for (@{ $_queue->{$_pid} });
       delete $_queue->{$_pid};
    }
-
-   MCE::_restore_state();
 
    return map { @{ $_ } } delete @_tmp{ 1 .. $_order_id - 1 }
       unless (defined $_aref);
@@ -680,7 +679,7 @@ MCE::Stream - Parallel stream model for chaining multiple maps and greps
 
 =head1 VERSION
 
-This document describes MCE::Stream version 1.800
+This document describes MCE::Stream version 1.801
 
 =head1 SYNOPSIS
 

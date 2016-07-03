@@ -11,31 +11,35 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.800';
+our $VERSION = '1.801';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
 our ($display_die_with_localtime, $display_warn_with_localtime);
 our ($main_proc_id, $prog_name, $tmp_dir);
 
+my  ($_is_winenv);
+
 use Carp ();
 
 BEGIN {
+   local $@; local $SIG{__DIE__};
+
    $main_proc_id =  $$;
    $prog_name    =  $0;
    $prog_name    =~ s{^.*[\\/]}{}g;
    $prog_name    =  'perl' if ($prog_name eq '-e' || $prog_name eq '-');
 
-   if ($^O eq 'MSWin32' && !defined $threads::VERSION) {
-      local $@; local $SIG{__DIE__};
+   $_is_winenv   =  ($^O =~ /mswin|mingw|msys|cygwin/i) ? 1 : 0;
+
+   if ($^O eq 'MSWin32' && !$INC{'threads.pm'}) {
       eval 'use threads; use threads::shared';
    }
-   elsif (defined $threads::VERSION) {
-      unless (defined $threads::shared::VERSION) {
-         local $@; local $SIG{__DIE__};
-         eval 'use threads::shared';
-      }
+   elsif ($INC{'threads.pm'} && !$INC{'threads/shared.pm'}) {
+      eval 'use threads::shared';
    }
+
+   return;
 }
 
 use File::Path ();
@@ -100,8 +104,8 @@ sub import {
    my ($_count, $_tmp_base_dir) = (0);
 
    if (exists $ENV{TEMP} && -d $ENV{TEMP} && -w $ENV{TEMP}) {
-      if ($_is_MSWin32) {
-         $_tmp_base_dir = $ENV{TEMP} . '/mce';
+      if ( $_is_winenv ) {
+         $_tmp_base_dir = $ENV{TEMP} . '/Perl-MCE';
          mkdir $_tmp_base_dir unless (-d $_tmp_base_dir);
       } else {
          $_tmp_base_dir = $ENV{TEMP};
@@ -274,8 +278,10 @@ sub stop_and_exit {
          if (defined $tmp_dir && $tmp_dir ne '' && -d $tmp_dir) {
             if ($_keep_tmp_dir == 1) {
                print {*STDERR} "$prog_name: saved tmp_dir = $tmp_dir\n";
-            } elsif ($tmp_dir ne '/tmp' && $tmp_dir ne '/var/tmp') {
-               File::Path::rmtree($tmp_dir);
+            }
+            elsif ($tmp_dir ne '/tmp' && $tmp_dir ne '/var/tmp') {
+               chdir $ENV{'TEMP'} if ($_is_winenv && $ENV{'TEMP'});
+               eval q{ File::Path::rmtree($tmp_dir) };
             }
             $tmp_dir = undef;
          }
@@ -303,8 +309,10 @@ sub stop_and_exit {
          if ($^O eq 'MSWin32') {
             if ($_keep_tmp_dir == 1) {
                print {*STDERR} "$prog_name: saved tmp_dir = $tmp_dir\n";
-            } elsif ($tmp_dir ne '/tmp' && $tmp_dir ne '/var/tmp') {
-               File::Path::rmtree($tmp_dir);
+            }
+            elsif ($tmp_dir ne '/tmp' && $tmp_dir ne '/var/tmp') {
+               chdir $ENV{'TEMP'} if ($_is_winenv && $ENV{'TEMP'});
+               eval q{ File::Path::rmtree($tmp_dir) };
             }
             $tmp_dir = undef;
             CORE::kill('KILL', $main_proc_id, -$$);
@@ -443,7 +451,7 @@ MCE::Signal - Temporary directory creation/cleanup and signal handling
 
 =head1 VERSION
 
-This document describes MCE::Signal version 1.800
+This document describes MCE::Signal version 1.801
 
 =head1 SYNOPSIS
 
@@ -476,7 +484,7 @@ and terminates itself.
 
 The location of the temp directory resides under $ENV{TEMP} if defined,
 otherwise /dev/shm if writeable and -use_dev_shm is specified, or /tmp.
-On Windows, the temp directory resides under $ENV{TEMP}/mce/ for native Perl.
+On Windows, the temp directory is made under $ENV{TEMP}/Perl-MCE/.
 
 As of MCE 1.405, MCE::Signal no longer calls setpgrp by default. Pass the
 -setpgrp option to MCE::Signal to call setpgrp.

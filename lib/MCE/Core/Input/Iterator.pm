@@ -14,7 +14,7 @@ package MCE::Core::Input::Iterator;
 use strict;
 use warnings;
 
-our $VERSION = '1.800';
+our $VERSION = '1.801';
 
 ## Items below are folded into MCE.
 
@@ -52,8 +52,8 @@ sub _worker_user_iterator {
    my ($_dat_ex, $_dat_un);
 
    if ($_lock_chn) {
-      $_dat_ex = sub { 1 until sysread(  $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
-      $_dat_un = sub { 1 until syswrite( $_DAT_LOCK->{_w_sock}, '0' ) };
+      $_dat_ex = sub {  sysread ( $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
+      $_dat_un = sub { syswrite ( $_DAT_LOCK->{_w_sock}, '0' ) };
    }
 
    my ($_chunk_id, $_len, $_is_ref);

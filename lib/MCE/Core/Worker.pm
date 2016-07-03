@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.800';
+our $VERSION = '1.801';
 
 ## Items below are folded into MCE.
 
@@ -292,8 +292,8 @@ use bytes;
       $_task_id    = $self->{_task_id};
 
       if ($_lock_chn) {
-         $_dat_ex = sub { 1 until sysread(  $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
-         $_dat_un = sub { 1 until syswrite( $_DAT_LOCK->{_w_sock}, '0' ) };
+         $_dat_ex = sub {  sysread ( $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
+         $_dat_un = sub { syswrite ( $_DAT_LOCK->{_w_sock}, '0' ) };
       }
 
       local ($|, $!, $@);
@@ -459,6 +459,9 @@ sub _worker_do {
       $self->{user_end}($self, $_task_id, $_task_name);
    }
 
+   ## Check nested Hobo workers not yet joined.
+   MCE::Hobo->finish('MCE') if $INC{'MCE/Hobo.pm'};
+
    ## Notify the main process a worker has completed.
    local $\ = undef if (defined $\);
 
@@ -473,6 +476,10 @@ sub _worker_do {
    print {$_DAU_W_SOCK} $_task_id.$LF;
 
    $_DAT_LOCK->unlock() if $_lock_chn;
+
+   if ($^O eq 'MSWin32') {
+      lock $self->{_run_lock};
+   }
 
    return;
 }
@@ -496,11 +503,14 @@ sub _worker_loop {
    my $_job_delay  = $self->{job_delay};
    my $_wid        = $self->{_wid};
 
-   my $_com_ex = sub { 1 until sysread(  $_COM_LOCK->{_r_sock}, my $_b, 1 ) };
-   my $_com_un = sub { 1 until syswrite( $_COM_LOCK->{_w_sock}, '0' ) };
+   my $_com_ex = sub {  sysread ( $_COM_LOCK->{_r_sock}, my $_b, 1 ) };
+   my $_com_un = sub { syswrite ( $_COM_LOCK->{_w_sock}, '0' ) };
+
+   if ( $^O eq 'MSWin32' ) {
+      lock $MCE::_WIN_LOCK;
+   }
 
    while (1) {
-      MCE::Util::_sock_ready($_COM_W_SOCK) if ($^O eq 'MSWin32');
 
       {
          local $\ = undef; local $/ = $LF;
@@ -510,20 +520,14 @@ sub _worker_loop {
          $_response = <$_COM_W_SOCK>;
          print {$_COM_W_SOCK} $_wid.$LF;
 
-         ## End loop if invalid response.
-         last unless (defined $_response);
-         chomp $_response;
-
-         last if ($_response !~ /\A(?:\d+|_data|_exit)\z/);
-
-         ## Return to caller if instructed to exit.
-         if ($_response eq '_exit') {
+         ## Return if instructed to exit.
+         if ($_response eq "_exit\n") {
             $_com_un->();
             return;
          }
 
-         ## Process user data.
-         if ($_response eq '_data') {
+         ## Process send request.
+         if ($_response eq "_data\n") {
             chomp($_len = <$_COM_W_SOCK>);
             read $_COM_W_SOCK, $_buf, $_len;
 
@@ -536,12 +540,10 @@ sub _worker_loop {
             if (defined $_job_delay && $_job_delay > 0.0) {
                sleep $_job_delay * $_wid;
             }
-
-            _worker_do($self, {});
          }
 
-         ## Otherwise, process normally.
-         else {
+         ## Process normal request.
+         elsif ($_response =~ /\d+/) {
             chomp($_len = <$_COM_W_SOCK>);
             read $_COM_W_SOCK, $_buf, $_len;
 
@@ -551,20 +553,25 @@ sub _worker_loop {
             $_params_ref = $self->{thaw}($_buf);
             undef $_buf;
          }
+
+         ## Leave loop if invalid response.
+         else {
+            last;
+         }
       }
 
-      ## Start over if the last response was for processing user data.
-      next if ($_response eq '_data');
+      ## Send request.
+      _worker_do($self, {}), next if ($_response eq "_data\n");
 
       ## Wait here until MCE completes job submission to all workers.
-      1 until sysread $self->{_bse_r_sock}, (my $_c), 1;
+      sysread $self->{_bse_r_sock}, my($_b), 1;
 
+      ## Normal request.
       if (defined $_job_delay && $_job_delay > 0.0) {
          sleep $_job_delay * $_wid;
       }
 
-      _worker_do($self, $_params_ref);
-      undef $_params_ref;
+      _worker_do($self, $_params_ref); undef $_params_ref;
    }
 
    ## Notify the main process a worker has ended. The following is executed
@@ -640,6 +647,7 @@ sub _worker_main {
    $self->{gather}      = $_task->{gather}      if ($_task->{gather});
    $self->{interval}    = $_task->{interval}    if ($_task->{interval});
    $self->{sequence}    = $_task->{sequence}    if ($_task->{sequence});
+   $self->{bounds_only} = $_task->{bounds_only} if ($_task->{bounds_only});
    $self->{task_name}   = $_task->{task_name}   if ($_task->{task_name});
    $self->{user_args}   = $_task->{user_args}   if ($_task->{user_args});
    $self->{user_begin}  = $_task->{user_begin}  if ($_task->{user_begin});
