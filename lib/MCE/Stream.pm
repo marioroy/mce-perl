@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.801';
+our $VERSION = '1.802';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -679,7 +679,7 @@ MCE::Stream - Parallel stream model for chaining multiple maps and greps
 
 =head1 VERSION
 
-This document describes MCE::Stream version 1.801
+This document describes MCE::Stream version 1.802
 
 =head1 SYNOPSIS
 
@@ -785,13 +785,10 @@ The following list options which may be overridden when loading the module.
        fast => 1                        # Default 0 (fast dequeue)
    ;
 
-There is a simpler way to enable Sereal. The following will attempt to use
-Sereal if available, otherwise defaults to Storable for serialization.
+From MCE 1.8 onwards, Sereal 3.008+ is loaded automatically if available with
+Perl 5.12 or later. Specify C<Sereal => 0> if Storable is desired instead.
 
-   use MCE::Stream Sereal => 1;
-
-From MCE 1.800 onwards, this is done automatically if Sereal 3.008 or later
-is installed. Specify Sereal => 0 if Storable is desired.
+   use MCE::Stream Sereal => 0;
 
 =head1 CUSTOMIZING MCE
 

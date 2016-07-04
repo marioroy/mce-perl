@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.802 Mon Jul 04 03:30:00 EST 2016
+
+  * Default to Storable for serialization in Perl less than v5.12.0.
+    Sereal 3.008+, if available, is loaded automatically in Perl v5.12+.
+
 1.801 Sun Jul 03 00:30:00 EST 2016
 
   [BUG FIXES]
