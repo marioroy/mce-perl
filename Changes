@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.803 Sun Jul 10 23:30:00 EST 2016
+
+  * Re-enabled Sereal 3.008+ for Perl < v5.12.0, if available.
+  * Optimized dequeue methods in MCE::Queue.
+
 1.802 Mon Jul 04 03:30:00 EST 2016
 
   * Default to Storable for serialization in Perl less than v5.12.0.

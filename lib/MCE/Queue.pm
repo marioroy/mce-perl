@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.802';
+our $VERSION = '1.803';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -806,25 +806,23 @@ sub _heap_insert_high {
          }
 
          if ($_cnt) {
-            unless (defined $_items[0]) {
-               print {$_DAU_R_SOCK} '-1'.$LF;
-            } else {
+            if (defined $_items[0]) {
                $_buf = $_MCE->{freeze}(\@_items);
                print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
-            }
-         }
-         else {
-            unless (defined $_buf) {
+            } else {
                print {$_DAU_R_SOCK} '-1'.$LF;
             }
-            else {
-               if (ref $_buf) {
-                  $_buf  = $_MCE->{freeze}($_buf).'1';
-               } else {
-                  $_buf .= '0';
-               }
-               print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
+         }
+         elsif (defined $_buf) {
+            if (!ref $_buf) {
+               $_buf .= '0';
+            } else {
+               $_buf  = $_MCE->{freeze}($_buf).'1';
             }
+            print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
+         }
+         else {
+            print {$_DAU_R_SOCK} '-1'.$LF;
          }
 
          if ($_Q->{_await} && $_Q->{_asem} && $_Q->_pending() <= $_Q->{_tsem}) {
@@ -848,25 +846,26 @@ sub _heap_insert_high {
          if ($_cnt == 1) {
             my $_buf = $_Q->_dequeue();
 
-            unless (defined $_buf) {
-               print {$_DAU_R_SOCK} '-1'.$LF;
-            } else {
-               if (ref $_buf) {
-                  $_buf  = $_MCE->{freeze}($_buf).'1';
-               } else {
+            if (defined $_buf) {
+               if (!ref $_buf) {
                   $_buf .= '0';
+               } else {
+                  $_buf  = $_MCE->{freeze}($_buf).'1';
                }
                print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
+            }
+            else {
+               print {$_DAU_R_SOCK} '-1'.$LF;
             }
          }
          else {
             my @_items; push(@_items, $_Q->_dequeue()) for (1 .. $_cnt);
 
-            unless (defined $_items[0]) {
-               print {$_DAU_R_SOCK} '-1'.$LF;
-            } else {
+            if (defined $_items[0]) {
                my $_buf = $_MCE->{freeze}(\@_items);
                print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
+            } else {
+               print {$_DAU_R_SOCK} '-1'.$LF;
             }
          }
 
@@ -1638,7 +1637,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.802
+This document describes MCE::Queue version 1.803
 
 =head1 SYNOPSIS
 

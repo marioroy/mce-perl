@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.802';
+our $VERSION = '1.803';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -38,7 +38,7 @@ BEGIN {
    eval 'PDL::no_clone_skip_warning()' if $INC{'PDL.pm'};
    eval 'use PDL::IO::Storable'        if $INC{'PDL.pm'};
 
-   if ($] >= 5.012 && !exists $INC{'PDL.pm'}) {
+   if (!exists $INC{'PDL.pm'}) {
       eval 'use Sereal 3.008 qw( encode_sereal decode_sereal )';
       if ( !$@ ) {
          $_freeze = sub { encode_sereal( @_, { freeze_callbacks => 1 } ) };

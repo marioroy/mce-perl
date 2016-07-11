@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.802';
+our $VERSION = '1.803';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -369,7 +369,7 @@ MCE::Loop - Parallel loop model for building creative loops
 
 =head1 VERSION
 
-This document describes MCE::Loop version 1.802
+This document describes MCE::Loop version 1.803
 
 =head1 DESCRIPTION
 
@@ -525,8 +525,8 @@ The following list options which may be overridden when loading the module.
        thaw => \&decode_sereal          # \&Storable::thaw
    ;
 
-From MCE 1.8 onwards, Sereal 3.008+ is loaded automatically if available with
-Perl 5.12 or later. Specify C<Sereal => 0> if Storable is desired instead.
+From MCE 1.8 onwards, Sereal 3.008+ is loaded automatically if available.
+Specify C<Sereal => 0> to use Storable instead.
 
    use MCE::Loop Sereal => 0;
 

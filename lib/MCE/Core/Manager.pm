@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.802';
+our $VERSION = '1.803';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -26,7 +26,7 @@ package # hide from rpm
 
 no warnings qw( threads recursion uninitialized );
 
-## POSIX is large. This will cover most platforms.
+## POSIX.pm is a big module. The following constant covers most platforms.
 use constant { _WNOHANG => $^O eq 'solaris' ? 64 : 1 };
 
 use bytes;
