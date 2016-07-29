@@ -5,7 +5,7 @@ MCE::Examples - Various examples and demonstrations
 
 =head1 VERSION
 
-This document describes MCE::Examples version 1.803
+This document describes MCE::Examples version 1.804
 
 =head1 INCLUDED WITH THE DISTRIBUTION
 
@@ -799,6 +799,171 @@ for C<IO::TieCombine> must be C<stdout> or C<stderr> for MCE->print to work.
    -- Ouput
 
    ordered: yes
+
+=head1 FCGI::PROCMANAGER and MCE DEMONSTRATIONS
+
+The demonstrations requires MCE 1.804 to run. Otherwise, the MCE C<posix_exit>
+option must be specified and set to 1. This is done automatically in 1.804
+whenever C<(F)CGI.pm> is present.
+
+   #!/usr/bin/perl
+
+   # http://127.0.0.1/cgi-bin/test_mce1.fcgi
+   # http://127.0.0.1/cgi-bin/test_mce1.fcgi?size=8
+
+   use strict;
+   use warnings;
+
+   use MCE::Map max_workers => 3;
+
+   use CGI::Fast;
+   use FCGI::ProcManager;
+
+   my $count = 0;
+
+   my $proc_manager = FCGI::ProcManager->new({ n_processes => 4 });
+   $proc_manager->pm_manage();
+
+   while ( my $query = CGI::Fast->new() ) {
+      $proc_manager->pm_pre_dispatch();
+
+      print "Content-type: text/html\r\n\r\n";
+      print "$$: ", ++$count, "<br>\n";
+      print "<hr>\n";
+
+      print "$_ = $ENV{$_}<br>\n" foreach sort keys %ENV;
+      print "<hr>\n";
+
+      my %params;
+
+      foreach ( sort $query->param() ) {
+         $params{$_} = $query->param($_);
+         print $_, " = ", $params{$_}, "<br>\n";
+      }
+
+      print "<hr>\n";
+
+      my @ret = mce_map { "$$: ".( $_ * 2 ) } 1 .. $params{'size'} || 8;
+
+      print join("<br>\n", @ret), "<br>\n";
+
+      $proc_manager->pm_post_dispatch();
+   }
+
+Initializing MCE options before calling C<pm_manage> is not recommended.
+The following is one way to do it and does the same thing.
+
+   #!/usr/bin/perl
+
+   # http://127.0.0.1/cgi-bin/test_mce2.fcgi
+   # http://127.0.0.1/cgi-bin/test_mce2.fcgi?size=8
+
+   use strict;
+   use warnings;
+
+   use MCE::Map;
+
+   use CGI::Fast;
+   use FCGI::ProcManager;
+
+   my ($first_time, $count) = (1, 0);
+
+   my $proc_manager = FCGI::ProcManager->new({ n_processes => 4 });
+   $proc_manager->pm_manage();
+
+   while ( my $query = CGI::Fast->new() ) {
+      $proc_manager->pm_pre_dispatch();
+
+      print "Content-type: text/html\r\n\r\n";
+      print "$$: ", ++$count, "<br>\n";
+      print "<hr>\n";
+
+      print "$_ = $ENV{$_}<br>\n" foreach sort keys %ENV;
+      print "<hr>\n";
+
+      my %params;
+
+      foreach ( sort $query->param() ) {
+         $params{$_} = $query->param($_);
+         print $_, " = ", $params{$_}, "<br>\n";
+      }
+
+      print "<hr>\n";
+
+      if ( $first_time ) {
+         MCE::Map::init( max_workers => 3 );
+      }
+
+      my @ret = mce_map { "$$: ".( $_ * 2 ) } 1 .. $params{'size'} || 8;
+
+      print join("<br>\n", @ret), "<br>\n";
+
+      $proc_manager->pm_post_dispatch();
+   }
+
+Sharing data is possible via C<MCE::Shared> between C<FCGI> and C<MCE> workers.
+The following is a demonstration utilizing a shared counter variable which
+increments by one regardless of the C<FCGI> worker serving the request.
+
+   #!/usr/bin/perl
+
+   # http://127.0.0.1/cgi-bin/test_mce3.fcgi
+   # http://127.0.0.1/cgi-bin/test_mce3.fcgi?size=8
+
+   use strict;
+   use warnings;
+
+   use MCE::Map;
+   use MCE::Shared;
+
+   use CGI::Fast;
+   use FCGI::ProcManager;
+
+   # Shared variables must be defined before FCGI::ProcManager.
+   my $count = MCE::Shared->scalar( 0 );
+   my $first_time = 1;
+
+   my $proc_manager = FCGI::ProcManager->new({ n_processes => 4 });
+   $proc_manager->pm_manage();
+
+   # Optional, the following statement must come after $pm->pm_manage.
+   MCE::Shared->init(); # enables shared parallel-IPC capabilities
+
+   while ( my $query = CGI::Fast->new() ) {
+      $proc_manager->pm_pre_dispatch();
+
+      print "Content-type: text/html\r\n\r\n";
+      print "$$: ", $count->incr(), "<br>\n";
+      print "<hr>\n";
+
+      print "$_ = $ENV{$_}<br>\n" foreach sort keys %ENV;
+      print "<hr>\n";
+
+      my %params;
+
+      foreach ( sort $query->param() ) {
+         $params{$_} = $query->param($_);
+         print $_, " = ", $params{$_}, "<br>\n";
+      }
+
+      print "<hr>\n";
+
+      if ( $first_time ) {
+         MCE::Map->init( max_workers => 3 );
+         $first_time = 0;
+      }
+
+      my @ret = mce_map { "$$: ".( $_ * 2 ) } 1 .. $params{'size'} || 8;
+
+      print join("<br>\n", @ret), "<br>\n";
+
+      $proc_manager->pm_post_dispatch();
+   }
+
+Resetting the environment is helpful during development. The shared-manager
+process stops immediately upon receiving the C<TERM> signal.
+
+   killall -TERM perl-fcgi perl-fcgi-pm ; service httpd restart
 
 =head1 INDEX
 

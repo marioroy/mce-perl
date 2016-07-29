@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.803';
+our $VERSION = '1.804';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -389,6 +389,10 @@ sub new {
    }
    else {
       $self{use_threads} = ($_has_threads) ? 1 : 0;
+   }
+
+   if (!exists $self{posix_exit}) {
+      $self{posix_exit} = 1 if ($INC{'CGI.pm'} || $INC{'FCGI.pm'});
    }
 
    $self{flush_file}   ||= 0;
@@ -797,8 +801,6 @@ sub restart_worker {
    } else {
       _dispatch_child($self, $_wid, $_task, $_task_id, $_task_wid, $_params);
    }
-
-   sleep 0.015;
 
    return;
 }

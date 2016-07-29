@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.803';
+our $VERSION = '1.804';
 
 ## Items below are folded into MCE.
 

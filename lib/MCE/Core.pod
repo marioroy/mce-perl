@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.803
+This document describes MCE::Core version 1.804
 
 =head1 SYNOPSIS
 
@@ -174,7 +174,8 @@ Below, a new instance is configured with all available options.
          # blades with input coming from shared storage.
 
          # Set posix_exit to avoid all END and destructor processing
-         # for non-threads spawned via fork.
+         # for non-threads spawned via fork. This is set automatically
+         # to 1 if (F)CGI.pm is present.
 
          # Enable slurpio to pass the raw chunk (scalar ref)
          # to the user function when reading input files.
