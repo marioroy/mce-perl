@@ -45,7 +45,7 @@ push @r, $q->dequeue;
 push @r, $q->dequeue(1); # Dequeue 1 explicitly
 
 is( join('', @r), '1234', 'fifo, check dequeue' );
-is( join('', @a),   '5', 'fifo, check array'   );
+is( join('', @a),    '5', 'fifo, check array'   );
 
 $q->clear;
 
@@ -85,20 +85,21 @@ is( $q->peek(-20), undef, 'fifo, check peek at index -20' );
 
 $q->enqueue('1', '2');
 $q->enqueue('3');
-$q->enqueue('4');
+$q->enqueue('4', '5');
 
 ##  Note (lifo)
 ##
 ##  Enqueue appends to an array similarly to fifo
 ##  Thus, the enqueue check is identical to fifo
 
-is( join('', @a), '1234', 'lifo, check enqueue' );
+is( join('', @a), '12345', 'lifo, check enqueue' );
 
 @r = $q->dequeue(2);
 push @r, $q->dequeue;
+push @r, $q->dequeue(1); # Dequeue 1 explicitly
 
-is( join('', @r), '432', 'lifo, check dequeue' );
-is( join('', @a),   '1', 'lifo, check array'   );
+is( join('', @r), '5432', 'lifo, check dequeue' );
+is( join('', @a),    '1', 'lifo, check array'   );
 
 $q->clear;
 
