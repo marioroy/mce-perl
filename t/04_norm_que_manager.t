@@ -36,15 +36,16 @@ my (@a, $q, @r);
 
 $q->enqueue('1', '2');
 $q->enqueue('3');
-$q->enqueue('4');
+$q->enqueue('4', '5');
 
-is( join('', @a), '1234', 'fifo, check enqueue' );
+is( join('', @a), '12345', 'fifo, check enqueue' );
 
 @r = $q->dequeue(2);
 push @r, $q->dequeue;
+push @r, $q->dequeue(1); # Dequeue 1 explicitly
 
-is( join('', @r), '123', 'fifo, check dequeue' );
-is( join('', @a),   '4', 'fifo, check array'   );
+is( join('', @r), '1234', 'fifo, check dequeue' );
+is( join('', @a),   '5', 'fifo, check array'   );
 
 $q->clear;
 
