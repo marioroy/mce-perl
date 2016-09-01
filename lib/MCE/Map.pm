@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.804';
+our $VERSION = '1.805';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -111,7 +111,7 @@ sub _gather {
 sub init (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Map');
-   MCE::Map->finish( my $_pkg = "$$.$_tid.".caller() );
+   my $_pkg = "$$.$_tid.".caller();
 
    $_params->{$_pkg} = (ref $_[0] eq 'HASH') ? shift : { @_ };
 
@@ -393,7 +393,7 @@ sub run (&@) {
 
    MCE::_restore_state();
 
-   if ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
+   if (!$INC{'Tk.pm'} && ($^S || $ENV{'PERL_IPERL_RUNNING'})) {
       $_MCE->{$_pid}->shutdown(); # shutdown if in eval state
    }
 
@@ -449,7 +449,7 @@ MCE::Map - Parallel map model similar to the native map function
 
 =head1 VERSION
 
-This document describes MCE::Map version 1.804
+This document describes MCE::Map version 1.805
 
 =head1 SYNOPSIS
 

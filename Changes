@@ -1,6 +1,13 @@
 
 Revision history for Perl module MCE.
 
+1.805 Thu Sep 01 16:00:00 EST 2016
+
+  * Fixed bug in MCE::Queue (#4). Thank you, Mary Ehlers.
+
+  * Improved support for running MCE with Tk. Added Tk demonstrations to
+    MCE::Examples. Thank you, Götz Meyer.
+
 1.804 Thu Jul 28 23:00:00 EST 2016
 
   * Removed the sleep statement in MCE->restart_worker.

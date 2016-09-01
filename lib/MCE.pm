@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.804';
+our $VERSION = '1.805';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -280,13 +280,14 @@ sub DESTROY {
 
 END {
    if ( defined $MCE ) {
-      MCE::Flow->finish   ( 'MCE' ) if $INC{'MCE/Flow.pm'};
-      MCE::Grep->finish   ( 'MCE' ) if $INC{'MCE/Grep.pm'};
-      MCE::Loop->finish   ( 'MCE' ) if $INC{'MCE/Loop.pm'};
-      MCE::Map->finish    ( 'MCE' ) if $INC{'MCE/Map.pm'};
-      MCE::Step->finish   ( 'MCE' ) if $INC{'MCE/Step.pm'};
-      MCE::Stream->finish ( 'MCE' ) if $INC{'MCE/Stream.pm'};
-
+      if ( !$_has_threads ) {
+         MCE::Flow->finish   ( 'MCE' ) if $INC{'MCE/Flow.pm'};
+         MCE::Grep->finish   ( 'MCE' ) if $INC{'MCE/Grep.pm'};
+         MCE::Loop->finish   ( 'MCE' ) if $INC{'MCE/Loop.pm'};
+         MCE::Map->finish    ( 'MCE' ) if $INC{'MCE/Map.pm'};
+         MCE::Step->finish   ( 'MCE' ) if $INC{'MCE/Step.pm'};
+         MCE::Stream->finish ( 'MCE' ) if $INC{'MCE/Stream.pm'};
+      }
       $TOP_HDLR = undef if defined $TOP_HDLR;
       $MCE      = undef;
    }
@@ -393,6 +394,7 @@ sub new {
 
    if (!exists $self{posix_exit}) {
       $self{posix_exit} = 1 if ($INC{'CGI.pm'} || $INC{'FCGI.pm'});
+      $self{posix_exit} = 1 if ($INC{'Tk.pm'});
    }
 
    $self{flush_file}   ||= 0;
@@ -1084,7 +1086,7 @@ sub run {
    if ( $_auto_shutdown || $self->{_total_exited} ) {
       $self->shutdown();
    }
-   elsif (!defined $^S || $^S || $ENV{'PERL_IPERL_RUNNING'}) {
+   elsif (!$INC{'Tk.pm'} && ($^S || $ENV{'PERL_IPERL_RUNNING'})) {
       # running inside eval or IPerl, check stack trace
       my $_t = Carp::longmess(); $_t =~ s/\teval [^\n]+\n$//;
 
