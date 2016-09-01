@@ -1151,7 +1151,7 @@ sub _mce_m_dequeue {
 
    $_Q->{_nb_flag} = 0;
 
-   return @_items if (defined $_cnt);
+   return @_items if (defined $_cnt && $_cnt ne '1');
    return $_buf;
 }
 
