@@ -796,7 +796,7 @@ for C<IO::TieCombine> must be C<stdout> or C<stderr> for MCE->print to work.
       print "ordered: no\n";
    }
 
-   -- Ouput
+   -- Output
 
    ordered: yes
 
