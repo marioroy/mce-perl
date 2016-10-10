@@ -476,7 +476,7 @@ In summary:
  1. Auto has an upper-limit of 8 in MCE 1.521 (# of lcores, 8 maximum)
  2. Math can be applied with auto (*/+-) to change the upper limit
  3. The computed value for auto will not exceed the total # of lcores
- 4. One can specify max_workers explicity to a hard value
+ 4. One can specify max_workers explicitly to a hard value
  5. MCE::Util::get_ncpu returns the actual # of lcores
 
 =head1 ACKNOWLEDGMENTS
