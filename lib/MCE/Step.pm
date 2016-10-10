@@ -492,7 +492,7 @@ sub run (@) {
    my $_r = ref $_[0];
 
    if ($_r eq 'ARRAY' || $_r eq 'GLOB' || $_r eq 'SCALAR' || $_r =~ /^IO::/) {
-      $_input_data = shift;
+      $_input_data = shift if (@_ == 1);
    }
 
    if (defined (my $_p = $_params->{$_pid})) {
