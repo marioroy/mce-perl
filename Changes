@@ -1,6 +1,12 @@
 
 Revision history for Perl module MCE.
 
+1.806 Tue Oct 11 21:30:00 EST 2016
+
+  * Fixed two typos. Thank you, Florian Schlichting.
+
+  * Support input_data with nested arrays in MCE Models.
+
 1.805 Thu Sep 01 16:00:00 EST 2016
 
   * Fixed bug in MCE::Queue (#4). Thank you, Mary Ehlers.
