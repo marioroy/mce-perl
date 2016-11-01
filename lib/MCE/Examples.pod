@@ -5,7 +5,7 @@ MCE::Examples - Various examples and demonstrations
 
 =head1 VERSION
 
-This document describes MCE::Examples version 1.806
+This document describes MCE::Examples version 1.807
 
 =head1 INCLUDED WITH THE DISTRIBUTION
 
@@ -464,6 +464,115 @@ user_begin and mce_loop. Take notice of the comma after \&_func though.
    2: 2
    2: 3
    2: 4
+
+=head1 MANDELBROT DEMONSTRATION
+
+For the next demonstration, L<MCE::Relay> allows a section of code to run
+serially and orderly between workers. Relay capabilities is enabled with
+the C<init_relay> option, which loads MCE::Relay.
+
+   # perl mandelbrot.pl 16000 > image.pbm
+   # outputs a pbm binary to STDOUT
+
+   # The Computer Language Benchmarks Game
+   # http://benchmarksgame.alioth.debian.org/
+   #
+   # Started with:
+   # C#  : Adapted by Antti Lankila from Isaac Gouy's implementation
+   # Perl: Contributed by Mykola Zubach
+   #
+   # MCE::Loop version by Mario Roy
+   # requires MCE 1.807+
+
+   use strict;
+   use warnings;
+
+   use MCE::Loop;
+
+   use constant MAXITER => 50;
+   use constant LIMIT   => 4.0;
+   use constant XMIN    => -1.5;
+   use constant YMIN    => -1.0;
+
+   my ( $w, $h, $m, $invN );
+
+   sub draw_lines {
+      my ( $y1, $y2 ) = @_;
+      my @result;
+
+      # Workers run simultaneously, in parallel.
+
+      for my $y ( $y1 .. $y2 ) {
+         my ( $bits, $xcounter, @line ) = ( 0, 0 );
+         my $Ci = $y * $invN + YMIN;
+
+         for my $x ( 0 .. $w - 1 ) {
+            my ( $Zr, $Zi, $Tr, $Ti ) = ( 0, 0, 0, 0 );
+            my $Cr = $x * $invN + XMIN;
+
+            $bits = $bits << 1;
+
+            for ( 1 .. MAXITER ) {
+               $Zi = $Zi * 2 * $Zr + $Ci;
+               $Zr = $Tr - $Ti + $Cr;
+               $Ti = $Zi * $Zi, $Tr = $Zr * $Zr;
+
+               $bits |= 1, last if ( $Tr + $Ti > LIMIT );
+            }
+
+            if ( ++$xcounter == 8 ) {
+               push @line, $bits ^ 0xff;
+               $bits = $xcounter = 0;
+            }
+         }
+
+         if ( $xcounter ) {
+            push @line, ( $bits << ( 8 - $xcounter ) ) ^ 0xff;
+         }
+
+         push @result, pack 'C*', @line;
+      }
+
+      # Statements between lock & unlock are processed serially & orderly.
+
+      MCE->relay_lock;
+
+      print @result;          # Workers display upper-half only.
+      MCE->gather( @result ); # Gather lines for the manager-process.
+
+      MCE->relay_unlock;
+   }
+
+   ## MAIN()
+
+   # Important, must flush output immediately.
+
+   $| = 1; binmode STDOUT;
+
+   $w = $h = shift || 200;
+   $m = int( $h / 2 );
+   $invN = 2 / $w;
+
+   print "P4\n$w $h\n"; # PBM image header.
+
+   # Workers display upper-half only. Also, lines are gathered to be
+   # displayed later by the manager-process after running.
+
+   MCE::Loop->init(
+      init_relay  => 0, # Enables MCE::Relay capabilities if defined.
+      max_workers => 4,
+      bounds_only => 1,
+   );
+
+   my @upper = mce_loop_s { draw_lines( $_[1][0], $_[1][1] ) } 0, $m;
+
+   MCE::Loop->finish;
+
+   # Remove first and last lines from the upper half.
+   # Then, output bottom half.
+
+   shift @upper, pop @upper;
+   print reverse @upper;
 
 =head1 MONTE CARLO SIMULATION
 

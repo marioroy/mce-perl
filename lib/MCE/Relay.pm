@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.806';
+our $VERSION = '1.807';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 
@@ -55,21 +55,15 @@ sub import {
 ###############################################################################
 
 {
-   my ($_MCE, $_DAU_R_SOCK_REF, $_DAU_R_SOCK, $_rla_chunkid, $_rla_nextid);
+   my ($_MCE, $_DAU_R_SOCK_REF, $_DAU_R_SOCK, $_rla_nextid, $_max_workers);
 
    my %_output_function = (
 
       OUTPUT_W_RLA.$LF => sub {                   # Worker has relayed
 
-         $_DAU_R_SOCK = ${ $_DAU_R_SOCK_REF };
+       # $_DAU_R_SOCK = ${ $_DAU_R_SOCK_REF };
 
-         my ($_chunk_id, $_next_id) = split(':', <$_DAU_R_SOCK>);
-
-         if ($_chunk_id > $_rla_chunkid) {
-            chomp $_next_id;
-            $_rla_chunkid = $_chunk_id;
-            $_rla_nextid  = $_next_id;
-         }
+         $_rla_nextid = 0 if ( ++$_rla_nextid == $_max_workers );
 
          return;
       },
@@ -81,6 +75,10 @@ sub import {
       ($_MCE, $_DAU_R_SOCK_REF) = @_;
 
       my $_caller = $_MCE->{_caller};
+
+      $_max_workers = (exists $_MCE->{user_tasks})
+         ? $_MCE->{user_tasks}[0]{max_workers}
+         : $_MCE->{max_workers};
 
       ## Write initial relay data.
       if (defined $_MCE->{init_relay}) {
@@ -104,7 +102,7 @@ sub import {
 
          print {$_RLA_W_SOCK} length($_init_relay) . $LF . $_init_relay;
 
-         $_rla_chunkid = $_rla_nextid = 0;
+         $_rla_nextid = 0;
       }
 
       delete $MCE::RLA->{$_caller};
@@ -130,8 +128,8 @@ sub import {
       }
 
       ## Clear variables.
-      $_MCE = $_DAU_R_SOCK_REF = $_DAU_R_SOCK = $_rla_chunkid = $_rla_nextid =
-         undef;
+      $_MCE = $_DAU_R_SOCK_REF = $_DAU_R_SOCK = undef;
+      $_rla_nextid = $_max_workers = undef;
 
       return;
    }
@@ -197,17 +195,22 @@ sub relay_recv {
 
    my $x = shift; my $self = ref($x) ? $x : $MCE::MCE;
 
-   _croak('MCE::relay: (init_relay) is not specified')
+   _croak('MCE::relay_recv: (init_relay) is not specified')
       unless (defined $self->{init_relay});
-   _croak('MCE::relay: method is not allowed by the manager process')
+   _croak('MCE::relay_recv: method is not allowed by the manager process')
       unless ($self->{_wid});
-   _croak('MCE::relay: method is not allowed by this sub task')
+   _croak('MCE::relay_recv: method is not allowed by task_id > 0')
       if ($self->{_task_id} > 0);
 
-   my $_chn = ($self->{_chunk_id} - 1) % $self->{max_workers};
-   my $_rdr = $self->{_rla_r_sock}->[$_chn];
+   my ($_chn, $_nxt, $_rdr, $_len, $_ref); local $_;
 
-   my ($_len, $_ref); local $_;
+   $_chn = $self->{_chunk_id} || $self->{_wid};
+   $_chn = ($_chn - 1) % $self->{max_workers};
+   $_nxt = $_chn + 1;
+   $_nxt = 0 if ($_nxt == $self->{max_workers});
+   $_rdr = $self->{_rla_r_sock}->[$_chn];
+
+   print {$self->{_dat_w_sock}->[0]} OUTPUT_W_RLA.$LF . '0'.$LF;
 
    chomp($_len = <$_rdr>);
    read $_rdr, $_, $_len;
@@ -247,7 +250,7 @@ sub relay (;&) {
       unless (defined $self->{init_relay});
    _croak('MCE::relay: method is not allowed by the manager process')
       unless ($self->{_wid});
-   _croak('MCE::relay: method is not allowed by this sub task')
+   _croak('MCE::relay: method is not allowed by task_id > 0')
       if ($self->{_task_id} > 0);
 
    if (ref $_code ne 'CODE') {
@@ -256,12 +259,14 @@ sub relay (;&) {
       weaken $_code;
    }
 
-   my $_chn = ($self->{_chunk_id} - 1) % $self->{max_workers};
-   my $_nxt = $_chn + 1; $_nxt = 0 if ($_nxt == $self->{max_workers});
-   my $_rdr = $self->{_rla_r_sock}->[$_chn];
-   my $_wtr = $self->{_rla_w_sock}->[$_nxt];
+   my ($_chn, $_nxt, $_rdr, $_wtr);
 
-   $self->{_rla_return} = $self->{_chunk_id} .':'. $_nxt;
+   $_chn = $self->{_chunk_id} || $self->{_wid};
+   $_chn = ($_chn - 1) % $self->{max_workers};
+   $_nxt = $_chn + 1;
+   $_nxt = 0 if ($_nxt == $self->{max_workers});
+   $_rdr = $self->{_rla_r_sock}->[$_chn];
+   $_wtr = $self->{_rla_w_sock}->[$_nxt];
 
    if (exists $self->{_rla_data}) {
       local $_ = delete $self->{_rla_data};
@@ -282,6 +287,8 @@ sub relay (;&) {
    }
    else {
       my ($_len, $_ref); local $_;
+
+      print {$self->{_dat_w_sock}->[0]} OUTPUT_W_RLA.$LF . '0'.$LF;
 
       chomp($_len = <$_rdr>);
       read $_rdr, $_, $_len;
@@ -315,6 +322,11 @@ sub relay (;&) {
    return;
 }
 
+## Aliases.
+
+*relay_lock   = \&relay_recv;
+*relay_unlock = \&relay;
+
 1;
 
 __END__
@@ -331,7 +343,7 @@ MCE::Relay - Extends Many-Core Engine with relay capabilities
 
 =head1 VERSION
 
-This document describes MCE::Relay version 1.806
+This document describes MCE::Relay version 1.807
 
 =head1 SYNOPSIS
 
@@ -342,7 +354,9 @@ This document describes MCE::Relay version 1.806
    ## Line Count #######################################
 
    mce_flow_f {
-      use_slurpio => 1, init_relay => 0,
+      max_workers => 4,
+      use_slurpio => 1,
+      init_relay  => 0,
    },
    sub {
       my ($mce, $slurp_ref, $chunk_id) = @_;
@@ -359,14 +373,22 @@ This document describes MCE::Relay version 1.806
 
    ## Orderly Action ###################################
 
+   $| = 1; # Important, must flush output immediately.
+
    mce_flow_f {
-      use_slurpio => 1, init_relay => 0,
+      max_workers => 2,
+      use_slurpio => 1,
+      init_relay  => 0,
    },
    sub {
       my ($mce, $slurp_ref, $chunk_id) = @_;
 
-      ## Exclusive access to STDOUT. Relays 0.
-      MCE::relay { print $$slurp_ref };
+      ## The relay value is relayed and remains 0.
+      ## Writes to STDOUT orderly.
+
+      MCE->relay_lock;
+      print $$slurp_ref;
+      MCE->relay_unlock;
 
    }, $file;
 
@@ -374,13 +396,12 @@ This document describes MCE::Relay version 1.806
 
 This module enables workers to receive and pass on information orderly with
 zero involvement by the manager process while running. The module is loaded
-automatically when init_relay is specified.
+automatically when MCE option C<init_relay> is specified.
 
-All workers must participate when relaying data. Calling relay more than once
-is not recommended inside the block. Doing so will stall the application.
+All workers (belonging to task_id 0) must participate when relaying data.
 
-Relaying is not meant for passing big data. The last worker will likely stall
-if exceeding the buffer size for the socket. Not exceeding 16 KiB - 7 is safe
+Relaying is not meant for passing big data. The last worker will stall if
+exceeding the buffer size for the socket. Not exceeding 16 KiB - 7 is safe
 across all platforms.
 
 =head1 API DOCUMENTATION
@@ -500,7 +521,7 @@ Or simply a scalar value.
 
 =item MCE->relay_final ( void )
 
-Call this method to obtain the final relay values after running. See included
+Call this method to obtain the final relay value(s) after running. See included
 example findnull.pl for another use case.
 
    use MCE max_workers => 4;
@@ -531,9 +552,183 @@ example findnull.pl for another use case.
 
 =item MCE->relay_recv ( void )
 
-The relay_recv method allows one to perform an exclusive action prior to
-relaying. Below, the user_func is taken from the cat.pl example. Relaying
-is chunk_id driven (or task_wid when not processing input), thus orderly.
+Call this method to obtain the next relay value before relaying. This allows
+serial-code to be processed orderly between workers. The following is a parallel
+demonstration for the fasta-benchmark on the web.
+
+   # perl fasta.pl 25000000
+
+   # The Computer Language Benchmarks game
+   # http://benchmarksgame.alioth.debian.org/
+   #
+   # contributed by Barry Walsh
+   # port of fasta.rb #6
+   #
+   # MCE::Flow version by Mario Roy
+   # requires MCE 1.807+
+   # requires MCE::Shared 1.806+
+
+   use strict;
+   use warnings;
+   use feature 'say';
+
+   use MCE::Flow;
+   use MCE::Shared;
+   use MCE::Candy;
+
+   use constant IM => 139968;
+   use constant IA => 3877;
+   use constant IC => 29573;
+
+   my $LAST = MCE::Shared->scalar( 42 );
+
+   my $alu =
+      'GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG' .
+      'GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA' .
+      'CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT' .
+      'ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA' .
+      'GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG' .
+      'AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC' .
+      'AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA';
+
+   my $iub = [
+      [ 'a', 0.27 ], [ 'c', 0.12 ], [ 'g', 0.12 ],
+      [ 't', 0.27 ], [ 'B', 0.02 ], [ 'D', 0.02 ],
+      [ 'H', 0.02 ], [ 'K', 0.02 ], [ 'M', 0.02 ],
+      [ 'N', 0.02 ], [ 'R', 0.02 ], [ 'S', 0.02 ],
+      [ 'V', 0.02 ], [ 'W', 0.02 ], [ 'Y', 0.02 ]
+   ];
+
+   my $homosapiens = [
+      [ 'a', 0.3029549426680 ],
+      [ 'c', 0.1979883004921 ],
+      [ 'g', 0.1975473066391 ],
+      [ 't', 0.3015094502008 ]
+   ];
+
+   sub make_repeat_fasta {
+      my ( $src, $n ) = @_;
+      my $width = qr/(.{1,60})/;
+      my $l     = length $src;
+      my $s     = $src x ( ($n / $l) + 1 );
+      substr( $s, $n, $l ) = '';
+
+      while ( $s =~ m/$width/g ) { say $1 }
+   }
+
+   sub make_random_fasta {
+      my ( $table, $n ) = @_;
+      my $rand   = undef;
+      my $width  = 60;
+      my $prob   = 0.0;
+      my $output = '';
+      my ( $c1, $c2, $last );
+
+      $_->[1] = ( $prob += $_->[1] ) for @$table;
+
+      $c1  = '$rand = ( $last = ( $last * IA + IC ) % IM ) / IM;';
+      $c1 .= "\$output .= '$_->[0]', next if $_->[1] > \$rand;\n" for @$table;
+
+      my $seq = MCE::Shared->sequence(
+         { chunk_size => 2000, bounds_only => 1 },
+         1, $n / $width
+      );
+
+      my $code1 = q{
+         while ( 1 ) {
+            # --------------------------------------------
+            # Process code orderly between workers.
+            # --------------------------------------------
+
+            my $chunk_id = MCE->relay_recv;
+            my ( $begin, $end ) = $seq->next;
+
+            MCE->relay, last if ( !defined $begin );
+
+            my $last = $LAST->get;
+            my $temp = $last;
+
+            # Pre-compute $LAST value for the next worker
+            for ( 1 .. ( $end - $begin + 1 ) * $width ) {
+               $temp = ( $temp * IA + IC ) % IM;
+            }
+
+            $LAST->set( $temp );
+
+            # Increment chunk_id value
+            MCE->relay( sub { $_ += 1 } );
+
+            # --------------------------------------------
+            # Also run code in parallel between workers.
+            # --------------------------------------------
+
+            for ( $begin .. $end ) {
+               for ( 1 .. $width ) { !C! }
+               $output .= "\n";
+            }
+
+            # --------------------------------------------
+            # Display orderly.
+            # --------------------------------------------
+
+            MCE->gather( $chunk_id, $output );
+
+            $output = '';
+         }
+      };
+
+      $code1 =~ s/!C!/$c1/g;
+
+      MCE::Flow->init(
+         max_workers => 4, ## MCE::Util->get_ncpu || 4,
+         gather      => MCE::Candy::out_iter_fh( \*STDOUT ),
+         init_relay  => 1,
+         use_threads => 0,
+      );
+
+      MCE::Flow->run( sub { eval $code1 } );
+      MCE::Flow->finish;
+
+      $last = $LAST->get;
+
+      $c2  = '$rand = ( $last = ( $last * IA + IC ) % IM ) / IM;';
+      $c2 .= "print('$_->[0]'), next if $_->[1] > \$rand;\n" for @$table;
+
+      my $code2 = q{
+         if ( $n % $width != 0 ) {
+            for ( 1 .. $n % $width ) { !C! }
+            print "\n";
+         }
+      };
+
+      $code2 =~ s/!C!/$c2/g;
+      eval $code2;
+
+      $LAST->set( $last );
+   }
+
+   my $n = $ARGV[0] || 27;
+
+   say ">ONE Homo sapiens alu";
+   make_repeat_fasta( $alu, $n * 2 );
+
+   say ">TWO IUB ambiguity codes";
+   make_random_fasta( $iub, $n * 3 );
+
+   say ">THREE Homo sapiens frequency";
+   make_random_fasta( $homosapiens, $n * 5 );
+
+=item MCE->relay_lock ( void )
+
+=item MCE->relay_unlock ( void )
+
+The C<relay_lock> and C<relay_unlock> methods, added to MCE 1.807, are
+aliases for C<relay_recv> and C<relay> respectively. They allow one to
+perform an exclusive action prior to actual relaying of data.
+
+Below, C<user_func> is taken from the C<cat.pl> MCE example. Relaying is
+driven by C<chunk_id> or C<task_wid> when not processing input, thus
+occurs orderly.
 
    user_func => sub {
       my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -554,23 +749,176 @@ is chunk_id driven (or task_wid when not processing input), thus orderly.
       else {
          ## The following is another way to have ordered output. Workers
          ## write directly to STDOUT exclusively without any involvement
-         ## from the manager process. The statements between relay_recv
-         ## and relay run serially and most important orderly.
+         ## from the manager process. The statement(s) between relay_lock
+         ## and relay_unlock run serially and most important orderly.
 
-         ## STDERR/OUT flush automatically inside worker threads and
-         ## processes. Disable buffering on file handles otherwise.
+         MCE->relay_lock;      # alias for MCE->relay_recv
 
-         MCE->relay_recv;             ## my $val = MCE->relay_recv;
-                                      ## relay simply forwards 0 below
+         print $$chunk_ref;    # ensure $| = 1 in script
 
-         print $$chunk_ref;           ## exclusive access to STDOUT
-                                      ## important, flush immediately
-
-         MCE->relay;
+         MCE->relay_unlock;    # alias for MCE->relay
       }
 
       return;
    }
+
+The following is a variant of the fasta-benchmark demonstration shown above.
+Here, workers write exclusively and orderly to C<STDOUT>.
+
+   # perl fasta.pl 25000000
+
+   # The Computer Language Benchmarks game
+   # http://benchmarksgame.alioth.debian.org/
+   #
+   # contributed by Barry Walsh
+   # port of fasta.rb #6
+   #
+   # MCE::Flow version by Mario Roy
+   # requires MCE 1.807+
+   # requires MCE::Shared 1.806+
+
+   use strict;
+   use warnings;
+   use feature 'say';
+
+   use MCE::Flow;
+   use MCE::Shared;
+
+   use constant IM => 139968;
+   use constant IA => 3877;
+   use constant IC => 29573;
+
+   my $LAST = MCE::Shared->scalar( 42 );
+
+   my $alu =
+      'GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG' .
+      'GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA' .
+      'CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT' .
+      'ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA' .
+      'GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG' .
+      'AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC' .
+      'AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA';
+
+   my $iub = [
+      [ 'a', 0.27 ], [ 'c', 0.12 ], [ 'g', 0.12 ],
+      [ 't', 0.27 ], [ 'B', 0.02 ], [ 'D', 0.02 ],
+      [ 'H', 0.02 ], [ 'K', 0.02 ], [ 'M', 0.02 ],
+      [ 'N', 0.02 ], [ 'R', 0.02 ], [ 'S', 0.02 ],
+      [ 'V', 0.02 ], [ 'W', 0.02 ], [ 'Y', 0.02 ]
+   ];
+
+   my $homosapiens = [
+      [ 'a', 0.3029549426680 ],
+      [ 'c', 0.1979883004921 ],
+      [ 'g', 0.1975473066391 ],
+      [ 't', 0.3015094502008 ]
+   ];
+
+   sub make_repeat_fasta {
+      my ( $src, $n ) = @_;
+      my $width = qr/(.{1,60})/;
+      my $l     = length $src;
+      my $s     = $src x ( ($n / $l) + 1 );
+      substr( $s, $n, $l ) = '';
+
+      while ( $s =~ m/$width/g ) { say $1 }
+   }
+
+   sub make_random_fasta {
+      my ( $table, $n ) = @_;
+      my $rand   = undef;
+      my $width  = 60;
+      my $prob   = 0.0;
+      my $output = '';
+      my ( $c1, $c2, $last );
+
+      $_->[1] = ( $prob += $_->[1] ) for @$table;
+
+      $c1  = '$rand = ( $last = ( $last * IA + IC ) % IM ) / IM;';
+      $c1 .= "\$output .= '$_->[0]', next if $_->[1] > \$rand;\n" for @$table;
+
+      my $seq = MCE::Shared->sequence(
+         { chunk_size => 2000, bounds_only => 1 },
+         1, $n / $width
+      );
+
+      my $code1 = q{
+         $| = 1; # Important, must flush output immediately.
+
+         while ( 1 ) {
+            # --------------------------------------------
+            # Process code orderly between workers.
+            # --------------------------------------------
+
+            MCE->relay_lock;
+
+            my ( $begin, $end ) = $seq->next;
+            print( $output ), $output = '' if ( length $output );
+
+            MCE->relay_unlock, last if ( !defined $begin );
+
+            my $last = $LAST->get;
+            my $temp = $last;
+
+            # Pre-compute $LAST value for the next worker
+            for ( 1 .. ( $end - $begin + 1 ) * $width ) {
+               $temp = ( $temp * IA + IC ) % IM;
+            }
+
+            $LAST->set( $temp );
+
+            MCE->relay_unlock;
+
+            # --------------------------------------------
+            # Also run code in parallel.
+            # --------------------------------------------
+
+            for ( $begin .. $end ) {
+               for ( 1 .. $width ) { !C! }
+               $output .= "\n";
+            }
+         }
+      };
+
+      $code1 =~ s/!C!/$c1/g;
+
+      MCE::Flow->init(
+         max_workers => 4, ## MCE::Util->get_ncpu || 4,
+         init_relay  => 0,
+         use_threads => 0,
+      );
+
+      MCE::Flow->run( sub { eval $code1 } );
+      MCE::Flow->finish;
+
+      $last = $LAST->get;
+
+      $c2  = '$rand = ( $last = ( $last * IA + IC ) % IM ) / IM;';
+      $c2 .= "print('$_->[0]'), next if $_->[1] > \$rand;\n" for @$table;
+
+      my $code2 = q{
+         if ( $n % $width != 0 ) {
+            for ( 1 .. $n % $width ) { !C! }
+            print "\n";
+         }
+      };
+
+      $code2 =~ s/!C!/$c2/g;
+      eval $code2;
+
+      $LAST->set( $last );
+   }
+
+   my $n = $ARGV[0] || 27;
+
+   say ">ONE Homo sapiens alu";
+   make_repeat_fasta( $alu, $n * 2 );
+
+   say ">TWO IUB ambiguity codes";
+   make_random_fasta( $iub, $n * 3 );
+
+   say ">THREE Homo sapiens frequency";
+   make_random_fasta( $homosapiens, $n * 5 );
 
 =back
 

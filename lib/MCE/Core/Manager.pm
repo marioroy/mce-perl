@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.806';
+our $VERSION = '1.807';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -838,7 +838,7 @@ sub _output_loop {
          unless ($_nbytes = unpack('I', $_val_bytes)) {
             if ($_count) {
                 # delay after a while to not consume a CPU core
-                $_count = 0 if ++$_count % 50 == 0 && time - $_start > 0.005;
+                $_count = 0 if ++$_count % 50 == 0 && time - $_start > 0.030;
             } else {
                 sleep 0.030;
             }

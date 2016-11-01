@@ -1,6 +1,13 @@
 
 Revision history for Perl module MCE.
 
+1.807 Tue Nov 01 16:00:00 EST 2016
+
+  * Enhanced relay capabilities. Added Mandelbrot example to MCE::Example.
+    Added extra demonstrations to MCE::Relay. Also, added test script.
+
+  * Tweaked manager-loop delay for special cases -- applies to MSWin32 only.
+
 1.806 Tue Oct 11 21:30:00 EST 2016
 
   * Fixed two typos. Thank you, Florian Schlichting.

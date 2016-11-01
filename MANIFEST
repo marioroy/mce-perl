@@ -58,3 +58,4 @@ t/05_mce_step.t
 t/05_mce_stream.t
 t/06_nodata_flow.t
 t/06_nodata_step.t
+t/06_relay.t

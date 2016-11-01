@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.806';
+our $VERSION = '1.807';
 
 ## Items below are folded into MCE.
 
@@ -399,7 +399,9 @@ sub _worker_do {
 
    ## Call user_begin if defined.
    if (defined $self->{user_begin}) {
+      $self->{_chunk_id} = 0;
       $self->{user_begin}($self, $_task_id, $_task_name);
+      $self->sync if ($_task_id == 0 && defined $self->{init_relay});
    }
 
    ## Retry chunk if previous attempt died.
@@ -446,7 +448,7 @@ sub _worker_do {
       _worker_read_handle($self, READ_MEMORY, $self->{input_data});
    }
    elsif (defined $self->{user_func}) {
-      $self->{_chunk_id} = $self->{_task_wid};
+      $self->{_chunk_id} = 0;
       $self->{user_func}->($self);
    }
 
@@ -456,6 +458,8 @@ sub _worker_do {
 
    ## Call user_end if defined.
    if (defined $self->{user_end}) {
+      $self->{_chunk_id} = 0;
+      $self->sync if ($_task_id == 0 && defined $self->{init_relay});
       $self->{user_end}($self, $_task_id, $_task_name);
    }
 
@@ -466,11 +470,6 @@ sub _worker_do {
    local $\ = undef if (defined $\);
 
    $_DAT_LOCK->lock() if $_lock_chn;
-
-   if (exists $self->{_rla_return}) {
-      print {$_DAT_W_SOCK} OUTPUT_W_RLA.$LF . $_chn.$LF;
-      print {$_DAU_W_SOCK} (delete $self->{_rla_return}).$LF;
-   }
 
    print {$_DAT_W_SOCK} OUTPUT_W_DNE.$LF . $_chn.$LF;
    print {$_DAU_W_SOCK} $_task_id.$LF;

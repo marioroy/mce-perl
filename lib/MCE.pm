@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.806';
+our $VERSION = '1.807';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -86,7 +86,7 @@ BEGIN {
    ## _chunk_id _mce_sid _mce_tid _pids _run_mode _single_dim _thrs _tids _wid
    ## _exiting _exit_pid _total_exited _total_running _total_workers _task_wid
    ## _send_cnt _sess_dir _spawned _state _status _task _task_id _wrk_status
-   ## _init_pid _init_total_workers _last_sref _mgr_live _rla_data _rla_return
+   ## _init_pid _init_total_workers _last_sref _mgr_live _rla_data
    ##
    ## _bsb_r_sock _bsb_w_sock _bse_r_sock _bse_w_sock _com_r_sock _com_w_sock
    ## _dat_r_sock _dat_w_sock _que_r_sock _que_w_sock _rla_r_sock _rla_w_sock
@@ -280,7 +280,7 @@ sub DESTROY {
 
 END {
    if ( defined $MCE ) {
-      if ( !$_has_threads ) {
+      if ( !$_has_threads || (defined $TOP_HDLR && !$TOP_HDLR->{use_threads}) ) {
          MCE::Flow->finish   ( 'MCE' ) if $INC{'MCE/Flow.pm'};
          MCE::Grep->finish   ( 'MCE' ) if $INC{'MCE/Grep.pm'};
          MCE::Loop->finish   ( 'MCE' ) if $INC{'MCE/Loop.pm'};
@@ -763,6 +763,9 @@ sub relay (;&) {
    _croak('MCE::relay: (init_relay) is not specified')
       unless (defined $MCE->{init_relay});
 }
+
+*relay_lock   = \&relay_recv;
+*relay_unlock = \&relay;
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -1366,14 +1369,7 @@ sub abort {
          my $_lock_chn   = $self->{_lock_chn};
 
          $_DAT_LOCK->lock() if $_lock_chn;
-
-         if (exists $self->{_rla_return}) {
-            print {$_DAT_W_SOCK} OUTPUT_W_RLA.$LF . $_chn.$LF;
-            print {$_DAU_W_SOCK} (delete $self->{_rla_return}).$LF;
-         }
-
          print {$_DAT_W_SOCK} OUTPUT_W_ABT.$LF . $_chn.$LF;
-
          $_DAT_LOCK->unlock() if $_lock_chn;
       }
    }
@@ -1413,11 +1409,6 @@ sub exit {
       $_exit_id =~ s/[\r\n][\r\n]*/ /mg;
 
       $_DAT_LOCK->lock() if $_lock_chn;
-
-      if (exists $self->{_rla_return}) {
-         print {$_DAT_W_SOCK} OUTPUT_W_RLA.$LF . $_chn.$LF;
-         print {$_DAU_W_SOCK} (delete $self->{_rla_return}).$LF;
-      }
 
       print {$_DAT_W_SOCK} OUTPUT_W_EXT.$LF . $_chn.$LF;
       print {$_DAU_W_SOCK}
