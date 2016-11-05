@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.807';
+our $VERSION = '1.808';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -1089,14 +1089,16 @@ sub run {
    if ( $_auto_shutdown || $self->{_total_exited} ) {
       $self->shutdown();
    }
-   elsif (!$INC{'Tk.pm'} && ($^S || $ENV{'PERL_IPERL_RUNNING'})) {
-      # running inside eval or IPerl, check stack trace
-      my $_t = Carp::longmess(); $_t =~ s/\teval [^\n]+\n$//;
+   elsif ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
+      if (!$INC{'Mojo/Base.pm'} && !$INC{'Tk.pm'}) {
+         # running inside eval or IPerl, check stack trace
+         my $_t = Carp::longmess(); $_t =~ s/\teval [^\n]+\n$//;
 
-      if ( $_t =~ /^(?:[^\n]+\n){1,7}\teval / ||
-           $_t =~ /\n\teval [^\n]+\n\t(?:eval|Try)/ )
-      {
-         $self->shutdown();
+         if ( $_t =~ /^(?:[^\n]+\n){1,7}\teval / ||
+              $_t =~ /\n\teval [^\n]+\n\t(?:eval|Try)/ )
+         {
+            $self->shutdown();
+         }
       }
    }
 

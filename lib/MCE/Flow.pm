@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.807';
+our $VERSION = '1.808';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -430,10 +430,6 @@ sub run (@) {
 
    MCE::_restore_state();
 
-   if (!$INC{'Tk.pm'} && ($^S || $ENV{'PERL_IPERL_RUNNING'})) {
-      $_MCE->{$_pid}->shutdown(); # shutdown if in eval state
-   }
-
    delete $_MCE->{$_pid}{gather} if (defined $_wa);
 
    return ((defined $_wa) ? @_a : ());
@@ -499,7 +495,7 @@ MCE::Flow - Parallel flow model for building creative applications
 
 =head1 VERSION
 
-This document describes MCE::Flow version 1.807
+This document describes MCE::Flow version 1.808
 
 =head1 DESCRIPTION
 

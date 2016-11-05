@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.807';
+our $VERSION = '1.808';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -620,10 +620,12 @@ sub run (@) {
 
    MCE::_restore_state();
 
-   if (!$INC{'Tk.pm'} && ($^S || $ENV{'PERL_IPERL_RUNNING'})) {
-      $_MCE->{$_pid}->shutdown(); # shutdown if in eval state
-      $_->DESTROY() for (@{ $_queue->{$_pid} });
-      delete $_queue->{$_pid};
+   if ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
+      if (!$INC{'Mojo/Base.pm'} && !$INC{'Tk.pm'}) {
+         $_MCE->{$_pid}->shutdown(); # shutdown if in eval state
+         $_->DESTROY() for (@{ $_queue->{$_pid} });
+         delete $_queue->{$_pid};
+      }
    }
 
    delete $_MCE->{$_pid}{gather} if (defined $_wa);
@@ -730,7 +732,7 @@ MCE::Step - Parallel step model for building creative steps
 
 =head1 VERSION
 
-This document describes MCE::Step version 1.807
+This document describes MCE::Step version 1.808
 
 =head1 DESCRIPTION
 
