@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.808';
+our $VERSION = '1.809';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -203,15 +203,13 @@ sub _pipe_pair {
          or die "pipe: $!\n";
 
       # IO::Handle->autoflush not available in older Perl.
-      select(( select($_obj->{$_r_sock}[$_i]), $| = 1 )[0]);
       select(( select($_obj->{$_w_sock}[$_i]), $| = 1 )[0]);
    }
    else {
       pipe($_obj->{$_r_sock}, $_obj->{$_w_sock})
          or die "pipe: $!\n";
 
-      select(( select($_obj->{$_r_sock}), $| = 1 )[0]); # Ditto.
-      select(( select($_obj->{$_w_sock}), $| = 1 )[0]);
+      select(( select($_obj->{$_w_sock}), $| = 1 )[0]); # Ditto.
    }
 
    return;
@@ -236,8 +234,8 @@ sub _sock_pair {
       }
 
       # IO::Handle->autoflush not available in older Perl.
-      select(( select($_obj->{$_r_sock}[$_i]), $| = 1 )[0]);
       select(( select($_obj->{$_w_sock}[$_i]), $| = 1 )[0]);
+      select(( select($_obj->{$_r_sock}[$_i]), $| = 1 )[0]);
    }
    else {
       socketpair( $_obj->{$_r_sock}, $_obj->{$_w_sock},
@@ -250,8 +248,8 @@ sub _sock_pair {
          setsockopt($_obj->{$_w_sock}, SOL_SOCKET, SO_RCVBUF, int $_size);
       }
 
-      select(( select($_obj->{$_r_sock}), $| = 1 )[0]); # Ditto.
-      select(( select($_obj->{$_w_sock}), $| = 1 )[0]);
+      select(( select($_obj->{$_w_sock}), $| = 1 )[0]); # Ditto.
+      select(( select($_obj->{$_r_sock}), $| = 1 )[0]);
    }
 
    return;
@@ -428,7 +426,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.808
+This document describes MCE::Util version 1.809
 
 =head1 SYNOPSIS
 

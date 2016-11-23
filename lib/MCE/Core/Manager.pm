@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.808';
+our $VERSION = '1.809';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -214,7 +214,7 @@ sub _output_loop {
             my $_tid = $1; my $_list = $self->{_tids};
             for my $i (0 .. @{ $_list }) {
                if ($_list->[$i] && $_list->[$i] == $_tid) {
-                  ${ $self->{_thrs}->[$i] }->join();
+                  $self->{_thrs}->[$i]->join();
                   $self->{_thrs}->[$i] = undef;
                   $self->{_tids}->[$i] = undef;
                   last;

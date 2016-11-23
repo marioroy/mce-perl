@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.808';
+our $VERSION = '1.809';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -86,7 +86,7 @@ BEGIN {
    ## _chunk_id _mce_sid _mce_tid _pids _run_mode _single_dim _thrs _tids _wid
    ## _exiting _exit_pid _total_exited _total_running _total_workers _task_wid
    ## _send_cnt _sess_dir _spawned _state _status _task _task_id _wrk_status
-   ## _init_pid _init_total_workers _last_sref _mgr_live _rla_data
+   ## _init_pid _init_total_workers _last_sref _mgr_live _rla_data _seed
    ##
    ## _bsb_r_sock _bsb_w_sock _bse_r_sock _bse_w_sock _com_r_sock _com_w_sock
    ## _dat_r_sock _dat_w_sock _que_r_sock _que_w_sock _rla_r_sock _rla_w_sock
@@ -393,8 +393,9 @@ sub new {
    }
 
    if (!exists $self{posix_exit}) {
+      $self{posix_exit} = 1 if ($_has_threads && $_tid);
       $self{posix_exit} = 1 if ($INC{'CGI.pm'} || $INC{'FCGI.pm'});
-      $self{posix_exit} = 1 if ($INC{'Tk.pm'});
+      $self{posix_exit} = 1 if ($INC{'Mojo/IOLoop.pm'} || $INC{'Tk.pm'});
    }
 
    $self{flush_file}   ||= 0;
@@ -608,6 +609,8 @@ sub spawn {
       MCE::Util::_sock_pair($self, qw(_rla_r_sock _rla_w_sock), $_)
          for (0 .. $_max_workers - 1);
    }
+
+   $self->{_seed} = int(rand() * 1e9);
 
    ## -------------------------------------------------------------------------
 
@@ -1090,12 +1093,14 @@ sub run {
       $self->shutdown();
    }
    elsif ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
-      if (!$INC{'Mojo/Base.pm'} && !$INC{'Tk.pm'}) {
+      if (!$INC{'Mojo/IOLoop.pm'} && !$INC{'Tk.pm'}) {
          # running inside eval or IPerl, check stack trace
          my $_t = Carp::longmess(); $_t =~ s/\teval [^\n]+\n$//;
 
          if ( $_t =~ /^(?:[^\n]+\n){1,7}\teval / ||
-              $_t =~ /\n\teval [^\n]+\n\t(?:eval|Try)/ )
+              $_t =~ /\n\teval [^\n]+\n\t(?:eval|Try)/ ||
+              $_t =~ /\n\tMCE::_dispatch\(\) [^\n]+ thread \d+\n$/ ||
+              ( $_tid && !$self->{use_threads} ) )
          {
             $self->shutdown();
          }
@@ -1224,13 +1229,13 @@ sub shutdown {
    if (@{ $self->{_pids} } > 0) {
       my $_list = $self->{_pids};
       for my $i (0 .. @{ $_list }) {
-         waitpid $_list->[$i], 0 if ($_list->[$i]);
+         waitpid($_list->[$i], 0) if $_list->[$i];
       }
    }
    if (@{ $self->{_thrs} } > 0) {
       my $_list = $self->{_thrs};
       for my $i (0 .. @{ $_list }) {
-         ${ $_list->[$i] }->join() if ($_list->[$i]);
+         $_list->[$i]->join() if $_list->[$i];
       }
    }
 
@@ -1499,6 +1504,7 @@ sub status {
 sub do {
 
    my $self = shift; $self = $MCE unless ref($self);
+   my $_pkg = caller() eq 'MCE' ? caller(1) : caller();
 
    _croak('MCE::do: method is not allowed by the manager process')
       unless ($self->{_wid});
@@ -1510,7 +1516,7 @@ sub do {
       _croak('MCE::do: (callback) is not specified')
          unless (defined ( my $_func = shift ));
 
-      $_func = "main::$_func" if (index($_func, ':') < 0);
+      $_func = $_pkg.'::'.$_func if (index($_func, ':') < 0);
 
       return _do_callback($self, $_func, [ @_ ]);
    }
@@ -1793,6 +1799,15 @@ sub _dispatch {
    $ENV{'PERL_MCE_IPC'} = 'win32' if ($_is_MSWin32 && $INC{'MCE/Hobo.pm'});
 
    ## Sets the seed of the base generator uniquely between workers.
+   ## The new seed is computed using the current seed and $_wid value.
+   ## One may set the seed at the application level for predictable
+   ## results (non-thread workers only). Ditto for Math::Random.
+
+   if (!$self->{use_threads}) {
+      my ($_wid, $_seed) = ($_args[1], $self->{_seed});
+      srand(abs($_seed - ($_wid * 100000)) % 2147483560);
+   }
+
    if ($INC{'Math/Random.pm'} && !$self->{use_threads}) {
       my ($_wid, $_cur_seed) = ($_args[1], Math::Random::random_get_seed());
 
@@ -1803,11 +1818,12 @@ sub _dispatch {
       Math::Random::random_set_seed($_new_seed, $_new_seed);
    }
 
-   ## Begin worker.
+   ## Run.
+
    $self->{_pid} = ($_is_thread) ? $$ .'.'. threads->tid() : $$;
+
    _worker_main(@_args, \@_plugin_worker_init);
 
-   ## Exit worker.
    _exit($self);
 }
 
@@ -1827,13 +1843,13 @@ sub _dispatch_thread {
    ## Store into an available slot (restart), otherwise append to arrays.
    if (defined $_params) { for my $_i (0 .. @{ $self->{_tids} } - 1) {
       unless (defined $self->{_tids}->[$_i]) {
-         $self->{_thrs}->[$_i] = \$_thr;
+         $self->{_thrs}->[$_i] = $_thr;
          $self->{_tids}->[$_i] = $_thr->tid();
          return;
       }
    }}
 
-   push @{ $self->{_thrs} }, \$_thr;
+   push @{ $self->{_thrs} }, $_thr;
    push @{ $self->{_tids} }, $_thr->tid();
 
    if (defined $self->{spawn_delay} && $self->{spawn_delay} > 0.0) {

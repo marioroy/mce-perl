@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.808';
+our $VERSION = '1.809';
 
 ## Items below are folded into MCE.
 
@@ -296,9 +296,11 @@ use bytes;
          $_dat_un = sub { syswrite ( $_DAT_LOCK->{_w_sock}, '0' ) };
       }
 
-      local ($|, $!, $@);
-
-      eval { select STDERR; $| = 1; select STDOUT; $| = 1 };
+      {
+         local ($|, $!);
+         select(( select(*STDERR), $| = 1 )[0]) if defined(fileno *STDERR);
+         select(( select(*STDOUT), $| = 1 )[0]) if defined(fileno *STDOUT);
+      }
 
       return;
    }
