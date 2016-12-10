@@ -510,7 +510,7 @@ sub spawn {
    }
    elsif (defined $self->{input_data}) {
       my $_ref = ref $self->{input_data};
-      if ($_ref eq 'ARRAY' || $_ref eq 'GLOB' || $_ref =~ /^IO::/) {
+      if ($_ref eq 'ARRAY' || $_ref =~ /^(?:GLOB|FileHandle|IO::)/) {
          require MCE::Core::Input::Request
             unless $INC{'MCE/Core/Input/Request.pm'};
       }
@@ -914,7 +914,7 @@ sub run {
    elsif (defined $self->{input_data}) {
       my $_ref = ref $self->{input_data};
 
-      if ($_ref eq 'ARRAY') {                        # Array mode
+      if ($_ref eq 'ARRAY') {                         # Array mode
          $_run_mode   = 'array';
          $_input_data = $self->{input_data};
          $_input_file = $_input_glob = undef;
@@ -926,21 +926,21 @@ sub run {
             return $self->shutdown() if ($_auto_shutdown == 1);
          }
       }
-      elsif ($_ref eq 'GLOB' || $_ref =~ /^IO::/) {  # Glob mode
+      elsif ($_ref =~ /^(?:GLOB|FileHandle|IO::)/) {  # Glob mode
          $_run_mode   = 'glob';
          $_input_glob = $self->{input_data};
          $_input_data = $_input_file = undef;
          $_abort_msg  = 0; ## Flag: Has Data: No
          $_first_msg  = 1; ## Flag: Has Data: Yes
       }
-      elsif ($_ref eq 'CODE') {                      # Iterator mode
+      elsif ($_ref eq 'CODE') {                       # Iterator mode
          $_run_mode   = 'iterator';
          $_input_data = $self->{input_data};
          $_input_file = $_input_glob = undef;
          $_abort_msg  = 0; ## Flag: Has Data: No
          $_first_msg  = 1; ## Flag: Has Data: Yes
       }
-      elsif ($_ref eq '') {                          # File mode
+      elsif ($_ref eq '') {                           # File mode
          $_run_mode   = 'file';
          $_input_file = $self->{input_data};
          $_input_data = $_input_glob = undef;
@@ -951,7 +951,7 @@ sub run {
             return $self->shutdown() if ($_auto_shutdown == 1);
          }
       }
-      elsif ($_ref eq 'SCALAR') {                    # Memory mode
+      elsif ($_ref eq 'SCALAR') {                     # Memory mode
          $_run_mode   = 'memory';
          $_input_data = $_input_file = $_input_glob = undef;
          $_abort_msg  = length(${ $self->{input_data} }) + 1;
@@ -965,7 +965,7 @@ sub run {
          _croak('MCE::run: (input_data) is not valid');
       }
    }
-   else {                                            # Nodata mode
+   else {                                             # Nodata mode
       $_abort_msg = undef, $_run_mode = 'nodata';
    }
 

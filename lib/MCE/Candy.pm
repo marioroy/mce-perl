@@ -173,7 +173,7 @@ sub out_iter_fh {
       $_fh = \$_[0] if (!ref $_fh && ref \$_[0]);
 
    MCE::_croak('The argument to (out_iter_fh) is not a supported file handle.')
-      unless (ref($_fh) eq 'GLOB' || ref($_fh) =~ /^IO::/);
+      unless (ref($_fh) =~ /^(?:GLOB|FileHandle|IO::)/);
 
    return sub {
       my $_chunk_id = shift;

@@ -168,7 +168,7 @@ sub run_file (&@) {
       _croak("$_tag: ($_file) is not a plain file") unless (-f $_file);
       $_params->{$_pid}{_file} = $_file;
    }
-   elsif (ref $_file eq 'GLOB' || ref $_file eq 'SCALAR' || ref($_file) =~ /^IO::/) {
+   elsif (ref $_file eq 'SCALAR' || ref($_file) =~ /^(?:GLOB|FileHandle|IO::)/) {
       $_params->{$_pid}{_file} = $_file;
    }
    else {
@@ -248,7 +248,7 @@ sub run (&@) {
    my $_input_data; my $_max_workers = $_def->{$_pkg}{MAX_WORKERS};
    my $_r = ref $_[0];
 
-   if ($_r eq 'ARRAY' || $_r eq 'CODE' || $_r eq 'GLOB' || $_r eq 'SCALAR' || $_r =~ /^IO::/) {
+   if ($_r eq 'ARRAY' || $_r eq 'CODE' || $_r eq 'SCALAR' || $_r =~ /^(?:GLOB|FileHandle|IO::)/) {
       $_input_data = shift if (@_ == 1);
    }
 

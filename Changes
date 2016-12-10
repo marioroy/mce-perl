@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.810 Fri Dec 09 23:30:00 EST 2016
+
+  * Updated check for IO handle allowed. This allows $gather_fh = *STDOUT{IO},
+    construction in Perl <= 5.10.1. Thank you, Qiang Wang.
+
 1.809 Wed Nov 23 16:00:00 EST 2016
 
   * Bug fixes for running MCE inside threads.
@@ -21,7 +26,6 @@ Revision history for Perl module MCE.
 1.806 Tue Oct 11 21:30:00 EST 2016
 
   * Fixed two typos. Thank you, Florian Schlichting.
-
   * Support input_data with nested arrays in MCE Models.
 
 1.805 Thu Sep 01 16:00:00 EST 2016

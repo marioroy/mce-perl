@@ -385,7 +385,7 @@ sub _parse_chunk_size {
          $_is_file = 1;
       }
       elsif (defined $_input_data) {
-         if (ref $_input_data eq 'GLOB' || ref($_input_data) =~ /^IO::/) {
+         if (ref($_input_data) =~ /^(?:GLOB|FileHandle|IO::)/) {
             $_is_file = 1; $_size = 0; $_chunk_size = 393_216;  # 384K
          }
          elsif (ref $_input_data eq 'SCALAR') {
