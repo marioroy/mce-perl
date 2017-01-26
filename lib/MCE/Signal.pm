@@ -136,14 +136,11 @@ sub import {
 ###############################################################################
 
 ## Set traps to catch signals.
-$SIG{XCPU} = \&stop_and_exit if (exists $SIG{XCPU});   ## UNIX SIG 24
-$SIG{XFSZ} = \&stop_and_exit if (exists $SIG{XFSZ});   ## UNIX SIG 25
-
-$SIG{HUP}  = \&stop_and_exit;                          ## UNIX SIG  1
-$SIG{INT}  = \&stop_and_exit;                          ## UNIX SIG  2
-$SIG{PIPE} = \&stop_and_exit;                          ## UNIX SIG 13
-$SIG{QUIT} = \&stop_and_exit;                          ## UNIX SIG  3
-$SIG{TERM} = \&stop_and_exit;                          ## UNIX SIG 15
+$SIG{HUP}  = \&stop_and_exit;  # UNIX SIG  1
+$SIG{INT}  = \&stop_and_exit;  # UNIX SIG  2
+$SIG{PIPE} = \&stop_and_exit;  # UNIX SIG 13
+$SIG{QUIT} = \&stop_and_exit;  # UNIX SIG  3
+$SIG{TERM} = \&stop_and_exit;  # UNIX SIG 15
 
 ## MCE handles the reaping of its children.
 $SIG{CHLD} = 'DEFAULT' unless $_is_MSWin32;
@@ -198,7 +195,7 @@ sub sys_cmd {
 ###############################################################################
 
 my %_sig_name_lkup = map { $_ => 1 } qw(
-   __DIE__ __WARN__ HUP INT PIPE QUIT TERM CHLD XCPU XFSZ
+   __DIE__ __WARN__ HUP INT PIPE QUIT TERM CHLD
 );
 
 my $_handler_cnt : shared = 0;
@@ -238,15 +235,7 @@ sub stop_and_exit {
          if ($_is_sig == 1) {
             my $_err_msg = undef;
 
-            if ($_sig_name eq 'XCPU') {
-               $_err_msg  = 'exceeded CPU time limit, exiting';
-               $_sig_name = 'INT';
-            }
-            elsif ($_sig_name eq 'XFSZ') {
-               $_err_msg  = 'exceeded file size limit, exiting';
-               $_sig_name = 'INT';
-            }
-            elsif ($_sig_name eq 'INT' && -f "$tmp_dir/died") {
+            if ($_sig_name eq 'INT' && -f "$tmp_dir/died") {
                $_err_msg  = 'caught signal (__DIE__), exiting';
             }
             elsif ($_sig_name eq '__DIE__') {
@@ -476,7 +465,7 @@ This document describes MCE::Signal version 1.810
 
 =head1 DESCRIPTION
 
-This package configures $SIG{HUP,INT,PIPE,QUIT,TERM,XCPU,XFSZ} to point to
+This package configures $SIG{ HUP, INT, PIPE, QUIT, and TERM } to point to
 stop_and_exit and creates a temporary directory. The main process and workers
 receiving said signals call stop_and_exit, which signals all workers to
 terminate, removes the temporary directory unless -keep_tmp_dir is specified,

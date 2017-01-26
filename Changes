@@ -1,10 +1,11 @@
 
 Revision history for Perl module MCE.
 
-1.811 Fri Jan 20 19:30:00 EST 2017
+1.811 Thu Jan 26 14:00:00 EST 2017
 
-  * Fixed bug in MCE::Queue (dequeue_nb) when queue has no data.
-  * Imply posix_exit => 1 if Gearman::XS is present.
+  * Removed signal handling for XCPU and XFSZ from MCE::Signal.
+  * Fixed bug in MCE::Queue (dequeue_nb) when queue has zero items.
+  * Imply posix_exit => 1 if Gearman::XS is present during construction.
 
 1.810 Fri Dec 09 23:30:00 EST 2016
 
