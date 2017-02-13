@@ -1094,7 +1094,7 @@ sub run {
       $self->shutdown();
    }
    elsif ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
-      if (!$INC{'Mojo/IOLoop.pm'} && !$INC{'Tk.pm'}) {
+      if (!$INC{'Gearman/XS.pm'} && !$INC{'Mojo/IOLoop.pm'} && !$INC{'Tk.pm'}) {
          # running inside eval or IPerl, check stack trace
          my $_t = Carp::longmess(); $_t =~ s/\teval [^\n]+\n$//;
 
