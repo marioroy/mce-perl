@@ -1,14 +1,16 @@
 
 Revision history for Perl module MCE.
 
-1.811 Mon Feb 13 06:00:00 EST 2017
+1.811 Mon Feb 13 07:30:00 EST 2017
 
   * Fixed bug in MCE::Queue (dequeue_nb) when queue has zero items.
   * Applied small optimization in MCE::Core::Input::Sequence and Generator.
 
   * Added cross-platform template to MCE::Examples for making an executable.
   * Removed signal handling for XCPU and XFSZ from MCE::Signal.
-  * Imply posix_exit => 1 if Gearman::XS is present during MCE construction.
+
+  * Imply posix_exit => 1 if Gearman::XS or Gearman::Util is present during
+    MCE construction.
 
   * Added MCE + Gearman demonstrations (xs and non-xs) on Github:
     https://github.com/marioroy/mce-examples/tree/master/gearman_xs

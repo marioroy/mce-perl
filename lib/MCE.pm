@@ -396,7 +396,7 @@ sub new {
       $self{posix_exit} = 1 if ($_has_threads && $_tid);
       $self{posix_exit} = 1 if ($INC{'CGI.pm'} || $INC{'FCGI.pm'});
       $self{posix_exit} = 1 if ($INC{'Mojo/IOLoop.pm'} || $INC{'Tk.pm'});
-      $self{posix_exit} = 1 if ($INC{'Gearman/XS.pm'});
+      $self{posix_exit} = 1 if ($INC{'Gearman/XS.pm'} || $INC{'Gearman/Util.pm'});
    }
 
    $self{flush_file}   ||= 0;
@@ -1094,7 +1094,10 @@ sub run {
       $self->shutdown();
    }
    elsif ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
-      if (!$INC{'Gearman/XS.pm'} && !$INC{'Mojo/IOLoop.pm'} && !$INC{'Tk.pm'}) {
+      if (
+         !$INC{'Gearman/XS.pm'} && !$INC{'Gearman/Util.pm'} &&
+         !$INC{'Mojo/IOLoop.pm'} && !$INC{'Tk.pm'}
+      ) {
          # running inside eval or IPerl, check stack trace
          my $_t = Carp::longmess(); $_t =~ s/\teval [^\n]+\n$//;
 
