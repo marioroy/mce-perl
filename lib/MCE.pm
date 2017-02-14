@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.811';
+our $VERSION = '1.812';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -39,12 +39,20 @@ BEGIN {
    eval 'use PDL::IO::Storable'        if $INC{'PDL.pm'};
 
    if (!exists $INC{'PDL.pm'}) {
-      eval 'use Sereal 3.008 qw( encode_sereal decode_sereal )';
+      eval '
+         use Sereal::Encoder 3.015 qw( encode_sereal );
+         use Sereal::Decoder 3.015 qw( decode_sereal );
+      ';
       if ( !$@ ) {
-         $_freeze = sub { encode_sereal( @_, { freeze_callbacks => 1 } ) };
-         $_thaw   = \&decode_sereal;
+         my $_encoder_ver = int( Sereal::Encoder->VERSION() );
+         my $_decoder_ver = int( Sereal::Decoder->VERSION() );
+         if ( $_encoder_ver - $_decoder_ver == 0 ) {
+            $_freeze = sub { encode_sereal( @_, { freeze_callbacks => 1 } ) };
+            $_thaw   = \&decode_sereal;
+         }
       }
    }
+
    if (!defined $_freeze) {
       require Storable;
       $_freeze = \&Storable::freeze;

@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.812 Tue Feb 14 17:00:00 EST 2017
+
+  * Bumped minimum requirement for Sereal to 3.015 when available.
+    Added regression ensuring matching version for Encoder and Decoder.
+
 1.811 Mon Feb 13 23:30:00 EST 2017
 
   * Fixed bug in MCE::Queue (dequeue_nb) when queue has zero items.
