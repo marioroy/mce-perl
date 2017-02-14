@@ -1,7 +1,7 @@
 
 Revision history for Perl module MCE.
 
-1.811 Mon Feb 13 07:30:00 EST 2017
+1.811 Mon Feb 13 23:30:00 EST 2017
 
   * Fixed bug in MCE::Queue (dequeue_nb) when queue has zero items.
   * Applied small optimization in MCE::Core::Input::Sequence and Generator.
