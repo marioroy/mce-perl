@@ -174,8 +174,9 @@ Below, a new instance is configured with all available options.
          # from shared storage.
 
          # Set posix_exit to avoid all END and destructor processing for
-         # non-threads spawned via fork. This is set automatically to 1
-         # if (F)CGI.pm, Gearman::XS, Mojo::IOLoop, or Tk is present.
+         # non-threads spawned via fork. Constructing MCE inside a thread
+         # implies posix_exit => 1 or if present CGI.pm, FCGI.pm, Tk,
+         # Gearman::Util, Gearman::XS, or Mojo::IOLoop.
 
          # Enable slurpio to pass the raw chunk (scalar ref) to the user
          # function when reading input files.
