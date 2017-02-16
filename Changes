@@ -1,11 +1,11 @@
 
 Revision history for Perl module MCE.
 
-1.813 Wed Feb 15 01:00:00 EST 2017
+1.813 Thu Feb 16 02:30:00 EST 2017
 
-  * Added progress option, a code block for receiving info on progress made.
+  * Last minute request by Philippe Baumgart (reminder and long overdue).
+    Added progress option, a code block for receiving info on progress made.
     See MCE::Core.pod for demonstrations accommodating all input data types.
-    This feature request came from Philippe Baumgart.
 
 1.812 Tue Feb 14 17:00:00 EST 2017
 
