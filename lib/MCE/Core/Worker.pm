@@ -321,12 +321,42 @@ use bytes;
    sub _do_user_func {
 
       my ($self, $_chunk, $_chunk_id) = @_;
+      my $_size = 0;
+
+      if ($self->{progress} && $self->{_task_id} == 0) {
+         # use_slurpio
+         if (ref $_chunk eq 'SCALAR') {
+            $_size += length ${ $_chunk };
+         }
+         # sequence and bounds_only
+         elsif ($self->{sequence} && $self->{bounds_only}) {
+            my $_seq = $self->{sequence};
+            my $_step = (ref $_seq eq 'ARRAY') ? $_seq->[2] : $_seq->{step};
+            $_size += int(abs($_chunk->[0] - $_chunk->[1]) / abs($_step)) + 1;
+         }
+         # workers clear {input_data} to conserve memory when array ref
+         # otherwise, /path/to/infile or scalar reference
+         elsif ($self->{input_data}) {
+            map { $_size += length } @{ $_chunk };
+         }
+         # array or sequence
+         else {
+            $_size += (ref $_chunk eq 'ARRAY') ? @{ $_chunk } : 1;
+         }
+      }
 
       $self->{_retry} = [ $_chunk, $_chunk_id, $self->{max_retries} ]
          if ($self->{max_retries});
 
       $self->{_chunk_id} = $_chunk_id;
       $_user_func->($self, $_chunk, $_chunk_id);
+
+      if ($self->{progress} && $self->{_task_id} == 0) {
+         $_dat_ex->() if $_lock_chn;
+         print {$_DAT_W_SOCK} OUTPUT_P_NFY.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} $_size.$LF;
+         $_dat_un->() if $_lock_chn;
+      }
 
       return;
    }
@@ -403,7 +433,7 @@ sub _worker_do {
    if (defined $self->{user_begin}) {
       $self->{_chunk_id} = 0;
       $self->{user_begin}($self, $_task_id, $_task_name);
-      $self->sync if ($_task_id == 0 && defined $self->{init_relay});
+      $self->sync() if ($_task_id == 0 && defined $self->{init_relay});
    }
 
    ## Retry chunk if previous attempt died.
@@ -461,7 +491,7 @@ sub _worker_do {
    ## Call user_end if defined.
    if (defined $self->{user_end}) {
       $self->{_chunk_id} = 0;
-      $self->sync if ($_task_id == 0 && defined $self->{init_relay});
+      $self->sync() if ($_task_id == 0 && defined $self->{init_relay});
       $self->{user_end}($self, $_task_id, $_task_name);
    }
 

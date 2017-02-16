@@ -139,6 +139,8 @@ sub _validate_args_s {
    _croak("$_tag: (use_threads) is not 0 or 1")
       if ($_s->{use_threads} && $_s->{use_threads} !~ /\A[01]\z/);
 
+   _croak("$_tag: (progress) is not a CODE reference")
+      if ($_s->{progress} && ref $_s->{progress} ne 'CODE');
    _croak("$_tag: (user_begin) is not a CODE reference")
       if ($_s->{user_begin} && ref $_s->{user_begin} ne 'CODE');
    _croak("$_tag: (user_func) is not a CODE reference")

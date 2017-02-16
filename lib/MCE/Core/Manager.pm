@@ -85,7 +85,7 @@ sub _output_loop {
       $_exit_id, $_exit_pid, $_exit_status, $_exit_wid, $_len, $_sync_cnt,
       $_BSB_W_SOCK, $_BSE_W_SOCK, $_DAT_R_SOCK, $_DAU_R_SOCK, $_MCE_STDERR,
       $_I_FLG, $_O_FLG, $_I_SEP, $_O_SEP, $_RS, $_RS_FLG, $_MCE_STDOUT,
-      $_win32_ipc
+      $_size_completed, $_win32_ipc
    );
 
    ## -------------------------------------------------------------------------
@@ -650,6 +650,15 @@ sub _output_loop {
          return;
       },
 
+      OUTPUT_P_NFY.$LF => sub {                   # Progress notification
+
+         chomp($_len = <$_DAU_R_SOCK>);
+
+         $self->{progress}->( $_size_completed += $_len );
+
+         return;
+      },
+
    );
 
    ## -------------------------------------------------------------------------
@@ -659,6 +668,7 @@ sub _output_loop {
    $_has_user_tasks = (defined $self->{user_tasks}) ? 1 : 0;
    $_cs_one_flag = ($self->{chunk_size} == 1) ? 1 : 0;
    $_aborted = $_chunk_id = $_eof_flag = 0;
+   $_size_completed = 0;
 
    $_max_retries  = $self->{max_retries};
    $_on_post_exit = $self->{on_post_exit};
