@@ -1,6 +1,6 @@
 ## Many-Core Engine for Perl
 
-This document describes MCE version 1.813.
+This document describes MCE version 1.814.
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
@@ -169,8 +169,12 @@ MCE utilizes the following modules, which are mostly installed with Perl:
 
 The Perl MCE module is described at https://metacpan.org/pod/MCE.
 
+MCE options are described at [metacpan](https://metacpan.org/pod/MCE::Core).
+It includes several demonstrations at the end of the page.
+
 See [MCE::Examples](https://metacpan.org/pod/MCE::Examples)
-and [MCE Cookbook](https://github.com/marioroy/mce-cookbook) for recipes.
+and [MCE Cookbook](https://github.com/marioroy/mce-cookbook)
+for more recipes.
 
 ### Copyright and Licensing
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.813';
+our $VERSION = '1.814';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -996,13 +996,14 @@ sub run {
       my  $_submit_delay = $self->{submit_delay};
 
       my %_params = (
-         '_abort_msg'   => $_abort_msg,  '_run_mode'   => $_run_mode,
-         '_input_file'  => $_input_file, '_chunk_size' => $_chunk_size,
+         '_abort_msg'   => $_abort_msg,  '_chunk_size' => $_chunk_size,
+         '_input_file'  => $_input_file, '_run_mode'   => $_run_mode,
          '_single_dim'  => $_single_dim,
          '_bounds_only' => $self->{bounds_only},
          '_interval'    => $self->{interval},
          '_max_retries' => $self->{max_retries},
          '_parallel_io' => $self->{parallel_io},
+         '_progress'    => $self->{progress} ? 1 : 0,
          '_sequence'    => $self->{sequence},
          '_user_args'   => $self->{user_args},
          '_use_slurpio' => $self->{use_slurpio},

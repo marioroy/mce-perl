@@ -5,7 +5,7 @@ MCE - Many-Core Engine for Perl providing parallel processing capabilities
 
 =head1 VERSION
 
-This document describes MCE version 1.813
+This document describes MCE version 1.814
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
@@ -142,7 +142,7 @@ Three modules make up the core engine for MCE.
 =item L<MCE::Core>
 
 Provides the Core API for Many-Core Engine. The various MCE options are
-described here.
+described here. It includes several demonstrations at the end of the page.
 
 =item L<MCE::Signal>
 

@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.814 Mon Feb 20 05:30:00 EST 2017
+
+  * Enhanced the progress option for use with MCE->process.
+    Updated progress demonstrations in MCE::Core.pod.
+
 1.813 Thu Feb 16 02:30:00 EST 2017
 
   * Last minute request by Philippe Baumgart (reminder and long overdue).

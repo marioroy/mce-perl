@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.813';
+our $VERSION = '1.814';
 
 ## Items below are folded into MCE.
 
@@ -389,6 +389,7 @@ sub _worker_do {
    $self->{_single_dim} = $_params_ref->{_single_dim};
    $self->{use_slurpio} = $_params_ref->{_use_slurpio};
    $self->{parallel_io} = $_params_ref->{_parallel_io};
+   $self->{progress}    = $_params_ref->{_progress};
    $self->{max_retries} = $_params_ref->{_max_retries};
    $self->{RS}          = $_params_ref->{_RS};
 
