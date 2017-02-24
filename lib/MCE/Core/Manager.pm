@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.814';
+our $VERSION = '1.815';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -85,7 +85,7 @@ sub _output_loop {
       $_exit_id, $_exit_pid, $_exit_status, $_exit_wid, $_len, $_sync_cnt,
       $_BSB_W_SOCK, $_BSE_W_SOCK, $_DAT_R_SOCK, $_DAU_R_SOCK, $_MCE_STDERR,
       $_I_FLG, $_O_FLG, $_I_SEP, $_O_SEP, $_RS, $_RS_FLG, $_MCE_STDOUT,
-      $_size_completed, $_win32_ipc
+      @_delay_wid, $_size_completed, $_win32_ipc
    );
 
    ## -------------------------------------------------------------------------
@@ -659,16 +659,59 @@ sub _output_loop {
          return;
       },
 
+      OUTPUT_I_DLY.$LF => sub {                   # Interval delay
+         my $_tasks = $_has_user_tasks ? $self->{user_tasks} : undef;
+
+         chomp($_task_id = <$_DAU_R_SOCK>);
+
+         my $_interval = ($_tasks && exists $_tasks->[$_task_id]{interval})
+            ? $_tasks->[$_task_id]{interval}
+            : $self->{interval};
+
+         if ( $_interval ) {
+            my $_max_workers = ($_tasks)
+               ? $_tasks->[$_task_id]{max_workers}
+               : $self->{max_workers};
+
+            $_delay_wid[$_task_id] = 1
+               if (++$_delay_wid[$_task_id] > $_max_workers);
+
+            my $_nodes  = $_interval->{max_nodes};
+            my $_id     = $_interval->{node_id};
+            my $_delay  = $_interval->{delay} * $_nodes;
+
+            my $_app_tb = $_delay * $_max_workers;
+            my $_app_st = $_interval->{_time} + ($_delay / $_nodes * $_id);
+            my $_wrk_st = ($_delay_wid[$_task_id] - 1) * $_delay + $_app_st;
+
+            $_delay = $_wrk_st - time;
+
+            if ($_delay < 0.0 && $_app_tb) {
+               my $_count = int($_delay * -1 / $_app_tb + 0.5) + 1;
+               $_delay += $_app_tb * $_count;
+               $_interval->{_time} = time if ($_count > 2e9);
+            }
+
+            ($_delay > 0.0)
+               ? print {$_DAU_R_SOCK} $_delay.$LF
+               : print {$_DAU_R_SOCK} '0'.$LF;
+         }
+         else {
+            print {$_DAU_R_SOCK} '0'.$LF;
+         }
+
+         return;
+      },
+
    );
 
    ## -------------------------------------------------------------------------
 
    local ($!, $?, $_);
 
+   $_aborted = $_chunk_id = $_eof_flag = $_size_completed = 0;
    $_has_user_tasks = (defined $self->{user_tasks}) ? 1 : 0;
    $_cs_one_flag = ($self->{chunk_size} == 1) ? 1 : 0;
-   $_aborted = $_chunk_id = $_eof_flag = 0;
-   $_size_completed = 0;
 
    $_max_retries  = $self->{max_retries};
    $_on_post_exit = $self->{on_post_exit};

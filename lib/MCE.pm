@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.814';
+our $VERSION = '1.815';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -90,15 +90,15 @@ BEGIN {
    }
 
    ## Attributes used internally.
-   ## _abort_msg _chn _com_lock _dat_lock _i_app_st _i_app_tb _i_wrk_st _wuf
+   ## _abort_msg _caller _chn _com_lock _dat_lock _mgr_live _rla_data _seed
    ## _chunk_id _mce_sid _mce_tid _pids _run_mode _single_dim _thrs _tids _wid
    ## _exiting _exit_pid _total_exited _total_running _total_workers _task_wid
    ## _send_cnt _sess_dir _spawned _state _status _task _task_id _wrk_status
-   ## _init_pid _init_total_workers _last_sref _mgr_live _rla_data _seed
+   ## _init_pid _init_total_workers _last_sref _wuf
    ##
    ## _bsb_r_sock _bsb_w_sock _bse_r_sock _bse_w_sock _com_r_sock _com_w_sock
    ## _dat_r_sock _dat_w_sock _que_r_sock _que_w_sock _rla_r_sock _rla_w_sock
-   ## _data_channels _lock_chn _mutex_n _caller
+   ## _data_channels _lock_chn _mutex_n
 
    %_valid_fields_new = map { $_ => 1 } qw(
       max_workers tmp_dir use_threads user_tasks task_end task_name freeze thaw
@@ -256,6 +256,7 @@ use constant {
    OUTPUT_E_SYN   => 'E~SYN',  # Barrier sync - end
    OUTPUT_S_IPC   => 'S~IPC',  # Change to win32 IPC
    OUTPUT_P_NFY   => 'P~NFY',  # Progress notification
+   OUTPUT_I_DLY   => 'I~DLY',  # Interval delay
 
    READ_FILE      => 0,        # Worker reads file handle
    READ_MEMORY    => 1,        # Worker reads memory handle
@@ -1000,7 +1001,6 @@ sub run {
          '_input_file'  => $_input_file, '_run_mode'   => $_run_mode,
          '_single_dim'  => $_single_dim,
          '_bounds_only' => $self->{bounds_only},
-         '_interval'    => $self->{interval},
          '_max_retries' => $self->{max_retries},
          '_parallel_io' => $self->{parallel_io},
          '_progress'    => $self->{progress} ? 1 : 0,
@@ -1338,22 +1338,22 @@ sub yield {
 
    my $self = shift; $self = $MCE unless ref($self);
 
-   return unless ($self->{_i_wrk_st});
-   return unless ($self->{_task_wid});
+   return unless ($self->{_wid});
 
-   my $_delay = $self->{_i_wrk_st} - time;
-   my $_count;
+   my $_chn        = $self->{_chn};
+   my $_DAT_LOCK   = $self->{_dat_lock};
+   my $_DAT_W_SOCK = $self->{_dat_w_sock}->[0];
+   my $_DAU_W_SOCK = $self->{_dat_w_sock}->[$_chn];
+   my $_lock_chn   = $self->{_lock_chn};
+   my $_delay;
 
-   if ($_delay < 0.0) {
-      $_count  = int($_delay * -1 / $self->{_i_app_tb} + 0.5) + 1;
-      $_delay += $self->{_i_app_tb} * $_count;
-   }
+   $_DAT_LOCK->lock() if $_lock_chn;
+   print {$_DAT_W_SOCK} OUTPUT_I_DLY.$LF . $_chn.$LF;
+   print {$_DAU_W_SOCK} $self->{_task_id}.$LF;
+   chomp($_delay = <$_DAU_W_SOCK>);
+   $_DAT_LOCK->unlock() if $_lock_chn;
 
    sleep $_delay if ($_delay > 0.0);
-
-   if ($_count && $_count > 2e9) {
-      $self->{_i_wrk_st} = time;
-   }
 
    return;
 }

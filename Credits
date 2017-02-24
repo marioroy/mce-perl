@@ -6,6 +6,15 @@ alphabetical order by last name.
 #  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
 ###############################################################################
 
+Baumgart, Philippe
+
+  For trying the MCE interval option and calling MCE->yield. I felt bad for
+  Philippe spending many hours that it caused me to simulate the interval
+  option over and over again. It turns out that there can be unnecessary
+  delays from a worker taking extra time. MCE 1.815 resolves the issue by
+  allowing the next available worker to run versus workers running orderly.
+  Thank you, Philippe for your patience.
+
 Berger, Joel
 
   The inspiration for the sixth model (MCE::Step) came from reading a blog

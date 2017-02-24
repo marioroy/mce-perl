@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.814
+This document describes MCE::Core version 1.815
 
 =head1 SYNOPSIS
 
@@ -177,6 +177,12 @@ Below, a new instance is configured with all available options.
          # non-threads spawned via fork. Constructing MCE inside a thread
          # implies posix_exit => 1 or if present CGI.pm, FCGI.pm, Tk,
          # Gearman::Util, Gearman::XS, or Mojo::IOLoop.
+
+         # Not all modules on CPAN are thread-safe nor safe to use with
+         # many processes. Set posix_exit explicitly if your application
+         # is crashing, due to using a module with a DESTROY or END block
+         # not accounting for the process ID the object was constructed
+         # under: e.g. Cache::BDB.
 
          # Enable slurpio to pass the raw chunk (scalar ref) to the user
          # function when reading input files.

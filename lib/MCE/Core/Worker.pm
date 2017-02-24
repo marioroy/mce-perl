@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.814';
+our $VERSION = '1.815';
 
 ## Items below are folded into MCE.
 
@@ -406,7 +406,7 @@ sub _worker_do {
    my $_task_name  = $self->{task_name};
 
    ## Do not override params if defined in user_tasks during instantiation.
-   for my $_p (qw(bounds_only chunk_size interval sequence user_args)) {
+   for my $_p (qw(bounds_only chunk_size sequence user_args)) {
       if (defined $_params_ref->{"_${_p}"}) {
          $self->{$_p} = $_params_ref->{"_${_p}"}
             unless (defined $self->{_task}->{$_p});
@@ -415,20 +415,6 @@ sub _worker_do {
 
    ## Assign user function.
    $self->{_wuf} = \&_do_user_func;
-
-   ## Set time_block & start_time values for interval.
-   if (defined $self->{interval}) {
-      my $_i     = $self->{interval};
-      my $_delay = $_i->{delay} * $_i->{max_nodes};
-
-      $self->{_i_app_tb} = $_delay * $self->{max_workers};
-
-      $self->{_i_app_st} =
-         $_i->{_time} + ($_delay / $_i->{max_nodes} * $_i->{node_id});
-
-      $self->{_i_wrk_st} =
-         ($self->{_task_wid} - 1) * $_delay + $self->{_i_app_st};
-   }
 
    ## Call user_begin if defined.
    if (defined $self->{user_begin}) {
@@ -677,7 +663,6 @@ sub _worker_main {
    $self->{max_workers} = $_task->{max_workers} if ($_task->{max_workers});
    $self->{chunk_size}  = $_task->{chunk_size}  if ($_task->{chunk_size});
    $self->{gather}      = $_task->{gather}      if ($_task->{gather});
-   $self->{interval}    = $_task->{interval}    if ($_task->{interval});
    $self->{sequence}    = $_task->{sequence}    if ($_task->{sequence});
    $self->{bounds_only} = $_task->{bounds_only} if ($_task->{bounds_only});
    $self->{task_name}   = $_task->{task_name}   if ($_task->{task_name});
