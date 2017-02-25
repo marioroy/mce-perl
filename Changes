@@ -1,6 +1,12 @@
 
 Revision history for Perl module MCE.
 
+1.817 Sat Feb 25 02:00:00 EST 2017
+
+  * Improved bin/mce_grep. When -r is specified and zero paths are given,
+    start recursively in the current directory versus await data from STDIN.
+    Set chunk-level accordingly to list mode.
+
 1.816 Fri Feb 24 19:00:00 EST 2017
 
   * Revised the description on max_retries in MCE::Core.pod.

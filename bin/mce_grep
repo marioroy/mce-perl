@@ -9,7 +9,7 @@
 ## Caveat for grep, egrep, fgrep. MCE chunks input while running which may
 ## cause the following options to report inaccurately. It's possible that
 ## the requested NUM lines may cross chunking boundaries. Specify a larger
-## chunk size value to minimize the effect or pass --chunk-level=list.
+## chunk size value to minimize the effect or run with --chunk-level=list.
 ##
 ##   -A NUM, --after-context=NUM
 ##   -B NUM, --before-context=NUM
@@ -25,7 +25,7 @@
 ##   ln mce_grep mce_egrep
 ##   ln mce_grep mce_fgrep
 ##
-## Which to choose (examples/egrep.pl or bin/mce_grep).
+## Which to choose (mce-examples/other/egrep.pl or bin/mce_grep).
 ##
 ##   Examples/egrep.pl is a pure Perl implementation with fewer options.
 ##   Bin/mce_grep is a wrapper script for the relevant binary.
@@ -37,7 +37,7 @@
 ##
 ## ============================================================================
 ## 2014-01-21  v1.008
-##   Created by Mario Roy.
+##   Initial release by Mario Roy.
 ##
 ## 2014-07-23  v1.009
 ##   ${^CHILD_ERROR_NATIVE} is not defined in Perl 5.8.x. Use $? instead.
@@ -46,6 +46,10 @@
 ##
 ## 2014-12-22  v1.010
 ##   Small code refactoring.
+##
+## 2017-02-25  v1.011
+##   When -r is specified and zero paths are given, start recursively in the
+##   current directory. Set chunk-level accordingly to list mode.
 ##
 ###############################################################################
 
@@ -80,7 +84,7 @@ use Scalar::Util qw( looks_like_number );
 use Fcntl qw( O_RDONLY );
 
 use MCE::Signal qw( -use_dev_shm );
-use MCE 1.5;
+use MCE 1.5;  # or later is fine
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -94,14 +98,14 @@ sub usage {
 
 Options for Script:
   --max-workers=NUM         override max workers (default auto)
-                              e.g. auto, auto-2, 4
+                              e.g. auto, auto-2, 16
 
   --chunk-level=LEVEL       override chunk level (default auto)
                               chunk at [file] or [list] level
 
   --chunk-size=NUM[KM]      override chunk size (set at limit if under or over)
                               [file] default: 8M  minimum: 200K  maximum: 20M
-                              [list] default: 12  minimum: 1     maximum: 60
+                              [list] default: 15  minimum: 1     maximum: 200
 
   --lang=LOCALE             override locale
                               e.g. C, en_US.UTF-8, en_US.ISO-8859-1
@@ -347,6 +351,10 @@ push @args, shift @files if ($h_patn == 0 && @files > 0);
 
 if ((!$h_flag && @files > 1) || (!$h_flag && $r_flag) || $H_flag) {
    $w_filename = 1;
+}
+
+if ($r_flag && !@files) {
+   push @files, '.';
 }
 
 if (@args == 0) {
@@ -899,7 +907,10 @@ sub process_stdin {
 my $gather_func;
 
 if ($chunk_level eq 'auto') {
-   if (@files == 0 || $files[0] eq '-') {
+   if ($r_flag) {
+      $chunk_level = 'list';
+   }
+   elsif (@files == 0 || $files[0] eq '-') {
       $chunk_level = 'file';
    }
    else {
@@ -912,9 +923,10 @@ if ($chunk_level eq 'auto') {
 }
 
 if ($chunk_level eq 'list') {
-   $chunk_size = 12 unless defined $chunk_size;
-   $chunk_size = 60 if $chunk_size > 60;
-   $chunk_size =  1 if $chunk_size <  1;
+   $chunk_size = 200   if (!defined $chunk_size && $r_flag);
+   $chunk_size = 15    if (!defined $chunk_size);
+   $chunk_size = 200   if ($chunk_size > 200);
+   $chunk_size = 1     if ($chunk_size < 1);
 
    unshift @args, '-H' if (!$h_flag && ($H_flag || $r_flag || @files > 1));
    unshift @args, '-h' if ($h_flag);
