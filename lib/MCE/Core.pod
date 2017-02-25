@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.815
+This document describes MCE::Core version 1.816
 
 =head1 SYNOPSIS
 
@@ -907,25 +907,28 @@ Time was measured using 1 worker to emphasize the difference.
 
 =head2 SYNTAX for MAX_RETRIES
 
-The max_retries option, added in 1.7, causes MCE to retry a failed chunk from
-a worker dying while processing input data or sequence of numbers.
+The max_retries option, added in 1.7, allows MCE to retry a failed chunk from
+a worker dying while processing input data or a sequence of numbers.
 
-MCE configures the on_post_exit option with the following code in the absence
-of on_post_exit. Otherwise, simply tailor this into your on_post_exit code.
+When max_retries is set, MCE configures the on_post_exit option before running,
+using the following code. Specify on_post_exit explicitly for further tailoring
+if need be. The restart_worker line is necessary, obviously.
 
-   ## What is done behind the scene when max_retries is specified and
-   ## omitting the on_post_exit option in MCE.
+   on_post_exit => sub {
+      my ( $mce, $e, $retry_cnt ) = @_;
+      my ( $cnt, $msg ) = ( $retry_cnt + 1, "Error: chunk $e->{id} failed" );
 
-   sub on_post_exit {
-      my ($mce, $e, $retry_cnt) = @_;
-      my ($cnt, $msg) = ($retry_cnt + 1, "Error: Chunk $e->{id} failed");
-
-      ($retry_cnt < $mce->max_retries)
-         ? print {*STDERR} "$msg, retrying chunk attempt #${cnt}\n"
+      ( $retry_cnt < $mce->max_retries )
+         ? print {*STDERR} "$msg, retrying chunk attempt # ${cnt}\n"
          : print {*STDERR} "$msg\n";
 
       $mce->restart_worker;
    }
+
+Below, we let MCE handle on_post_exit automatically, which is essentially the
+same code shown above. For max_retries to work, the worker must die, abnormally
+included, or call MCE->exit. Notice that we pass the chunk_id value for the
+3rd argument to MCE->exit.
 
    ## Running MCE with max_retries.
 
@@ -935,17 +938,21 @@ of on_post_exit. Otherwise, simply tailor this into your on_post_exit code.
    use MCE;
 
    sub user_func {
-      my ($mce, $chunk_ref, $chunk_id) = @_;
-      die "Died : chunk_id == 3" if $chunk_id == 3;
-      print "$mce->{_wid}: $chunk_id\n";
+      my ( $mce, $chunk_ref, $chunk_id ) = @_;
+
+      # die "Died : chunk_id = 3\n"  if $chunk_id == 3;
+      MCE->exit(1, undef, $chunk_id) if $chunk_id == 3;
+
+      print MCE->wid(), ": $chunk_id\n";
    }
 
    my $mce = MCE->new(
-      max_workers => 1, user_func => \&user_func,
+      max_workers => 1,
       max_retries => 2,
+      user_func   => \&user_func,
    )->spawn;
 
-   my @input_data; push @input_data, qw( 0 1 2 3 4 5 6 7 );
+   my @input_data = qw( 0 1 2 3 4 5 6 7 );
 
    $mce->process( { chunk_size => 1 }, \@input_data );
 
@@ -955,12 +962,9 @@ of on_post_exit. Otherwise, simply tailor this into your on_post_exit code.
 
    1: 1
    1: 2
-   Died : chunk_id == 3 at script.pl line 8, <__ANONIO__> line 6.
-   Error: Chunk 3 failed, retrying chunk attempt #1
-   Died : chunk_id == 3 at script.pl line 8, <__ANONIO__> line 7.
-   Error: Chunk 3 failed, retrying chunk attempt #2
-   Died : chunk_id == 3 at script.pl line 8, <__ANONIO__> line 14.
-   Error: Chunk 3 failed
+   Error: chunk 3 failed, retrying chunk attempt # 1
+   Error: chunk 3 failed, retrying chunk attempt # 2
+   Error: chunk 3 failed
    1: 4
    1: 5
    1: 6

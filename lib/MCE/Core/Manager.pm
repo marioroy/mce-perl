@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.815';
+our $VERSION = '1.816';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -726,10 +726,10 @@ sub _output_loop {
    if ($_max_retries && !$_on_post_exit) {
       $_on_post_exit = sub {
          my ($self, $_e, $_retry_cnt) = @_;
-         my ($_cnt, $_msg) = ($_retry_cnt + 1, "Error: Chunk $_e->{id} failed");
+         my ($_cnt, $_msg) = ($_retry_cnt + 1, "Error: chunk $_e->{id} failed");
 
          ($_retry_cnt < $_max_retries)
-            ? print {*STDERR} "$_msg, retrying chunk attempt #${_cnt}\n"
+            ? print {*STDERR} "$_msg, retrying chunk attempt # ${_cnt}\n"
             : print {*STDERR} "$_msg\n";
 
          $self->restart_worker;

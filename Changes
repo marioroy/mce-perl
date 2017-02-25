@@ -1,21 +1,25 @@
 
 Revision history for Perl module MCE.
 
+1.816 Fri Feb 24 19:00:00 EST 2017
+
+  * Revised the description on max_retries in MCE::Core.pod.
+
 1.815 Fri Feb 24 01:00:00 EST 2017
 
   * Fixed divide-by-zero error in MCE->yield.
 
   * Refactored code for the interval option by moving the code to the manager
     process. This allows the manager process to accomodate the next available
-    worker ready to run. Previoulsy, a worker taking a long time resulted in
-    empty time slots. Thank you, Philippe Baumgart for your patience.
+    worker and ready to run. Previoulsy, a worker taking a long time resulted
+    in empty time slots. Thank you, Philippe Baumgart for your patience.
 
   * Revised the description on posix_exit in MCE::Core.pod.
 
 1.814 Mon Feb 20 05:30:00 EST 2017
 
   * Enhanced the progress option for use with MCE->process.
-    Updated progress demonstrations in MCE::Core.pod.
+    Updated demonstrations in MCE::Core.pod.
 
 1.813 Thu Feb 16 02:30:00 EST 2017
 

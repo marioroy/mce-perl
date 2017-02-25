@@ -1,6 +1,6 @@
 ## Many-Core Engine for Perl
 
-This document describes MCE version 1.815.
+This document describes MCE version 1.816.
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
