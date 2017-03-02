@@ -1,6 +1,21 @@
 
 Revision history for Perl module MCE.
 
+1.818 Wed Mar 01 22:00:00 EST 2017
+
+  * Updated bin/mce_grep for determining chunk level. Ditto for chunk size.
+    Fixed an issue for not seeing STDERR output with '--chunk-level=file'.
+    Added support for zgrep, zegrep, and zfgrep. Thank you, Jeff Rouse.
+
+  * Replaced Sereal with Sereal::Decoder and Sereal::Encoder in Makefile,
+    inside recommends section. Ditto for META files.
+
+  * Refactored MCE::Queue. Merged local and manager code base into one.
+    Removed t/04_norm_que_local.t and t/04_prio_que_local.t.
+
+  * Added 'end' method to MCE::Queue.
+    Updated documentation on dequeue and pending.
+
 1.817 Sat Feb 25 02:00:00 EST 2017
 
   * Improved bin/mce_grep. When -r is specified and zero paths are given,

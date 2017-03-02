@@ -6,27 +6,22 @@ use warnings;
 use Test::More;
 
 BEGIN {
-   use_ok 'MCE::Flow';
    use_ok 'MCE::Queue';
 }
 
-MCE::Flow::init {
-   max_workers => 1
-};
-
 ###############################################################################
 
-##  MCE::Queue provides 3 operating modes (local, manager, and worker).
-##  This will test MCE::Queue (priority queue) by the MCE manager process.
+##  MCE::Queue provides 2 operating modes (manager and worker).
+##  This will test (priority queue) by the manager process.
 ##
 ##  *{ 'MCE::Queue::clear'    } = \&MCE::Queue::_mce_m_clear;
 ##  *{ 'MCE::Queue::enqueuep' } = \&MCE::Queue::_mce_m_enqueuep;
 ##  *{ 'MCE::Queue::dequeue'  } = \&MCE::Queue::_mce_m_dequeue;
 ##  *{ 'MCE::Queue::insertp'  } = \&MCE::Queue::_mce_m_insertp;
-##  *{ 'MCE::Queue::pending'  } = \&MCE::Queue::_pending;
-##  *{ 'MCE::Queue::peekp'    } = \&MCE::Queue::_peekp;
-##  *{ 'MCE::Queue::peekh'    } = \&MCE::Queue::_peekh;
-##  *{ 'MCE::Queue::heap'     } = \&MCE::Queue::_heap;
+##  *{ 'MCE::Queue::pending'  } = \&MCE::Queue::_mce_m_pending;
+##  *{ 'MCE::Queue::peekp'    } = \&MCE::Queue::_mce_m_peekp;
+##  *{ 'MCE::Queue::peekh'    } = \&MCE::Queue::_mce_m_peekh;
+##  *{ 'MCE::Queue::heap'     } = \&MCE::Queue::_mce_m_heap;
 
 my ($q, @r, @h);
 

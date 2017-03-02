@@ -1,6 +1,6 @@
 ## Many-Core Engine for Perl
 
-This document describes MCE version 1.817.
+This document describes MCE version 1.818.
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
@@ -157,8 +157,8 @@ MCE utilizes the following modules, which are mostly installed with Perl:
     File::Path
     IO::Handle
     Scalar::Util
-    Sereal::Encoder 3.015+ (optional)
     Sereal::Decoder 3.015+ (optional)
+    Sereal::Encoder 3.015+ (optional)
     Socket
     Storable 2.04+ (default when Sereal 3.015+ isn't available)
     Symbol

@@ -1,41 +1,35 @@
 #!/usr/bin/env perl
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## A MCE-driven wrapper script for the following C binaries.
+## A MCE-driven 'wrapper' script for grep-like C binaries.
 ##
-##   agrep.exe grep.exe egrep.exe fgrep.exe tre-agrep.exe
-##   agrep     grep     egrep     fgrep     tre-agrep
+## Making a wrapper for other grep-like binaries is easy. Simply link this
+## script or make a copy. The prefix 'mce_' is stripped from the name for
+## determining the actual binary to use. A trailing '.pl' extension is
+## optional. Please ensure the binary is in your path.
 ##
-## Caveat for grep, egrep, fgrep. MCE chunks input while running which may
-## cause the following options to report inaccurately. It's possible that
-## the requested NUM lines may cross chunking boundaries. Specify a larger
-## chunk size value to minimize the effect or run with --chunk-level=list.
+##    agrep.exe (z)grep.exe (z)egrep.exe (z)fgrep.exe tre-agrep.exe
+##    agrep     (z)grep     (z)egrep     (z)fgrep     tre-agrep
 ##
-##   -A NUM, --after-context=NUM
-##   -B NUM, --before-context=NUM
-##   -C NUM, --context=NUM
+##    ln mce_grep mce_egrep ; ln mce_grep mce_zegrep ; (or) ln -s ...
+##    ln mce_grep mce_fgrep ; ln mce_grep mce_zfgrep ; (or) cp ...
+##    ln mce_grep mce_zgrep
 ##
-## Simply copy/rename this script or create a link to it. The prefix 'mce_' is
-## stripped from the name for determining the actual binary to use. A trailing
-## '.pl' extension is optional. Please ensure the binary is installed and in
-## your path.
+##    ln mce_grep mce_tre-agrep  # binary is named tre-agrep
+##    ln mce_grep mce_agrep      # or agrep
 ##
-##   ln mce_grep mce_agrep      (or)  ln -s mce_grep mce_agrep.pl
-##   ln mce_grep mce_tre-agrep  (or)  cp mce_grep mce_tre-agrep.pl
-##   ln mce_grep mce_egrep
-##   ln mce_grep mce_fgrep
+## Caveat for (z)grep, (z)egrep, and (z)fgrep. When '--chunklevel=file' is
+## specified or passing a single file, MCE workers read the file in smaller
+## chunks. This is fine, typically. However, the following grep options may
+## report inaccurately due to crossing boundaries in regards to chunks.
+## To ensure accuracy, run with '--chunklevel=list'.
 ##
-## Which to choose (mce-examples/other/egrep.pl or bin/mce_grep).
-##
-##   Examples/egrep.pl is a pure Perl implementation with fewer options.
-##   Bin/mce_grep is a wrapper script for the relevant binary.
-##
-##   The wrapper script is good for expensive pattern matching -- especially
-##   for agrep and tre-agrep. It also supports more options due to being
-##   passed to the binary. The wrapper supports 2 levels of chunking via the
-##   --chunk-level={auto|file|list} option. For large files, choose file.
+##    -A NUM, --after-context=NUM
+##    -B NUM, --before-context=NUM
+##    -C NUM, --context=NUM
 ##
 ## ============================================================================
+## ----------------------------------------------------------------------------
 ## 2014-01-21  v1.008
 ##   Initial release by Mario Roy.
 ##
@@ -51,10 +45,30 @@
 ##   When -r is specified and zero paths are given, start recursively in the
 ##   current directory. Set chunk-level accordingly to list mode.
 ##
+## 2017-03-01  v1.012
+##   Updated logic for determining chunk level mode. Ditto for chunk size.
+##   Fixed an issue for not seeing STDERR output with '--chunk-level=file'.
+##   Added support for zgrep, zegrep, and zfgrep. Thank you, Jeff Rouse.
+##   https://www.activestate.com/blog/2016/12/grep-losing-its-grip
+##
 ###############################################################################
 
-use strict;
-use warnings;
+###############################################################################
+## ----------------------------------------------------------------------------
+## Which to choose? bin/mce_grep or mce-examples/other/egrep.pl
+##
+## (A) This wrapper script is good for expensive pattern matching, especially
+##     with agrep and tre-agrep. It supports more options due to being passed
+##     to the binary. It supports two levels of chunking specified with the
+##     --chunk-level={auto|file|list} option. Choose file for large files.
+##
+## (B) The egrep.pl script is a pure-Perl implementation with fewer options.
+##     It's strengh is searching a single file and/or with many expressions.
+##     https://github.com/marioroy/mce-examples/blob/master/other/egrep.pl
+##
+###############################################################################
+
+use strict; use warnings;
 
 ## no critic (InputOutput::ProhibitBarewordFileHandles)
 ## no critic (InputOutput::ProhibitTwoArgOpen)
@@ -70,7 +84,6 @@ BEGIN {
 
    $ENV{PATH} .= ($^O eq 'MSWin32' ? ';' : ':') . $prog_dir;
 }
-
 sub INIT {
    ## Provide file globbing support under Windows similar to Unix.
    @ARGV = <@ARGV> if ($^O eq 'MSWin32');
@@ -79,12 +92,11 @@ sub INIT {
 use Getopt::Long qw(
    :config bundling pass_through no_ignore_case no_auto_abbrev
 );
-
-use Scalar::Util qw( looks_like_number );
 use Fcntl qw( O_RDONLY );
+use Scalar::Util qw( looks_like_number );
 
 use MCE::Signal qw( -use_dev_shm );
-use MCE 1.5;  # or later is fine
+use MCE 1.5;  # or later release
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -93,19 +105,18 @@ use MCE 1.5;  # or later is fine
 ###############################################################################
 
 sub usage {
-
    print <<"::_USAGE_BLOCK_END_::";
 
 Options for Script:
-  --max-workers=NUM         override max workers (default auto)
-                              e.g. auto, auto-2, 16
+  --max-workers=NUM         override max workers (default auto, 8 maximum)
+  --maxworkers=NUM            e.g. auto*2, 16
 
   --chunk-level=LEVEL       override chunk level (default auto)
-                              chunk at [file] or [list] level
+  --chunklevel=LEVEL          chunk at [file] or [list] level
 
   --chunk-size=NUM[KM]      override chunk size (set at limit if under or over)
-                              [file] default: 8M  minimum: 200K  maximum: 20M
-                              [list] default: 15  minimum: 1     maximum: 200
+  --chunksize=NUM[KM]         [file] default: 8M  minimum: 200K  maximum: 20M
+                              [list] default: 1   minimum: 1     maximum: 200
 
   --lang=LOCALE             override locale
                               e.g. C, en_US.UTF-8, en_US.ISO-8859-1
@@ -126,19 +137,13 @@ $cmd_name =~ s{\.pl$}{};
 if ($is_mswin32) {
    $cmd_name .= '.exe';
    for ( split ';', $ENV{'PATH'} ) {
-      if (-x "$_\\$cmd_name") {
-         $cmd_path = "$_\\$cmd_name";
-         last;
-      }
+      $cmd_path = "$_\\$cmd_name", last if (-x "$_\\$cmd_name");
    }
 }
 else {
    $cmd_name .= '.exe' if $^O eq 'cygwin';
    for ( split ':', $ENV{'PATH'} ) {
-      if (-x "$_/$cmd_name") {
-         $cmd_path = "$_/$cmd_name";
-         last;
-      }
+      $cmd_path = "$_/$cmd_name", last if (-x "$_/$cmd_name");
    }
 }
 
@@ -148,8 +153,10 @@ unless (defined $cmd_path) {
 }
 {
    my %valid_names = map { $_ => 1 } qw(
-      agrep.exe grep.exe egrep.exe fgrep.exe tre-agrep.exe
-      agrep     grep     egrep     fgrep     tre-agrep
+      grep.exe egrep.exe fgrep.exe zgrep.exe zegrep.exe zfgrep.exe
+      grep     egrep     fgrep     zgrep     zegrep     zfgrep
+
+      agrep.exe tre-agrep.exe agrep tre-agrep
    );
    unless (exists $valid_names{$cmd_name}) {
       print {*STDERR} "$prog_name: $cmd_name: command not supported\n";
@@ -183,9 +190,9 @@ for my $i (0 .. @ARGV - 1) {
    local $SIG{__WARN__} = sub { };
 
    GetOptions(
-      'max-workers|max_workers=s' => \$max_workers,
-      'chunk-level|chunk_level=s' => \$chunk_level,
-      'chunk-size|chunk_size=s'   => \$chunk_size,
+      'maxworkers|max-workers|max_workers=s' => \$max_workers,
+      'chunklevel|chunk-level|chunk_level=s' => \$chunk_level,
+      'chunksize|chunk-size|chunk_size=s'    => \$chunk_size,
 
       'lang=s' => sub {
          my ($self, $lang) = @_;
@@ -199,6 +206,7 @@ for my $i (0 .. @ARGV - 1) {
       'V|version' => sub {
          system $cmd_path, '--version'; exit 0;
       },
+
       'q|quiet|silent'  => \$q_flag,
       'H|with-filename' => sub { $H_flag = 1; $h_flag = 0; },
       'h|no-filename'   => sub { $H_flag = 0; $h_flag = 1; },
@@ -683,9 +691,9 @@ sub make_user_func_file {
          unlink "$out_file.in";
       }
       else {
-         ## I borrowed some bits from IPC::Run3 for STDOUT/ERR. However, I
-         ## settled on passing STDIN via open for lesser overhead behind the
-         ## scene versus calling system (from observation during testing).
+         ## Borrowed bits from IPC::Run3 for STDOUT/ERR. However, I settled
+         ## on passing STDIN via open, for lesser overhead, versus calling
+         ## system from observations made during testing.
 
          local (*STDOUT_SAVE, *STDERR_SAVE);
 
@@ -699,8 +707,10 @@ sub make_user_func_file {
             open STDERR, '>&' . fileno $err_fh;
          }
 
-         ## Seeing "maximal count of pending signals (NUM) exceeded" message.
-         ## Thus the reason for using syswrite instead of print below.
+         ## Got "maximal count of pending signals (NUM) exceeded" message.
+         ## Thus the reason for using syswrite versus print below.
+
+         local $SIG{PIPE} = sub { };
 
          open  $cmd_fh, '|-', $cmd_path, @args;   ## Run external command
          syswrite $cmd_fh, $$chunk_ref;           ## Write to STDIN
@@ -907,24 +917,16 @@ sub process_stdin {
 my $gather_func;
 
 if ($chunk_level eq 'auto') {
-   if ($r_flag) {
-      $chunk_level = 'list';
-   }
-   elsif (@files == 0 || $files[0] eq '-') {
+   if ((@files <= 1 || $files[0] eq '-') && !$r_flag && $cmd_name !~ /^z/i) {
       $chunk_level = 'file';
-   }
-   else {
-      if (-f $files[0]) {
-         $chunk_level = (-s $files[0] > 20_971_520) ? 'file' : 'list';  ## 20M
-      } else {
-         $chunk_level = 'list';
-      }
+   } else {
+      $chunk_level = 'list';
    }
 }
 
 if ($chunk_level eq 'list') {
-   $chunk_size = 200   if (!defined $chunk_size && $r_flag);
-   $chunk_size = 15    if (!defined $chunk_size);
+   $chunk_size = 200   if (!defined $chunk_size && @files > 200);
+   $chunk_size = 1     if (!defined $chunk_size);
    $chunk_size = 200   if ($chunk_size > 200);
    $chunk_size = 1     if ($chunk_size < 1);
 

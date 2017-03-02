@@ -82,7 +82,10 @@ MCE::Flow::init {
       my ($mce, $task_id, $task_name) = @_;
 
       if ($task_name eq 'a') {
-         $q->enqueue((undef) x 2);
+         # One might want to call $q->end(). Do not do that here.
+         # This queue is used again, subsequently.
+
+         $q->enqueue((undef) x 2);   # 2 workers
       }
    }
 };

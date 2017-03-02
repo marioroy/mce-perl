@@ -16,8 +16,8 @@ MCE::Flow::init {
 
 ###############################################################################
 
-##  MCE::Queue provides 3 operating modes (local, manager, and worker).
-##  This will test MCE::Queue (priority queue) by the MCE worker process.
+##  MCE::Queue provides 2 operating modes (manager and worker).
+##  This will test (priority queue) by the MCE worker process.
 ##
 ##  *{ 'MCE::Queue::clear'    } = \&MCE::Queue::_mce_w_clear;
 ##  *{ 'MCE::Queue::enqueuep' } = \&MCE::Queue::_mce_w_enqueuep;

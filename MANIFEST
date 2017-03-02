@@ -44,10 +44,8 @@ t/02_do_callback_args.t
 t/02_do_callback_result.t
 t/03_chunk_size.t
 t/03_user_args.t
-t/04_norm_que_local.t
 t/04_norm_que_manager.t
 t/04_norm_que_worker.t
-t/04_prio_que_local.t
 t/04_prio_que_manager.t
 t/04_prio_que_worker.t
 t/05_mce_flow.t
