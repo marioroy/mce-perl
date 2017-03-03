@@ -78,15 +78,14 @@ sub _output_loop {
 
    my (
       $_aborted, $_eof_flag, $_max_retries, $_syn_flag, %_sendto_fhs,
-      $_cb, $_fd, $_file, $_flush_file, $_flush_stderr, $_flush_stdout,
+      $_cb, $_chunk_id, $_chunk_size, $_fd, $_file, $_flush_file, $_wa,
       @_is_c_ref, @_is_h_ref, @_is_q_ref, $_on_post_exit, $_on_post_run,
       $_has_user_tasks, $_sess_dir, $_task_id, $_user_error, $_user_output,
       $_input_size, $_offset_pos, $_single_dim, @_gather, $_cs_one_flag,
       $_exit_id, $_exit_pid, $_exit_status, $_exit_wid, $_len, $_sync_cnt,
       $_BSB_W_SOCK, $_BSE_W_SOCK, $_DAT_R_SOCK, $_DAU_R_SOCK, $_MCE_STDERR,
       $_I_FLG, $_O_FLG, $_I_SEP, $_O_SEP, $_RS, $_RS_FLG, $_MCE_STDOUT,
-      $_chunk_id, $_chunk_size, @_delay_wid, $_size_completed, $_win32_ipc,
-      $_wa
+      @_delay_wid, $_size_completed, $_win32_ipc
    );
 
    ## -------------------------------------------------------------------------
@@ -536,8 +535,6 @@ sub _output_loop {
             print {$_MCE_STDOUT} $_buf;
          }
 
-         $_MCE_STDOUT->flush() if $_flush_stdout;
-
          return;
       },
 
@@ -552,8 +549,6 @@ sub _output_loop {
          } else {
             print {$_MCE_STDERR} $_buf;
          }
-
-         $_MCE_STDERR->flush() if $_flush_stderr;
 
          return;
       },
@@ -571,12 +566,15 @@ sub _output_loop {
                or _croak "Cannot open file for writing ($_file): $!";
 
             binmode $_sendto_fhs{$_file};
+
+            ## Select new FH, turn on autoflush, restore the old FH.
+            if ($_flush_file) {
+               local $|; select((select($_sendto_fhs{$_file}), $| = 1)[0]);
+            }
          }
 
          $_OUT_FILE = $_sendto_fhs{$_file};
          print {$_OUT_FILE} $_buf;
-
-         $_OUT_FILE->flush() if $_flush_file;
 
          return;
       },
@@ -597,12 +595,15 @@ sub _output_loop {
                or _croak "Cannot open file descriptor ($_fd): $!";
 
             binmode $_sendto_fhs{$_fd};
+
+            ## Select new FH, turn on autoflush, restore the old FH.
+            if ($_flush_file) {
+               local $|; select((select($_sendto_fhs{$_fd}), $| = 1)[0]);
+            }
          }
 
          $_OUT_FILE = $_sendto_fhs{$_fd};
          print {$_OUT_FILE} $_buf;
-
-         $_OUT_FILE->flush() if $_flush_file;
 
          return;
       },
@@ -717,8 +718,6 @@ sub _output_loop {
    $_on_post_run  = $self->{on_post_run};
    $_chunk_size   = $self->{chunk_size};
    $_flush_file   = $self->{flush_file};
-   $_flush_stderr = $self->{flush_stderr};
-   $_flush_stdout = $self->{flush_stdout};
    $_user_output  = $self->{user_output};
    $_user_error   = $self->{user_error};
    $_single_dim   = $self->{_single_dim};
@@ -796,8 +795,16 @@ sub _output_loop {
    }
 
    ## Make MCE_STDOUT the default handle.
+   ## Flush STDERR/STDOUT handles if requested.
 
    my $_old_hndl = select $_MCE_STDOUT;
+
+   if ($self->{flush_stdout}) {
+      local $|; select((select($_MCE_STDOUT), $| = 1)[0]);
+   }
+   if ($self->{flush_stderr}) {
+      local $|; select((select($_MCE_STDERR), $| = 1)[0]);
+   }
 
    ## -------------------------------------------------------------------------
 
@@ -958,7 +965,7 @@ sub _output_loop {
 
    ## Restore the default handle. Close MCE STDOUT/STDERR handles.
 
-   select $_old_hndl if (defined $_old_hndl);
+   select $_old_hndl;
 
    eval q{
       close $_MCE_STDOUT if (fileno $_MCE_STDOUT > 2);
