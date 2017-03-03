@@ -196,7 +196,7 @@ sub _destroy_socks {
 sub _pipe_pair {
 
    my ($_obj, $_r_sock, $_w_sock, $_i) = @_;
-   local ($|, $!);
+   local $!;
 
    if (defined $_i) {
       pipe($_obj->{$_r_sock}[$_i], $_obj->{$_w_sock}[$_i])
@@ -218,7 +218,7 @@ sub _pipe_pair {
 sub _sock_pair {
 
    my ($_obj, $_r_sock, $_w_sock, $_i, $_size) = @_;
-   local ($|, $!);
+   local $!;
 
    $_size = 16384 unless defined $_size;
 

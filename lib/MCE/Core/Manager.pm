@@ -569,7 +569,9 @@ sub _output_loop {
 
             ## Select new FH, turn on autoflush, restore the old FH.
             if ($_flush_file) {
-               local $|; select((select($_sendto_fhs{$_file}), $| = 1)[0]);
+               local $!;
+               # IO::Handle->autoflush not available in older Perl.
+               select(( select($_sendto_fhs{$_file}), $| = 1 )[0]);
             }
          }
 
@@ -598,7 +600,9 @@ sub _output_loop {
 
             ## Select new FH, turn on autoflush, restore the old FH.
             if ($_flush_file) {
-               local $|; select((select($_sendto_fhs{$_fd}), $| = 1)[0]);
+               local $!;
+               # IO::Handle->autoflush not available in older Perl.
+               select(( select($_sendto_fhs{$_fd}), $| = 1 )[0]);
             }
          }
 
@@ -794,16 +798,17 @@ sub _output_loop {
       binmode $_MCE_STDERR;
    }
 
+   ## Autoflush STDERR-STDOUT handles if requested.
    ## Make MCE_STDOUT the default handle.
-   ## Flush STDERR/STDOUT handles if requested.
 
    my $_old_hndl = select $_MCE_STDOUT;
 
-   if ($self->{flush_stdout}) {
-      local $|; select((select($_MCE_STDOUT), $| = 1)[0]);
-   }
-   if ($self->{flush_stderr}) {
-      local $|; select((select($_MCE_STDERR), $| = 1)[0]);
+   {
+      local $!;
+      # IO::Handle->autoflush not available in older Perl.
+      select($_MCE_STDERR), $| = 1 if ($self->{flush_stderr});
+      select($_MCE_STDOUT), $| = 1 if ($self->{flush_stdout});
+      select($_MCE_STDOUT);
    }
 
    ## -------------------------------------------------------------------------

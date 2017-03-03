@@ -297,7 +297,8 @@ use bytes;
       }
 
       {
-         local ($|, $!);
+         local $!;
+         # IO::Handle->autoflush not available in older Perl.
          select(( select(*STDERR), $| = 1 )[0]) if defined(fileno *STDERR);
          select(( select(*STDOUT), $| = 1 )[0]) if defined(fileno *STDOUT);
       }
