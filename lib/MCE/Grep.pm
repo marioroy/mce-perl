@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.818';
+our $VERSION = '1.819';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -445,7 +445,7 @@ MCE::Grep - Parallel grep model similar to the native grep function
 
 =head1 VERSION
 
-This document describes MCE::Grep version 1.818
+This document describes MCE::Grep version 1.819
 
 =head1 SYNOPSIS
 

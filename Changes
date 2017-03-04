@@ -1,9 +1,9 @@
 
 Revision history for Perl module MCE.
 
-1.819 Fri Mar 03 05:00:00 EST 2017
+1.819 Fri Mar 03 23:00:00 EST 2017
 
-  * Do not localize AUTOFLUSH variable before autoflush file handles.
+  * Fixed issue with localizing AUTOFLUSH variable before autoflush handles.
     Thank you, Charles Hendry for raising the issue.
 
 1.818 Wed Mar 01 22:00:00 EST 2017
@@ -12,8 +12,8 @@ Revision history for Perl module MCE.
     Fixed an issue for not seeing STDERR output with '--chunk-level=file'.
     Added support for zgrep, zegrep, and zfgrep. Thank you, Jeff Rouse.
 
-  * Replaced Sereal with Sereal::Decoder and Sereal::Encoder in Makefile,
-    inside recommends section. Ditto for META files.
+  * Changed Sereal to Sereal::Decoder and Sereal::Encoder in recommends
+    section inside Makefile and META files.
 
   * Refactored MCE::Queue. Merged local and manager code base into one.
     Removed t/04_norm_que_local.t and t/04_prio_que_local.t.
