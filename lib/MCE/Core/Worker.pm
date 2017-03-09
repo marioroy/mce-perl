@@ -634,10 +634,13 @@ sub _worker_main {
       $self->{_exit_pid} = 'PID_' . $$;
    }
 
+   my $_running_inside_eval = $^S;
+
    local $SIG{__DIE__} = sub {
       if (!defined $^S || $^S) {
          if ( ($INC{'threads.pm'} && threads->tid() != 0) ||
-               $ENV{'PERL_IPERL_RUNNING'}
+               $ENV{'PERL_IPERL_RUNNING'} ||
+               $_running_inside_eval
          ) {
             # thread env or running inside IPerl, check stack trace
             my $_t = Carp::longmess(); $_t =~ s/\teval [^\n]+\n$//;

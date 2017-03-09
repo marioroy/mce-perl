@@ -344,11 +344,11 @@ sub _attach_plugin {
    return;
 }
 
-## Functions for saving and restoring $MCE. This is mainly helpful for
-## modules using MCE. e.g. MCE::Map.
+## Functions for saving and restoring $MCE.
+## Called by MCE::{ Flow, Grep, Loop, Map, Step, and Stream }.
 
 sub _restore_state { $MCE = $_prev_mce; $_prev_mce = undef; return; }
-sub _save_state    { $_prev_mce = $MCE; return; }
+sub _save_state    { $_prev_mce = $MCE; $MCE = $_[0]; return; }
 
 ###############################################################################
 ## ----------------------------------------------------------------------------

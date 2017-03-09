@@ -279,7 +279,7 @@ sub run (&@) {
 
    ## -------------------------------------------------------------------------
 
-   MCE::_save_state();
+   MCE::_save_state($_MCE->{$_pid});
 
    if (!defined $_prev_c->{$_pid} || $_prev_c->{$_pid} != $_code) {
       $_MCE->{$_pid}->shutdown() if (defined $_MCE->{$_pid});

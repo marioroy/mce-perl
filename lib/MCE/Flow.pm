@@ -343,7 +343,7 @@ sub run (@) {
 
    ## -------------------------------------------------------------------------
 
-   MCE::_save_state();
+   MCE::_save_state($_MCE->{$_pid});
 
    if ($_init_mce) {
       $_MCE->{$_pid}->shutdown() if (defined $_MCE->{$_pid});
