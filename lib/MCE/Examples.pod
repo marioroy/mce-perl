@@ -5,7 +5,7 @@ MCE::Examples - Various examples and demonstrations
 
 =head1 VERSION
 
-This document describes MCE::Examples version 1.819
+This document describes MCE::Examples version 1.820
 
 =head1 INCLUDED WITH THE DISTRIBUTION
 
@@ -1163,7 +1163,7 @@ automatically in 1.805 when C<Tk.pm> is present.
    use MCE;
    use Tk;
 
-   my $mw = new MainWindow -title => 'MCE/Tk Test';
+   my $mw = MainWindow->new( -title => 'MCE/Tk Test' );
 
    $mw->geometry( '300x300' );
    $mw->Button( -text => "Test MCE", -command => \&test_mce )->pack();
@@ -1205,7 +1205,7 @@ The following demonstration does the same thing via MCE::Flow.
    use MCE::Flow max_workers => 4;
    use Tk;
 
-   my $mw = new MainWindow -title => 'MCE/Tk Test';
+   my $mw = MainWindow->new( -title => 'MCE/Tk Test' );
 
    $mw->geometry( '300x300' );
    $mw->Button( -text => "Test MCE", -command => \&test_mce )->pack();
@@ -1239,7 +1239,7 @@ MCE::Hobo 1.804 or later is another possibility if running on a UNIX platform.
    use MCE::Hobo;
    use Tk;
 
-   my $mw = new MainWindow -title => 'MCE/Tk Test';
+   my $mw = MainWindow->new( -title => 'MCE/Tk Test' );
 
    $mw->geometry( '300x300' );
    $mw->Button( -text => "Test MCE", -command => \&test_mce )->pack();

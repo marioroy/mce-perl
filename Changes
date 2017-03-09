@@ -1,6 +1,10 @@
 
 Revision history for Perl module MCE.
 
+1.820 Thu Mar 09 02:00:00 EST 2017
+
+  * Improved reliability when running MCE inside an eval block.
+
 1.819 Fri Mar 03 23:00:00 EST 2017
 
   * Fixed issue with localizing AUTOFLUSH variable before autoflush handles.
