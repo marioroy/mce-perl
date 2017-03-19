@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.820';
+our $VERSION = '1.821';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -283,24 +283,23 @@ sub CLONE {
 }
 
 sub DESTROY {
-   if ( $_[0] && $_[0]->{_spawned} && $_[0]->{_init_pid} eq "$$.$_tid" ) {
-      $_[0]->shutdown(1);
-   }
+   $_[0]->shutdown(1)
+      if ( $_[0] && $_[0]->{_spawned} && $_[0]->{_init_pid} eq "$$.$_tid" );
+
+   return;
 }
 
 END {
-   if ( defined $MCE ) {
-      if ( !$_has_threads || (defined $TOP_HDLR && !$TOP_HDLR->{use_threads}) ) {
-         MCE::Flow->finish   ( 'MCE' ) if $INC{'MCE/Flow.pm'};
-         MCE::Grep->finish   ( 'MCE' ) if $INC{'MCE/Grep.pm'};
-         MCE::Loop->finish   ( 'MCE' ) if $INC{'MCE/Loop.pm'};
-         MCE::Map->finish    ( 'MCE' ) if $INC{'MCE/Map.pm'};
-         MCE::Step->finish   ( 'MCE' ) if $INC{'MCE/Step.pm'};
-         MCE::Stream->finish ( 'MCE' ) if $INC{'MCE/Stream.pm'};
-      }
-      $TOP_HDLR = undef if defined $TOP_HDLR;
-      $MCE      = undef;
-   }
+   return unless ( defined $MCE );
+
+   MCE::Flow->finish   ( 'MCE' ) if $INC{'MCE/Flow.pm'};
+   MCE::Grep->finish   ( 'MCE' ) if $INC{'MCE/Grep.pm'};
+   MCE::Loop->finish   ( 'MCE' ) if $INC{'MCE/Loop.pm'};
+   MCE::Map->finish    ( 'MCE' ) if $INC{'MCE/Map.pm'};
+   MCE::Step->finish   ( 'MCE' ) if $INC{'MCE/Step.pm'};
+   MCE::Stream->finish ( 'MCE' ) if $INC{'MCE/Stream.pm'};
+
+   $MCE = $TOP_HDLR = undef;
 }
 
 ###############################################################################
@@ -403,10 +402,10 @@ sub new {
    }
 
    if (!exists $self{posix_exit}) {
-      $self{posix_exit} = 1 if ($_has_threads && $_tid);
-      $self{posix_exit} = 1 if ($INC{'CGI.pm'} || $INC{'FCGI.pm'});
-      $self{posix_exit} = 1 if ($INC{'Mojo/IOLoop.pm'} || $INC{'Tk.pm'});
-      $self{posix_exit} = 1 if ($INC{'Gearman/XS.pm'} || $INC{'Gearman/Util.pm'});
+      $self{posix_exit} = 1 if ( ($_has_threads && $_tid) ||
+         $INC{'CGI.pm'} || $INC{'FCGI.pm'} || $INC{'Mojo/IOLoop.pm'} ||
+         $INC{'Gearman/Util.pm'} || $INC{'Gearman/XS.pm'} || $INC{'Tk.pm'}
+      );
    }
 
    $self{flush_file}   ||= 0;
@@ -1270,12 +1269,8 @@ sub shutdown {
 
    ## Destroy locks. Remove the session directory afterwards.
    if (defined $_sess_dir) {
-      $self->{_mutex_0}->DESTROY('shutdown') if (defined $self->{_mutex_0});
-      if ($self->{_lock_chn}) {
-         for my $_i (1 .. $_data_channels) {
-            $self->{'_mutex_'.$_i}->DESTROY('shutdown')
-               if (defined $self->{'_mutex_'.$_i});
-         }
+      for my $_i (0 .. $_data_channels) {
+         delete $self->{'_mutex_'.$_i};
       }
       rmdir "$_sess_dir";
    }

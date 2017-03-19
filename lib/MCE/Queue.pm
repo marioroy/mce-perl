@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.820';
+our $VERSION = '1.821';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -144,8 +144,8 @@ sub DESTROY {
    my ($_Q) = @_;
    my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
 
-   undef $_Q->{_datp}, undef $_Q->{_datq}, undef $_Q->{_heap};
    delete $_all->{ $_Q->{_id} } if exists $_Q->{_id};
+   undef $_Q->{_datp}, undef $_Q->{_datq}, undef $_Q->{_heap};
 
    MCE::Util::_destroy_socks($_Q, qw(_aw_sock _ar_sock _qw_sock _qr_sock))
       if exists $_Q->{_init_pid} && $_Q->{_init_pid} eq $_pid;
@@ -269,14 +269,10 @@ sub _enqueuep {
    return;
 }
 
-## Return item(s) from the queue.
+## Return one item from the queue.
 
 sub _dequeue {
-   my ($_Q, $_cnt) = @_;
-
-   if (defined $_cnt && $_cnt ne '1') {
-      return map { $_Q->_dequeue() } 1 .. $_cnt;
-   }
+   my ($_Q) = @_;
 
    ## Return item from the non-priority queue.
    unless (scalar @{ $_Q->{_heap} }) {
@@ -548,8 +544,16 @@ sub _heap_insert_high {
          my (@_items, $_buf);
 
          if ($_cnt) {
-            $_cnt = $_Q->pending() || 1 if $_Q->pending() < $_cnt;
-            push(@_items, $_Q->_dequeue()) for (1 .. $_cnt);
+            my $_pending = @{ $_Q->{_datq} };
+
+            if ($_pending < $_cnt && scalar @{ $_Q->{_heap} }) {
+               for my $_h (@{ $_Q->{_heap} }) {
+                  $_pending += @{ $_Q->{_datp}->{$_h} };
+               }
+            }
+            $_cnt = $_pending if $_pending < $_cnt;
+
+            for my $_i (1 .. $_cnt) { push @_items, $_Q->_dequeue() }
          }
          else {
             $_buf = $_Q->_dequeue();
@@ -562,7 +566,7 @@ sub _heap_insert_high {
                $_pending = int($_pending / $_cnt) if ($_cnt);
                if ($_pending) {
                   $_pending = MAX_DQ_DEPTH if ($_pending > MAX_DQ_DEPTH);
-                  for (1 .. $_pending) { syswrite $_Q->{_qw_sock}, $LF }
+                  for my $_i (1 .. $_pending) { syswrite $_Q->{_qw_sock}, $LF }
                }
                $_Q->{_dsem} = $_pending;
             }
@@ -575,17 +579,13 @@ sub _heap_insert_high {
             if ($_Q->_has_data()) { syswrite $_Q->{_qw_sock}, $LF }
          }
 
-         if ($_Q->{_ended}) {
-            if (!$_Q->_has_data()) { syswrite $_Q->{_qw_sock}, $LF }
+         if ($_Q->{_ended} && !$_Q->_has_data()) {
+            syswrite $_Q->{_qw_sock}, $LF;
          }
 
          if ($_cnt) {
-            if (defined $_items[0]) {
-               $_buf = $_MCE->{freeze}(\@_items);
-               print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
-            } else {
-               print {$_DAU_R_SOCK} '-1'.$LF;
-            }
+            $_buf = $_MCE->{freeze}(\@_items);
+            print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
          }
          elsif (defined $_buf) {
             if (!ref $_buf) {
@@ -634,11 +634,18 @@ sub _heap_insert_high {
          }
          else {
             my @_items;
+            my $_pending = @{ $_Q->{_datq} };
 
-            $_cnt = $_Q->pending() || 1 if $_Q->pending() < $_cnt;
-            push(@_items, $_Q->_dequeue()) for (1 .. $_cnt);
+            if ($_pending < $_cnt && scalar @{ $_Q->{_heap} }) {
+               for my $_h (@{ $_Q->{_heap} }) {
+                  $_pending += @{ $_Q->{_datp}->{$_h} };
+               }
+            }
+            $_cnt = $_pending if $_pending < $_cnt;
 
-            if (defined $_items[0]) {
+            for my $_i (1 .. $_cnt) { push @_items, $_Q->_dequeue() }
+
+            if ($_cnt) {
                my $_buf = $_MCE->{freeze}(\@_items);
                print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
             } else {
@@ -921,8 +928,16 @@ sub _mce_m_dequeue {
       _croak('Queue: (dequeue count argument) is not valid')
          if (!looks_like_number($_cnt) || int($_cnt) != $_cnt || $_cnt < 1);
 
-      $_cnt = $_Q->pending() || 1 if $_Q->pending() < $_cnt;
-      @_items = $_Q->_dequeue($_cnt);
+      my $_pending = @{ $_Q->{_datq} };
+
+      if ($_pending < $_cnt && scalar @{ $_Q->{_heap} }) {
+         for my $_h (@{ $_Q->{_heap} }) {
+            $_pending += @{ $_Q->{_datp}->{$_h} };
+         }
+      }
+      $_cnt = $_pending if $_pending < $_cnt;
+
+      for my $_i (1 .. $_cnt) { push @_items, $_Q->_dequeue() }
    }
    else {
       $_buf = $_Q->_dequeue();
@@ -935,7 +950,7 @@ sub _mce_m_dequeue {
          $_pending = int($_pending / $_cnt) if (defined $_cnt);
          if ($_pending) {
             $_pending = MAX_DQ_DEPTH if ($_pending > MAX_DQ_DEPTH);
-            for (1 .. $_pending) { syswrite $_Q->{_qw_sock}, $LF }
+            for my $_i (1 .. $_pending) { syswrite $_Q->{_qw_sock}, $LF }
          }
          $_Q->{_dsem} = $_pending;
       }
@@ -948,14 +963,14 @@ sub _mce_m_dequeue {
       if ($_Q->_has_data()) { syswrite $_Q->{_qw_sock}, $LF }
    }
 
-   if ($_Q->{_ended}) {
-      if (!$_Q->_has_data()) { syswrite $_Q->{_qw_sock}, $LF }
+   if ($_Q->{_ended} && !$_Q->_has_data()) {
+      syswrite $_Q->{_qw_sock}, $LF;
    }
 
    $_Q->{_nb_flag} = 0;
 
    return @_items if (scalar @_items);
-   return $_buf;
+   return defined($_buf) ? $_buf : ();
 }
 
 ## dequeue_nb ( count )
@@ -975,26 +990,34 @@ sub _mce_m_dequeue_nb {
       _croak('Queue: (dequeue count argument) is not valid')
          if (!looks_like_number($_cnt) || int($_cnt) != $_cnt || $_cnt < 1);
 
-      $_cnt = $_Q->pending() || 1 if $_Q->pending() < $_cnt;
-      return $_Q->_dequeue($_cnt);
+      my $_pending = @{ $_Q->{_datq} };
+
+      if ($_pending < $_cnt && scalar @{ $_Q->{_heap} }) {
+         for my $_h (@{ $_Q->{_heap} }) {
+            $_pending += @{ $_Q->{_datp}->{$_h} };
+         }
+      }
+      $_cnt = $_pending if $_pending < $_cnt;
+
+      return map { $_Q->_dequeue() } 1 .. $_cnt;
    }
-   else {
-      return $_Q->_dequeue();
-   }
+
+   my $_buf = $_Q->_dequeue();
+
+   return defined($_buf) ? $_buf : ();
 }
 
 ## pending ( )
 
 sub _mce_m_pending {
-   my $_pending = 0; my ($_Q) = @_;
+   my ($_Q) = @_;
+   my $_pending = @{ $_Q->{_datq} };
 
    if (scalar @{ $_Q->{_heap} }) {
       for my $_h (@{ $_Q->{_heap} }) {
          $_pending += @{ $_Q->{_datp}->{$_h} };
       }
    }
-
-   $_pending += @{ $_Q->{_datq} };
 
    return ($_Q->{_ended})
       ? $_pending ? $_pending : undef
@@ -1182,7 +1205,7 @@ sub _mce_m_heap {
 {
    my (
       $_MCE, $_DAT_LOCK, $_DAT_W_SOCK, $_DAU_W_SOCK, $_chn, $_lock_chn,
-      $_dat_ex, $_dat_un, $_len, $_next, $_pending, $_tag
+      $_dat_ex, $_dat_un, $_len, $_next, $_pending
    );
 
    my $_is_MSWin32 = ($^O eq 'MSWin32') ? 1 : 0;
@@ -1222,7 +1245,7 @@ sub _mce_m_heap {
 
       if ($_len < 0) {
          $_dat_un->() if $_lock_chn;
-         return undef;   # Do not change to return;
+         return defined($_[3]) ? () : undef;
       }
 
       read $_DAU_W_SOCK, my($_buf), $_len;
@@ -1319,9 +1342,6 @@ sub _mce_m_heap {
       my $_Q = shift;
 
       return $_Q->_mce_m_enqueue(@_) if (exists $_all->{ $_Q->{_id} });
-      return unless (scalar @_);
-
-      my ($_buf, $_tmp);
 
       if (@_ > 1 || ref($_[0])) {
          my $_tmp = $_MCE->{freeze}([ @_ ]);
@@ -1349,10 +1369,6 @@ sub _mce_m_heap {
       _croak('Queue: (enqueuep priority) is not an integer')
          if (!looks_like_number($_p) || int($_p) != $_p);
 
-      return unless (scalar @_);
-
-      my ($_buf, $_tmp);
-
       if (@_ > 1 || ref($_[0])) {
          my $_tmp = $_MCE->{freeze}([ @_ ]);
          my $_buf = $_Q->{_id}.$LF . $_p.$LF . length($_tmp).$LF;
@@ -1374,7 +1390,7 @@ sub _mce_m_heap {
    ## -------------------------------------------------------------------------
 
    sub _mce_w_dequeue {
-      my ($_Q, $_cnt) = @_;
+      my $_buf; my ($_Q, $_cnt) = @_;
 
       return $_Q->_mce_m_dequeue($_cnt) if (exists $_all->{ $_Q->{_id} });
 
@@ -1385,10 +1401,33 @@ sub _mce_m_heap {
          $_cnt = 1;
       }
 
-      $_rdy->($_Q->{_qr_sock}) if $_is_MSWin32;
-      sysread $_Q->{_qr_sock}, $_next, 1;  # block
+      {
+         local $\ = undef if (defined $\);
+         local $/ = $LF if (!$/ || $/ ne $LF);
 
-      $_req3->(OUTPUT_D_QUE, $_Q->{_id}.$LF . $_cnt.$LF, $_cnt);
+         $_rdy->($_Q->{_qr_sock}) if $_is_MSWin32;
+         sysread $_Q->{_qr_sock}, $_next, 1;  # block
+
+         $_dat_ex->() if $_lock_chn;
+         print {$_DAT_W_SOCK} OUTPUT_D_QUE.$LF . $_chn.$LF;
+         print {$_DAU_W_SOCK} $_Q->{_id}.$LF . $_cnt.$LF;
+
+         chomp($_len = <$_DAU_W_SOCK>);
+
+         if ($_len < 0) {
+            $_dat_un->() if $_lock_chn;
+            return;
+         }
+
+         read $_DAU_W_SOCK, $_buf, $_len;
+         $_dat_un->() if $_lock_chn;
+      }
+
+      if ($_cnt == 1) {
+         return (chop $_buf) ? $_MCE->{thaw}($_buf) : $_buf;
+      } else {
+         return @{ $_MCE->{thaw}($_buf) };
+      }
    }
 
    sub _mce_w_dequeue_nb {
@@ -1407,7 +1446,7 @@ sub _mce_m_heap {
          $_cnt = 1;
       }
 
-      $_req3->(OUTPUT_D_QUN, $_Q->{_id}.$LF . $_cnt.$LF, $_cnt);
+      $_req3->(OUTPUT_D_QUN, $_Q->{_id}.$LF . $_cnt.$LF, $_cnt, 1);
    }
 
    ## -------------------------------------------------------------------------
@@ -1545,7 +1584,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.820
+This document describes MCE::Queue version 1.821
 
 =head1 SYNOPSIS
 
@@ -1847,11 +1886,22 @@ are passing parameters through the queue. For this reason, always remember to
 dequeue using the same multiple for the count. This is unlike Thread::Queue
 which will block until the requested number of items are available.
 
+   # MCE::Queue 1.820 and prior releases
+   while ( my @items = $q->dequeue(2) ) {
+      last unless ( defined $items[0] );
+      ...
+   }
+
+   # MCE::Queue 1.821 and later
+   while ( my @items = $q->dequeue(2) ) {
+      ...
+   }
+
 =head2 $q->dequeue_nb ( [ $count ] )
 
 Returns the requested number of items (default 1) from the queue. Like with
 dequeue, priority data will always dequeue first. This method is non-blocking
-and will return C<undef> in the absence of data from the queue.
+and returns C<undef> in the absence of data.
 
    $q->dequeue_nb( 2 );
    $q->dequeue_nb; # default 1

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.820';
+our $VERSION = '1.821';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -139,7 +139,7 @@ sub _destroy_pipes {
 
    my ($_obj, @_params) = @_;
 
-   local ($!, $?); local $SIG{__DIE__} = sub { };
+   local ($!,$?); local $SIG{__DIE__};
 
    for my $_p (@_params) {
       next unless (defined $_obj->{$_p});
@@ -164,7 +164,7 @@ sub _destroy_socks {
 
    my ($_obj, @_params) = @_;
 
-   local ($!, $?); local $SIG{__DIE__} = sub { };
+   local ($!,$?,$@); local $SIG{__DIE__};
 
    for my $_p (@_params) {
       next unless (defined $_obj->{$_p});
@@ -426,7 +426,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.820
+This document describes MCE::Util version 1.821
 
 =head1 SYNOPSIS
 

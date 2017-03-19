@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.820';
+our $VERSION = '1.821';
 
 ## Items below are folded into MCE.
 
@@ -698,7 +698,8 @@ sub _worker_main {
    ) };
 
    ## Call MCE::Shared's init routine if present; enables parallel IPC.
-   MCE::Shared::init($_wid) if ($INC{'MCE/Shared.pm'});
+   ## For threads, init is called automatically via the CLONE feature.
+   MCE::Shared::init($_wid) if (!$_use_threads && $INC{'MCE/Shared.pm'});
 
    _do_send_init($self);
 

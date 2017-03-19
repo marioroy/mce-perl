@@ -1,6 +1,16 @@
 
 Revision history for Perl module MCE.
 
+1.821 Sun Mar 19 04:00:00 EST 2017
+
+  * Improved reliability when running MCE with threads.
+
+  * Added parallel Net::Pcap and Ping demonstrations on Github:
+    https://github.com/marioroy/mce-examples/tree/master/network
+
+  * Optimized 'dequeue' method in MCE::Queue.
+  * Optimized 'synchronize' method in MCE::Mutex.
+
 1.820 Thu Mar 09 02:00:00 EST 2017
 
   * Improved reliability when running MCE inside an eval block.

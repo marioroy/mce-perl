@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.820';
+our $VERSION = '1.821';
 
 use MCE::Util qw( $LF );
 
@@ -26,9 +26,9 @@ sub DESTROY {
    my ($_obj, $_arg) = @_;
    my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
 
-   $_obj->unlock() if ($_obj->{ $_pid });
+   $_obj->unlock() if $_obj->{ $_pid };
 
-   if ($_arg eq 'shutdown' || $_obj->{'init_pid'} eq $_pid) {
+   if ($_obj->{'init_pid'} eq $_pid) {
       ($^O eq 'MSWin32')
          ? MCE::Util::_destroy_pipes($_obj, qw(_w_sock _r_sock))
          : MCE::Util::_destroy_socks($_obj, qw(_w_sock _r_sock));
@@ -75,24 +75,22 @@ sub unlock {
 }
 
 sub synchronize {
-   my ($_obj, $_code) = (shift, shift);
+   my ($_pid, $_obj, $_code, @_ret) = (
+      $_has_threads ? $$ .'.'. $_tid : $$, shift, shift
+   );
 
    return if (ref $_code ne 'CODE');
 
-   if (defined wantarray) {
-      $_obj->lock();
-      my @_a = $_code->(@_);
-      $_obj->unlock();
+   # lock, run code, unlock
+   sysread($_obj->{_r_sock}, my($_b), 1), $_obj->{ $_pid } = 1
+      unless $_obj->{ $_pid };
 
-      return wantarray ? @_a : $_a[0];
-   }
-   else {
-      $_obj->lock();
-      $_code->(@_);
-      $_obj->unlock();
-   }
+   defined(wantarray) ? @_ret = $_code->(@_) : $_code->(@_);
 
-   return;
+   syswrite($_obj->{_w_sock}, '0'), $_obj->{ $_pid } = 0
+      if $_obj->{ $_pid };
+
+   return wantarray ? @_ret : $_ret[-1];
 }
 
 1;
@@ -111,7 +109,7 @@ MCE::Mutex - Locking for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Mutex version 1.820
+This document describes MCE::Mutex version 1.821
 
 =head1 SYNOPSIS
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.820';
+our $VERSION = '1.821';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 
@@ -60,8 +60,6 @@ sub import {
    my %_output_function = (
 
       OUTPUT_W_RLA.$LF => sub {                   # Worker has relayed
-
-       # $_DAU_R_SOCK = ${ $_DAU_R_SOCK_REF };
 
          $_rla_nextid = 0 if ( ++$_rla_nextid == $_max_workers );
 
@@ -343,7 +341,7 @@ MCE::Relay - Extends Many-Core Engine with relay capabilities
 
 =head1 VERSION
 
-This document describes MCE::Relay version 1.820
+This document describes MCE::Relay version 1.821
 
 =head1 SYNOPSIS
 
