@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.821';
+our $VERSION = '1.822';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -224,7 +224,7 @@ sub new {
    MCE::Util::_sock_pair($_Q, qw(_ar_sock _aw_sock)) if $_Q->{_await};
 
    if (exists $_argv{queue} && scalar @{ $_argv{queue} }) {
-      syswrite $_Q->{_qw_sock}, $LF;
+      1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
    }
 
    return $_Q;
@@ -410,7 +410,7 @@ sub _heap_insert_high {
          $_Q->{_tsem} = $_t;
 
          if ($_Q->pending() <= $_t) {
-            syswrite $_Q->{_aw_sock}, $LF;
+            1 until syswrite($_Q->{_aw_sock}, $LF) || ($! && !$!{'EINTR'});
          } else {
             $_Q->{_asem} += 1;
          }
@@ -463,7 +463,7 @@ sub _heap_insert_high {
                return;
             }
             if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
-               syswrite $_Q->{_qw_sock}, $LF;
+               1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
             }
             push @{ $_Q->{_datq} }, @{ $_MCE->{thaw}($_buf) };
          }
@@ -507,7 +507,7 @@ sub _heap_insert_high {
                return;
             }
             if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
-               syswrite $_Q->{_qw_sock}, $LF;
+               1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
             }
             push @{ $_Q->{_datq} }, $_;
          }
@@ -566,7 +566,9 @@ sub _heap_insert_high {
                $_pending = int($_pending / $_cnt) if ($_cnt);
                if ($_pending) {
                   $_pending = MAX_DQ_DEPTH if ($_pending > MAX_DQ_DEPTH);
-                  for my $_i (1 .. $_pending) { syswrite $_Q->{_qw_sock}, $LF }
+                  for my $_i (1 .. $_pending) {
+                     1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
+                  }
                }
                $_Q->{_dsem} = $_pending;
             }
@@ -576,11 +578,13 @@ sub _heap_insert_high {
          }
          else {
             ## Otherwise, never to exceed one byte in the channel
-            if ($_Q->_has_data()) { syswrite $_Q->{_qw_sock}, $LF }
+            if ($_Q->_has_data()) {
+               1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
+            }
          }
 
          if ($_Q->{_ended} && !$_Q->_has_data()) {
-            syswrite $_Q->{_qw_sock}, $LF;
+            1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
          }
 
          if ($_cnt) {
@@ -600,7 +604,9 @@ sub _heap_insert_high {
          }
 
          if ($_Q->{_await} && $_Q->{_asem} && $_Q->pending() <= $_Q->{_tsem}) {
-            for (1 .. $_Q->{_asem}) { syswrite $_Q->{_aw_sock}, $LF }
+            for my $_i (1 .. $_Q->{_asem}) {
+               1 until syswrite($_Q->{_aw_sock}, $LF) || ($! && !$!{'EINTR'});
+            }
             $_Q->{_asem} = 0;
          }
 
@@ -654,7 +660,9 @@ sub _heap_insert_high {
          }
 
          if ($_Q->{_await} && $_Q->{_asem} && $_Q->pending() <= $_Q->{_tsem}) {
-            for (1 .. $_Q->{_asem}) { syswrite $_Q->{_aw_sock}, $LF }
+            for my $_i (1 .. $_Q->{_asem}) {
+               1 until syswrite($_Q->{_aw_sock}, $LF) || ($! && !$!{'EINTR'});
+            }
             $_Q->{_asem} = 0;
          }
 
@@ -846,7 +854,7 @@ sub _mce_m_clear {
    }
    else {
       if ($_Q->_has_data()) {
-         sysread $_Q->{_qr_sock}, my($_buf), 1;
+         1 until sysread($_Q->{_qr_sock}, my($_buf), 1) || ($! && !$!{'EINTR'});
       }
       %{ $_Q->{_datp} } = ();
       @{ $_Q->{_datq} } = ();
@@ -863,7 +871,7 @@ sub _mce_m_end {
 
    if (!$_Q->{_ended}) {
       if (!$_Q->{_nb_flag}) {
-         syswrite $_Q->{_qw_sock}, $LF;
+         1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
       }
       $_Q->{_ended} = 1;
    }
@@ -883,7 +891,7 @@ sub _mce_m_enqueue {
       return;
    }
    if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
-      syswrite $_Q->{_qw_sock}, $LF;
+      1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
    }
 
    ## Append item(s) into the queue.
@@ -907,7 +915,7 @@ sub _mce_m_enqueuep {
       return;
    }
    if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
-      syswrite $_Q->{_qw_sock}, $LF;
+      1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
    }
 
    $_Q->_enqueuep($_p, @_);
@@ -922,7 +930,7 @@ sub _mce_m_dequeue {
    my ($_Q, $_cnt) = @_;
    my (@_items, $_buf, $_next, $_pending);
 
-   sysread $_Q->{_qr_sock}, $_next, 1;  # block
+   1 until sysread($_Q->{_qr_sock}, $_next, 1) || ($! && !$!{'EINTR'});
 
    if (defined $_cnt && $_cnt ne '1') {
       _croak('Queue: (dequeue count argument) is not valid')
@@ -950,7 +958,9 @@ sub _mce_m_dequeue {
          $_pending = int($_pending / $_cnt) if (defined $_cnt);
          if ($_pending) {
             $_pending = MAX_DQ_DEPTH if ($_pending > MAX_DQ_DEPTH);
-            for my $_i (1 .. $_pending) { syswrite $_Q->{_qw_sock}, $LF }
+            for my $_i (1 .. $_pending) {
+               1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
+            }
          }
          $_Q->{_dsem} = $_pending;
       }
@@ -960,11 +970,13 @@ sub _mce_m_dequeue {
    }
    else {
       ## Otherwise, never to exceed one byte in the channel
-      if ($_Q->_has_data()) { syswrite $_Q->{_qw_sock}, $LF }
+      if ($_Q->_has_data()) {
+         1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
+      }
    }
 
    if ($_Q->{_ended} && !$_Q->_has_data()) {
-      syswrite $_Q->{_qw_sock}, $LF;
+      1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
    }
 
    $_Q->{_nb_flag} = 0;
@@ -1039,7 +1051,7 @@ sub _mce_m_insert {
       return;
    }
    if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
-      syswrite $_Q->{_qw_sock}, $LF;
+      1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
    }
 
    if (abs($_i) > scalar @{ $_Q->{_datq} }) {
@@ -1087,7 +1099,7 @@ sub _mce_m_insertp {
       return;
    }
    if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
-      syswrite $_Q->{_qw_sock}, $LF;
+      1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
    }
 
    if (exists $_Q->{_datp}->{$_p} && scalar @{ $_Q->{_datp}->{$_p} }) {
@@ -1267,8 +1279,13 @@ sub _mce_m_heap {
       $_lock_chn   = $_MCE->{_lock_chn};
 
       if ($_lock_chn) {
-         $_dat_ex = sub {  sysread ( $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
-         $_dat_un = sub { syswrite ( $_DAT_LOCK->{_w_sock}, '0' ) };
+         # inlined for performance
+         $_dat_ex = sub {
+            1 until sysread($_DAT_LOCK->{_r_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
+         };
+         $_dat_un = sub {
+            1 until syswrite($_DAT_LOCK->{_w_sock}, '0') || ($! && !$!{'EINTR'});
+         };
       }
 
       $_all = {};
@@ -1309,7 +1326,7 @@ sub _mce_m_heap {
       $_req2->(OUTPUT_W_QUE, $_Q->{_id}.$LF . $_t.$LF);
 
       $_rdy->($_Q->{_ar_sock}) if $_is_MSWin32;
-      sysread $_Q->{_ar_sock}, $_next, 1;  # block
+      1 until sysread($_Q->{_ar_sock}, $_next, 1) || ($! && !$!{'EINTR'});
 
       return;
    }
@@ -1406,7 +1423,7 @@ sub _mce_m_heap {
          local $/ = $LF if (!$/ || $/ ne $LF);
 
          $_rdy->($_Q->{_qr_sock}) if $_is_MSWin32;
-         sysread $_Q->{_qr_sock}, $_next, 1;  # block
+         1 until sysread($_Q->{_qr_sock}, $_next, 1) || ($! && !$!{'EINTR'});
 
          $_dat_ex->() if $_lock_chn;
          print {$_DAT_W_SOCK} OUTPUT_D_QUE.$LF . $_chn.$LF;
@@ -1584,7 +1601,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.821
+This document describes MCE::Queue version 1.822
 
 =head1 SYNOPSIS
 

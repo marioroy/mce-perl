@@ -14,7 +14,7 @@ package MCE::Core::Input::Sequence;
 use strict;
 use warnings;
 
-our $VERSION = '1.821';
+our $VERSION = '1.822';
 
 ## Items below are folded into MCE.
 
@@ -41,14 +41,26 @@ sub _worker_sequence_queue {
    _croak('MCE::_worker_sequence_queue: (user_func) is not specified')
       unless (defined $self->{user_func});
 
+   my $_DAT_LOCK    = $self->{_dat_lock};
    my $_QUE_R_SOCK  = $self->{_que_r_sock};
    my $_QUE_W_SOCK  = $self->{_que_w_sock};
+   my $_lock_chn    = $self->{_lock_chn};
    my $_bounds_only = $self->{bounds_only} || 0;
    my $_chunk_size  = $self->{chunk_size};
    my $_wuf         = $self->{_wuf};
 
    my ($_next, $_chunk_id, $_seq_n, $_begin, $_end, $_step, $_fmt);
-   my ($_abort, $_offset);
+   my ($_dat_ex, $_dat_un, $_abort, $_offset);
+
+   if ($_lock_chn) {
+      # inlined for performance
+      $_dat_ex = sub {
+         1 until sysread($_DAT_LOCK->{_r_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
+      };
+      $_dat_un = sub {
+         1 until syswrite($_DAT_LOCK->{_w_sock}, '0') || ($! && !$!{'EINTR'});
+      };
+   }
 
    if (ref $self->{sequence} eq 'ARRAY') {
       ($_begin, $_end, $_step, $_fmt) = @{ $self->{sequence} };
@@ -77,17 +89,26 @@ sub _worker_sequence_queue {
    while (1) {
 
       ## Obtain the next chunk_id and sequence number.
-      sysread $_QUE_R_SOCK, $_next, $_que_read_size;
+      $_dat_ex->() if $_lock_chn;
+
+      1 until sysread($_QUE_R_SOCK, $_next, $_que_read_size) || ($! && !$!{'EINTR'});
+
       ($_chunk_id, $_offset) = unpack($_que_template, $_next);
 
       if ($_offset >= $_abort) {
-         syswrite $_QUE_W_SOCK, pack($_que_template, 0, $_offset);
+         1 until syswrite (
+            $_QUE_W_SOCK, pack($_que_template, 0, $_offset)
+         ) || ($! && !$!{'EINTR'});
+
+         $_dat_un->() if $_lock_chn;
          return;
       }
 
-      syswrite $_QUE_W_SOCK,
-         pack($_que_template, $_chunk_id + 1, $_offset + 1);
+      1 until syswrite (
+         $_QUE_W_SOCK, pack($_que_template, $_chunk_id + 1, $_offset + 1)
+      ) || ($! && !$!{'EINTR'});
 
+      $_dat_un->() if $_lock_chn;
       $_chunk_id++;
 
       ## Call user function.

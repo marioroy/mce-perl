@@ -27,6 +27,8 @@ lib/MCE/Grep.pm
 lib/MCE/Loop.pm
 lib/MCE/Map.pm
 lib/MCE/Mutex.pm
+lib/MCE/Mutex/Channel.pm
+lib/MCE/Mutex/Flock.pm
 lib/MCE/Queue.pm
 lib/MCE/Relay.pm
 lib/MCE/Signal.pm
@@ -40,6 +42,8 @@ t/01_load_mce.t
 t/01_load_signal_arg.t
 t/01_load_signal_export.t
 t/01_load_signal_tag.t
+t/01_mutex_channel.t
+t/01_mutex_flock.t
 t/02_do_callback_args.t
 t/02_do_callback_result.t
 t/03_chunk_size.t
@@ -57,3 +61,5 @@ t/05_mce_stream.t
 t/06_nodata_flow.t
 t/06_nodata_step.t
 t/06_relay.t
+xt/channel_lock.t
+xt/flock_lock.t

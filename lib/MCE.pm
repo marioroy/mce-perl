@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.821';
+our $VERSION = '1.822';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -397,6 +397,9 @@ sub new {
          _croak($_msg);
       }
    }
+   elsif ($_is_MSWin32) {
+      $self{use_threads} = ($_has_threads && !$INC{'MCE/Hobo.pm'}) ? 1 : 0;
+   }
    else {
       $self{use_threads} = ($_has_threads) ? 1 : 0;
    }
@@ -510,6 +513,8 @@ sub spawn {
    lock $_MCE_LOCK if $_has_threads;  # Obtain locks
    lock $_WIN_LOCK if $_is_MSWin32;
 
+   sleep 0.01 if ($_tid && !$self->{use_threads});
+
    ## Start the shared-manager process if present.
    MCE::Shared->start() if $INC{'MCE/Shared.pm'};
 
@@ -553,8 +558,9 @@ sub spawn {
       if ($_is_MSWin32 && $ENV{'PERL_MCE_IPC'} ne 'win32') {
          $ENV{'PERL_MCE_IPC'} = 'win32'; local $\ = undef;
          my $_DAT_W_SOCK = $TOP_HDLR->{_dat_w_sock}->[0];
-         print  {$_DAT_W_SOCK} OUTPUT_S_IPC.$LF . '0'.$LF;
-         sysread $_DAT_W_SOCK, my($_buf), 1;
+         print {$_DAT_W_SOCK} OUTPUT_S_IPC.$LF . '0'.$LF;
+
+         1 until sysread($_DAT_W_SOCK, my($_buf), 1) || ($! && !$!{'EINTR'});
       }
    }
 
@@ -592,10 +598,11 @@ sub spawn {
    my $_use_threads   = $self->{use_threads};
 
    ## Create locks for data channels.
-   $self->{'_mutex_0'} = MCE::Mutex->new();
+   $self->{'_mutex_0'} = MCE::Mutex->new( impl => 'Channel' );
 
    if ($self->{_lock_chn}) {
-      $self->{'_mutex_'.$_} = MCE::Mutex->new() for (1 .. $_data_channels);
+      $self->{'_mutex_'.$_} = MCE::Mutex->new( impl => 'Channel' )
+         for (1 .. $_data_channels);
    }
 
    ## Create sockets for IPC.
@@ -1031,8 +1038,9 @@ sub run {
 
       ## Insert the first message into the queue if defined.
       if (defined $_first_msg) {
-         my $_QUE_W_SOCK = $self->{_que_w_sock};
-         syswrite $_QUE_W_SOCK, pack($_que_template, 0, $_first_msg);
+         1 until syswrite (
+            $self->{_que_w_sock}, pack($_que_template, 0, $_first_msg)
+         ) || ($! && !$!{'EINTR'});
       }
 
       ## Submit params data to workers.
@@ -1071,12 +1079,12 @@ sub run {
       if (!$_send_cnt) {
          ## Notify workers to commence processing.
          if ($_is_MSWin32) {
-            my $_buf = sprintf("%${_total_workers}s", "");
+            my $_buf = sprintf "%${_total_workers}s", "";
             syswrite $self->{_bse_w_sock}, $_buf;
          } else {
             my $_BSE_W_SOCK = $self->{_bse_w_sock};
             for my $_i (1 .. $_total_workers) {
-               syswrite $_BSE_W_SOCK, $LF;
+               1 until syswrite($_BSE_W_SOCK, $LF) || ($! && !$!{'EINTR'});
             }
          }
       }
@@ -1091,8 +1099,9 @@ sub run {
    ## Remove the last message from the queue.
    if (!$_send_cnt && $_run_mode ne 'nodata') {
       if (defined $self->{_que_r_sock}) {
-         my $_QUE_R_SOCK = $self->{_que_r_sock};
-         sysread $_QUE_R_SOCK, my($_next), $_que_read_size;
+         1 until sysread (
+            $self->{_que_r_sock}, my($_buf), $_que_read_size
+         ) || ($! && !$!{'EINTR'});
       }
    }
 
@@ -1318,13 +1327,13 @@ sub sync {
 
    ## Wait until all workers from (task_id 0) have synced.
    MCE::Util::_sock_ready($_BSB_R_SOCK) if $_is_MSWin32;
-   sysread $_BSB_R_SOCK, $_buf, 1;
+   1 until sysread($_BSB_R_SOCK, $_buf, 1) || ($! && !$!{'EINTR'});
 
    ## Notify the manager process (barrier end).
    print {$_DAT_W_SOCK} OUTPUT_E_SYN.$LF . $_chn.$LF;
 
    ## Wait until all workers from (task_id 0) have un-synced.
-   sysread $_BSE_R_SOCK, $_buf, 1;
+   1 until sysread($_BSE_R_SOCK, $_buf, 1) || ($! && !$!{'EINTR'});
 
    return;
 }
@@ -1373,8 +1382,12 @@ sub abort {
       local $\ = undef;
 
       if ($_abort_msg > 0) {
-         sysread  $_QUE_R_SOCK, my($_next), $_que_read_size;
-         syswrite $_QUE_W_SOCK, pack($_que_template, 0, $_abort_msg);
+         1 until sysread (
+            $_QUE_R_SOCK, my($_next), $_que_read_size
+         ) || ($! && !$!{'EINTR'});
+         1 until syswrite (
+            $_QUE_W_SOCK, pack($_que_template, 0, $_abort_msg)
+         ) || ($! && !$!{'EINTR'});
       }
 
       if ($self->{_wid} > 0) {

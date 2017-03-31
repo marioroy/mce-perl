@@ -51,6 +51,9 @@
 ##   Added support for zgrep, zegrep, and zfgrep. Thank you, Jeff Rouse.
 ##   https://www.activestate.com/blog/2016/12/grep-losing-its-grip
 ##
+## 2017-03-27  v1.013
+##   Check for $!{'EINTR'} during syswrite.
+##
 ###############################################################################
 
 ###############################################################################
@@ -712,8 +715,18 @@ sub make_user_func_file {
 
          local $SIG{PIPE} = sub { };
 
-         open  $cmd_fh, '|-', $cmd_path, @args;   ## Run external command
-         syswrite $cmd_fh, $$chunk_ref;           ## Write to STDIN
+         open $cmd_fh, '|-', $cmd_path, @args;     # Run external command
+
+         my $wrote = 0;                            # Write to STDIN
+
+         WRITE: {
+            $wrote += ( syswrite (
+               $cmd_fh, $$chunk_ref, length($$chunk_ref) - $wrote, $wrote
+            )) || do {
+               redo WRITE if ($! && $!{'EINTR'});
+            };
+         }
+
          close $cmd_fh;
 
          open  STDOUT, '>&STDOUT_SAVE';

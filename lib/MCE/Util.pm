@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.821';
+our $VERSION = '1.822';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -131,7 +131,7 @@ sub get_ncpu {
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Private methods.
+## Private methods for pipes and sockets.
 ##
 ###############################################################################
 
@@ -196,6 +196,7 @@ sub _destroy_socks {
 sub _pipe_pair {
 
    my ($_obj, $_r_sock, $_w_sock, $_i) = @_;
+
    local $!;
 
    if (defined $_i) {
@@ -217,10 +218,9 @@ sub _pipe_pair {
 
 sub _sock_pair {
 
-   my ($_obj, $_r_sock, $_w_sock, $_i, $_size) = @_;
-   local $!;
+   my ($_obj, $_r_sock, $_w_sock, $_i) = @_;
 
-   $_size = 16384 unless defined $_size;
+   my $_size = 16384; local $!;
 
    if (defined $_i) {
       socketpair( $_obj->{$_r_sock}[$_i], $_obj->{$_w_sock}[$_i],
@@ -281,6 +281,12 @@ sub _sock_ready {
       sleep 0.030;
    }
 }
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Private routines for MCE Models: Flow, Grep, Loop, Map, Step, and Stream.
+##
+###############################################################################
 
 sub _parse_max_workers {
 
@@ -426,7 +432,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.821
+This document describes MCE::Util version 1.822
 
 =head1 SYNOPSIS
 

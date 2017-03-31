@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.821';
+our $VERSION = '1.822';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -103,11 +103,12 @@ sub import {
 
    my ($_count, $_tmp_base_dir) = (0);
 
-   if (exists $ENV{TEMP} && -d $ENV{TEMP} && -w $ENV{TEMP}) {
+   if ($ENV{TEMP} && -d $ENV{TEMP} && -w $ENV{TEMP}) {
       if ( $_is_winenv ) {
          $_tmp_base_dir = $ENV{TEMP} . '/Perl-MCE';
          mkdir $_tmp_base_dir unless (-d $_tmp_base_dir);
-      } else {
+      }
+      else {
          $_tmp_base_dir = $ENV{TEMP};
       }
    }
@@ -440,7 +441,7 @@ MCE::Signal - Temporary directory creation/cleanup and signal handling
 
 =head1 VERSION
 
-This document describes MCE::Signal version 1.821
+This document describes MCE::Signal version 1.822
 
 =head1 SYNOPSIS
 

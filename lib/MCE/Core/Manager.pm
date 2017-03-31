@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.821';
+our $VERSION = '1.822';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -145,7 +145,9 @@ sub _output_loop {
 
          if ($_task_id == 0 && defined $_syn_flag && $_sync_cnt) {
             if ($_sync_cnt == $_total_running) {
-               for (1 .. $_total_running) { syswrite $_BSB_W_SOCK, $LF }
+               for my $_i (1 .. $_total_running) {
+                  1 until syswrite($_BSB_W_SOCK, $LF) || ($! && !$!{'EINTR'});
+               }
                undef $_syn_flag;
             }
          }
@@ -175,7 +177,9 @@ sub _output_loop {
 
          if ($_task_id == 0 && defined $_syn_flag && $_sync_cnt) {
             if ($_sync_cnt == $_total_running) {
-               for (1 .. $_total_running) { syswrite $_BSB_W_SOCK, $LF }
+               for my $_i (1 .. $_total_running) {
+                  1 until syswrite($_BSB_W_SOCK, $LF) || ($! && !$!{'EINTR'});
+               }
                undef $_syn_flag;
             }
          }
@@ -625,7 +629,9 @@ sub _output_loop {
             : $self->{_total_running};
 
          if (++$_sync_cnt == $_total_running) {
-            for (1 .. $_total_running) { syswrite $_BSB_W_SOCK, $LF }
+            for my $_i (1 .. $_total_running) {
+               1 until syswrite($_BSB_W_SOCK, $LF) || ($! && !$!{'EINTR'});
+            }
             undef $_syn_flag;
          }
 
@@ -639,7 +645,9 @@ sub _output_loop {
                ? $self->{_task}->[0]->{_total_running}
                : $self->{_total_running};
 
-            for (1 .. $_total_running) { syswrite $_BSE_W_SOCK, $LF }
+            for my $_i (1 .. $_total_running) {
+               1 until syswrite($_BSE_W_SOCK, $LF) || ($! && !$!{'EINTR'});
+            }
          }
 
          return;
@@ -647,7 +655,7 @@ sub _output_loop {
 
       OUTPUT_S_IPC.$LF => sub {                   # Change to win32 IPC
 
-         syswrite $_DAT_R_SOCK, $LF;
+         1 until syswrite($_DAT_R_SOCK, $LF) || ($! && !$!{'EINTR'});
 
          $_win32_ipc = 1, goto _LOOP unless $_win32_ipc;
 

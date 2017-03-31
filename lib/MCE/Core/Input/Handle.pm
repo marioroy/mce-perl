@@ -14,7 +14,7 @@ package MCE::Core::Input::Handle;
 use strict;
 use warnings;
 
-our $VERSION = '1.821';
+our $VERSION = '1.822';
 
 ## Items below are folded into MCE.
 
@@ -48,8 +48,10 @@ sub _worker_read_handle {
    _croak('MCE::_worker_read_handle: (user_func) is not specified')
       unless (defined $self->{user_func});
 
+   my $_DAT_LOCK    = $self->{_dat_lock};
    my $_QUE_R_SOCK  = $self->{_que_r_sock};
    my $_QUE_W_SOCK  = $self->{_que_w_sock};
+   my $_lock_chn    = $self->{_lock_chn};
    my $_chunk_size  = $self->{chunk_size};
    my $_use_slurpio = $self->{use_slurpio};
    my $_parallel_io = $self->{parallel_io};
@@ -58,7 +60,17 @@ sub _worker_read_handle {
    my $_wuf         = $self->{_wuf};
 
    my ($_data_size, $_next, $_chunk_id, $_offset_pos, $_IN_FILE, $_tmp_cs);
-   my ($_chop_len, $_chop_str, $_p);
+   my ($_dat_ex, $_dat_un, $_chop_len, $_chop_str, $_p);
+
+   if ($_lock_chn) {
+      # inlined for performance
+      $_dat_ex = sub {
+         1 until sysread($_DAT_LOCK->{_r_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
+      };
+      $_dat_un = sub {
+         1 until syswrite($_DAT_LOCK->{_w_sock}, '0') || ($! && !$!{'EINTR'});
+      };
+   }
 
    if (length $_RS > 1 && substr($_RS, 0, 1) eq "\n") {
       $_chop_str = substr($_RS, 1);
@@ -91,11 +103,19 @@ sub _worker_read_handle {
       $_ = '';
 
       ## Obtain the next chunk_id and offset position.
-      sysread $_QUE_R_SOCK, $_next, $_que_read_size;
+      $_dat_ex->() if $_lock_chn;
+
+      1 until sysread($_QUE_R_SOCK, $_next, $_que_read_size) || ($! && !$!{'EINTR'});
+
       ($_chunk_id, $_offset_pos) = unpack($_que_template, $_next);
 
       if ($_offset_pos >= $_data_size) {
-         syswrite $_QUE_W_SOCK, pack($_que_template, 0, $_offset_pos);
+         1 until syswrite ( $_QUE_W_SOCK,
+            pack($_que_template, 0, $_offset_pos)
+         ) || ($! && !$!{'EINTR'});
+
+         $_dat_un->() if $_lock_chn;
+
          close $_IN_FILE; undef $_IN_FILE;
          return;
       }
@@ -149,15 +169,21 @@ sub _worker_read_handle {
             }
          }
 
-         syswrite $_QUE_W_SOCK,
-            pack($_que_template, $_chunk_id, tell $_IN_FILE);
+         1 until syswrite ( $_QUE_W_SOCK,
+            pack($_que_template, $_chunk_id, tell $_IN_FILE)
+         ) || ($! && !$!{'EINTR'});
+
+         $_dat_un->() if $_lock_chn;
       }
       else {                                      # Large chunk.
          local $/ = $_RS if ($_RS_FLG);
 
          if ($_parallel_io && ! $_RS_FLG) {
-            syswrite $_QUE_W_SOCK,
-               pack($_que_template, $_chunk_id, $_offset_pos + $_chunk_size);
+            1 until syswrite ( $_QUE_W_SOCK,
+               pack($_que_template, $_chunk_id, $_offset_pos + $_chunk_size)
+            ) || ($! && !$!{'EINTR'});
+
+            $_dat_un->() if $_lock_chn;
 
             $_tmp_cs = $_chunk_size;
             seek $_IN_FILE, $_offset_pos, 0;
@@ -190,8 +216,11 @@ sub _worker_read_handle {
 
             $_ .= <$_IN_FILE>;
 
-            syswrite $_QUE_W_SOCK,
-               pack($_que_template, $_chunk_id, tell $_IN_FILE);
+            1 until syswrite ( $_QUE_W_SOCK,
+               pack($_que_template, $_chunk_id, tell $_IN_FILE)
+            ) || ($! && !$!{'EINTR'});
+
+            $_dat_un->() if $_lock_chn;
          }
       }
 

@@ -11,86 +11,48 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.821';
+our $VERSION = '1.822';
 
-use MCE::Util qw( $LF );
+## no critic (BuiltinFunctions::ProhibitStringyEval)
+## no critic (TestingAndDebugging::ProhibitNoStrict)
 
-my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
-my $_tid = $_has_threads ? threads->tid() : 0;
-
-sub CLONE {
-   $_tid = threads->tid() if $_has_threads;
-}
-
-sub DESTROY {
-   my ($_obj, $_arg) = @_;
-   my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
-
-   $_obj->unlock() if $_obj->{ $_pid };
-
-   if ($_obj->{'init_pid'} eq $_pid) {
-      ($^O eq 'MSWin32')
-         ? MCE::Util::_destroy_pipes($_obj, qw(_w_sock _r_sock))
-         : MCE::Util::_destroy_socks($_obj, qw(_w_sock _r_sock));
-   }
-
-   return;
-}
-
-###############################################################################
-## ----------------------------------------------------------------------------
-## Public methods.
-##
-###############################################################################
+use Carp ();
 
 sub new {
-   my ($_class, %_obj) = @_;
-   $_obj{'init_pid'} = $_has_threads ? $$ .'.'. $_tid : $$;
+    my $pkg; my ($class, %argv) = @_;
 
-   ($^O eq 'MSWin32')
-      ? MCE::Util::_pipe_pair(\%_obj, qw(_r_sock _w_sock))
-      : MCE::Util::_sock_pair(\%_obj, qw(_r_sock _w_sock));
+    if (defined $argv{'impl'}) {
+        $pkg = $argv{'impl'};
+    } else {
+        $pkg = defined $argv{'path'} ? 'Flock' : 'Channel';
+    }
 
-   syswrite($_obj{_w_sock}, '0');
+    if (eval "require MCE::Mutex::$pkg; 1") {
+        no strict 'refs';
+        $pkg = 'MCE::Mutex::'.$pkg;
 
-   return bless(\%_obj, $_class);
+        return $pkg->new(%argv);
+    }
+
+    Carp::croak("Could not load Mutex implementation $pkg: $@");
 }
 
-sub lock {
-   my ($_pid, $_obj) = ($_has_threads ? $$ .'.'. $_tid : $$, @_);
+## base class methods
 
-   sysread($_obj->{_r_sock}, my($_b), 1), $_obj->{ $_pid } = 1
-      unless $_obj->{ $_pid };
-
-   return;
+sub impl {
+    return $_[0]->{'impl'} || 'Not defined';
 }
 
-sub unlock {
-   my ($_pid, $_obj) = ($_has_threads ? $$ .'.'. $_tid : $$, @_);
+sub timedwait {
+    my ($obj, $timeout) = @_;
 
-   syswrite($_obj->{_w_sock}, '0'), $_obj->{ $_pid } = 0
-      if $_obj->{ $_pid };
+    local $@; local $SIG{'ALRM'} = sub { alarm 0; die "timed out\n" };
 
-   return;
-}
+    eval { alarm $timeout || 1; $obj->lock_exclusive };
 
-sub synchronize {
-   my ($_pid, $_obj, $_code, @_ret) = (
-      $_has_threads ? $$ .'.'. $_tid : $$, shift, shift
-   );
+    alarm 0;
 
-   return if (ref $_code ne 'CODE');
-
-   # lock, run code, unlock
-   sysread($_obj->{_r_sock}, my($_b), 1), $_obj->{ $_pid } = 1
-      unless $_obj->{ $_pid };
-
-   defined(wantarray) ? @_ret = $_code->(@_) : $_code->(@_);
-
-   syswrite($_obj->{_w_sock}, '0'), $_obj->{ $_pid } = 0
-      if $_obj->{ $_pid };
-
-   return wantarray ? @_ret : $_ret[-1];
+    ( $@ && $@ eq "timed out\n" ) ? '' : 1;
 }
 
 1;
@@ -109,36 +71,51 @@ MCE::Mutex - Locking for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Mutex version 1.821
+This document describes MCE::Mutex version 1.822
 
 =head1 SYNOPSIS
 
-   use MCE::Flow max_workers => 4;
    use MCE::Mutex;
 
-   print "## running a\n";
-   my $a = MCE::Mutex->new;
+   my $mutex = MCE::Mutex->new;
 
-   mce_flow sub {
-      $a->lock;
+   {
+       use MCE::Flow max_workers => 4;
 
-      ## access shared resource
-      my $wid = MCE->wid; MCE->say($wid); sleep 1;
+       mce_flow sub {
+           $mutex->lock;
 
-      $a->unlock;
-   };
+           # access shared resource
+           my $wid = MCE->wid; MCE->say($wid); sleep 1;
 
-   print "## running b\n";
-   my $b = MCE::Mutex->new;
+           $mutex->unlock;
+       };
+   }
 
-   mce_flow sub {
-      $b->synchronize( sub {
+   {
+       use MCE::Hobo;
 
-         ## access shared resource
-         my ($wid) = @_; MCE->say($wid); sleep 1;
+       MCE::Hobo->create('work', $_) for 1..4;
+       MCE::Hobo->waitall;
+   }
 
-      }, MCE->wid );
-   };
+   {
+       use threads;
+
+       threads->create('work', $_)   for 5..8;
+       $_->join for ( threads->list );
+   }
+
+   sub work {
+       my ($id) = @_;
+       $mutex->lock;
+
+       # access shared resource
+       print $id, "\n";
+       sleep 1;
+
+       $mutex->unlock;
+   }
 
 =head1 DESCRIPTION
 
@@ -149,36 +126,100 @@ The inspiration for this module came from reading Mutex for Ruby.
 
 =head1 API DOCUMENTATION
 
-=head2 MCE::Mutex->new ( void )
+=head2 MCE::Mutex->new ( )
+
+=head2 MCE::Mutex->new ( impl => "Channel" )
+
+=head2 MCE::Mutex->new ( impl => "Flock", [ path => "/tmp/file.lock" ] )
+
+=head2 MCE::Mutex->new ( path => "/tmp/file.lock" )
 
 Creates a new mutex.
 
-Channel locking is through a pipe or socket depending on platform.
-The advantage of channel locking is not having to re-establish handles
-inside new processes or threads.
+Channel locking (the default), unless C<path> is given, is through a pipe
+or socket depending on the platform. The advantage of channel locking is
+not having to re-establish handles inside new processes and threads.
 
-=head2 $m->lock ( void )
+For Fcntl-based locking, it is the responsibility of the caller to remove
+the C<tempfile>, associated with the mutex, when path is given. Otherwise,
+it establishes a C<tempfile> internally including removal on scope exit.
 
-Attempts to grab the lock and waits if not available. Multiple calls to
-mutex->lock by the same process or thread is safe. The mutex will remain
+=head2 $mutex->impl ( void )
+
+Returns the implementation used for the mutex.
+
+   $m1 = MCE::Mutex->new( );
+   $m1->impl();   # Channel
+
+   $m2 = MCE::Mutex->new( path => /tmp/my.lock );
+   $m2->impl();   # Flock
+
+   $m3 = MCE::Mutex->new( impl => "Channel" );
+   $m3->impl();   # Channel
+
+   $m4 = MCE::Mutex->new( impl => "Flock" );
+   $m4->impl();   # Flock
+
+Current API available since 1.822.
+
+=head2 $mutex->lock ( void )
+
+=head2 $mutex->lock_exclusive ( void )
+
+Attempts to grab an exclusive lock and waits if not available. Multiple calls
+to mutex->lock by the same process or thread is safe. The mutex will remain
 locked until mutex->unlock is called.
 
-=head2 $m->unlock ( void )
+The method C<lock_exclusive> is an alias for C<lock>, available since 1.822.
+
+   ( my $mutex = MCE::Mutex->new( path => $0 ) )->lock_exclusive;
+
+=head2 $mutex->lock_shared ( void )
+
+Like C<lock_exclusive>, but attempts to grab a shared lock instead.
+For non-Fcntl implementations, C<lock_shared> is an alias for C<lock>.
+
+Current API available since 1.822.
+
+=head2 $mutex->unlock ( void )
 
 Releases the lock. A held lock by an exiting process or thread is released
 automatically.
 
-=head2 $m->synchronize ( sub { ... }, @_ )
+=head2 $mutex->synchronize ( sub { ... }, @_ )
+
+=head2 $mutex->enter ( sub { ... }, @_ )
 
 Obtains a lock, runs the code block, and releases the lock after the block
 completes. Optionally, the method is C<wantarray> aware.
 
-   my $value = $m->synchronize( sub {
-
-      ## access shared resource
-
-      'value';
+   my $val = $mutex->synchronize( sub {
+       # access shared resource
+       return 'scalar';
    });
+
+   my @ret = $mutex->enter( sub {
+       # access shared resource
+       return @list;
+   });
+
+The method C<enter> is an alias for C<synchronize>, available since 1.822.
+
+=head2 $mutex->timedwait ( timeout )
+
+Blocks until obtaining an exclusive lock. A false value is returned
+if the timeout is reached, and a true value otherwise. The default is
+1 second when omitting timeout.
+
+   my $mutex = MCE::Mutex->new( path => $0 );
+
+   # terminate script if a previous instance is still running
+
+   exit unless $mutex->timedwait( 2 );
+
+   ...
+
+Current API available since 1.822.
 
 =head1 INDEX
 

@@ -1,6 +1,14 @@
 
 Revision history for Perl module MCE.
 
+1.822 Fri Mar 31 11:00:00 EST 2017
+
+  * Check for EINTR during sysread and syswrite.
+  * Improved reliability when running nested MCE sessions.
+  * Updated MCE::Mutex with Channel and Fcntl implementations.
+
+  * Completed validation for using MCE with 200+ cores.
+
 1.821 Sun Mar 19 04:00:00 EST 2017
 
   * Improved reliability when running MCE with threads.

@@ -77,6 +77,12 @@ Farrell, David
   http://perltricks.com/article/61/2014/1/21/
          Make-your-code-run-faster-with-Perl-s-secret-turbo-module
 
+Gasper, Felipe
+
+  For test scripts found in IO::SigGuard. I was able to get MCE::Mutex
+  to fail with similar testing. The result is that MCE must also check
+  for EINTR during sysread and syswrite. Ditto for MCE::Shared.
+
 Golden, David
 
   For the Hash::Ordered module. I learned a lot from this *GEM* on CPAN.

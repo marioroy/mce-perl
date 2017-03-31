@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.821';
+our $VERSION = '1.822';
 
 ## Items below are folded into MCE.
 
@@ -292,8 +292,13 @@ use bytes;
       $_task_id    = $self->{_task_id};
 
       if ($_lock_chn) {
-         $_dat_ex = sub {  sysread ( $_DAT_LOCK->{_r_sock}, my $_b, 1 ) };
-         $_dat_un = sub { syswrite ( $_DAT_LOCK->{_w_sock}, '0' ) };
+         # inlined for performance
+         $_dat_ex = sub {
+            1 until sysread($_DAT_LOCK->{_r_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
+         };
+         $_dat_un = sub {
+            1 until syswrite($_DAT_LOCK->{_w_sock}, '0') || ($! && !$!{'EINTR'});
+         };
       }
 
       {
@@ -515,15 +520,20 @@ sub _worker_loop {
 
    @_ = ();
 
-   my ($_response, $_len, $_buf, $_params_ref);
+   my ($_com_ex, $_com_un, $_response, $_len, $_buf, $_params_ref);
 
    my $_COM_LOCK   = $self->{_com_lock};
    my $_COM_W_SOCK = $self->{_com_w_sock};
    my $_job_delay  = $self->{job_delay};
    my $_wid        = $self->{_wid};
 
-   my $_com_ex = sub {  sysread ( $_COM_LOCK->{_r_sock}, my $_b, 1 ) };
-   my $_com_un = sub { syswrite ( $_COM_LOCK->{_w_sock}, '0' ) };
+   # inlined for performance
+   $_com_ex = sub {
+      1 until sysread($_COM_LOCK->{_r_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
+   };
+   $_com_un = sub {
+      1 until syswrite($_COM_LOCK->{_w_sock}, '0') || ($! && !$!{'EINTR'});
+   };
 
    if ( $^O eq 'MSWin32' ) {
       lock $MCE::_WIN_LOCK;
@@ -583,7 +593,7 @@ sub _worker_loop {
       _worker_do($self, {}), next if ($_response eq "_data\n");
 
       ## Wait here until MCE completes job submission to all workers.
-      sysread $self->{_bse_r_sock}, my($_b), 1;
+      1 until sysread($self->{_bse_r_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
 
       ## Normal request.
       if (defined $_job_delay && $_job_delay > 0.0) {
