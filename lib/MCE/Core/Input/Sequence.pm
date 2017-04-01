@@ -14,7 +14,7 @@ package MCE::Core::Input::Sequence;
 use strict;
 use warnings;
 
-our $VERSION = '1.823';
+our $VERSION = '1.824';
 
 ## Items below are folded into MCE.
 
@@ -54,6 +54,10 @@ sub _worker_sequence_queue {
 
    if ($_lock_chn) {
       # inlined for performance
+      if ($self->{_data_channels} > 7) {
+         my $_chn   = $self->{_wid} % 7 + 1;
+         $_DAT_LOCK = $self->{'_mutex_'.$_chn};
+      }
       $_dat_ex = sub {
          1 until sysread($_DAT_LOCK->{_r_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
       };

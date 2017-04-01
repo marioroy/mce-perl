@@ -1,6 +1,14 @@
 
 Revision history for Perl module MCE.
 
+1.824 Sat Apr 01 01:00:00 EST 2017
+
+  * Completed validation for running MCE on a box having 100+ cores.
+
+  * Tuned the number of data-channels for IPC. Set upper limit in
+    MCE::Core::Input::{ Handle and Sequence } to not impact the
+    OS kernel. The result is better performance, yet graceful.
+
 1.823 Fri Mar 31 19:30:00 EST 2017
 
   * Calibrated the number of data-channels for IPC.
