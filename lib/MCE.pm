@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.822';
+our $VERSION = '1.823';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -231,7 +231,7 @@ use constant {
    MAX_CHUNK_SIZE => 1024 * 1024 * 64,  # Maximum chunk size allowed
 
    # Max data channels. This cannot be greater than 8 on MSWin32.
-   DATA_CHANNELS  => ($^O eq 'MSWin32') ? 8 : 12,
+   DATA_CHANNELS  => ($^O =~ /mswin|mingw|msys|cygwin/i) ? 8 : 8,
 
    MAX_RECS_SIZE  => 8192,     # Reads number of records if N <= value
                                # Reads number of bytes if N > value
@@ -396,9 +396,6 @@ sub new {
 
          _croak($_msg);
       }
-   }
-   elsif ($_is_MSWin32) {
-      $self{use_threads} = ($_has_threads && !$INC{'MCE/Hobo.pm'}) ? 1 : 0;
    }
    else {
       $self{use_threads} = ($_has_threads) ? 1 : 0;
