@@ -11,13 +11,14 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.824';
+our $VERSION = '1.825';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use Scalar::Util qw( looks_like_number );
 use MCE::Util qw( $LF );
+use MCE::Mutex;
 use bytes;
 
 ###############################################################################
@@ -101,6 +102,9 @@ sub import {
 use constant {
    MAX_DQ_DEPTH => 192,      # Maximum dequeue notifications
 
+   MUTEX_LOCKS  => 6,        # Number of mutex locks for 1st level defense
+                             # against many workers waiting to dequeue
+
    OUTPUT_W_QUE => 'W~QUE',  # Await from the queue
    OUTPUT_C_QUE => 'C~QUE',  # Clear the queue
    OUTPUT_E_QUE => 'E~QUE',  # End the queue
@@ -147,8 +151,12 @@ sub DESTROY {
    delete $_all->{ $_Q->{_id} } if exists $_Q->{_id};
    undef $_Q->{_datp}, undef $_Q->{_datq}, undef $_Q->{_heap};
 
-   MCE::Util::_destroy_socks($_Q, qw(_aw_sock _ar_sock _qw_sock _qr_sock))
-      if exists $_Q->{_init_pid} && $_Q->{_init_pid} eq $_pid;
+   if (exists $_Q->{_init_pid} && $_Q->{_init_pid} eq $_pid) {
+      MCE::Util::_destroy_socks($_Q, qw(_aw_sock _ar_sock _qw_sock _qr_sock));
+      for my $_i (0 .. MUTEX_LOCKS - 1) {
+         delete $_Q->{'_mutex_'.$_i};
+      }
+   }
 
    return;
 }
@@ -219,6 +227,10 @@ sub new {
    $_Q->{_init_pid} = $_has_threads ? $$ .'.'. $_tid : $$;
    $_Q->{_id} = ++$_qid; $_all->{$_qid} = $_Q;
    $_Q->{_dsem} = 0 if ($_Q->{_fast});
+
+   for my $_i (0 .. MUTEX_LOCKS - 1) {
+      $_Q->{'_mutex_'.$_i} = MCE::Mutex->new( impl => 'Channel' );
+   }
 
    MCE::Util::_sock_pair($_Q, qw(_qr_sock _qw_sock));
    MCE::Util::_sock_pair($_Q, qw(_ar_sock _aw_sock)) if $_Q->{_await};
@@ -1217,7 +1229,7 @@ sub _mce_m_heap {
 {
    my (
       $_MCE, $_DAT_LOCK, $_DAT_W_SOCK, $_DAU_W_SOCK, $_chn, $_lock_chn,
-      $_dat_ex, $_dat_un, $_len, $_next, $_pending
+      $_dat_ex, $_dat_un, $_len, $_mutexi, $_next, $_pending
    );
 
    my $_is_MSWin32 = ($^O eq 'MSWin32') ? 1 : 0;
@@ -1277,6 +1289,7 @@ sub _mce_m_heap {
       $_DAT_W_SOCK = $_MCE->{_dat_w_sock}->[0];
       $_DAU_W_SOCK = $_MCE->{_dat_w_sock}->[$_chn];
       $_lock_chn   = $_MCE->{_lock_chn};
+      $_mutexi     = $_chn % MUTEX_LOCKS;
 
       if ($_lock_chn) {
          # inlined for performance
@@ -1422,12 +1435,14 @@ sub _mce_m_heap {
          local $\ = undef if (defined $\);
          local $/ = $LF if (!$/ || $/ ne $LF);
 
+         $_Q->{'_mutex_'.$_mutexi}->lock();
          $_rdy->($_Q->{_qr_sock}) if $_is_MSWin32;
          1 until sysread($_Q->{_qr_sock}, $_next, 1) || ($! && !$!{'EINTR'});
 
          $_dat_ex->() if $_lock_chn;
          print {$_DAT_W_SOCK} OUTPUT_D_QUE.$LF . $_chn.$LF;
          print {$_DAU_W_SOCK} $_Q->{_id}.$LF . $_cnt.$LF;
+         $_Q->{'_mutex_'.$_mutexi}->unlock();
 
          chomp($_len = <$_DAU_W_SOCK>);
 
@@ -1601,7 +1616,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.824
+This document describes MCE::Queue version 1.825
 
 =head1 SYNOPSIS
 

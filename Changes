@@ -1,6 +1,64 @@
 
 Revision history for Perl module MCE.
 
+1.825 Sun Apr 02 07:00:00 EST 2017
+
+  * Updated MCE::Queue. The following provides a comparison for the
+    enhancements made regarding IPC during 1.822 through 1.825, in order
+    to run on machines having "many" cores. I ran with 12, 96, and 192
+    workers on an 8 core box.
+
+    A. MCE queue, dequeue 100k items.
+
+       my $Q = MCE::Queue->new();
+
+       $Q->enqueue( 1 .. 100000 );
+       $Q->end;      MCE 1.608 $Q->enqueue((undef) x 12, 96, or 192);
+
+       MCE->new(
+           max_workers => 12, 96, or 192,
+           user_func   => sub {
+               while ( defined ( my $item = $Q->dequeue ) ) {
+                   ;
+               }
+           }
+       )->run;
+
+       MCE 1.608:  12 ~ 1.799 secs  96 ~ 8.702 secs  192 ~ 18.083 secs
+       MCE 1.821:     ~ 1.450 secs     ~ 5.231 secs      ~  8.102 secs
+       MCE 1.825:     ~ 0.976 secs     ~ 1.067 secs      ~  1.509 secs
+
+    B. Input file containing 250k lines ( 300 MiB ).
+
+       MCE->new(
+           input_data  => "/dev/shm/file_250k.txt",
+           max_workers => 12, 96, or 192,
+           chunk_size  => 1,
+           use_slurpio => 1,
+           user_func   => sub { }
+       )->run;
+
+       MCE 1.608:  12 ~ 3.605 secs  96 ~ 8.074 secs  192 ~ 8.465 secs
+       MCE 1.821:     ~ 3.613 secs     ~ 8.058 secs      ~ 8.607 secs
+       MCE 1.825:     ~ 3.567 secs     ~ 2.601 secs      ~ 3.199 secs
+
+    C. Sequence of numbers from 1 to 200k.
+
+       MCE->new(
+           sequence    => [ 1, 200000 ],
+           max_workers => 12, 96, or 192,
+           chunk_size  => 1,
+           user_func   => sub { }
+       )->run;
+
+       MCE 1.608:  12 ~ 1.236 secs  96 ~ 2.922 secs  192 ~ 3.113 secs
+       MCE 1.821:     ~ 1.227 secs     ~ 2.915 secs      ~ 3.106 secs
+       MCE 1.825:     ~ 1.250 secs     ~ 1.203 secs      ~ 1.581 secs
+
+  * Results were captured on a fast 8 core system running CentOS Linux 7.
+    The thing to take from this is that running many workers "no longer"
+    results in up to 5.6x penalty regarding IPC.
+
 1.824 Sat Apr 01 01:00:00 EST 2017
 
   * Completed validation for running MCE on a box having 100+ cores.
