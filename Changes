@@ -1,6 +1,10 @@
 
 Revision history for Perl module MCE.
 
+1.826 Sun Apr 02 23:00:00 EST 2017
+
+  * Is now safe running MCE with the Wx GUI toolkit (wxWidgets).
+
 1.825 Sun Apr 02 07:00:00 EST 2017
 
   * Updated MCE::Queue. The following provides a comparison for the
@@ -13,7 +17,7 @@ Revision history for Perl module MCE.
        my $Q = MCE::Queue->new();
 
        $Q->enqueue( 1 .. 100000 );
-       $Q->end;      MCE 1.608 $Q->enqueue((undef) x 12, 96, or 192);
+       $Q->end();    MCE 1.608 $Q->enqueue((undef) x 12, 96, or 192);
 
        MCE->new(
            max_workers => 12, 96, or 192,
@@ -22,7 +26,7 @@ Revision history for Perl module MCE.
                    ;
                }
            }
-       )->run;
+       )->run();
 
        MCE 1.608:  12 ~ 1.799 secs  96 ~ 8.702 secs  192 ~ 18.083 secs
        MCE 1.821:     ~ 1.450 secs     ~ 5.231 secs      ~  8.102 secs
@@ -36,7 +40,7 @@ Revision history for Perl module MCE.
            chunk_size  => 1,
            use_slurpio => 1,
            user_func   => sub { }
-       )->run;
+       )->run();
 
        MCE 1.608:  12 ~ 3.605 secs  96 ~ 8.074 secs  192 ~ 8.465 secs
        MCE 1.821:     ~ 3.613 secs     ~ 8.058 secs      ~ 8.607 secs
@@ -49,7 +53,7 @@ Revision history for Perl module MCE.
            max_workers => 12, 96, or 192,
            chunk_size  => 1,
            user_func   => sub { }
-       )->run;
+       )->run();
 
        MCE 1.608:  12 ~ 1.236 secs  96 ~ 2.922 secs  192 ~ 3.113 secs
        MCE 1.821:     ~ 1.227 secs     ~ 2.915 secs      ~ 3.106 secs

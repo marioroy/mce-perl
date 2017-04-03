@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.825
+This document describes MCE::Core version 1.826
 
 =head1 SYNOPSIS
 
@@ -175,7 +175,7 @@ Below, a new instance is configured with all available options.
 
          # Set posix_exit to avoid all END and destructor processing for
          # non-threads spawned via fork. Constructing MCE inside a thread
-         # implies posix_exit => 1 or if present CGI.pm, FCGI.pm, Tk,
+         # implies posix_exit => 1 or if present CGI.pm, FCGI.pm, Tk, Wx,
          # Gearman::Util, Gearman::XS, or Mojo::IOLoop.
 
          # Not all modules on CPAN are thread-safe nor safe to use with

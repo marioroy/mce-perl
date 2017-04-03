@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.825';
+our $VERSION = '1.826';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -402,9 +402,10 @@ sub new {
    }
 
    if (!exists $self{posix_exit}) {
-      $self{posix_exit} = 1 if ( ($_has_threads && $_tid) ||
-         $INC{'CGI.pm'} || $INC{'FCGI.pm'} || $INC{'Mojo/IOLoop.pm'} ||
-         $INC{'Gearman/Util.pm'} || $INC{'Gearman/XS.pm'} || $INC{'Tk.pm'}
+      $self{posix_exit} = 1 if (
+         ( $_has_threads && $_tid ) || $INC{'CGI.pm'} || $INC{'FCGI.pm'} ||
+         $INC{'Mojo/IOLoop.pm'} || $INC{'Tk.pm'} || $INC{'Wx.pm'} ||
+         $INC{'Gearman/Util.pm'} || $INC{'Gearman/XS.pm'}
       );
    }
 
