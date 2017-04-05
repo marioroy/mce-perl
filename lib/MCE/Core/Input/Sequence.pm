@@ -14,7 +14,7 @@ package MCE::Core::Input::Sequence;
 use strict;
 use warnings;
 
-our $VERSION = '1.826';
+our $VERSION = '1.827';
 
 ## Items below are folded into MCE.
 
@@ -117,7 +117,7 @@ sub _worker_sequence_queue {
       ## Call user function.
       if ($_chunk_size == 1) {
          $_ = $_offset * $_step + $_begin;
-         $_ = sprintf("%$_fmt", $_) if (defined $_fmt);
+         $_ = _sprintf("%$_fmt", $_) if (defined $_fmt);
          $_ = [ $_, $_ ] if ($_bounds_only);
          $_wuf->($self, $_, $_chunk_id);
       }
@@ -162,7 +162,7 @@ sub _worker_sequence_queue {
             }
 
             @_n = (defined $_fmt)
-               ? ( sprintf("%$_fmt",$_tmp_b), sprintf("%$_fmt",$_tmp_e) )
+               ? ( _sprintf("%$_fmt",$_tmp_b), _sprintf("%$_fmt",$_tmp_e) )
                : ( $_tmp_b, $_tmp_e );
          }
 
@@ -183,7 +183,7 @@ sub _worker_sequence_queue {
                      last if ($_seq_n > $_end);
 
                      push @_n, (defined $_fmt)
-                        ? sprintf("%$_fmt", $_seq_n) : $_seq_n;
+                        ? _sprintf("%$_fmt", $_seq_n) : $_seq_n;
 
                      $_seq_n = $_step * $_i + $_n_begin;
                   }
@@ -194,7 +194,7 @@ sub _worker_sequence_queue {
                   last if ($_seq_n < $_end);
 
                   push @_n, (defined $_fmt)
-                     ? sprintf("%$_fmt", $_seq_n) : $_seq_n;
+                     ? _sprintf("%$_fmt", $_seq_n) : $_seq_n;
 
                   $_seq_n = $_step * $_i + $_n_begin;
                }

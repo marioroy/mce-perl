@@ -1,6 +1,17 @@
 
 Revision history for Perl module MCE.
 
+1.827 Wed Apr 05 01:30:00 EST 2017
+
+  * Do not enable barrier mode in Queue if constructed inside a thread or
+    by MCE Model (e.g. Step, Stream). Ditto for fast => 1 option.
+
+  * Updated MCE to not croak when running Perl in taint mode via perl -T.
+    Failing -T was MCE::Core::Input::{ Generator, Sequence }, MCE::Signal,
+    and MCE::Util.
+
+  * Added Denis Fateyev, Felipe Gasper, and Paul Howarth to Credits.
+
 1.826 Sun Apr 02 23:00:00 EST 2017
 
   * Is now safe running MCE with the Wx GUI toolkit (wxWidgets).

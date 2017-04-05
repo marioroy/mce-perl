@@ -1,10 +1,38 @@
 
-All the people reporting problems and fixes or solutions. More specifically in
-alphabetical order by last name.
+To RedHat Engineers:
+
+  Paul Howarth,
+  Denis Fateyev,
+
+  Near the very end of the 1.8 cycle were several revisions. Each time, an
+  email was sent to you stating that MCE was completed. But each morning,
+  I woke up with a sense that something else was missed.
+
+  (a) Running MCE and MCE::Shared inside an eval block.
+  (b) Check for EINTR condition during sysread and syswrite.
+  (c) Check the OS while running with ~ 200 workers.
+  (d) Test MCE with the Wx toolkit - wxWidgets.
+  (e) Test MCE and MCE::Shared by running taint mode via perl -T.
+  (f) Validate DESTROY for shared Condvar and Queue objects.
+  (g) Improve MCE::Shared::Handle for non-shared use, was not 100%.
+
+  Going from 99.7% to 100.0% required so much effort. I am deeply sorry
+  for the many emails sent. Although far away in miles, you were there
+  in keeping me from going insane. For this I thank you.
+
+  Best,
+  Mario
+
+--
 
 ###############################################################################
 #  * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # * # *  #
 ###############################################################################
+
+What follows are many people reporting problems, fixes or solutions.
+More specifically in alphabetical order by last name.
+
+Also, not to forget all the people mentioned in the change log.
 
 Baumgart, Philippe
 
@@ -80,8 +108,9 @@ Farrell, David
 Gasper, Felipe
 
   For test scripts found in IO::SigGuard. I was able to get MCE::Mutex
-  to fail with similar testing. The result is that MCE must also check
-  for EINTR during sysread and syswrite. Ditto for MCE::Shared.
+  to fail with similar testing. The result from testing is that MCE too,
+  must check for EINTR during sysread and syswrite operations. The same
+  is true for MCE::Shared.
 
 Golden, David
 
@@ -207,6 +236,8 @@ Rowe, Jillian
 Roy, Sylvia (spouse)
 
   For supporting me from v1.0, especially during later 1.6 revisions and 1.7.
+  But not to forget the journey during 1.8. So little was known on the hurdles
+  to cross. It's all over now with MCE 1.827 and MCE::Shared 1.823.
 
 Šabata, Petr
 

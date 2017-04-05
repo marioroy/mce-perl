@@ -15,7 +15,7 @@ package MCE::Core::Input::Generator;
 use strict;
 use warnings;
 
-our $VERSION = '1.826';
+our $VERSION = '1.827';
 
 ## Items below are folded into MCE.
 
@@ -73,7 +73,7 @@ sub _worker_sequence_generator {
       if ($_wid == 1) {
          $self->{_next_jmp} = sub { goto _WORKER_SEQ_GEN__LAST; };
 
-         $_ = (defined $_fmt) ? sprintf("%$_fmt", $_next) : $_next;
+         $_ = (defined $_fmt) ? _sprintf("%$_fmt", $_next) : $_next;
 
          if ($_chunk_size > 1 || $_bounds_only) {
             $_ = ($_bounds_only) ? [ $_, $_ ] : [ $_ ];
@@ -92,7 +92,7 @@ sub _worker_sequence_generator {
          return if ( $_flag && $_next > $_end);
          return if (!$_flag && $_next < $_end);
 
-         $_ = (defined $_fmt) ? sprintf("%$_fmt", $_next) : $_next;
+         $_ = (defined $_fmt) ? _sprintf("%$_fmt", $_next) : $_next;
          $_ = [ $_, $_ ] if ($_bounds_only);
 
          $_wuf->($self, $_, $_chunk_id);
@@ -149,7 +149,7 @@ sub _worker_sequence_generator {
             return unless (defined $_tmp_e);
 
             @_n = (defined $_fmt)
-               ? ( sprintf("%$_fmt",$_tmp_b), sprintf("%$_fmt",$_tmp_e) )
+               ? ( _sprintf("%$_fmt",$_tmp_b), _sprintf("%$_fmt",$_tmp_e) )
                : ( $_tmp_b, $_tmp_e );
          }
 
@@ -167,7 +167,7 @@ sub _worker_sequence_generator {
                      last if ($_next > $_end);
 
                      push @_n, (defined $_fmt)
-                        ? sprintf("%$_fmt", $_next) : $_next;
+                        ? _sprintf("%$_fmt", $_next) : $_next;
 
                      $_next = $_step * $_i + $_n_begin;
                   }
@@ -178,7 +178,7 @@ sub _worker_sequence_generator {
                   last if ($_next < $_end);
 
                   push @_n, (defined $_fmt)
-                     ? sprintf("%$_fmt", $_next) : $_next;
+                     ? _sprintf("%$_fmt", $_next) : $_next;
 
                   $_next = $_step * $_i + $_n_begin;
                }

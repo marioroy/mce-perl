@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.826';
+our $VERSION = '1.827';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -153,8 +153,11 @@ sub DESTROY {
 
    if (exists $_Q->{_init_pid} && $_Q->{_init_pid} eq $_pid) {
       MCE::Util::_destroy_socks($_Q, qw(_aw_sock _ar_sock _qw_sock _qr_sock));
-      for my $_i (0 .. MUTEX_LOCKS - 1) {
-         delete $_Q->{'_mutex_'.$_i};
+
+      if (exists $_Q->{_mutex_0}) {
+         for my $_i (0 .. MUTEX_LOCKS - 1) {
+            delete $_Q->{'_mutex_'.$_i};
+         }
       }
    }
 
@@ -228,8 +231,10 @@ sub new {
    $_Q->{_id} = ++$_qid; $_all->{$_qid} = $_Q;
    $_Q->{_dsem} = 0 if ($_Q->{_fast});
 
-   for my $_i (0 .. MUTEX_LOCKS - 1) {
-      $_Q->{'_mutex_'.$_i} = MCE::Mutex->new( impl => 'Channel' );
+   if (caller() !~ /^MCE::/ && $_tid == 0 && $_Q->{_fast} == 0) {
+      for my $_i (0 .. MUTEX_LOCKS - 1) {
+         $_Q->{'_mutex_'.$_i} = MCE::Mutex->new( impl => 'Channel' );
+      }
    }
 
    MCE::Util::_sock_pair($_Q, qw(_qr_sock _qw_sock));
@@ -1435,14 +1440,26 @@ sub _mce_m_heap {
          local $\ = undef if (defined $\);
          local $/ = $LF if (!$/ || $/ ne $LF);
 
-         $_Q->{'_mutex_'.$_mutexi}->lock();
-         $_rdy->($_Q->{_qr_sock}) if $_is_MSWin32;
-         1 until sysread($_Q->{_qr_sock}, $_next, 1) || ($! && !$!{'EINTR'});
+         if (exists $_Q->{'_mutex_0'}) {
+            $_Q->{'_mutex_'.$_mutexi}->lock();
 
-         $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_D_QUE.$LF . $_chn.$LF;
-         print {$_DAU_W_SOCK} $_Q->{_id}.$LF . $_cnt.$LF;
-         $_Q->{'_mutex_'.$_mutexi}->unlock();
+            $_rdy->($_Q->{_qr_sock}) if $_is_MSWin32;
+            1 until sysread($_Q->{_qr_sock}, $_next, 1) || ($! && !$!{'EINTR'});
+
+            $_dat_ex->() if $_lock_chn;
+            print {$_DAT_W_SOCK} OUTPUT_D_QUE.$LF . $_chn.$LF;
+            print {$_DAU_W_SOCK} $_Q->{_id}.$LF . $_cnt.$LF;
+
+            $_Q->{'_mutex_'.$_mutexi}->unlock();
+         }
+         else {
+            $_rdy->($_Q->{_qr_sock}) if $_is_MSWin32;
+            1 until sysread($_Q->{_qr_sock}, $_next, 1) || ($! && !$!{'EINTR'});
+
+            $_dat_ex->() if $_lock_chn;
+            print {$_DAT_W_SOCK} OUTPUT_D_QUE.$LF . $_chn.$LF;
+            print {$_DAU_W_SOCK} $_Q->{_id}.$LF . $_cnt.$LF;
+         }
 
          chomp($_len = <$_DAU_W_SOCK>);
 
@@ -1616,7 +1633,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.826
+This document describes MCE::Queue version 1.827
 
 =head1 SYNOPSIS
 

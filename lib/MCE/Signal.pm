@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.826';
+our $VERSION = '1.827';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -270,7 +270,11 @@ sub stop_and_exit {
                print {*STDERR} "$prog_name: saved tmp_dir = $tmp_dir\n";
             }
             elsif ($tmp_dir ne '/tmp' && $tmp_dir ne '/var/tmp') {
-               chdir $ENV{'TEMP'} if ($_is_winenv && $ENV{'TEMP'});
+               if ($_is_winenv && $ENV{'TEMP'}) {
+                  ## remove tainted'ness
+                  my ($_t) = $ENV{'TEMP'} =~ /(.*)/;
+                  chdir $_t;
+               }
                eval q{ File::Path::rmtree($tmp_dir) };
             }
             $tmp_dir = undef;
@@ -441,7 +445,7 @@ MCE::Signal - Temporary directory creation/cleanup and signal handling
 
 =head1 VERSION
 
-This document describes MCE::Signal version 1.826
+This document describes MCE::Signal version 1.827
 
 =head1 SYNOPSIS
 

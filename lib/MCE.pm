@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.826';
+our $VERSION = '1.827';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -1077,7 +1077,7 @@ sub run {
       if (!$_send_cnt) {
          ## Notify workers to commence processing.
          if ($_is_MSWin32) {
-            my $_buf = sprintf "%${_total_workers}s", "";
+            my $_buf = _sprintf("%${_total_workers}s", "");
             syswrite $self->{_bse_w_sock}, $_buf;
          } else {
             my $_BSE_W_SOCK = $self->{_bse_w_sock};
@@ -1112,7 +1112,7 @@ sub run {
    elsif ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
       if (
          !$INC{'Gearman/XS.pm'} && !$INC{'Gearman/Util.pm'} &&
-         !$INC{'Mojo/IOLoop.pm'} && !$INC{'Tk.pm'}
+         !$INC{'Mojo/IOLoop.pm'} && !$INC{'Tk.pm'} && !$INC{'Wx.pm'}
       ) {
          # running inside eval or IPerl, check stack trace
          my $_t = Carp::longmess(); $_t =~ s/\teval [^\n]+\n$//;
@@ -1750,6 +1750,16 @@ sub _get_max_workers {
    }
 
    return $self->{max_workers};
+}
+
+sub _sprintf {
+
+   my ($_fmt, $_arg) = @_;
+
+   # remove tainted'ness
+   ($_fmt) = $_fmt =~ /(.*)/;
+
+   return sprintf("$_fmt", $_arg);
 }
 
 sub _sync_buffer_to_array {
