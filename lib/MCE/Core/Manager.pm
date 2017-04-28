@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -266,7 +266,7 @@ sub _output_loop {
 
       ## ----------------------------------------------------------------------
 
-      OUTPUT_A_ARY.$LF => sub {                   # Array << Array
+      OUTPUT_A_REF.$LF => sub {                   # Input << Array ref
          my $_buf;
 
          if ($_offset_pos >= $_input_size || $_aborted) {
@@ -299,7 +299,7 @@ sub _output_loop {
          return;
       },
 
-      OUTPUT_S_GLB.$LF => sub {                   # Scalar << Glob FH
+      OUTPUT_G_REF.$LF => sub {                   # Input << Glob ref
          my $_buf = '';
 
          ## The logic below honors ('Ctrl/Z' in Windows, 'Ctrl/D' in Unix)
@@ -356,7 +356,37 @@ sub _output_loop {
          return;
       },
 
-      OUTPUT_U_ITR.$LF => sub {                   # User << Iterator
+      OUTPUT_H_REF.$LF => sub {                   # Input << Hash ref
+         my @_pairs;
+
+         if ($_offset_pos >= $_input_size || $_aborted) {
+            local $\ = undef if (defined $\);
+            print {$_DAU_R_SOCK} '0'.$LF;
+
+            return;
+         }
+
+         if ($_offset_pos + $_chunk_size - 1 < $_input_size) {
+            for my $_i ($_offset_pos .. $_offset_pos + $_chunk_size - 1) {
+               push @_pairs, each %{ $_input_data };
+            }
+         }
+         else {
+            for my $_i ($_offset_pos .. $_input_size - 1) {
+               push @_pairs, each %{ $_input_data };
+            }
+         }
+
+         my $_buf = $self->{freeze}(\@_pairs);
+
+         $_len = length $_buf; local $\ = undef if (defined $\);
+         print {$_DAU_R_SOCK} $_len.$LF . (++$_chunk_id).$LF, $_buf;
+         $_offset_pos += $_chunk_size;
+
+         return;
+      },
+
+      OUTPUT_I_REF.$LF => sub {                   # Input << Iter ref
          my $_buf;
 
          if ($_aborted) {
@@ -594,7 +624,7 @@ sub _output_loop {
          read $_DAU_R_SOCK, $_buf, $_len;
 
          unless (exists $_sendto_fhs{$_fd}) {
-            require IO::Handle unless (defined $IO::Handle::VERSION);
+            require IO::Handle unless $INC{'IO/Handle.pm'};
 
             $_sendto_fhs{$_fd} = IO::Handle->new();
             $_sendto_fhs{$_fd}->fdopen($_fd, 'w')
@@ -667,6 +697,20 @@ sub _output_loop {
          chomp($_len = <$_DAU_R_SOCK>);
 
          $self->{progress}->( $_size_completed += $_len );
+
+         return;
+      },
+
+      OUTPUT_S_DIR.$LF => sub {                   # Make/get sess_dir
+
+         print {$_DAU_R_SOCK} $self->sess_dir().$LF;
+
+         return;
+      },
+
+      OUTPUT_T_DIR.$LF => sub {                   # Make/get tmp_dir
+
+         print {$_DAU_R_SOCK} $self->tmp_dir().$LF;
 
          return;
       },
@@ -780,7 +824,12 @@ sub _output_loop {
    if (defined $_input_data && ref $_input_data eq 'ARRAY') {
       $_input_size = @{ $_input_data };
       $_offset_pos = 0;
-   } else {
+   }
+   elsif (defined $_input_data && ref $_input_data eq 'HASH') {
+      $_input_size = scalar( keys %{ $_input_data } );
+      $_offset_pos = 0;
+   }
+   else {
       $_input_size = $_offset_pos = 0;
    }
 

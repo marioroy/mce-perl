@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 our @CARP_NOT = qw( MCE );
 
@@ -25,9 +25,9 @@ my $_imported;
 
 sub import {
 
-   my $_class = shift; return if ($_imported++);
+   return if ($_imported++);
 
-   unless (defined $MCE::VERSION) {
+   unless ($INC{'MCE.pm'}) {
       $\ = undef; require Carp;
       Carp::croak(
          "MCE::Candy requires MCE. Please see the MCE::Candy documentation\n".
@@ -91,6 +91,8 @@ sub foreach {
 
    @_ = ();
 
+   MCE::_croak('MCE::foreach: (HASH) not allowed as input by this method')
+      if (ref $_input_data eq 'HASH');
    MCE::_croak('MCE::foreach: (input_data) is not specified')
       unless (defined $_input_data);
    MCE::_croak('MCE::foreach: (code_block) is not specified')
@@ -210,7 +212,7 @@ MCE::Candy - Sugar methods and output iterators
 
 =head1 VERSION
 
-This document describes MCE::Candy version 1.827
+This document describes MCE::Candy version 1.828
 
 =head1 DESCRIPTION
 
@@ -235,30 +237,38 @@ process method.
    ## Declare a MCE instance.
 
    my $mce = MCE->new(
-      chunk_size  => 20,
-      max_workers => $max_workers
+      max_workers => $max_workers,
+      chunk_size  => 20
    );
 
    ## Arguments inside the code block are the same as passed to user_func.
 
-   $mce->forchunk(\@input_data, sub {
+   $mce->forchunk(\@input_array, sub {
       my ($mce, $chunk_ref, $chunk_id) = @_;
-
       foreach ( @{ $chunk_ref } ) {
          MCE->print("$chunk_id: $_\n");
       }
    });
 
+   ## Input hash, current API available since 1.828.
+
+   $mce->forchunk(\%input_hash, sub {
+      my ($mce, $chunk_ref, $chunk_id) = @_;
+      for my $key ( keys %{ $chunk_ref } ) {
+         MCE->print("$chunk_id: [ $key ] ", $chunk_ref->{$key}, "\n");
+      }
+   });
+
    ## Passing chunk_size as an option.
 
-   $mce->forchunk(\@input_data, { chunk_size => 30 }, sub {
-      ...
-   });
+   $mce->forchunk(\@input_array, { chunk_size => 30 }, sub { ... });
+   $mce->forchunk(\%input_hash, { chunk_size => 30 }, sub { ... });
 
 =head2 $mce->foreach ( $input_data [, { options } ], sub { ... } )
 
 Foreach implies chunk_size => 1 and cannot be overwritten. Thus, looping is
-not necessary inside the block.
+not necessary inside the block. Unlike forchunk above, a hash reference as
+input data isn't allowed.
 
    my $mce = MCE->new(
       max_workers => $max_workers
@@ -272,7 +282,7 @@ not necessary inside the block.
 
 =head2 $mce->forseq ( $sequence_spec [, { options } ], sub { ... } )
 
-Sequence can be defined using an array or hash reference.
+Sequence may be defined using an array or hash reference.
 
    my $mce = MCE->new(
       max_workers => 3

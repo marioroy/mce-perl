@@ -1,10 +1,26 @@
 
 Revision history for Perl module MCE.
 
+1.828 Fri Apr 28 16:00:00 EST 2017
+
+  [BUG FIXES]
+
+  * Do not enable barrier mode for Queue on the Windows platform.
+  * Fixed MCE::Mutex::Flock, tmp_file missing script name in path.
+
+  [ENHANCEMENTS]
+
+  * Added Curses and Prima to list for enabling the posix_exit option.
+  * Allow a hash as input_data: Core API, MCE::{ Flow, Loop, Step }.
+  * Improved API documentation on MCE models with more synopsis.
+  * Enhanced IPC and signal handling. Reduced memory consumption.
+  * Make tmp_dir on demand in MCE::Signal. Ditto for sess_dir in MCE.
+  * Load Fcntl, File::Path, Symbol on demand.
+
 1.827 Wed Apr 05 01:30:00 EST 2017
 
-  * Do not enable barrier mode in Queue if constructed inside a thread or
-    by MCE Model (e.g. Step, Stream). Ditto for fast => 1 option.
+  * Do not enable barrier mode for Queue if constructed inside a thread
+    or by MCE models (e.g. Step, Stream). Ditto for fast => 1 option.
 
   * Updated MCE to not croak when running Perl in taint mode via perl -T.
     Failing -T was MCE::Core::Input::{ Generator, Sequence }, MCE::Signal,
@@ -208,7 +224,7 @@ Revision history for Perl module MCE.
 1.806 Tue Oct 11 21:30:00 EST 2016
 
   * Fixed two typos. Thank you, Florian Schlichting.
-  * Support input_data with nested arrays in MCE Models.
+  * Support input_data with nested arrays in MCE models.
 
 1.805 Thu Sep 01 16:00:00 EST 2016
 
@@ -246,7 +262,7 @@ Revision history for Perl module MCE.
 
   * MCE 1.801 is stable on all supported platforms.
 
-  * Completed work supporting cyclical include of MCE Core / Models.
+  * Completed work supporting cyclical include of MCE Core / models.
   * Updated MCE to support Perl included with Git Bash.
 
   * Renamed temp dir from 'mce' to 'Perl-MCE' under user's %TEMP%
@@ -265,7 +281,7 @@ Revision history for Perl module MCE.
 
   [NEW FEATURES]
 
-  * Added support for cyclical include of MCE Core, MCE Models, and
+  * Added support for cyclical include of MCE Core, MCE models, and
     MCE Queue by scoping the configuration to the local package.
     This resolves (RT#107384), bug reported by Kai Wasserbäch.
 
@@ -273,7 +289,7 @@ Revision history for Perl module MCE.
 
   [BUG FIXES]
 
-  * Improved import routine in MCE Models and MCE::Subs. This resolves an
+  * Improved import routine in MCE models and MCE::Subs. This resolves an
     issue where functions are not exported; e.g. mce_flow, mce_flow_s.
 
   [ENHANCEMENTS]
@@ -347,7 +363,7 @@ Revision history for Perl module MCE.
 
   * Fixed race condition on Windows for non-threaded workers.
 
-  * Updated MCE Models to not fail when running inside an eval statement.
+  * Updated MCE models to not fail when running inside an eval statement.
     This addresses (RT#105557) and (RT#105559). Thank you, Benjamin McKeown.
 
   * Added new MCE option loop_timeout to prevent the MCE Manager process
@@ -377,7 +393,7 @@ Revision history for Perl module MCE.
     This enables IPC to complete up to 20x faster, thus benefiting Monte-Carlo
     simulations; e.g. calling ->run(0) or ->process(...) repeatedly.
 
-  * The MCE::Flow and MCE::Step Models can take an anonymous array for
+  * The MCE::Flow and MCE::Step models can take an anonymous array for
     specifying use_threads uniquely for sub-tasks.
 
   [NEW FEATURES]
@@ -501,7 +517,7 @@ Revision history for Perl module MCE.
   * Fixed a rare condition where socket handles for MCE::Mutex and
     MCE::Queue were closing pre-maturely when using threads.
 
-  * Fixed an undefined variable inside croak statements in MCE Models'
+  * Fixed an undefined variable inside croak statements in MCE models'
     import subroutine.
 
   * Fixed automatic shutdown due to loading threads and specifying
@@ -521,7 +537,7 @@ Revision history for Perl module MCE.
   * Moved _create_socket_pair from MCE to MCE::Util as _make_socket_pair.
     Added _destroy_sockets. Updated MCE, Mutex, and Queue to use MCE::Util.
 
-  * Added a CARP_NOT line to MCE Models.
+  * Added a CARP_NOT line to MCE models.
   * Added support for ->next and ->last from any sub-tasks in MCE::Step.
   * Reverted a small change applied in 1.600 to ->do and ->gather.
   * The 'synchronize' method in Mutex is wantarray aware.
@@ -543,7 +559,7 @@ Revision history for Perl module MCE.
 
   * Fixed queues stalling from running (MCE::Queue fast => 1) on Linux.
 
-  * MCE Models now set $MCE::FREEZE, $MCE::THAW, and $MCE::TMP_DIR when
+  * MCE models now set $MCE::FREEZE, $MCE::THAW, and $MCE::TMP_DIR when
     overriding freeze, thaw, and tmp_dir respectively at load time.
 
   * Pressing CTRL-D now ends STDIN the first time.
@@ -556,7 +572,7 @@ Revision history for Perl module MCE.
 
   * Refactored ->print, ->printf, and ->say. Optimized ->print some more.
   * Shorten $_queue to $_Q in Queue. ID is always sent first during IPC.
-  * The init method in MCE Models can now take an array of options.
+  * The init method in MCE models can now take an array of options.
 
   * Optimized memory consumption in Handle.pm, Iterator.pm, and Request.pm.
   * Optimized memory consumption for ->sendto, ->do, and ->gather.
@@ -586,7 +602,7 @@ Revision history for Perl module MCE.
 
   [BUG FIXES]
 
-  * Applied fix to MCE->shutdown so that MCE Models do not err when
+  * Applied fix to MCE->shutdown so that MCE models do not err when
     receiving signal to terminate.
 
   * Optimization for MCE->print, MCE->printf, MCE->say and MCE->sendto.
@@ -630,8 +646,8 @@ Revision history for Perl module MCE.
 
   [NEW FEATURES]
 
-  * Added 15 new test scripts for testing user_args, MCE::Queue and the
-    MCE Models.
+  * Added 15 new test scripts for testing user_args, MCE::Queue
+    and MCE models.
 
   * An upper-limit of 8 is set when specifying max_workers => 'auto'.
     Several folks have requested this. More info at MCE::Util::get_ncpu
@@ -900,7 +916,7 @@ Revision history for Perl module MCE.
 
   [ENHANCEMENTS]
 
-   * Added clarity around preserving output order for several Models;
+   * Added clarity around preserving output order for several models;
      MCE::Flow, MCE::Loop, and MCE::Step.
 
    * Inlined comments in the code for overriding MCE options when using

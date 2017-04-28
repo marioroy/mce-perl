@@ -14,7 +14,7 @@ package MCE::Core::Input::Handle;
 use strict;
 use warnings;
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 ## Items below are folded into MCE.
 
@@ -23,7 +23,6 @@ package # hide from rpm
 
 no warnings qw( threads recursion uninitialized );
 
-use Fcntl qw( SEEK_CUR );
 use bytes;
 
 my $_que_read_size = $MCE::_que_read_size;
@@ -36,7 +35,10 @@ my $_que_template  = $MCE::_que_template;
 ###############################################################################
 
 sub _systell {
-   sysseek($_[0], 0, SEEK_CUR);
+   # To minimize memory consumption, SEEK_CUR equals 1 on most platforms.
+   # e.g. use Fcntl qw(SEEK_CUR);
+
+   sysseek($_[0], 0, 1);
 }
 
 sub _worker_read_handle {
@@ -60,18 +62,22 @@ sub _worker_read_handle {
    my $_wuf         = $self->{_wuf};
 
    my ($_data_size, $_next, $_chunk_id, $_offset_pos, $_IN_FILE, $_tmp_cs);
-   my ($_dat_ex, $_dat_un, $_chop_len, $_chop_str, $_p);
+   my ($_dat_ex, $_dat_un, $_pid, $_chop_len, $_chop_str, $_p);
 
    if ($_lock_chn) {
+      $_pid = $INC{'threads.pm'} ? $$ .'.'. threads->tid() : $$;
+
       # inlined for performance
       if ($self->{_data_channels} > 6) {
          $_DAT_LOCK = $self->{'_mutex_'.( $self->{_wid} % 6 + 1 )};
       }
       $_dat_ex = sub {
-         1 until sysread($_DAT_LOCK->{_r_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
+         sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
+            unless $_DAT_LOCK->{ $_pid };
       };
       $_dat_un = sub {
-         1 until syswrite($_DAT_LOCK->{_w_sock}, '0') || ($! && !$!{'EINTR'});
+         syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
+            if $_DAT_LOCK->{ $_pid };
       };
    }
 

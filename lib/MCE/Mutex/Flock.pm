@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 use base 'MCE::Mutex';
 use Fcntl ':flock';
@@ -51,14 +51,11 @@ sub _open {
 ##
 ###############################################################################
 
-my ($id, $prog_name, $is_winenv) = (0);
+my ($id, $prog_name) = (0);
 
-BEGIN {
-    $prog_name =  $0;
-    $prog_name =~ s{^.*[\\/]}{}g;
-    $prog_name =  'perl' if ($prog_name eq '-e' || $prog_name eq '-');
-    $is_winenv =  ($^O =~ /mswin|mingw|msys|cygwin/i) ? 1 : 0;
-}
+$prog_name =  $0;
+$prog_name =~ s{^.*[\\/]}{}g;
+$prog_name =  'perl' if ($prog_name eq '-e' || $prog_name eq '-');
 
 sub new {
     my ($class, %obj) = (@_, impl => 'Flock');
@@ -67,13 +64,13 @@ sub new {
         my ($pid, $tmp_dir, $tmp_file) = ( abs($$) );
 
         if ($ENV{TEMP} && -d $ENV{TEMP} && -w _) {
-            if ($is_winenv) {
+            if ($^O =~ /mswin|mingw|msys|cygwin/i) {
                 $tmp_dir  = $ENV{TEMP};
                 $tmp_dir .= ($^O eq 'MSWin32') ? "\\Perl-MCE" : "/Perl-MCE";
                 mkdir $tmp_dir unless (-d $tmp_dir);
             }
             else {
-                $tmp_dir  = $ENV{TEMP};
+                $tmp_dir = $ENV{TEMP};
             }
         }
         elsif ($ENV{TMPDIR} && -d $ENV{TMPDIR} && -w _) {
@@ -83,10 +80,10 @@ sub new {
             $tmp_dir = '/tmp';
         }
         else {
-            Carp::croak("no writable dir found for temp file");
+            Carp::croak("No writable dir found for a temp file");
         }
 
-        $id++, $tmp_dir =~ s{/$}{};
+        $id++, $tmp_dir =~ s{[\\/]$}{};
 
         # remove tainted'ness from $tmp_dir
         if ($^O eq 'MSWin32') {
@@ -97,16 +94,23 @@ sub new {
 
         $obj{_init} = $has_threads ? $$ .'.'. $tid : $$;
         $obj{ path} = $tmp_file.'.lock';
+
+        # test open
+        open my $fh, '+>>:raw:stdio', $obj{path}
+            or Carp::croak("Could not create temp file $obj{path}: $!");
+
+        close $fh;
+
+        # set permission
+        chmod 0600, $obj{path};
     }
+    else {
+        # test open
+        open my $fh, '+>>:raw:stdio', $obj{path}
+            or Carp::croak("Could not obtain flock on file $obj{path}: $!");
 
-    # test open
-    open my $fh, '+>>:raw:stdio', $obj{path}
-        or Carp::croak("Could not create temp file $obj{path}: $!");
-
-    close $fh;
-
-    # update permission
-    chmod 0600, $obj{path} if $obj{_init};
+        close $fh;
+    }
 
     return bless(\%obj, $class);
 }
@@ -152,7 +156,9 @@ sub synchronize {
     $obj->_open() unless exists $obj->{ $pid };
 
     # lock, run, unlock - inlined for performance
-    flock ($obj->{_fh}, LOCK_EX), $obj->{ $pid } = 1 unless $obj->{ $pid };
+    flock ($obj->{_fh}, LOCK_EX), $obj->{ $pid } = 1
+        unless $obj->{ $pid };
+
     defined wantarray ? @ret = $code->(@_) : $code->(@_);
     flock ($obj->{_fh}, LOCK_UN), $obj->{ $pid } = 0;
 
@@ -177,7 +183,7 @@ MCE::Mutex::Flock - Mutex locking via Fcntl
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Flock version 1.827
+This document describes MCE::Mutex::Flock version 1.828
 
 =head1 DESCRIPTION
 

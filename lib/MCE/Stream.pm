@@ -11,13 +11,14 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use Scalar::Util qw( looks_like_number );
+
 use MCE;
 use MCE::Queue;
 
@@ -69,7 +70,7 @@ sub import {
       $_p->{DEFAULT_MODE} = shift, next if ( $_arg eq 'default_mode' );
       $_p->{FAST}         = shift, next if ( $_arg eq 'fast' );
 
-      ## Sereal 3.008+, if available, is used automatically by MCE 1.800.
+      ## Sereal 3.015+, if available, is used automatically by MCE 1.8+.
       if ( $_arg eq 'sereal' ) {
          if ( shift eq '0' ) {
             require Storable;
@@ -150,6 +151,9 @@ sub init (@) {
    my $_pkg = "$$.$_tid.".caller();
 
    $_params->{$_pkg} = (ref $_[0] eq 'HASH') ? shift : { @_ };
+
+   _croak("$_tag: (HASH) not allowed as input by this MCE model")
+      if ( ref $_params->{$_pkg}{input_data} eq 'HASH' );
 
    @_ = ();
 
@@ -342,6 +346,8 @@ sub run (@) {
          push @_mode, $_default_mode;
       }
       else {
+         last if (!exists $_[0]->{code} && !exists $_[0]->{mode});
+
          push @_code, exists $_[0]->{code} ? $_[0]->{code} : undef;
          push @_mode, exists $_[0]->{mode} ? $_[0]->{mode} : $_default_mode;
 
@@ -396,8 +402,10 @@ sub run (@) {
    my $_input_data; my $_max_workers = $_def->{$_pkg}{MAX_WORKERS};
    my $_r = ref $_[0];
 
-   if ($_r eq 'ARRAY' || $_r eq 'SCALAR' || $_r =~ /^(?:GLOB|FileHandle|IO::)/) {
-      $_input_data = shift if (@_ == 1);
+   if (@_ == 1 && $_r =~ /^(?:ARRAY|HASH|SCALAR|GLOB|FileHandle|IO::)/) {
+      _croak("$_tag: (HASH) not allowed as input by this MCE model")
+         if $_r eq 'HASH';
+      $_input_data = shift;
    }
 
    if (defined (my $_p = $_params->{$_pid})) {
@@ -465,7 +473,7 @@ sub run (@) {
             next if ($_ eq 'chunk_size');
             next if ($_ eq 'task_end');
 
-            _croak("MCE::Stream: ($_) is not a valid constructor argument")
+            _croak("$_tag: ($_) is not a valid constructor argument")
                unless (exists $MCE::_valid_fields_new{$_});
 
             $_opts{$_} = $_p->{$_};
@@ -679,7 +687,7 @@ MCE::Stream - Parallel stream model for chaining multiple maps and greps
 
 =head1 VERSION
 
-This document describes MCE::Stream version 1.827
+This document describes MCE::Stream version 1.828
 
 =head1 SYNOPSIS
 
@@ -785,7 +793,7 @@ The following list options which may be overridden when loading the module.
        fast => 1                        # Default 0 (fast dequeue)
    ;
 
-From MCE 1.8 onwards, Sereal 3.008+ is loaded automatically if available.
+From MCE 1.8 onwards, Sereal 3.015+ is loaded automatically if available.
 Specify C<Sereal => 0> to use Storable instead.
 
    use MCE::Stream Sereal => 0;
@@ -915,44 +923,30 @@ and 'map'.
    my @f = mce_stream_f sub { /ending$/ }, sub { /^starting/ }, $file;
 
 The following assumes 'map' for default_mode in order to demonstrate all the
-possibilities of passing input data into the code block.
+possibilities for providing input data.
 
 =over 3
-
-=item MCE::Stream->run ( { input_data => iterator }, sub { code } )
-
-=item mce_stream { input_data => iterator }, sub { code }
-
-An iterator reference can by specified for input_data. The only other way
-is to specify input_data via MCE::Stream::init. This prevents MCE::Stream
-from configuring the iterator reference as another user task which will
-not work.
-
-Iterators are described under "SYNTAX for INPUT_DATA" at L<MCE::Core>.
-
-   MCE::Stream::init {
-      input_data => iterator
-   };
-
-   my @a = mce_stream sub { $_ * 3 }, sub { $_ * 2 };
 
 =item MCE::Stream->run ( sub { code }, list )
 
 =item mce_stream sub { code }, list
 
-Input data can be defined using a list.
+Input data may be defined using a list or an array reference. Unlike MCE::Loop,
+Flow, and Step, specifying a hash reference as input data isn't allowed.
 
    my @a = mce_stream sub { $_ * 2 }, 1..1000;
-   my @b = mce_stream sub { $_ * 2 }, [ 1..1000 ];
+   my @b = mce_stream sub { $_ * 2 }, \@list;
+
+   my @z = mce_stream sub { $_ * 2 }, \%hash;  # not supported
 
 =item MCE::Stream->run_file ( sub { code }, file )
 
 =item mce_stream_f sub { code }, file
 
 The fastest of these is the /path/to/file. Workers communicate the next offset
-position among themselves without any interaction from the manager process.
+position among themselves with zero interaction by the manager process.
 
-   my @c = mce_stream_f sub { chomp; $_ . "\r\n" }, "/path/to/file";
+   my @c = mce_stream_f sub { chomp; $_ . "\r\n" }, "/path/to/file";  # faster
    my @d = mce_stream_f sub { chomp; $_ . "\r\n" }, $file_handle;
    my @e = mce_stream_f sub { chomp; $_ . "\r\n" }, \$scalar;
 
@@ -960,7 +954,7 @@ position among themselves without any interaction from the manager process.
 
 =item mce_stream_s sub { code }, $beg, $end [, $step, $fmt ]
 
-Sequence can be defined as a list, an array reference, or a hash reference.
+Sequence may be defined as a list, an array reference, or a hash reference.
 The functions require both begin and end values to run. Step and format are
 optional. The format is passed to sprintf (% may be omitted below).
 
@@ -972,6 +966,23 @@ optional. The format is passed to sprintf (% may be omitted below).
    my @h = mce_stream_s sub { $_ }, {
       begin => $beg, end => $end, step => $step, format => $fmt
    };
+
+=item MCE::Stream->run ( { input_data => iterator }, sub { code } )
+
+=item mce_stream { input_data => iterator }, sub { code }
+
+An iterator reference may be specified for input_data. The only other way
+is to specify input_data via MCE::Stream::init. This prevents MCE::Stream
+from configuring the iterator reference as another user task which will
+not work.
+
+Iterators are described under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
+
+   MCE::Stream::init {
+      input_data => iterator
+   };
+
+   my @a = mce_stream sub { $_ * 3 }, sub { $_ * 2 };
 
 =back
 

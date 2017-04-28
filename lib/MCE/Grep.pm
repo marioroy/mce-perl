@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -62,7 +62,7 @@ sub import {
       $_p->{FREEZE}      = shift, next if ( $_arg eq 'freeze' );
       $_p->{THAW}        = shift, next if ( $_arg eq 'thaw' );
 
-      ## Sereal 3.008+, if available, is used automatically by MCE 1.800.
+      ## Sereal 3.015+, if available, is used automatically by MCE 1.8+.
       if ( $_arg eq 'sereal' ) {
          if ( shift eq '0' ) {
             require Storable;
@@ -114,6 +114,9 @@ sub init (@) {
    my $_pkg = "$$.$_tid.".caller();
 
    $_params->{$_pkg} = (ref $_[0] eq 'HASH') ? shift : { @_ };
+
+   _croak("$_tag: (HASH) not allowed as input by this MCE model")
+      if ( ref $_params->{$_pkg}{input_data} eq 'HASH' );
 
    @_ = ();
 
@@ -248,8 +251,10 @@ sub run (&@) {
    my $_input_data; my $_max_workers = $_def->{$_pkg}{MAX_WORKERS};
    my $_r = ref $_[0];
 
-   if ($_r eq 'ARRAY' || $_r eq 'CODE' || $_r eq 'SCALAR' || $_r =~ /^(?:GLOB|FileHandle|IO::)/) {
-      $_input_data = shift if (@_ == 1);
+   if (@_ == 1 && $_r =~ /^(?:ARRAY|HASH|SCALAR|CODE|GLOB|FileHandle|IO::)/) {
+      _croak("$_tag: (HASH) not allowed as input by this MCE model")
+         if $_r eq 'HASH';
+      $_input_data = shift;
    }
 
    if (defined (my $_p = $_params->{$_pid})) {
@@ -343,7 +348,7 @@ sub run (&@) {
             next if ($_k eq 'input_data');
             next if ($_k eq 'chunk_size');
 
-            _croak("MCE::Grep: ($_k) is not a valid constructor argument")
+            _croak("$_tag: ($_k) is not a valid constructor argument")
                unless (exists $MCE::_valid_fields_new{$_k});
 
             $_opts{$_k} = $_p->{$_k};
@@ -445,7 +450,7 @@ MCE::Grep - Parallel grep model similar to the native grep function
 
 =head1 VERSION
 
-This document describes MCE::Grep version 1.827
+This document describes MCE::Grep version 1.828
 
 =head1 SYNOPSIS
 
@@ -601,7 +606,7 @@ The following list options which may be overridden when loading the module.
        thaw => \&decode_sereal          # \&Storable::thaw
    ;
 
-From MCE 1.8 onwards, Sereal 3.008+ is loaded automatically if available.
+From MCE 1.8 onwards, Sereal 3.015+ is loaded automatically if available.
 Specify C<Sereal => 0> to use Storable instead.
 
    use MCE::Grep Sereal => 0;
@@ -654,32 +659,26 @@ specified, is ignored due to being used internally by the module.
 
 =over 3
 
-=item MCE::Grep->run ( sub { code }, iterator )
-
-=item mce_grep { code } iterator
-
-An iterator reference can by specified for input_data. Iterators are described
-under "SYNTAX for INPUT_DATA" at L<MCE::Core>.
-
-   my @a = mce_grep { $_ % 3 == 0 } make_iterator(10, 30, 2);
-
 =item MCE::Grep->run ( sub { code }, list )
 
 =item mce_grep { code } list
 
-Input data can be defined using a list.
+Input data may be defined using a list or an array reference. Unlike MCE::Loop,
+Flow, and Step, specifying a hash reference as input data isn't allowed.
 
    my @a = mce_grep { /[2357]/ } 1..1000;
-   my @b = mce_grep { /[2357]/ } [ 1..1000 ];
+   my @b = mce_grep { /[2357]/ } \@list;
+
+   my @z = mce_grep { /[2357]/ } \%hash;  # not supported
 
 =item MCE::Grep->run_file ( sub { code }, file )
 
 =item mce_grep_f { code } file
 
 The fastest of these is the /path/to/file. Workers communicate the next offset
-position among themselves without any interaction from the manager process.
+position among themselves with zero interaction by the manager process.
 
-   my @c = mce_grep_f { /pattern/ } "/path/to/file";
+   my @c = mce_grep_f { /pattern/ } "/path/to/file";  # faster
    my @d = mce_grep_f { /pattern/ } $file_handle;
    my @e = mce_grep_f { /pattern/ } \$scalar;
 
@@ -687,7 +686,7 @@ position among themselves without any interaction from the manager process.
 
 =item mce_grep_s { code } $beg, $end [, $step, $fmt ]
 
-Sequence can be defined as a list, an array reference, or a hash reference.
+Sequence may be defined as a list, an array reference, or a hash reference.
 The functions require both begin and end values to run. Step and format are
 optional. The format is passed to sprintf (% may be omitted below).
 
@@ -697,8 +696,18 @@ optional. The format is passed to sprintf (% may be omitted below).
    my @g = mce_grep_s { /[1234]\.[5678]/ } [ $beg, $end, $step, $fmt ];
 
    my @h = mce_grep_s { /[1234]\.[5678]/ } {
-      begin => $beg, end => $end, step => $step, format => $fmt
+      begin => $beg, end => $end,
+      step => $step, format => $fmt
    };
+
+=item MCE::Grep->run ( sub { code }, iterator )
+
+=item mce_grep { code } iterator
+
+An iterator reference may be specified for input_data. Iterators are described
+under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
+
+   my @a = mce_grep { $_ % 3 == 0 } make_iterator(10, 30, 2);
 
 =back
 

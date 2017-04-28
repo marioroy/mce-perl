@@ -32,16 +32,19 @@ sub _task { chomp; $_ * 2 * 3 }
 ##  below, workers will persist between runs
 
 @a = mce_map \&_task, ( 1..9 );
-is( join(' ', @a), $answers, 'block_ref: check results for array' );
+is( join(' ', @a), $answers, 'check results for array' );
+
+@a = mce_map \&_task, [ 1..9 ];
+is( join(' ', @a), $answers, 'check results for array ref' );
 
 @a = mce_map_f \&_task, $in_file;
-is( join(' ', @a), $answers, 'block_ref: check results for path' );
+is( join(' ', @a), $answers, 'check results for path' );
 
 @a = mce_map_f \&_task, $fh_data;
-is( join(' ', @a), $answers, 'block_ref: check results for glob' );
+is( join(' ', @a), $answers, 'check results for glob' );
 
 @a = mce_map_s \&_task, 1, 9;
-is( join(' ', @a), $answers, 'block_ref: check results for sequence' );
+is( join(' ', @a), $answers, 'check results for sequence' );
 
 MCE::Map::finish;
 

@@ -93,6 +93,9 @@ MCE::Flow::init {
 mce_flow { gather => output_iterator(\@a) }, \&task_a, \&task_b, ( 1..9 );
 is( join(' ', @a), $answers, 'check results for array' );
 
+mce_flow { gather => output_iterator(\@a) }, \&task_a, \&task_b, [ 1..9 ];
+is( join(' ', @a), $answers, 'check results for array ref' );
+
 mce_flow_f { gather => output_iterator(\@a) }, \&task_a, \&task_b, $in_file;
 is( join(' ', @a), $answers, 'check results for path' );
 
@@ -101,6 +104,29 @@ is( join(' ', @a), $answers, 'check results for glob' );
 
 mce_flow_s { gather => output_iterator(\@a) }, \&task_a, \&task_b, 1, 9;
 is( join(' ', @a), $answers, 'check results for sequence' );
+
+MCE::Flow::finish;
+
+##  process hash, current API available since 1.828
+
+MCE::Flow::init {
+   max_workers => 1
+};
+
+my %hash = map { $_ => $_ } ( 1 .. 9 );
+
+my %res = mce_flow sub {
+   my ($mce, $chunk_ref, $chunk_id) = @_;
+   my %ret;
+   for my $key ( keys %{ $chunk_ref } ) {
+      $ret{$key} = $chunk_ref->{$key} * 2;
+   }
+   MCE->gather(%ret);
+}, \%hash;
+
+@a = map { $res{$_} } ( 1 .. 9 );
+
+is( join(' ', @a), "2 4 6 8 10 12 14 16 18", 'check results for hash ref' );
 
 MCE::Flow::finish;
 

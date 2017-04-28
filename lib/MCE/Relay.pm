@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 
@@ -32,9 +32,9 @@ my $_imported;
 
 sub import {
 
-   my $_class = shift; return if ($_imported++);
+   return if ($_imported++);
 
-   if (defined $MCE::VERSION) {
+   if ($INC{'MCE.pm'}) {
       _mce_m_init();
    }
    else {
@@ -153,14 +153,10 @@ sub import {
 package # hide from rpm
    MCE;
 
-no warnings 'threads';
-no warnings 'recursion';
-no warnings 'uninitialized';
+no warnings qw( threads recursion uninitialized redefine );
 
 use Scalar::Util qw( weaken );
 use bytes;
-
-no warnings 'redefine';
 
 sub relay_final {
 
@@ -341,7 +337,7 @@ MCE::Relay - Extends Many-Core Engine with relay capabilities
 
 =head1 VERSION
 
-This document describes MCE::Relay version 1.827
+This document describes MCE::Relay version 1.828
 
 =head1 SYNOPSIS
 

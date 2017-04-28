@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.827
+This document describes MCE::Core version 1.828
 
 =head1 SYNOPSIS
 
@@ -175,8 +175,8 @@ Below, a new instance is configured with all available options.
 
          # Set posix_exit to avoid all END and destructor processing for
          # non-threads spawned via fork. Constructing MCE inside a thread
-         # implies posix_exit => 1 or if present CGI.pm, FCGI.pm, Tk, Wx,
-         # Gearman::Util, Gearman::XS, or Mojo::IOLoop.
+         # implies posix_exit => 1 or if present Curses, CGI, FCGI, Prima,
+         # Gearman::Util, Gearman::XS, Mojo::IOLoop, Tk, or Wx.
 
          # Not all modules on CPAN are thread-safe nor safe to use with
          # many processes. Set posix_exit explicitly if your application
@@ -384,7 +384,7 @@ The following list options which may be overridden when loading the module.
 
    my $mce = MCE->new( ... );
 
-From MCE 1.8 onwards, Sereal 3.008+ is loaded automatically if available.
+From MCE 1.8 onwards, Sereal 3.015+ is loaded automatically if available.
 Specify C<Sereal => 0> to use Storable instead.
 
    use MCE Sereal => 0;
@@ -402,11 +402,15 @@ arises for large data structures prior to running.
    ## Acquire data arrays and/or input_files. Workers persist after
    ## processing.
 
-   $mce->process(\@input_data_1);         ## Process arrays
+   $mce->process(\@input_data_1);         ## Process array
    $mce->process(\@input_data_2);
    $mce->process(\@input_data_n);
 
-   $mce->process('input_file_1');         ## Process files
+   $mce->process(\%input_hash_1);         ## Process hash, current API
+   $mce->process(\%input_hash_2);         ## available since 1.828
+   $mce->process(\%input_hash_n);
+
+   $mce->process('input_file_1');         ## Process file
    $mce->process('input_file_2');
    $mce->process('input_file_n');
 
@@ -518,6 +522,7 @@ reference.
 
    input_data  => '/path/to/file',  ## process file
    input_data  => \@array,          ## process array
+   input_data  => \%hash,           ## process hash, API since 1.828
    input_data  => \*FILE_HNDL,      ## process file handle
    input_data  => $fh,              ## open $fh, "<", "file"
    input_data  => $fh,              ## IO::File "file", "r"
@@ -553,6 +558,19 @@ equals 0.
 
       for my $record ( @{ $chunk_ref } ) {
          print "$chunk_id: $record\n";
+      }
+   }
+
+   # input_data => \%hash
+   # current API available since 1.828
+
+   user_func => sub {
+      my ($mce, $chunk_ref, $chunk_id) = @_;
+
+      ## $_ points to $chunk_ref regardless of chunk_size
+
+      for my $key ( keys %{ $chunk_ref } ) {
+         print "$key: ", $chunk_ref->{$key}, "\n";
       }
    }
 

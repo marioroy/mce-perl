@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -147,12 +147,12 @@ sub _destroy_pipes {
       if (ref $_obj->{$_p} eq 'ARRAY') {
          for my $_i (0 .. @{ $_obj->{$_p} } - 1) {
             next unless (defined $_obj->{$_p}[$_i]);
-            close $_obj->{$_p}[$_i];
+            close $_obj->{$_p}[$_i] if (fileno $_obj->{$_p}[$_i]);
             undef $_obj->{$_p}[$_i];
          }
       }
       else {
-         close $_obj->{$_p};
+         close $_obj->{$_p} if (fileno $_obj->{$_p});
          undef $_obj->{$_p};
       }
    }
@@ -175,8 +175,8 @@ sub _destroy_socks {
             if (fileno $_obj->{$_p}[$_i]) {
                syswrite($_obj->{$_p}[$_i], '0') if $_is_winenv;
                eval q{ CORE::shutdown($_obj->{$_p}[$_i], 2) };
+               close $_obj->{$_p}[$_i];
             }
-            close $_obj->{$_p}[$_i];
             undef $_obj->{$_p}[$_i];
          }
       }
@@ -184,8 +184,8 @@ sub _destroy_socks {
          if (fileno $_obj->{$_p}) {
             syswrite($_obj->{$_p}, '0') if $_is_winenv;
             eval q{ CORE::shutdown($_obj->{$_p}, 2) };
+            close $_obj->{$_p};
          }
-         close $_obj->{$_p};
          undef $_obj->{$_p};
       }
    }
@@ -360,10 +360,16 @@ sub _parse_chunk_size {
          return 1;
       }
 
-      my $_size = (defined $_input_data && ref $_input_data eq 'ARRAY')
-         ? scalar @{ $_input_data } : $_array_size;
-
       my $_is_file;
+      my $_size = $_array_size;
+
+      if (defined $_input_data) {
+         if (ref $_input_data eq 'ARRAY') {
+            $_size = scalar @{ $_input_data };
+         } elsif (ref $_input_data eq 'HASH') {
+            $_size = scalar keys %{ $_input_data };
+         }
+      }
 
       if (defined $_params && exists $_params->{sequence}) {
          my ($_begin, $_end, $_step);
@@ -438,7 +444,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.827
+This document describes MCE::Util version 1.828
 
 =head1 SYNOPSIS
 
@@ -484,7 +490,7 @@ This is important for apps which are IO-bound.
 In summary:
 
  1. Auto has an upper-limit of 8 in MCE 1.521 (# of lcores, 8 maximum)
- 2. Math can be applied with auto (*/+-) to change the upper limit
+ 2. Math may be applied with auto (*/+-) to change the upper limit
  3. The computed value for auto will not exceed the total # of lcores
  4. One can specify max_workers explicitly to a hard value
  5. MCE::Util::get_ncpu returns the actual # of lcores

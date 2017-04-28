@@ -38,16 +38,19 @@ sub _task_b { $_ * 3 }
                               # not recommended for big input data
 
 @a = mce_stream \&_task_b, \&_task_a, ( 1..9 );
-is( join(' ', @a), $answers, 'array: check results for array' );
+is( join(' ', @a), $answers, '@a = stream: check results for array' );
+
+@a = mce_stream \&_task_b, \&_task_a, [ 1..9 ];
+is( join(' ', @a), $answers, '@a = stream: check results for array ref' );
 
 @a = mce_stream_f \&_task_b, \&_task_a, $in_file;
-is( join(' ', @a), $answers, 'array: check results for path' );
+is( join(' ', @a), $answers, '@a = stream: check results for path' );
 
 @a = mce_stream_f \&_task_b, \&_task_a, $fh_data;
-is( join(' ', @a), $answers, 'array: check results for glob' );
+is( join(' ', @a), $answers, '@a = stream: check results for glob' );
 
 @a = mce_stream_s \&_task_b, \&_task_a, 1, 9;
-is( join(' ', @a), $answers, 'array: check results for sequence' );
+is( join(' ', @a), $answers, '@a = stream: check results for sequence' );
 
 seek($fh_data, $fh_pos, 0);
 
@@ -55,16 +58,19 @@ seek($fh_data, $fh_pos, 0);
                               # faster and consumes less memory
 
 mce_stream \@a, \&_task_b, \&_task_a, ( 1..9 );
-is( join(' ', @a), $answers, 'array_ref: check results for array' );
+is( join(' ', @a), $answers, 'stream \@a: check results for array' );
+
+mce_stream \@a, \&_task_b, \&_task_a, [ 1..9 ];
+is( join(' ', @a), $answers, 'stream \@a: check results for array ref' );
 
 mce_stream_f \@a, \&_task_b, \&_task_a, $in_file;
-is( join(' ', @a), $answers, 'array_ref: check results for path' );
+is( join(' ', @a), $answers, 'stream \@a: check results for path' );
 
 mce_stream_f \@a, \&_task_b, \&_task_a, $fh_data;
-is( join(' ', @a), $answers, 'array_ref: check results for glob' );
+is( join(' ', @a), $answers, 'stream \@a: check results for glob' );
 
 mce_stream_s \@a, \&_task_b, \&_task_a, 1, 9;
-is( join(' ', @a), $answers, 'array_ref: check results for sequence' );
+is( join(' ', @a), $answers, 'stream \@a: check results for sequence' );
 
 MCE::Stream::finish;
 
@@ -73,7 +79,7 @@ MCE::Stream::finish;
    { mode => 'grep', code => sub { chomp; $_ % 3 == 0 } },
 ( 1..9 );
 
-is( join(' ', @a), $ans_mix, 'array: check results for mix_mode' );
+is( join(' ', @a), $ans_mix, 'check results for mix_mode' );
 
 MCE::Stream::finish;
 

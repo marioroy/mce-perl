@@ -14,7 +14,7 @@ package MCE::Core::Input::Request;
 use strict;
 use warnings;
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 ## Items below are folded into MCE.
 
@@ -53,15 +53,19 @@ sub _worker_request_chunk {
    my $_I_FLG       = (!$/ || $/ ne $LF);
    my $_wuf         = $self->{_wuf};
 
-   my ($_dat_ex, $_dat_un);
+   my ($_dat_ex, $_dat_un, $_pid);
 
    if ($_lock_chn) {
+      $_pid = $INC{'threads.pm'} ? $$ .'.'. threads->tid() : $$;
+
       # inlined for performance
       $_dat_ex = sub {
-         1 until sysread($_DAT_LOCK->{_r_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
+         sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
+            unless $_DAT_LOCK->{ $_pid };
       };
       $_dat_un = sub {
-         1 until syswrite($_DAT_LOCK->{_w_sock}, '0') || ($! && !$!{'EINTR'});
+         syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
+            if $_DAT_LOCK->{ $_pid };
       };
    }
 
@@ -69,11 +73,15 @@ sub _worker_request_chunk {
    my ($_chop_len, $_chop_str, $_p);
 
    if ($_proc_type == REQUEST_ARRAY) {
-      $_output_tag = OUTPUT_A_ARY;
+      $_output_tag = OUTPUT_A_REF;
+      $_chop_len   = 0;
+   }
+   elsif ($_proc_type == REQUEST_HASH) {
+      $_output_tag = OUTPUT_H_REF;
       $_chop_len   = 0;
    }
    else {
-      $_output_tag = OUTPUT_S_GLB;
+      $_output_tag = OUTPUT_G_REF;
       if (length $_RS > 1 && substr($_RS, 0, 1) eq "\n") {
          $_chop_str = substr($_RS, 1);
          $_chop_len = length $_chop_str;
@@ -133,6 +141,11 @@ sub _worker_request_chunk {
             $_ = ($_chunk_size == 1) ? $_chunk_ref->[0] : $_chunk_ref;
             $_wuf->($self, $_chunk_ref, $_chunk_id);
          }
+      }
+      elsif ($_proc_type == REQUEST_HASH) {
+         my $_chunk_ref = { @{ $self->{thaw}($_) } }; undef $_;
+         $_ = $_chunk_ref;
+         $_wuf->($self, $_chunk_ref, $_chunk_id);
       }
       else {
          if ($_use_slurpio) {

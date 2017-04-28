@@ -11,13 +11,14 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use Scalar::Util qw( looks_like_number );
+
 use MCE;
 use MCE::Queue;
 
@@ -67,7 +68,7 @@ sub import {
       $_p->{THAW}        = shift, next if ( $_arg eq 'thaw' );
       $_p->{FAST}        = shift, next if ( $_arg eq 'fast' );
 
-      ## Sereal 3.008+, if available, is used automatically by MCE 1.800.
+      ## Sereal 3.015+, if available, is used automatically by MCE 1.8+.
       if ( $_arg eq 'sereal' ) {
          if ( shift eq '0' ) {
             require Storable;
@@ -491,8 +492,8 @@ sub run (@) {
    my $_input_data; my $_max_workers = $_def->{$_pkg}{MAX_WORKERS};
    my $_r = ref $_[0];
 
-   if ($_r eq 'ARRAY' || $_r eq 'SCALAR' || $_r =~ /^(?:GLOB|FileHandle|IO::)/) {
-      $_input_data = shift if (@_ == 1);
+   if (@_ == 1 && $_r =~ /^(?:ARRAY|HASH|SCALAR|GLOB|FileHandle|IO::)/) {
+      $_input_data = shift;
    }
 
    if (defined (my $_p = $_params->{$_pid})) {
@@ -560,7 +561,7 @@ sub run (@) {
             next if ($_ eq 'sequence_run');
             next if ($_ eq 'task_end');
 
-            _croak("MCE::Step: ($_) is not a valid constructor argument")
+            _croak("$_tag: ($_) is not a valid constructor argument")
                unless (exists $MCE::_valid_fields_new{$_});
 
             $_opts{$_} = $_p->{$_};
@@ -730,7 +731,7 @@ MCE::Step - Parallel step model for building creative steps
 
 =head1 VERSION
 
-This document describes MCE::Step version 1.827
+This document describes MCE::Step version 1.828
 
 =head1 DESCRIPTION
 
@@ -981,7 +982,7 @@ The following list options which may be overridden when loading the module.
        fast => 1                        # Default 0 (fast dequeue)
    ;
 
-From MCE 1.8 onwards, Sereal 3.008+ is loaded automatically if available.
+From MCE 1.8 onwards, Sereal 3.015+ is loaded automatically if available.
 Specify C<Sereal => 0> to use Storable instead.
 
    use MCE::Step Sereal => 0;
@@ -1094,63 +1095,135 @@ data from an internal queue. Workers terminate upon receiving an undef.
 =head1 API DOCUMENTATION
 
 Although input data is optional for MCE::Step, the following assumes chunk_size
-equals 1 in order to demonstrate all the possibilities of passing input data
-into the code block.
+equals 1 in order to demonstrate all the possibilities for providing input data.
 
 =over 3
-
-=item MCE::Step->run ( { input_data => iterator }, sub { code } )
-
-=item mce_step { input_data => iterator }, sub { code }
-
-An iterator reference can by specified for input_data. The only other way
-is to specify input_data via MCE::Step::init. This prevents MCE::Step from
-configuring the iterator reference as another user task which will not work.
-
-Iterators are described under "SYNTAX for INPUT_DATA" at L<MCE::Core>.
-
-   MCE::Step::init {
-      input_data => iterator
-   };
-
-   mce_step sub { $_ };
 
 =item MCE::Step->run ( sub { code }, list )
 
 =item mce_step sub { code }, list
 
-Input data can be defined using a list.
+Input data may be defined using a list, an array ref, or a hash ref.
+
+Unlike MCE::Loop, Map, and Grep which take a block as C<{ ... }>, Step takes a
+C<sub { ... }> or a code reference. The other difference is that the comma is
+needed after the block.
+
+   # $_ contains the item when chunk_size => 1
 
    mce_step sub { $_ }, 1..1000;
-   mce_step sub { $_ }, [ 1..1000 ];
+   mce_step sub { $_ }, \@list;
+
+   # chunking, any chunk_size => 1 or higher
+
+   my %res = mce_step sub {
+      my ($mce, $chunk_ref, $chunk_id) = @_;
+      my %ret;
+      for my $item (@{ $chunk_ref }) {
+         $ret{$item} = $item * 2;
+      }
+      MCE->gather(%ret);
+   },
+   \@list;
+
+   # input hash, current API available since 1.828
+
+   my %res = mce_step sub {
+      my ($mce, $chunk_ref, $chunk_id) = @_;
+      my %ret;
+      for my $key (keys %{ $chunk_ref }) {
+         $ret{$key} = $chunk_ref->{$key} * 2;
+      }
+      MCE->gather(%ret);
+   },
+   \%hash;
+
+   # unlike MCE::Loop, MCE::Step doesn't need input to run
+
+   mce_step { max_workers => 4 }, sub {
+      MCE->say( MCE->wid );
+   };
+
+   # ... and can run multiple tasks
+
+   mce_step {
+      max_workers => [  1,   3  ],
+      task_name   => [ 'p', 'c' ]
+   },
+   sub {
+      # 1 producer
+      MCE->say( "producer: ", MCE->wid );
+   },
+   sub {
+      # 3 consumers
+      MCE->say( "consumer: ", MCE->wid );
+   };
+
+   # here, options are specified via init
+
+   MCE::Step::init {
+      max_workers => [  1,   3  ],
+      task_name   => [ 'p', 'c' ]
+   };
+
+   mce_step \&producer, \&consumers;
 
 =item MCE::Step->run_file ( sub { code }, file )
 
 =item mce_step_f sub { code }, file
 
 The fastest of these is the /path/to/file. Workers communicate the next offset
-position among themselves without any interaction from the manager process.
+position among themselves with zero interaction by the manager process.
 
-   mce_step_f sub { $_ }, "/path/to/file";
+   # $_ contains the line when chunk_size => 1
+
+   mce_step_f sub { $_ }, "/path/to/file";  # faster
    mce_step_f sub { $_ }, $file_handle;
    mce_step_f sub { $_ }, \$scalar;
+
+   # chunking, any chunk_size => 1 or higher
+
+   my %res = mce_step_f sub {
+      my ($mce, $chunk_ref, $chunk_id) = @_;
+      my $buf = '';
+      for my $line (@{ $chunk_ref }) {
+         $buf .= $line;
+      }
+      MCE->gather($chunk_id, $buf);
+   },
+   "/path/to/file";
 
 =item MCE::Step->run_seq ( sub { code }, $beg, $end [, $step, $fmt ] )
 
 =item mce_step_s sub { code }, $beg, $end [, $step, $fmt ]
 
-Sequence can be defined as a list, an array reference, or a hash reference.
+Sequence may be defined as a list, an array reference, or a hash reference.
 The functions require both begin and end values to run. Step and format are
 optional. The format is passed to sprintf (% may be omitted below).
 
    my ($beg, $end, $step, $fmt) = (10, 20, 0.1, "%4.1f");
 
+   # $_ contains the sequence number when chunk_size => 1
+
    mce_step_s sub { $_ }, $beg, $end, $step, $fmt;
    mce_step_s sub { $_ }, [ $beg, $end, $step, $fmt ];
 
    mce_step_s sub { $_ }, {
-      begin => $beg, end => $end, step => $step, format => $fmt
+      begin => $beg, end => $end,
+      step => $step, format => $fmt
    };
+
+   # chunking, any chunk_size => 1 or higher
+
+   my %res = mce_step_s sub {
+      my ($mce, $chunk_ref, $chunk_id) = @_;
+      my $buf = '';
+      for my $seq (@{ $chunk_ref }) {
+         $buf .= "$seq\n";
+      }
+      MCE->gather($chunk_id, $buf);
+   },
+   [ $beg, $end ];
 
 The sequence engine can compute 'begin' and 'end' items only, for the chunk,
 and not the items in between (hence boundaries only). This option applies
@@ -1170,28 +1243,26 @@ Time was measured using 1 worker to emphasize the difference.
       bounds_only => 1
    };
 
-   ## For sequence, the input scalar $_ points to $chunk_ref
-   ## when chunk_size > 1, otherwise $chunk_ref->[0].
-   ##
-   ## mce_step_s sub {
-   ##    my $begin = $_->[0]; my $end = $_->[-1];
-   ##
-   ##    for ($begin .. $end) {
-   ##       ...
-   ##    }
-   ##
-   ## }, 1, 10_000_000;
+   # Typically, the input scalar $_ contains the sequence number
+   # when chunk_size => 1, unless the bounds_only option is set
+   # which is the case here. Thus, $_ points to $chunk_ref.
 
    mce_step_s sub {
       my ($mce, $chunk_ref, $chunk_id) = @_;
-      ## $chunk_ref contains 2 items, not 1_250_000
 
-      my $begin = $chunk_ref->[ 0];
-      my $end   = $chunk_ref->[-1];   ## or $chunk_ref->[1]
+      # $chunk_ref contains 2 items, not 1_250_000
+      # my ( $begin, $end ) = ( $_->[0], $_->[1] );
+
+      my $begin = $chunk_ref->[0];
+      my $end   = $chunk_ref->[1];
+
+      # for my $seq ( $begin .. $end ) {
+      #    ...
+      # }
 
       MCE->printf("%7d .. %8d\n", $begin, $end);
-
-   }, 1, 10_000_000;
+   },
+   [ 1, 10_000_000 ];
 
    -- Output
 
@@ -1203,6 +1274,22 @@ Time was measured using 1 worker to emphasize the difference.
    6250001 ..  7500000
    7500001 ..  8750000
    8750001 .. 10000000
+
+=item MCE::Step->run ( { input_data => iterator }, sub { code } )
+
+=item mce_step { input_data => iterator }, sub { code }
+
+An iterator reference may be specified for input_data. The only other way
+is to specify input_data via MCE::Step::init. This prevents MCE::Step from
+configuring the iterator reference as another user task which will not work.
+
+Iterators are described under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
+
+   MCE::Step::init {
+      input_data => iterator
+   };
+
+   mce_step sub { $_ };
 
 =back
 
@@ -1394,7 +1481,7 @@ the gather method is used to have results sent back to the manager process.
    my %h2 = mce_step sub { MCE->gather(MCE->chunk_id, $_ * 2) }, 1..100;
    print "@h2{1..100}\n\n";
 
-The gather method can be called multiple times within the block unlike return
+The gather method may be called multiple times within the block unlike return
 which would leave the block. Therefore, think of gather as yielding results
 immediately to the manager process without actually leaving the block.
 

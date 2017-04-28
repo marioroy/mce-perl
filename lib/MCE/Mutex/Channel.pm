@@ -11,13 +11,16 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 use base 'MCE::Mutex';
+use Scalar::Util qw(refaddr weaken);
 use MCE::Util ();
 
 my $has_threads = $INC{'threads.pm'} ? 1 : 0;
 my $tid = $has_threads ? threads->tid()  : 0;
+
+my @MUTEX;
 
 sub CLONE {
     $tid = threads->tid() if $has_threads;
@@ -26,15 +29,24 @@ sub CLONE {
 sub DESTROY {
     my ($pid, $obj) = ($has_threads ? $$ .'.'. $tid : $$, @_);
 
-    $obj->unlock() if $obj->{ $pid };
+    syswrite($obj->{_w_sock}, '0'), $obj->{ $pid } = 0 if $obj->{ $pid };
 
     if ($obj->{'_init_pid'} eq $pid) {
+        my $addr = refaddr $obj;
+
         ($^O eq 'MSWin32')
             ? MCE::Util::_destroy_pipes($obj, qw(_w_sock _r_sock))
             : MCE::Util::_destroy_socks($obj, qw(_w_sock _r_sock));
+
+        @MUTEX = map { refaddr($_) == $addr ? () : $_ } @MUTEX;
     }
 
     return;
+}
+
+sub _destroy {
+    # Called by MCE::_exit && MCE::Hobo::_exit. Must iterate a copy.
+    if ( @MUTEX ) { local $_; &DESTROY($_) for @{[ @MUTEX ]}; }
 }
 
 ###############################################################################
@@ -53,16 +65,18 @@ sub new {
 
     1 until syswrite($obj{_w_sock}, '0') || ($! && !$!{'EINTR'});
 
+    if (caller !~ /^MCE:?/ || caller(1) !~ /^MCE:?/) {
+        push(@MUTEX, \%obj); weaken($MUTEX[-1]);
+    }
+
     return bless(\%obj, $class);
 }
 
 sub lock {
     my ($pid, $obj) = ($has_threads ? $$ .'.'. $tid : $$, @_);
-    return if $obj->{ $pid };
 
-    1 until sysread($obj->{_r_sock}, my($b), 1) || ($! && !$!{'EINTR'});
-
-    $obj->{ $pid } = 1;
+    sysread($obj->{_r_sock}, my($b), 1), $obj->{ $pid } = 1
+        unless $obj->{ $pid };
 
     return;
 }
@@ -72,11 +86,9 @@ sub lock {
 
 sub unlock {
     my ($pid, $obj) = ($has_threads ? $$ .'.'. $tid : $$, @_);
-    return unless $obj->{ $pid };
 
-    1 until syswrite($obj->{_w_sock}, '0') || ($! && !$!{'EINTR'});
-
-    $obj->{ $pid } = 0;
+    syswrite($obj->{_w_sock}, '0'), $obj->{ $pid } = 0
+        if $obj->{ $pid };
 
     return;
 }
@@ -87,17 +99,12 @@ sub synchronize {
     );
     return unless ref($code) eq 'CODE';
 
-    # lock mutex
-    unless ($obj->{ $pid }) {
-        1 until sysread($obj->{_r_sock}, my($b), 1) || ($! && !$!{'EINTR'});
-        $obj->{ $pid } = 1;
-    }
+    # lock, run, unlock - inlined for performance
+    sysread($obj->{_r_sock}, my($b), 1), $obj->{ $pid } = 1
+        unless $obj->{ $pid };
 
     (defined wantarray) ? @ret = $code->(@_) : $code->(@_);
-
-    # unlock mutex
-    1 until syswrite($obj->{_w_sock}, '0') || ($! && !$!{'EINTR'});
-    $obj->{ $pid } = 0;
+    syswrite($obj->{_w_sock}, '0'), $obj->{ $pid } = 0;
 
     return wantarray ? @ret : $ret[-1];
 }
@@ -120,7 +127,7 @@ MCE::Mutex::Channel - Mutex locking via a pipe or socket
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel version 1.827
+This document describes MCE::Mutex::Channel version 1.828
 
 =head1 DESCRIPTION
 

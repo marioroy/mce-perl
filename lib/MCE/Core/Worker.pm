@@ -14,7 +14,14 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
+
+my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
+my $_tid = $_has_threads ? threads->tid() : 0;
+
+sub CLONE {
+   $_tid = threads->tid() if $_has_threads;
+}
 
 ## Items below are folded into MCE.
 
@@ -49,8 +56,8 @@ use bytes;
 
       if (length ${ $_[0] }) {
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_F_SND.$LF . $_chn.$LF;
-         print {$_DAU_W_SOCK} $_val.$LF . length(${ $_[0] }).$LF, ${ $_[0] };
+         print({$_DAT_W_SOCK} OUTPUT_F_SND.$LF . $_chn.$LF),
+         print({$_DAU_W_SOCK} $_val.$LF . length(${ $_[0] }).$LF, ${ $_[0] });
          $_dat_un->() if $_lock_chn;
       }
 
@@ -64,8 +71,8 @@ use bytes;
 
       if (length ${ $_[0] }) {
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_D_SND.$LF . $_chn.$LF;
-         print {$_DAU_W_SOCK} $_val.$LF . length(${ $_[0] }).$LF, ${ $_[0] };
+         print({$_DAT_W_SOCK} OUTPUT_D_SND.$LF . $_chn.$LF),
+         print({$_DAU_W_SOCK} $_val.$LF . length(${ $_[0] }).$LF, ${ $_[0] });
          $_dat_un->() if $_lock_chn;
       }
 
@@ -78,8 +85,8 @@ use bytes;
 
       if (length ${ $_[0] }) {
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_O_SND.$LF . $_chn.$LF;
-         print {$_DAU_W_SOCK} length(${ $_[0] }).$LF, ${ $_[0] };
+         print({$_DAT_W_SOCK} OUTPUT_O_SND.$LF . $_chn.$LF),
+         print({$_DAU_W_SOCK} length(${ $_[0] }).$LF, ${ $_[0] });
          $_dat_un->() if $_lock_chn;
       }
 
@@ -92,8 +99,8 @@ use bytes;
 
       if (length ${ $_[0] }) {
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_E_SND.$LF . $_chn.$LF;
-         print {$_DAU_W_SOCK} length(${ $_[0] }).$LF, ${ $_[0] };
+         print({$_DAT_W_SOCK} OUTPUT_E_SND.$LF . $_chn.$LF),
+         print({$_DAU_W_SOCK} length(${ $_[0] }).$LF, ${ $_[0] });
          $_dat_un->() if $_lock_chn;
       }
 
@@ -123,8 +130,8 @@ use bytes;
             $_len = length $_buf; local $\ = undef if (defined $\);
 
             $_dat_ex->() if $_lock_chn;
-            print {$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF;
-            print {$_DAU_W_SOCK} $_wa.$LF . $_val.$LF . $_len.$LF, $_buf;
+            print({$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF),
+            print({$_DAU_W_SOCK} $_wa.$LF . $_val.$LF . $_len.$LF, $_buf);
 
          }
          else {                                   ## Scalar >> Callback
@@ -132,8 +139,8 @@ use bytes;
             $_len = length $_aref->[0]; local $\ = undef if (defined $\);
 
             $_dat_ex->() if $_lock_chn;
-            print {$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF;
-            print {$_DAU_W_SOCK} $_wa.$LF . $_val.$LF . $_len.$LF, $_aref->[0];
+            print({$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF),
+            print({$_DAU_W_SOCK} $_wa.$LF . $_val.$LF . $_len.$LF, $_aref->[0]);
          }
       }
       else {                                      ## No Args >> Callback
@@ -141,8 +148,8 @@ use bytes;
          local $\ = undef if (defined $\);
 
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF;
-         print {$_DAU_W_SOCK} $_wa.$LF . $_val.$LF;
+         print({$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF),
+         print({$_DAU_W_SOCK} $_wa.$LF . $_val.$LF);
       }
 
       ## Crossover: Receive return value
@@ -198,8 +205,8 @@ use bytes;
             $_len = length $_aref->[0]; local $\ = undef if (defined $\);
 
             $_dat_ex->() if $_lock_chn;
-            print {$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF;
-            print {$_DAU_W_SOCK} $_task_id.$LF . $_len.$LF, $_aref->[0];
+            print({$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF),
+            print({$_DAU_W_SOCK} $_task_id.$LF . $_len.$LF, $_aref->[0]);
             $_dat_un->() if $_lock_chn;
 
             return;
@@ -213,8 +220,8 @@ use bytes;
       local $\ = undef if (defined $\);
 
       $_dat_ex->() if $_lock_chn;
-      print {$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF;
-      print {$_DAU_W_SOCK} $_task_id.$LF . $_len.$LF, $_buf;
+      print({$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF),
+      print({$_DAU_W_SOCK} $_task_id.$LF . $_len.$LF, $_buf);
       $_dat_un->() if $_lock_chn;
 
       return;
@@ -270,7 +277,8 @@ use bytes;
          }
       }
       else {
-         my $_fh = qualify_to_ref($_glob, caller);
+         require Symbol unless $INC{'Symbol.pm'};
+         my $_fh = Symbol::qualify_to_ref($_glob, caller);
          local $\ = undef if (defined $\);
          print {$_fh} ${ $_data_ref };
       }
@@ -294,10 +302,14 @@ use bytes;
       if ($_lock_chn) {
          # inlined for performance
          $_dat_ex = sub {
-            1 until sysread($_DAT_LOCK->{_r_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
+            my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
+            sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
+               unless $_DAT_LOCK->{ $_pid };
          };
          $_dat_un = sub {
-            1 until syswrite($_DAT_LOCK->{_w_sock}, '0') || ($! && !$!{'EINTR'});
+            my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
+            syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
+               if $_DAT_LOCK->{ $_pid };
          };
       }
 
@@ -359,8 +371,8 @@ use bytes;
 
       if ($self->{progress} && $self->{_task_id} == 0) {
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_P_NFY.$LF . $_chn.$LF;
-         print {$_DAU_W_SOCK} $_size.$LF;
+         print({$_DAT_W_SOCK} OUTPUT_P_NFY.$LF . $_chn.$LF),
+         print({$_DAU_W_SOCK} $_size.$LF);
          $_dat_un->() if $_lock_chn;
       }
 
@@ -439,37 +451,42 @@ sub _worker_do {
    ## Call worker function.
    if ($_run_mode eq 'sequence') {
       require MCE::Core::Input::Sequence
-         unless (defined $MCE::Core::Input::Sequence::VERSION);
+         unless $INC{'MCE/Core/Input/Sequence.pm'};
       _worker_sequence_queue($self);
    }
    elsif (defined $self->{_task}->{sequence}) {
       require MCE::Core::Input::Generator
-         unless (defined $MCE::Core::Input::Generator::VERSION);
+         unless $INC{'MCE/Core/Input/Generator.pm'};
       _worker_sequence_generator($self);
    }
    elsif ($_run_mode eq 'array') {
       require MCE::Core::Input::Request
-         unless (defined $MCE::Core::Input::Request::VERSION);
+         unless $INC{'MCE/Core/Input/Request.pm'};
       _worker_request_chunk($self, REQUEST_ARRAY);
    }
    elsif ($_run_mode eq 'glob') {
       require MCE::Core::Input::Request
-         unless (defined $MCE::Core::Input::Request::VERSION);
+         unless $INC{'MCE/Core/Input/Request.pm'};
       _worker_request_chunk($self, REQUEST_GLOB);
+   }
+   elsif ($_run_mode eq 'hash') {
+      require MCE::Core::Input::Request
+         unless $INC{'MCE/Core/Input/Request.pm'};
+      _worker_request_chunk($self, REQUEST_HASH);
    }
    elsif ($_run_mode eq 'iterator') {
       require MCE::Core::Input::Iterator
-         unless (defined $MCE::Core::Input::Iterator::VERSION);
+         unless $INC{'MCE/Core/Input/Iterator.pm'};
       _worker_user_iterator($self);
    }
    elsif ($_run_mode eq 'file') {
       require MCE::Core::Input::Handle
-         unless (defined $MCE::Core::Input::Handle::VERSION);
+         unless $INC{'MCE/Core/Input/Handle.pm'};
       _worker_read_handle($self, READ_FILE, $_params_ref->{_input_file});
    }
    elsif ($_run_mode eq 'memory') {
       require MCE::Core::Input::Handle
-         unless (defined $MCE::Core::Input::Handle::VERSION);
+         unless $INC{'MCE/Core/Input/Handle.pm'};
       _worker_read_handle($self, READ_MEMORY, $self->{input_data});
    }
    elsif (defined $self->{user_func}) {
@@ -496,8 +513,8 @@ sub _worker_do {
 
    $_DAT_LOCK->lock() if $_lock_chn;
 
-   print {$_DAT_W_SOCK} OUTPUT_W_DNE.$LF . $_chn.$LF;
-   print {$_DAU_W_SOCK} $_task_id.$LF;
+   print({$_DAT_W_SOCK} OUTPUT_W_DNE.$LF . $_chn.$LF),
+   print({$_DAU_W_SOCK} $_task_id.$LF);
 
    $_DAT_LOCK->unlock() if $_lock_chn;
 
@@ -520,20 +537,12 @@ sub _worker_loop {
 
    @_ = ();
 
-   my ($_com_ex, $_com_un, $_response, $_len, $_buf, $_params_ref);
+   my ($_response, $_len, $_buf, $_params_ref);
 
    my $_COM_LOCK   = $self->{_com_lock};
    my $_COM_W_SOCK = $self->{_com_w_sock};
    my $_job_delay  = $self->{job_delay};
    my $_wid        = $self->{_wid};
-
-   # inlined for performance
-   $_com_ex = sub {
-      1 until sysread($_COM_LOCK->{_r_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
-   };
-   $_com_un = sub {
-      1 until syswrite($_COM_LOCK->{_w_sock}, '0') || ($! && !$!{'EINTR'});
-   };
 
    if ( $^O eq 'MSWin32' ) {
       lock $MCE::_WIN_LOCK;
@@ -543,7 +552,7 @@ sub _worker_loop {
 
       {
          local $\ = undef; local $/ = $LF;
-         $_com_ex->();
+         $_COM_LOCK->lock();
 
          ## Wait for the next job request.
          $_response = <$_COM_W_SOCK>;
@@ -551,17 +560,17 @@ sub _worker_loop {
 
          ## Return if instructed to exit.
          if ($_response eq "_exit\n") {
-            $_com_un->();
+            $_COM_LOCK->unlock();
             return;
          }
 
          ## Process send request.
          if ($_response eq "_data\n") {
-            chomp($_len = <$_COM_W_SOCK>);
-            read $_COM_W_SOCK, $_buf, $_len;
+            chomp($_len = <$_COM_W_SOCK>),
+            read($_COM_W_SOCK, $_buf, $_len);
 
-            print {$_COM_W_SOCK} $_wid.$LF;
-            $_com_un->();
+            print {$_COM_W_SOCK} $LF;
+            $_COM_LOCK->unlock();
 
             $self->{user_data} = $self->{thaw}($_buf);
             undef $_buf;
@@ -573,11 +582,11 @@ sub _worker_loop {
 
          ## Process normal request.
          elsif ($_response =~ /\d+/) {
-            chomp($_len = <$_COM_W_SOCK>);
-            read $_COM_W_SOCK, $_buf, $_len;
+            chomp($_len = <$_COM_W_SOCK>),
+            read($_COM_W_SOCK, $_buf, $_len);
 
-            print {$_COM_W_SOCK} $_wid.$LF;
-            $_com_un->();
+            print {$_COM_W_SOCK} $LF;
+            $_COM_LOCK->unlock();
 
             $_params_ref = $self->{thaw}($_buf);
             undef $_buf;
@@ -606,7 +615,7 @@ sub _worker_loop {
    ## Notify the main process a worker has ended. The following is executed
    ## when an invalid reply was received above (not likely to occur).
 
-   $_com_un->();
+   $_COM_LOCK->unlock();
 
    die "Worker ($self->{_wid}) has ended prematurely";
 }
@@ -638,8 +647,8 @@ sub _worker_main {
    my $_use_threads = (defined $_task->{use_threads})
       ? $_task->{use_threads} : $self->{use_threads};
 
-   if ($INC{'threads.pm'} && $_use_threads) {
-      $self->{_exit_pid} = 'TID_' . threads->tid();
+   if ($_has_threads && $_use_threads) {
+      $self->{_exit_pid} = 'TID_' . $_tid;
    } else {
       $self->{_exit_pid} = 'PID_' . $$;
    }
@@ -648,7 +657,7 @@ sub _worker_main {
 
    local $SIG{__DIE__} = sub {
       if (!defined $^S || $^S) {
-         if ( ($INC{'threads.pm'} && threads->tid() != 0) ||
+         if ( ($_has_threads && $_tid != 0) ||
                $ENV{'PERL_IPERL_RUNNING'} ||
                $_running_inside_eval
          ) {
@@ -686,8 +695,6 @@ sub _worker_main {
    $self->{user_end}    = $_task->{user_end}    if ($_task->{user_end});
 
    ## Init runtime vars. Obtain handle to lock files.
-   my $_mce_sid  = $self->{_mce_sid};
-   my $_sess_dir = $self->{_sess_dir};
    my $_chn;
 
    if (defined $_params && exists $_params->{_chn}) {

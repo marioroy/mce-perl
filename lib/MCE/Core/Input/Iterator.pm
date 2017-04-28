@@ -14,7 +14,7 @@ package MCE::Core::Input::Iterator;
 use strict;
 use warnings;
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 ## Items below are folded into MCE.
 
@@ -49,15 +49,19 @@ sub _worker_user_iterator {
    my $_I_FLG       = (!$/ || $/ ne $LF);
    my $_wuf         = $self->{_wuf};
 
-   my ($_dat_ex, $_dat_un);
+   my ($_dat_ex, $_dat_un, $_pid);
 
    if ($_lock_chn) {
+      $_pid = $INC{'threads.pm'} ? $$ .'.'. threads->tid() : $$;
+
       # inlined for performance
       $_dat_ex = sub {
-         1 until sysread($_DAT_LOCK->{_r_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
+         sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
+            unless $_DAT_LOCK->{ $_pid };
       };
       $_dat_un = sub {
-         1 until syswrite($_DAT_LOCK->{_w_sock}, '0') || ($! && !$!{'EINTR'});
+         syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
+            if $_DAT_LOCK->{ $_pid };
       };
    }
 
@@ -82,7 +86,7 @@ sub _worker_user_iterator {
          local $\ = undef if (defined $\); local $/ = $LF if ($_I_FLG);
 
          $_dat_ex->() if $_lock_chn;
-         print {$_DAT_W_SOCK} OUTPUT_U_ITR . $LF . $_chn . $LF;
+         print {$_DAT_W_SOCK} OUTPUT_I_REF . $LF . $_chn . $LF;
          chomp($_len = <$_DAU_W_SOCK>);
 
          if ($_len < 0) {

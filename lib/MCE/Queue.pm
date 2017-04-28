@@ -11,14 +11,14 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use Scalar::Util qw( looks_like_number );
 use MCE::Util qw( $LF );
-use MCE::Mutex;
+use MCE::Mutex ();
 use bytes;
 
 ###############################################################################
@@ -71,7 +71,7 @@ sub import {
    ## Define public methods to internal methods.
    no strict 'refs'; no warnings 'redefine';
 
-   if (defined $MCE::VERSION && MCE->wid == 0) {
+   if ($INC{'MCE.pm'} && MCE->wid == 0) {
       _mce_m_init();
    }
 
@@ -231,9 +231,11 @@ sub new {
    $_Q->{_id} = ++$_qid; $_all->{$_qid} = $_Q;
    $_Q->{_dsem} = 0 if ($_Q->{_fast});
 
-   if (caller() !~ /^MCE::/ && $_tid == 0 && $_Q->{_fast} == 0) {
-      for my $_i (0 .. MUTEX_LOCKS - 1) {
-         $_Q->{'_mutex_'.$_i} = MCE::Mutex->new( impl => 'Channel' );
+   if ($^O ne 'MSWin32' && $_tid == 0 && $_Q->{_fast} == 0) {
+      if (caller() !~ /^MCE::/) {
+         for my $_i (0 .. MUTEX_LOCKS - 1) {
+            $_Q->{'_mutex_'.$_i} = MCE::Mutex->new( impl => 'Channel' );
+         }
       }
    }
 
@@ -254,7 +256,7 @@ sub new {
 ###############################################################################
 
 sub _croak {
-   unless (defined $MCE::VERSION) {
+   unless ($INC{'MCE.pm'}) {
       $\ = undef; require Carp; goto &Carp::croak;
    } else {
       goto &MCE::_croak;
@@ -313,7 +315,7 @@ sub _dequeue {
 sub _get_aref {
    my ($_Q, $_p) = @_;
 
-   return if (defined $MCE::VERSION && !defined $MCE::MCE->{_wid});
+   return if ($INC{'MCE.pm'} && !defined $MCE::MCE->{_wid});
    return if (defined $MCE::MCE && $MCE::MCE->{_wid});
 
    if (defined $_p) {
@@ -1244,8 +1246,8 @@ sub _mce_m_heap {
       local $\ = undef if (defined $\);
 
       $_dat_ex->() if $_lock_chn;
-      print {$_DAT_W_SOCK} $_[0].$LF . $_chn.$LF;
-      print {$_DAU_W_SOCK} $_[1], $_[2];
+      print({$_DAT_W_SOCK} $_[0].$LF . $_chn.$LF),
+      print({$_DAU_W_SOCK} $_[1], $_[2]);
 
       $_dat_un->() if $_lock_chn;
    };
@@ -1255,8 +1257,8 @@ sub _mce_m_heap {
       local $/ = $LF if (!$/ || $/ ne $LF);
 
       $_dat_ex->() if $_lock_chn;
-      print {$_DAT_W_SOCK} $_[0].$LF . $_chn.$LF;
-      print {$_DAU_W_SOCK} $_[1];
+      print({$_DAT_W_SOCK} $_[0].$LF . $_chn.$LF),
+      print({$_DAU_W_SOCK} $_[1]);
       <$_DAU_W_SOCK>;
 
       $_dat_un->() if $_lock_chn;
@@ -1267,8 +1269,8 @@ sub _mce_m_heap {
       local $/ = $LF if (!$/ || $/ ne $LF);
 
       $_dat_ex->() if $_lock_chn;
-      print {$_DAT_W_SOCK} $_[0].$LF . $_chn.$LF;
-      print {$_DAU_W_SOCK} $_[1];
+      print({$_DAT_W_SOCK} $_[0].$LF . $_chn.$LF),
+      print({$_DAU_W_SOCK} $_[1]);
 
       chomp($_len = <$_DAU_W_SOCK>);
 
@@ -1299,10 +1301,14 @@ sub _mce_m_heap {
       if ($_lock_chn) {
          # inlined for performance
          $_dat_ex = sub {
-            1 until sysread($_DAT_LOCK->{_r_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
+            my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
+            sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
+               unless $_DAT_LOCK->{ $_pid };
          };
          $_dat_un = sub {
-            1 until syswrite($_DAT_LOCK->{_w_sock}, '0') || ($! && !$!{'EINTR'});
+            my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
+            syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
+               if $_DAT_LOCK->{ $_pid };
          };
       }
 
@@ -1447,8 +1453,8 @@ sub _mce_m_heap {
             1 until sysread($_Q->{_qr_sock}, $_next, 1) || ($! && !$!{'EINTR'});
 
             $_dat_ex->() if $_lock_chn;
-            print {$_DAT_W_SOCK} OUTPUT_D_QUE.$LF . $_chn.$LF;
-            print {$_DAU_W_SOCK} $_Q->{_id}.$LF . $_cnt.$LF;
+            print({$_DAT_W_SOCK} OUTPUT_D_QUE.$LF . $_chn.$LF),
+            print({$_DAU_W_SOCK} $_Q->{_id}.$LF . $_cnt.$LF);
 
             $_Q->{'_mutex_'.$_mutexi}->unlock();
          }
@@ -1457,8 +1463,8 @@ sub _mce_m_heap {
             1 until sysread($_Q->{_qr_sock}, $_next, 1) || ($! && !$!{'EINTR'});
 
             $_dat_ex->() if $_lock_chn;
-            print {$_DAT_W_SOCK} OUTPUT_D_QUE.$LF . $_chn.$LF;
-            print {$_DAU_W_SOCK} $_Q->{_id}.$LF . $_cnt.$LF;
+            print({$_DAT_W_SOCK} OUTPUT_D_QUE.$LF . $_chn.$LF),
+            print({$_DAU_W_SOCK} $_Q->{_id}.$LF . $_cnt.$LF);
          }
 
          chomp($_len = <$_DAU_W_SOCK>);
@@ -1509,8 +1515,8 @@ sub _mce_m_heap {
       local $/ = $LF if (!$/ || $/ ne $LF);
 
       $_dat_ex->() if $_lock_chn;
-      print {$_DAT_W_SOCK} OUTPUT_N_QUE.$LF . $_chn.$LF;
-      print {$_DAU_W_SOCK} $_Q->{_id}.$LF;
+      print({$_DAT_W_SOCK} OUTPUT_N_QUE.$LF . $_chn.$LF),
+      print({$_DAU_W_SOCK} $_Q->{_id}.$LF);
 
       chomp($_pending = <$_DAU_W_SOCK>);
       $_dat_un->() if $_lock_chn;
@@ -1633,7 +1639,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.827
+This document describes MCE::Queue version 1.828
 
 =head1 SYNOPSIS
 

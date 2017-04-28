@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -22,7 +22,7 @@ use Carp ();
 my ($_has_threads, $_freeze, $_thaw, $_tid, $_oid);
 
 BEGIN {
-   local $@; local $SIG{__DIE__};
+   local $@;
 
    if ($^O eq 'MSWin32' && !$INC{'threads.pm'}) {
       eval 'use threads; use threads::shared';
@@ -63,14 +63,12 @@ BEGIN {
 }
 
 use Scalar::Util qw( looks_like_number refaddr weaken );
+use Socket qw( SOL_SOCKET SO_RCVBUF );
 use Time::HiRes qw( sleep time );
 
-use Symbol qw( qualify_to_ref );
-use Socket qw( SOL_SOCKET SO_RCVBUF );
-
 use MCE::Util qw( $LF );
-use MCE::Signal;
-use MCE::Mutex;
+use MCE::Signal ();
+use MCE::Mutex ();
 use bytes;
 
 our ($MCE, $RLA, $_que_template, $_que_read_size);
@@ -91,10 +89,10 @@ BEGIN {
 
    ## Attributes used internally.
    ## _abort_msg _caller _chn _com_lock _dat_lock _mgr_live _rla_data _seed
-   ## _chunk_id _mce_sid _mce_tid _pids _run_mode _single_dim _thrs _tids _wid
-   ## _exiting _exit_pid _total_exited _total_running _total_workers _task_wid
+   ## _chunk_id _pids _run_mode _single_dim _thrs _tids _task_wid _wid _wuf
+   ## _exiting _exit_pid _last_sref _total_exited _total_running _total_workers
    ## _send_cnt _sess_dir _spawned _state _status _task _task_id _wrk_status
-   ## _init_pid _init_total_workers _last_sref _wuf
+   ## _init_pid _init_total_workers
    ##
    ## _bsb_r_sock _bsb_w_sock _bse_r_sock _bse_w_sock _com_r_sock _com_w_sock
    ## _dat_r_sock _dat_w_sock _que_r_sock _que_w_sock _rla_r_sock _rla_w_sock
@@ -127,15 +125,13 @@ BEGIN {
    ## Create accessor functions.
    no strict 'refs'; no warnings 'redefine';
 
-   for my $_p (qw(
-      chunk_size max_retries max_workers task_name tmp_dir user_args
-   )) {
+   for my $_p (qw( chunk_size max_retries max_workers task_name user_args )) {
       *{ $_p } = sub () {
          my $self = shift; $self = $MCE unless ref($self);
          return $self->{$_p};
       };
    }
-   for my $_p (qw( chunk_id sess_dir task_id task_wid wid )) {
+   for my $_p (qw( chunk_id task_id task_wid wid )) {
       *{ $_p } = sub () {
          my $self = shift; $self = $MCE unless ref($self);
          return $self->{"_${_p}"};
@@ -167,7 +163,6 @@ our $_WIN_LOCK : shared = 1;
 my ($_def, $_imported) = ({});
 
 sub import {
-
    my ($_class, $_pkg) = (shift, caller);
    my $_p = $_def->{$_pkg} = {};
 
@@ -228,10 +223,11 @@ sub import {
 
 use constant {
 
-   MAX_CHUNK_SIZE => 1024 * 1024 * 64,  # Maximum chunk size allowed
-
    # Max data channels. This cannot be greater than 8 on MSWin32.
    DATA_CHANNELS  => ($^O eq 'MSWin32') ? 8 : 12,
+
+   # Maximum chunk size allowed
+   MAX_CHUNK_SIZE => 1024 * 1024 * 64,
 
    MAX_RECS_SIZE  => 8192,     # Reads number of records if N <= value
                                # Reads number of bytes if N > value
@@ -240,9 +236,10 @@ use constant {
    OUTPUT_W_DNE   => 'W~DNE',  # Worker has completed
    OUTPUT_W_RLA   => 'W~RLA',  # Worker has relayed
    OUTPUT_W_EXT   => 'W~EXT',  # Worker has exited
-   OUTPUT_A_ARY   => 'A~ARY',  # Array  << Array
-   OUTPUT_S_GLB   => 'S~GLB',  # Scalar << Glob FH
-   OUTPUT_U_ITR   => 'U~ITR',  # User   << Iterator
+   OUTPUT_A_REF   => 'A~REF',  # Input << Array ref
+   OUTPUT_G_REF   => 'G~REF',  # Input << Glob ref
+   OUTPUT_H_REF   => 'H~REF',  # Input << Hash ref
+   OUTPUT_I_REF   => 'I~REF',  # Input << Iter ref
    OUTPUT_A_CBK   => 'A~CBK',  # Callback w/ multiple args
    OUTPUT_S_CBK   => 'S~CBK',  # Callback w/ 1 scalar arg
    OUTPUT_N_CBK   => 'N~CBK',  # Callback w/ no args
@@ -256,6 +253,8 @@ use constant {
    OUTPUT_E_SYN   => 'E~SYN',  # Barrier sync - end
    OUTPUT_S_IPC   => 'S~IPC',  # Change to win32 IPC
    OUTPUT_P_NFY   => 'P~NFY',  # Progress notification
+   OUTPUT_S_DIR   => 'S~DIR',  # Make/get sess_dir
+   OUTPUT_T_DIR   => 'T~DIR',  # Make/get tmp_dir
    OUTPUT_I_DLY   => 'I~DLY',  # Interval delay
 
    READ_FILE      => 0,        # Worker reads file handle
@@ -263,6 +262,7 @@ use constant {
 
    REQUEST_ARRAY  => 0,        # Worker requests next array chunk
    REQUEST_GLOB   => 1,        # Worker requests next glob chunk
+   REQUEST_HASH   => 2,        # Worker requests next hash chunk
 
    SENDTO_FILEV1  => 0,        # Worker sends to 'file', $a, '/path'
    SENDTO_FILEV2  => 1,        # Worker sends to 'file:/path', $a
@@ -283,6 +283,8 @@ sub CLONE {
 }
 
 sub DESTROY {
+   CORE::kill('KILL', $$) if ($_is_MSWin32 && $MCE::Signal::KILLED);
+
    $_[0]->shutdown(1)
       if ( $_[0] && $_[0]->{_spawned} && $_[0]->{_init_pid} eq "$$.$_tid" );
 
@@ -312,7 +314,6 @@ my (%_plugin_function, @_plugin_loop_begin, @_plugin_loop_end);
 my (%_plugin_list, @_plugin_worker_init);
 
 sub _attach_plugin {
-
    my $_ext_module = caller;
 
    unless (exists $_plugin_list{$_ext_module}) {
@@ -356,7 +357,6 @@ sub _save_state    { $_prev_mce = $MCE; $MCE = $_[0]; return; }
 ###############################################################################
 
 sub new {
-
    my ($class, %self) = @_;
    my $_pkg = exists $self{pkg} ? delete $self{pkg} : caller;
 
@@ -403,8 +403,9 @@ sub new {
 
    if (!exists $self{posix_exit}) {
       $self{posix_exit} = 1 if (
-         ( $_has_threads && $_tid ) || $INC{'CGI.pm'} || $INC{'FCGI.pm'} ||
-         $INC{'Mojo/IOLoop.pm'} || $INC{'Tk.pm'} || $INC{'Wx.pm'} ||
+         ( $_has_threads && $_tid ) || $INC{'Mojo/IOLoop.pm'} ||
+         $INC{'Curses.pm'} || $INC{'CGI.pm'} || $INC{'FCGI.pm'} ||
+         $INC{'Prima.pm'} || $INC{'Tk.pm'} || $INC{'Wx.pm'} ||
          $INC{'Gearman/Util.pm'} || $INC{'Gearman/XS.pm'}
       );
    }
@@ -420,10 +421,12 @@ sub new {
    ## -------------------------------------------------------------------------
    ## Validation.
 
-   _croak("MCE::new: ($self{tmp_dir}) is not a directory or does not exist")
-      unless (-d $self{tmp_dir});
-   _croak("MCE::new: ($self{tmp_dir}) is not writeable")
-      unless (-w $self{tmp_dir});
+   if (defined $self{tmp_dir}) {
+      _croak("MCE::new: ($self{tmp_dir}) is not a directory or does not exist")
+         unless (-d $self{tmp_dir});
+      _croak("MCE::new: ($self{tmp_dir}) is not writeable")
+         unless (-w $self{tmp_dir});
+   }
 
    if (defined $self{user_tasks}) {
       _croak('MCE::new: (user_tasks) is not an ARRAY reference')
@@ -468,7 +471,7 @@ sub new {
    $self{_last_sref}  = (ref $self{input_data} eq 'SCALAR')
       ? refaddr($self{input_data}) : 0;
 
-   my $_data_channels = ($_oid eq "$$.$_tid") ? DATA_CHANNELS : 4;
+   my $_data_channels = ($_oid eq "$$.$_tid") ? DATA_CHANNELS : 2;
    my $_total_workers = 0;
 
    if (defined $self{user_tasks}) {
@@ -497,7 +500,6 @@ sub new {
 ###############################################################################
 
 sub spawn {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    local $_; @_ = ();
@@ -537,8 +539,11 @@ sub spawn {
       }
    }
 
-   my $_die_handler  = $SIG{__DIE__};  $SIG{__DIE__}  = \&_die;
-   my $_warn_handler = $SIG{__WARN__}; $SIG{__WARN__} = \&_warn;
+   my $_die_handler  = $SIG{__DIE__};
+   my $_warn_handler = $SIG{__WARN__};
+
+   $SIG{__DIE__}  = \&MCE::Signal::_die_handler;
+   $SIG{__WARN__} = \&MCE::Signal::_warn_handler;
 
    if (!defined $TOP_HDLR || (!$TOP_HDLR->{_mgr_live} && !$TOP_HDLR->{_wid})) {
       ## On Windows, must shutdown the last idle MCE session.
@@ -560,33 +565,6 @@ sub spawn {
 
          1 until sysread($_DAT_W_SOCK, my($_buf), 1) || ($! && !$!{'EINTR'});
       }
-   }
-
-   ## Configure tid/sid for this instance here, not in the new method above.
-   ## We want the actual thread id in which spawn was called under.
-   unless ($self->{_mce_sid}) {
-      $self->{_mce_tid} = ($_has_threads) ? threads->tid() : '';
-      $self->{_mce_tid} = '' unless (defined $self->{_mce_tid});
-      $self->{_mce_sid} = $$ .'.'. $self->{_mce_tid} .'.'. (++$_mce_count);
-   }
-
-   my $_mce_sid  = $self->{_mce_sid};
-   my $_sess_dir = $self->{_sess_dir};
-   my $_tmp_dir  = $self->{tmp_dir};
-
-   ## Create temp dir.
-   unless ($_sess_dir) {
-      _croak("MCE::spawn: ($_tmp_dir) is not defined")
-         if (!defined $_tmp_dir || $_tmp_dir eq '');
-      _croak("MCE::spawn: ($_tmp_dir) is not a directory or does not exist")
-         unless (-d $_tmp_dir);
-      _croak("MCE::spawn: ($_tmp_dir) is not writeable")
-         unless (-w $_tmp_dir);
-
-      my $_cnt = 0; $_sess_dir = $self->{_sess_dir} = "$_tmp_dir/$_mce_sid";
-
-      $_sess_dir = $self->{_sess_dir} = "$_tmp_dir/$_mce_sid." . (++$_cnt)
-         while ( !(mkdir $_sess_dir, 0770) );
    }
 
    ## -------------------------------------------------------------------------
@@ -618,7 +596,7 @@ sub spawn {
       : MCE::Util::_sock_pair($self, qw(_que_r_sock _que_w_sock));
 
    if (defined $self->{init_relay}) {                               # relay
-      unless (defined $MCE::Relay::VERSION) {
+      unless (exists $INC{'MCE/Relay.pm'}) {
          require MCE::Relay; MCE::Relay->import();
       }
       MCE::Util::_sock_pair($self, qw(_rla_r_sock _rla_w_sock), $_)
@@ -728,30 +706,31 @@ sub spawn {
 ###############################################################################
 
 sub forchunk {
-   require MCE::Candy unless (defined $MCE::Candy::VERSION);
+   require MCE::Candy unless $INC{'MCE/Candy.pm'};
    return  MCE::Candy::forchunk(@_);
 }
 sub foreach {
-   require MCE::Candy unless (defined $MCE::Candy::VERSION);
+   require MCE::Candy unless $INC{'MCE/Candy.pm'};
    return  MCE::Candy::foreach(@_);
 }
 sub forseq {
-   require MCE::Candy unless (defined $MCE::Candy::VERSION);
+   require MCE::Candy unless $INC{'MCE/Candy.pm'};
    return  MCE::Candy::forseq(@_);
 }
 
 sub process {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    _validate_runstate($self, 'MCE::process');
 
-   my ($_input_data, $_params_ref);
+   my ($_params_ref, $_input_data);
 
-   if (ref $_[0] eq 'HASH') {
-      $_input_data = $_[1]; $_params_ref = $_[0];
+   if (ref $_[0] eq 'HASH' && ref $_[1] eq 'HASH') {
+      $_params_ref = $_[0], $_input_data = $_[1];
+   } elsif (ref $_[0] eq 'HASH') {
+      $_params_ref = $_[0], $_input_data = $_[1];
    } else {
-      $_input_data = $_[0]; $_params_ref = $_[1];
+      $_params_ref = $_[1], $_input_data = $_[0];
    }
 
    @_ = ();
@@ -792,7 +771,6 @@ sub relay (;&) {
 ###############################################################################
 
 sub restart_worker {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    @_ = ();
@@ -835,7 +813,6 @@ sub restart_worker {
 ###############################################################################
 
 sub run {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    _croak('MCE::run: method is not allowed by the worker process')
@@ -862,7 +839,7 @@ sub run {
    $_params_ref = undef if ($self->{_send_cnt});
 
    if (!defined $self->{user_func} && !defined $_params_ref->{user_func}) {
-      $self->{user_func} = \&_NOOP;
+      $self->{user_func} = \&MCE::Signal::_NOOP;
    }
 
    ## Set user specified params if specified.
@@ -901,8 +878,8 @@ sub run {
    $self->spawn() unless ($self->{_spawned});
    return $self   unless ($self->{_total_workers});
 
-   local $SIG{__DIE__}  = \&_die;
-   local $SIG{__WARN__} = \&_warn;
+   local $SIG{__DIE__}  = \&MCE::Signal::_die_handler;
+   local $SIG{__WARN__} = \&MCE::Signal::_warn_handler;
 
    $MCE = $self if ($MCE->{_wid} == 0);
 
@@ -916,7 +893,7 @@ sub run {
 
    ## Determine run mode for workers.
    if (defined $_seq) {
-      my ($_begin, $_end, $_step, $_fmt) = (ref $_seq eq 'ARRAY')
+      my ($_begin, $_end, $_step) = (ref $_seq eq 'ARRAY')
          ? @{ $_seq } : ($_seq->{begin}, $_seq->{end}, $_seq->{step});
 
       $_chunk_size = $self->{user_tasks}->[0]->{chunk_size}
@@ -929,7 +906,19 @@ sub run {
    elsif (defined $self->{input_data}) {
       my $_ref = ref $self->{input_data};
 
-      if ($_ref eq 'ARRAY') {                         # Array mode
+      if ($_ref eq '') {                              # File mode
+         $_run_mode   = 'file';
+         $_input_file = $self->{input_data};
+         $_input_data = $_input_glob = undef;
+         $_abort_msg  = (-s $_input_file) + 1;
+         $_first_msg  = 0; ## Begin at offset position
+
+         if ((-s $_input_file) == 0) {
+            $self->shutdown() if ($_auto_shutdown == 1);
+            return $self;
+         }
+      }
+      elsif ($_ref eq 'ARRAY') {                      # Array mode
          $_run_mode   = 'array';
          $_input_data = $self->{input_data};
          $_input_file = $_input_glob = undef;
@@ -938,7 +927,20 @@ sub run {
          $_first_msg  = 1; ## Flag: Has Data: Yes
 
          if (@{ $_input_data } == 0) {
-            return $self->shutdown() if ($_auto_shutdown == 1);
+            $self->shutdown() if ($_auto_shutdown == 1);
+            return $self;
+         }
+      }
+      elsif ($_ref eq 'HASH') {                       # Hash mode
+         $_run_mode   = 'hash';
+         $_input_data = $self->{input_data};
+         $_input_file = $_input_glob = undef;
+         $_abort_msg  = 0; ## Flag: Has Data: No
+         $_first_msg  = 1; ## Flag: Has Data: Yes
+
+         if (scalar( keys %{ $_input_data } ) == 0) {
+            $self->shutdown() if ($_auto_shutdown == 1);
+            return $self;
          }
       }
       elsif ($_ref =~ /^(?:GLOB|FileHandle|IO::)/) {  # Glob mode
@@ -954,17 +956,6 @@ sub run {
          $_input_file = $_input_glob = undef;
          $_abort_msg  = 0; ## Flag: Has Data: No
          $_first_msg  = 1; ## Flag: Has Data: Yes
-      }
-      elsif ($_ref eq '') {                           # File mode
-         $_run_mode   = 'file';
-         $_input_file = $self->{input_data};
-         $_input_data = $_input_glob = undef;
-         $_abort_msg  = (-s $_input_file) + 1;
-         $_first_msg  = 0; ## Begin at offset position
-
-         if ((-s $_input_file) == 0) {
-            return $self->shutdown() if ($_auto_shutdown == 1);
-         }
       }
       elsif ($_ref eq 'SCALAR') {                     # Memory mode
          $_run_mode   = 'memory';
@@ -1043,18 +1034,15 @@ sub run {
 
       ## Submit params data to workers.
       for my $_i (1 .. $_total_workers) {
-         print {$_COM_R_SOCK} $_i.$LF;
-         chomp($_wid = <$_COM_R_SOCK>);
+         print({$_COM_R_SOCK} $_i.$LF), chomp($_wid = <$_COM_R_SOCK>);
 
          if (!$_has_user_tasks || exists $_task0_wids{$_wid}) {
-            print {$_COM_R_SOCK} $_frozen_params;
+            print({$_COM_R_SOCK} $_frozen_params), <$_COM_R_SOCK>;
             $self->{_state}[$_wid]{_params} = \%_params;
          } else {
-            print {$_COM_R_SOCK} $_frozen_nodata;
+            print({$_COM_R_SOCK} $_frozen_nodata), <$_COM_R_SOCK>;
             $self->{_state}[$_wid]{_params} = \%_params_nodata;
          }
-
-         <$_COM_R_SOCK>;
 
          if (defined $_submit_delay && $_submit_delay > 0.0) {
             sleep $_submit_delay;
@@ -1112,7 +1100,8 @@ sub run {
    elsif ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
       if (
          !$INC{'Gearman/XS.pm'} && !$INC{'Gearman/Util.pm'} &&
-         !$INC{'Mojo/IOLoop.pm'} && !$INC{'Tk.pm'} && !$INC{'Wx.pm'}
+         !$INC{'Prima.pm'} && !$INC{'Tk.pm'} && !$INC{'Wx.pm'} &&
+         !$INC{'Mojo/IOLoop.pm'}
       ) {
          # running inside eval or IPerl, check stack trace
          my $_t = Carp::longmess(); $_t =~ s/\teval [^\n]+\n$//;
@@ -1137,7 +1126,6 @@ sub run {
 ###############################################################################
 
 sub send {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    _croak('MCE::send: method is not allowed by the worker process')
@@ -1170,24 +1158,20 @@ sub send {
    _croak('MCE::send: Sending greater than # of workers is not allowed')
       if ($self->{_send_cnt} >= $self->{_task}->[0]->{_total_workers});
 
-   local $SIG{__DIE__}  = \&_die;
-   local $SIG{__WARN__} = \&_warn;
+   local $SIG{__DIE__}  = \&MCE::Signal::_die_handler;
+   local $SIG{__WARN__} = \&MCE::Signal::_warn_handler;
 
    ## Begin data submission.
    local $\ = undef; local $/ = $LF;
 
    my $_COM_R_SOCK   = $self->{_com_r_sock};
-   my $_sess_dir     = $self->{_sess_dir};
    my $_submit_delay = $self->{submit_delay};
    my $_frozen_data  = $self->{freeze}($_data_ref);
    my $_len          = length $_frozen_data;
 
    ## Submit data to worker.
-   print {$_COM_R_SOCK} '_data'.$LF;
-   <$_COM_R_SOCK>;
-
-   print {$_COM_R_SOCK} $_len.$LF, $_frozen_data;
-   <$_COM_R_SOCK>;
+   print({$_COM_R_SOCK} '_data'.$LF), <$_COM_R_SOCK>;
+   print({$_COM_R_SOCK} $_len.$LF, $_frozen_data), <$_COM_R_SOCK>;
 
    if (defined $_submit_delay && $_submit_delay > 0.0) {
       sleep $_submit_delay;
@@ -1205,29 +1189,35 @@ sub send {
 ###############################################################################
 
 sub shutdown {
-
    my $self = shift; $self = $MCE unless ref($self);
    my $_no_lock = shift || 0;
 
    @_ = ();
 
-   ## Return if workers have not been spawned or have already been shutdown.
-   return unless ($self->{_spawned});
-   return unless (defined $MCE::Signal::tmp_dir);
+   ## Return unless spawned or already shutdown.
+   return unless $self->{_spawned};
+
+   ## Return if signaled.
+   if (defined $MCE::Signal::KILLED) {
+      if (defined $self->{_sess_dir}) {
+         my $_sess_dir = delete $self->{_sess_dir};
+         rmdir $_sess_dir if -d $_sess_dir;
+      }
+      return;
+   }
 
    _validate_runstate($self, 'MCE::shutdown');
 
-   ## Wait for workers to complete processing before shutting down.
+   ## Complete processing before shutting down.
    $self->run(0) if ($self->{_send_cnt});
 
-   local $SIG{__DIE__}  = \&_die;
-   local $SIG{__WARN__} = \&_warn;
+   local $SIG{__DIE__}  = \&MCE::Signal::_die_handler;
+   local $SIG{__WARN__} = \&MCE::Signal::_warn_handler;
 
    my $_COM_R_SOCK     = $self->{_com_r_sock};
    my $_data_channels  = $self->{_data_channels};
    my $_total_workers  = $self->{_total_workers};
    my $_sess_dir       = $self->{_sess_dir};
-   my $_mce_sid        = $self->{_mce_sid};
 
    if (defined $TOP_HDLR && refaddr($self) == refaddr($TOP_HDLR)) {
       $TOP_HDLR = undef;
@@ -1241,8 +1231,7 @@ sub shutdown {
    local ($!, $?, $_); local $\ = undef; local $/ = $LF;
 
    for (1 .. $_total_workers) {
-      print {$_COM_R_SOCK} '_exit'.$LF;
-      <$_COM_R_SOCK>;
+      print({$_COM_R_SOCK} '_exit'.$LF), <$_COM_R_SOCK>;
    }
 
    ## Reap children and/or threads.
@@ -1274,23 +1263,20 @@ sub shutdown {
 
    ## -------------------------------------------------------------------------
 
-   ## Destroy locks. Remove the session directory afterwards.
-   if (defined $_sess_dir) {
-      for my $_i (0 .. $_data_channels) {
-         delete $self->{'_mutex_'.$_i};
-      }
-      rmdir "$_sess_dir";
-   }
+   ## Destroy mutexes.
+   for my $_i (0 .. $_data_channels) { delete $self->{'_mutex_'.$_i}; }
+
+   ## Remove session directory.
+   rmdir $_sess_dir if (defined $_sess_dir && -d $_sess_dir);
 
    ## Reset instance.
    undef @{$self->{_pids}};  undef @{$self->{_thrs}};   undef @{$self->{_tids}};
    undef @{$self->{_state}}; undef @{$self->{_status}}; undef @{$self->{_task}};
 
-   $self->{_mce_sid}  = $self->{_mce_tid}  = $self->{_sess_dir} = undef;
-   $self->{_chunk_id} = $self->{_send_cnt} = $self->{_spawned}  = 0;
-
+   $self->{_chunk_id} = $self->{_send_cnt} = $self->{_spawned} = 0;
    $self->{_total_running} = $self->{_total_exited} = 0;
    $self->{_total_workers} = 0;
+   $self->{_sess_dir} = undef;
 
    return;
 }
@@ -1302,7 +1288,6 @@ sub shutdown {
 ###############################################################################
 
 sub sync {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    return unless ($self->{_wid});
@@ -1337,7 +1322,6 @@ sub sync {
 }
 
 sub yield {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    return unless ($self->{_wid});
@@ -1349,9 +1333,12 @@ sub yield {
    my $_lock_chn   = $self->{_lock_chn};
    my $_delay;
 
+   local $\ = undef if (defined $\);
+   local $/ = $LF if (!$/ || $/ ne $LF);
+
    $_DAT_LOCK->lock() if $_lock_chn;
-   print {$_DAT_W_SOCK} OUTPUT_I_DLY.$LF . $_chn.$LF;
-   print {$_DAU_W_SOCK} $self->{_task_id}.$LF;
+   print({$_DAT_W_SOCK} OUTPUT_I_DLY.$LF . $_chn.$LF),
+   print({$_DAU_W_SOCK} $self->{_task_id}.$LF);
    chomp($_delay = <$_DAU_W_SOCK>);
    $_DAT_LOCK->unlock() if $_lock_chn;
 
@@ -1362,14 +1349,13 @@ sub yield {
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Miscellaneous methods: abort exit last next pid status.
+## Miscellaneous methods: abort exit last next pid sess_dir status tmp_dir.
 ##
 ###############################################################################
 
 ## Abort current job.
 
 sub abort {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    my $_QUE_R_SOCK = $self->{_que_r_sock};
@@ -1407,7 +1393,6 @@ sub abort {
 ## Worker exits from MCE.
 
 sub exit {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    my $_exit_status = (defined $_[0]) ? $_[0] : $?;
@@ -1425,7 +1410,6 @@ sub exit {
    my $_DAU_W_SOCK = $self->{_dat_w_sock}->[$_chn];
    my $_lock_chn   = $self->{_lock_chn};
    my $_task_id    = $self->{_task_id};
-   my $_sess_dir   = $self->{_sess_dir};
 
    unless ($self->{_exiting}) {
       $self->{_exiting} = 1;
@@ -1434,21 +1418,24 @@ sub exit {
       my $_len = length $_exit_msg;
 
       $_exit_id =~ s/[\r\n][\r\n]*/ /mg;
-
       $_DAT_LOCK->lock() if $_lock_chn;
-
-      print {$_DAT_W_SOCK} OUTPUT_W_EXT.$LF . $_chn.$LF;
-      print {$_DAU_W_SOCK}
-         $_task_id.$LF . $self->{_wid}.$LF . $self->{_exit_pid}.$LF .
-         $_exit_status.$LF . $_exit_id.$LF . $_len.$LF . $_exit_msg
-      ;
 
       if ($self->{_retry} && $self->{_retry}->[2]--) {
          my $_buf = $self->{freeze}($self->{_retry});
-         print {$_DAU_W_SOCK} length($_buf).$LF, $_buf;
+         print({$_DAT_W_SOCK} OUTPUT_W_EXT.$LF . $_chn.$LF),
+         print({$_DAU_W_SOCK}
+            $_task_id.$LF . $self->{_wid}.$LF . $self->{_exit_pid}.$LF .
+            $_exit_status.$LF . $_exit_id.$LF . $_len.$LF . $_exit_msg .
+            length($_buf).$LF, $_buf
+         );
       }
       else {
-         print {$_DAU_W_SOCK} '0'.$LF;
+         print({$_DAT_W_SOCK} OUTPUT_W_EXT.$LF . $_chn.$LF),
+         print({$_DAU_W_SOCK}
+            $_task_id.$LF . $self->{_wid}.$LF . $self->{_exit_pid}.$LF .
+            $_exit_status.$LF . $_exit_id.$LF . $_len.$LF . $_exit_msg .
+            '0'.$LF
+         );
       }
 
       $_DAT_LOCK->unlock() if $_lock_chn;
@@ -1460,7 +1447,6 @@ sub exit {
 ## Worker immediately exits the chunking loop.
 
 sub last {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    _croak('MCE::last: method is not allowed by the manager process')
@@ -1474,7 +1460,6 @@ sub last {
 ## Worker starts the next iteration of the chunking loop.
 
 sub next {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    _croak('MCE::next: method is not allowed by the manager process')
@@ -1488,7 +1473,6 @@ sub next {
 ## Return the process ID. Attach the thread ID for threads.
 
 sub pid {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    if (defined $self->{_pid}) {
@@ -1500,17 +1484,75 @@ sub pid {
    }
 }
 
+## Return the session dir, made on demand.
+
+sub sess_dir {
+   my $self = shift; $self = $MCE unless ref($self);
+   return $self->{_sess_dir} if defined $self->{_sess_dir};
+
+   if ($self->{_wid} == 0) {
+      $self->{_sess_dir} = $self->{_spawned}
+         ? _make_sessdir($self) : undef;
+   }
+   else {
+      my $_chn        = $self->{_chn};
+      my $_DAT_LOCK   = $self->{_dat_lock};
+      my $_DAT_W_SOCK = $self->{_dat_w_sock}->[0];
+      my $_DAU_W_SOCK = $self->{_dat_w_sock}->[$_chn];
+      my $_lock_chn   = $self->{_lock_chn};
+      my $_sess_dir;
+
+      local $\ = undef if (defined $\);
+      local $/ = $LF if (!$/ || $/ ne $LF);
+
+      $_DAT_LOCK->lock() if $_lock_chn;
+      print({$_DAT_W_SOCK} OUTPUT_S_DIR.$LF . $_chn.$LF);
+      chomp($_sess_dir = <$_DAU_W_SOCK>);
+      $_DAT_LOCK->unlock() if $_lock_chn;
+
+      $self->{_sess_dir} = $_sess_dir;
+   }
+}
+
 ## Return the exit status. "_wrk_status" holds the greatest exit status
 ## among workers exiting.
 
 sub status {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    _croak('MCE::status: method is not allowed by the worker process')
       if ($self->{_wid});
 
    return (defined $self->{_wrk_status}) ? $self->{_wrk_status} : 0;
+}
+
+## Return the temp dir, made on demand.
+
+sub tmp_dir {
+   my $self = shift; $self = $MCE unless ref($self);
+   return $self->{tmp_dir} if defined $self->{tmp_dir};
+
+   if ($self->{_wid} == 0) {
+      $self->{tmp_dir} = MCE::Signal::_make_tmpdir();
+   }
+   else {
+      my $_chn        = $self->{_chn};
+      my $_DAT_LOCK   = $self->{_dat_lock};
+      my $_DAT_W_SOCK = $self->{_dat_w_sock}->[0];
+      my $_DAU_W_SOCK = $self->{_dat_w_sock}->[$_chn];
+      my $_lock_chn   = $self->{_lock_chn};
+      my $_tmp_dir;
+
+      local $\ = undef if (defined $\);
+      local $/ = $LF if (!$/ || $/ ne $LF);
+
+      $_DAT_LOCK->lock() if $_lock_chn;
+      print({$_DAT_W_SOCK} OUTPUT_T_DIR.$LF . $_chn.$LF);
+      chomp($_tmp_dir = <$_DAU_W_SOCK>);
+      $_DAT_LOCK->unlock() if $_lock_chn;
+
+      $self->{tmp_dir} = $_tmp_dir;
+   }
 }
 
 ###############################################################################
@@ -1522,7 +1564,6 @@ sub status {
 ## Do method. Additional arguments are optional.
 
 sub do {
-
    my $self = shift; $self = $MCE unless ref($self);
    my $_pkg = caller() eq 'MCE' ? caller(1) : caller();
 
@@ -1545,7 +1586,6 @@ sub do {
 ## Gather method.
 
 sub gather {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    _croak('MCE::gather: method is not allowed by the manager process')
@@ -1629,7 +1669,6 @@ sub gather {
 ###############################################################################
 
 sub print {
-
    my $self = shift; $self = $MCE unless ref($self);
    my ($_fd, $_glob, $_data_ref);
 
@@ -1657,7 +1696,6 @@ sub print {
 }
 
 sub printf {
-
    my $self = shift; $self = $MCE unless ref($self);
    my ($_fd, $_glob, $_fmt, $_data);
 
@@ -1680,7 +1718,6 @@ sub printf {
 }
 
 sub say {
-
    my $self = shift; $self = $MCE unless ref($self);
    my ($_fd, $_glob, $_data);
 
@@ -1707,22 +1744,16 @@ sub say {
 ##
 ###############################################################################
 
-sub _die  { return MCE::Signal->_die_handler(@_); }
-sub _warn { return MCE::Signal->_warn_handler(@_); }
-sub _NOOP {}
-
 sub _croak {
-
    if (MCE->wid == 0 || ! $^S) {
-      $SIG{__DIE__}  = \&MCE::_die;
-      $SIG{__WARN__} = \&MCE::_warn;
+      $SIG{__DIE__}  = \&MCE::Signal::_die_handler;
+      $SIG{__WARN__} = \&MCE::Signal::_warn_handler;
    }
 
    $\ = undef; goto &Carp::croak;
 }
 
 sub _exit {
-
    my $self = shift;
 
    ## Exit thread/child process.
@@ -1733,6 +1764,7 @@ sub _exit {
       threads->exit(0);
    }
    elsif ($self->{posix_exit} && !$_is_MSWin32) {
+      eval { MCE::Mutex::Channel::_destroy() };
       CORE::kill('KILL', $$);
    }
 
@@ -1740,7 +1772,6 @@ sub _exit {
 }
 
 sub _get_max_workers {
-
    my $self = shift; $self = $MCE unless ref($self);
 
    if (defined $self->{user_tasks}) {
@@ -1752,8 +1783,38 @@ sub _get_max_workers {
    return $self->{max_workers};
 }
 
-sub _sprintf {
+sub _make_sessdir {
+   my $self = shift; $self = $MCE unless ref($self);
 
+   my $_sess_dir = $self->{_sess_dir};
+
+   unless (defined $_sess_dir) {
+      $self->{tmp_dir} = MCE::Signal::_make_tmpdir()
+         unless defined $self->{tmp_dir};
+
+      my $_mce_tid = $_has_threads ? threads->tid() : '';
+         $_mce_tid = '' unless defined $self->{_mce_tid};
+
+      my $_mce_sid = $$ .'.'. $_mce_tid .'.'. (++$_mce_count);
+      my $_tmp_dir = $self->{tmp_dir};
+
+      _croak("MCE::sess_dir: (tmp_dir) is not defined")
+         if (!defined $_tmp_dir || $_tmp_dir eq '');
+      _croak("MCE::sess_dir: ($_tmp_dir) is not a directory or does not exist")
+         unless (-d $_tmp_dir);
+      _croak("MCE::sess_dir: ($_tmp_dir) is not writeable")
+         unless (-w $_tmp_dir);
+
+      my $_cnt = 0; $_sess_dir = "$_tmp_dir/$_mce_sid";
+
+      $_sess_dir = "$_tmp_dir/$_mce_sid." . (++$_cnt)
+         while ( !(mkdir $_sess_dir, 0770) );
+   }
+
+   return $_sess_dir;
+}
+
+sub _sprintf {
    my ($_fmt, $_arg) = @_;
 
    # remove tainted'ness
@@ -1763,7 +1824,6 @@ sub _sprintf {
 }
 
 sub _sync_buffer_to_array {
-
    my ($_buffer_ref, $_array_ref, $_chop_str) = @_;
 
    local $_; my $_cnt = 0;
@@ -1789,7 +1849,6 @@ sub _sync_buffer_to_array {
 }
 
 sub _sync_params {
-
    my ($self, $_params_ref) = @_;
    my $_requires_shutdown = 0;
 
@@ -1819,7 +1878,6 @@ sub _sync_params {
 ###############################################################################
 
 sub _dispatch {
-
    my @_args = @_; my $_is_thread = shift @_args;
    my $self = $MCE = $_args[0];
 
@@ -1827,6 +1885,10 @@ sub _dispatch {
    @_ = ();
 
    $ENV{'PERL_MCE_IPC'} = 'win32' if ($_is_MSWin32 && $INC{'MCE/Hobo.pm'});
+
+   if (!$_is_thread && UNIVERSAL::can('Prima', 'cleanup')) {
+      no warnings 'redefine'; local $@; eval '*Prima::cleanup = sub {}';
+   }
 
    ## Sets the seed of the base generator uniquely between workers.
    ## The new seed is computed using the current seed and $_wid value.
@@ -1858,7 +1920,6 @@ sub _dispatch {
 }
 
 sub _dispatch_thread {
-
    my ($self, $_wid, $_task, $_task_id, $_task_wid, $_params) = @_;
 
    @_ = (); local $_;
@@ -1890,7 +1951,6 @@ sub _dispatch_thread {
 }
 
 sub _dispatch_child {
-
    my ($self, $_wid, $_task, $_task_id, $_task_wid, $_params) = @_;
 
    @_ = (); local $_;

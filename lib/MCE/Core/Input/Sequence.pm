@@ -14,7 +14,7 @@ package MCE::Core::Input::Sequence;
 use strict;
 use warnings;
 
-our $VERSION = '1.827';
+our $VERSION = '1.828';
 
 ## Items below are folded into MCE.
 
@@ -50,18 +50,22 @@ sub _worker_sequence_queue {
    my $_wuf         = $self->{_wuf};
 
    my ($_next, $_chunk_id, $_seq_n, $_begin, $_end, $_step, $_fmt);
-   my ($_dat_ex, $_dat_un, $_abort, $_offset);
+   my ($_dat_ex, $_dat_un, $_pid, $_abort, $_offset);
 
    if ($_lock_chn) {
+      $_pid = $INC{'threads.pm'} ? $$ .'.'. threads->tid() : $$;
+
       # inlined for performance
       if ($self->{_data_channels} > 6) {
          $_DAT_LOCK = $self->{'_mutex_'.( $self->{_wid} % 6 + 1 )};
       }
       $_dat_ex = sub {
-         1 until sysread($_DAT_LOCK->{_r_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
+         sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
+            unless $_DAT_LOCK->{ $_pid };
       };
       $_dat_un = sub {
-         1 until syswrite($_DAT_LOCK->{_w_sock}, '0') || ($! && !$!{'EINTR'});
+         syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
+            if $_DAT_LOCK->{ $_pid };
       };
    }
 
