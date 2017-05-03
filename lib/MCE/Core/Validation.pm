@@ -14,7 +14,7 @@ package MCE::Core::Validation;
 use strict;
 use warnings;
 
-our $VERSION = '1.828';
+our $VERSION = '1.829';
 
 ## Items below are folded into MCE.
 
@@ -42,13 +42,6 @@ sub _validate_args {
          unless (-e $_s->{input_data});
    }
 
-   _croak("$_tag: (use_slurpio) is not 0 or 1")
-      if ($_s->{use_slurpio} && $_s->{use_slurpio} !~ /\A[01]\z/);
-   _croak("$_tag: (parallel_io) is not 0 or 1")
-      if ($_s->{parallel_io} && $_s->{parallel_io} !~ /\A[01]\z/);
-   _croak("$_tag: (posix_exit) is not 0 or 1")
-      if ($_s->{posix_exit} && $_s->{posix_exit} !~ /\A[01]\z/);
-
    _croak("$_tag: (job_delay) is not valid")
       if ($_s->{job_delay} && (!looks_like_number($_s->{job_delay}) ||
          $_s->{job_delay} < 0));
@@ -72,13 +65,6 @@ sub _validate_args {
       if ($_s->{user_error} && ref $_s->{user_error} ne 'CODE');
    _croak("$_tag: (user_output) is not a CODE reference")
       if ($_s->{user_output} && ref $_s->{user_output} ne 'CODE');
-
-   _croak("$_tag: (flush_file) is not 0 or 1")
-      if ($_s->{flush_file} && $_s->{flush_file} !~ /\A[01]\z/);
-   _croak("$_tag: (flush_stderr) is not 0 or 1")
-      if ($_s->{flush_stderr} && $_s->{flush_stderr} !~ /\A[01]\z/);
-   _croak("$_tag: (flush_stdout) is not 0 or 1")
-      if ($_s->{flush_stdout} && $_s->{flush_stdout} !~ /\A[01]\z/);
 
    _croak("$_tag: (loop_timeout) is not valid")
       if ($_s->{loop_timeout} && !looks_like_number($_s->{loop_timeout}));
@@ -113,6 +99,7 @@ sub _validate_args_s {
 
    if (defined $_s->{max_workers}) {
       $_s->{max_workers} = _parse_max_workers($_s->{max_workers});
+
       _croak("$_tag: (max_workers) is not valid")
          if ($_s->{max_workers} !~ /\A\d+\z/);
    }
@@ -136,8 +123,6 @@ sub _validate_args_s {
       if ($_s->{RS} && ref $_s->{RS} ne '');
    _croak("$_tag: (max_retries) is not valid")
       if ($_s->{max_retries} && $_s->{max_retries} !~ /\A\d+\z/);
-   _croak("$_tag: (use_threads) is not 0 or 1")
-      if ($_s->{use_threads} && $_s->{use_threads} !~ /\A[01]\z/);
 
    _croak("$_tag: (progress) is not a CODE reference")
       if ($_s->{progress} && ref $_s->{progress} ne 'CODE');
@@ -150,6 +135,7 @@ sub _validate_args_s {
 
    if (defined $_s->{gather}) {
       my $_ref = ref $_s->{gather};
+
       _croak("$_tag: (gather) is not a valid reference")
          if ( $_ref ne 'MCE::Queue' && $_ref ne 'Thread::Queue' &&
               $_ref ne 'ARRAY' && $_ref ne 'HASH' && $_ref ne 'CODE' );

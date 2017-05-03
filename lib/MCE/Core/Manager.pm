@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.828';
+our $VERSION = '1.829';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -769,7 +769,7 @@ sub _output_loop {
    $_has_user_tasks = (defined $self->{user_tasks}) ? 1 : 0;
    $_cs_one_flag = ($self->{chunk_size} == 1) ? 1 : 0;
 
-   $_max_retries  = $self->{max_retries};
+   $_max_retries  = $self->{max_retries} || 0;
    $_on_post_exit = $self->{on_post_exit};
    $_on_post_run  = $self->{on_post_run};
    $_chunk_size   = $self->{chunk_size};

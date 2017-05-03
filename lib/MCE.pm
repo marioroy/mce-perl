@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.828';
+our $VERSION = '1.829';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -200,11 +200,6 @@ sub import {
    }
 
    return if $_imported++;
-
-   ## Preload essential modules.
-   require MCE::Core::Validation;
-   require MCE::Core::Manager;
-   require MCE::Core::Worker;
 
    no strict 'refs'; no warnings 'redefine';
    *{ 'MCE::_parse_max_workers' } = \&MCE::Util::_parse_max_workers;
@@ -410,14 +405,6 @@ sub new {
       );
    }
 
-   $self{flush_file}   ||= 0;
-   $self{flush_stderr} ||= 0;
-   $self{flush_stdout} ||= 0;
-   $self{loop_timeout} ||= 0;
-   $self{max_retries}  ||= 0;
-   $self{parallel_io}  ||= 0;
-   $self{use_slurpio}  ||= 0;
-
    ## -------------------------------------------------------------------------
    ## Validation.
 
@@ -449,6 +436,8 @@ sub new {
          bless($_task, ref(\%self) || \%self);
       }
    }
+
+   require MCE::Core::Validation unless $INC{'MCE/Core/Validation.pm'};
 
    _validate_args(\%self);
 
@@ -513,19 +502,21 @@ sub spawn {
    lock $_MCE_LOCK if $_has_threads;  # Obtain locks
    lock $_WIN_LOCK if $_is_MSWin32;
 
-   sleep 0.01 if ($_tid && !$self->{use_threads});
+   sleep 0.015 if ($_tid && !$self->{use_threads});
 
    ## Start the shared-manager process if present.
    MCE::Shared->start() if $INC{'MCE/Shared.pm'};
 
-   ## Load input module.
+   ## Load worker and input modules.
+   require MCE::Core::Worker unless $INC{'MCE/Core/Worker.pm'};
+
    if (defined $self->{sequence}) {
       require MCE::Core::Input::Sequence
          unless $INC{'MCE/Core/Input/Sequence.pm'};
    }
    elsif (defined $self->{input_data}) {
       my $_ref = ref $self->{input_data};
-      if ($_ref eq 'ARRAY' || $_ref =~ /^(?:GLOB|FileHandle|IO::)/) {
+      if ($_ref =~ /^(?:ARRAY|HASH|GLOB|FileHandle|IO::)/) {
          require MCE::Core::Input::Request
             unless $INC{'MCE/Core/Input/Request.pm'};
       }
@@ -701,22 +692,9 @@ sub spawn {
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## "for" sugar methods, process method, and relay stubs for MCE::Relay.
+## Process method, relay stubs, and AUTOLOAD for methods not used often.
 ##
 ###############################################################################
-
-sub forchunk {
-   require MCE::Candy unless $INC{'MCE/Candy.pm'};
-   return  MCE::Candy::forchunk(@_);
-}
-sub foreach {
-   require MCE::Candy unless $INC{'MCE/Candy.pm'};
-   return  MCE::Candy::foreach(@_);
-}
-sub forseq {
-   require MCE::Candy unless $INC{'MCE/Candy.pm'};
-   return  MCE::Candy::forseq(@_);
-}
 
 sub process {
    my $self = shift; $self = $MCE unless ref($self);
@@ -750,19 +728,89 @@ sub process {
    return $self;
 }
 
-sub relay_final {}
-
-sub relay_recv {
-   _croak('MCE::relay: (init_relay) is not specified')
-      unless (defined $MCE->{init_relay});
-}
 sub relay (;&) {
    _croak('MCE::relay: (init_relay) is not specified')
       unless (defined $MCE->{init_relay});
 }
 
-*relay_lock   = \&relay_recv;
 *relay_unlock = \&relay;
+
+sub AUTOLOAD {
+   # $AUTOLOAD = MCE::<method_name>
+
+   my $_fn  = substr($MCE::AUTOLOAD, 5);
+   my $self = shift; $self = $MCE unless ref($self);
+
+   # "for" sugar methods
+
+   if ($_fn eq 'forchunk') {
+      require MCE::Candy unless $INC{'MCE/Candy.pm'};
+      return  MCE::Candy::forchunk($self, @_);
+   }
+   elsif ($_fn eq 'foreach') {
+      require MCE::Candy unless $INC{'MCE/Candy.pm'};
+      return  MCE::Candy::foreach($self, @_);
+   }
+   elsif ($_fn eq 'forseq') {
+      require MCE::Candy unless $INC{'MCE/Candy.pm'};
+      return  MCE::Candy::forseq($self, @_);
+   }
+
+   # relay stubs for MCE::Relay
+
+   if ($_fn eq 'relay_lock' || $_fn eq 'relay_recv') {
+      _croak('MCE::relay: (init_relay) is not specified')
+         unless (defined $MCE->{init_relay});
+   }
+   elsif ($_fn eq 'relay_final') {
+      return;
+   }
+
+   # worker immediately exits the chunking loop
+
+   if ($_fn eq 'last') {
+      _croak('MCE::last: method is not allowed by the manager process')
+         unless ($self->{_wid});
+
+      $self->{_last_jmp}() if (defined $self->{_last_jmp});
+
+      return;
+   }
+
+   # worker starts the next iteration of the chunking loop
+
+   elsif ($_fn eq 'next') {
+      _croak('MCE::next: method is not allowed by the manager process')
+         unless ($self->{_wid});
+
+      $self->{_next_jmp}() if (defined $self->{_next_jmp});
+
+      return;
+   }
+
+   # return the process ID, include thread ID for threads
+
+   elsif ($_fn eq 'pid') {
+      if (defined $self->{_pid}) {
+         return $self->{_pid};
+      } elsif ($_has_threads && $self->{use_threads}) {
+         return $$ .'.'. threads->tid();
+      }
+      return $$;
+   }
+
+   # return the exit status
+   # _wrk_status holds the greatest exit status among workers exiting
+
+   elsif ($_fn eq 'status') {
+      _croak('MCE::status: method is not allowed by the worker process')
+         if ($self->{_wid});
+
+      return (defined $self->{_wrk_status}) ? $self->{_wrk_status} : 0;
+   }
+
+   _croak("Can't locate object method \"$_fn\" via package \"MCE\"");
+}
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -1075,6 +1123,8 @@ sub run {
          }
       }
 
+      require MCE::Core::Manager unless $INC{'MCE/Core/Manager.pm'};
+
       _output_loop( $self, $_input_data, $_input_glob,
          \%_plugin_function, \@_plugin_loop_begin, \@_plugin_loop_end
       );
@@ -1349,7 +1399,7 @@ sub yield {
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Miscellaneous methods: abort exit last next pid sess_dir status tmp_dir.
+## Miscellaneous methods: abort exit sess_dir tmp_dir.
 ##
 ###############################################################################
 
@@ -1444,46 +1494,6 @@ sub exit {
    _exit($self);
 }
 
-## Worker immediately exits the chunking loop.
-
-sub last {
-   my $self = shift; $self = $MCE unless ref($self);
-
-   _croak('MCE::last: method is not allowed by the manager process')
-      unless ($self->{_wid});
-
-   $self->{_last_jmp}() if (defined $self->{_last_jmp});
-
-   return;
-}
-
-## Worker starts the next iteration of the chunking loop.
-
-sub next {
-   my $self = shift; $self = $MCE unless ref($self);
-
-   _croak('MCE::next: method is not allowed by the manager process')
-      unless ($self->{_wid});
-
-   $self->{_next_jmp}() if (defined $self->{_next_jmp});
-
-   return;
-}
-
-## Return the process ID. Attach the thread ID for threads.
-
-sub pid {
-   my $self = shift; $self = $MCE unless ref($self);
-
-   if (defined $self->{_pid}) {
-      $self->{_pid};
-   } elsif ($_has_threads && $self->{use_threads}) {
-      $$ .'.'. threads->tid();
-   } else {
-      $$;
-   }
-}
-
 ## Return the session dir, made on demand.
 
 sub sess_dir {
@@ -1512,18 +1522,6 @@ sub sess_dir {
 
       $self->{_sess_dir} = $_sess_dir;
    }
-}
-
-## Return the exit status. "_wrk_status" holds the greatest exit status
-## among workers exiting.
-
-sub status {
-   my $self = shift; $self = $MCE unless ref($self);
-
-   _croak('MCE::status: method is not allowed by the worker process')
-      if ($self->{_wid});
-
-   return (defined $self->{_wrk_status}) ? $self->{_wrk_status} : 0;
 }
 
 ## Return the temp dir, made on demand.
@@ -1569,18 +1567,15 @@ sub do {
 
    _croak('MCE::do: method is not allowed by the manager process')
       unless ($self->{_wid});
+   _croak('MCE::do: (code ref) is not supported')
+      if (ref $_[0] eq 'CODE');
 
-   if (ref $_[0] eq 'CODE') {
-      _croak('MCE::do: (code ref) is not supported');
-   }
-   else {
-      _croak('MCE::do: (callback) is not specified')
-         unless (defined ( my $_func = shift ));
+   _croak('MCE::do: (callback) is not specified')
+      unless (defined ( my $_func = shift ));
 
-      $_func = $_pkg.'::'.$_func if (index($_func, ':') < 0);
+   $_func = $_pkg.'::'.$_func if (index($_func, ':') < 0);
 
-      return _do_callback($self, $_func, [ @_ ]);
-   }
+   return _do_callback($self, $_func, [ @_ ]);
 }
 
 ## Gather method.
