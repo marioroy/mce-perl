@@ -1,6 +1,23 @@
 
 Revision history for Perl module MCE.
 
+1.830 Wed Aug 02 11:00:00 EST 2017
+
+  * Added Coro and Win32::GUI to list for enabling posix_exit.
+  * Added support for Haiku to get_ncpu in MCE::Util.
+  * Allow gathering to a shared array in MCE::Candy.
+
+  * Improved CPU count on the AIX platform in MCE::Util.
+  * Improved signal handling, including nested parallel-sessions.
+  * Improved running MCE::Hobo inside MCE workers.
+
+  * Refactored logic for MCE->do, bi-directional callback feature.
+  * Preserve lexical type for numbers during IPC: MCE->do and MCE::Queue.
+
+  * No longer loads threads on the Windows platform in MCE::Signal.
+    This enables MCE::Hobo 1.827 to spin faster, including lesser
+    memory consumption. Threads isn't required to run MCE::Hobo.
+
 1.829 Wed May 03 03:00:00 EST 2017
 
   * Reduced memory consumption.

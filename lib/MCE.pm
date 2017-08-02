@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.829';
+our $VERSION = '1.830';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -1473,7 +1473,8 @@ sub exit {
       $self->{_exiting} = 1;
 
       ## Check nested Hobo workers not yet joined.
-      MCE::Hobo->finish('MCE') if $INC{'MCE/Hobo.pm'};
+      MCE::Hobo->finish('MCE')
+         if ( $INC{'MCE/Hobo.pm'} && MCE::Hobo->can('_clear') );
 
       local $\ = undef if (defined $\);
       my $_len = length $_exit_msg;
