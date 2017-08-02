@@ -38,7 +38,7 @@ BEGIN {
    eval 'PDL::no_clone_skip_warning()' if $INC{'PDL.pm'};
    eval 'use PDL::IO::Storable'        if $INC{'PDL.pm'};
 
-   if (!exists $INC{'PDL.pm'}) {
+   if ($] ge '5.008008' && !exists $INC{'PDL.pm'}) {
       eval '
          use Sereal::Encoder 3.015 qw( encode_sereal );
          use Sereal::Decoder 3.015 qw( decode_sereal );
@@ -47,7 +47,7 @@ BEGIN {
          my $_encoder_ver = int( Sereal::Encoder->VERSION() );
          my $_decoder_ver = int( Sereal::Decoder->VERSION() );
          if ( $_encoder_ver - $_decoder_ver == 0 ) {
-            $_freeze = sub { encode_sereal( @_, { freeze_callbacks => 1 } ) };
+            $_freeze = \&encode_sereal,
             $_thaw   = \&decode_sereal;
          }
       }
@@ -55,7 +55,7 @@ BEGIN {
 
    if (!defined $_freeze) {
       require Storable;
-      $_freeze = \&Storable::freeze;
+      $_freeze = \&Storable::freeze,
       $_thaw   = \&Storable::thaw;
    }
 
@@ -80,12 +80,10 @@ my  (%_valid_fields_task, %_params_allowed_args);
 BEGIN {
    ## Configure pack/unpack template for writing to and from the queue.
    ## Each entry contains 2 positive numbers: chunk_id & msg_id.
-   ## Attempt 64-bit size, otherwize fall back to machine's word length.
-   {
-      local $@; eval { $_que_read_size = length pack('Q2', 0, 0); };
-      $_que_template  = ($@) ? 'I2' : 'Q2';
-      $_que_read_size = length pack($_que_template, 0, 0);
-   }
+   ## Check for >= 64-bit, otherwize fall back to machine's word length.
+
+   $_que_template  = ( ( log(~0+1) / log(2) ) >= 64 ) ? 'Q2' : 'I2';
+   $_que_read_size = length pack($_que_template, 0, 0);
 
    ## Attributes used internally.
    ## _abort_msg _caller _chn _com_lock _dat_lock _mgr_live _rla_data _seed
@@ -268,7 +266,6 @@ use constant {
    WANTS_UNDEF    => 0,        # Callee wants nothing
    WANTS_ARRAY    => 1,        # Callee wants list
    WANTS_SCALAR   => 2,        # Callee wants scalar
-   WANTS_REF      => 3         # Callee wants H/A/S ref
 };
 
 my $_mce_count = 0;
@@ -288,7 +285,12 @@ sub DESTROY {
 
 END {
    return unless ( defined $MCE );
+   $MCE->exit if ( exists $MCE->{_wuf} && $MCE->{_pid} eq "$$" );
 
+   _end();
+}
+
+sub _end {
    MCE::Flow->finish   ( 'MCE' ) if $INC{'MCE/Flow.pm'};
    MCE::Grep->finish   ( 'MCE' ) if $INC{'MCE/Grep.pm'};
    MCE::Loop->finish   ( 'MCE' ) if $INC{'MCE/Loop.pm'};
@@ -342,8 +344,15 @@ sub _attach_plugin {
 ## Functions for saving and restoring $MCE.
 ## Called by MCE::{ Flow, Grep, Loop, Map, Step, and Stream }.
 
-sub _restore_state { $MCE = $_prev_mce; $_prev_mce = undef; return; }
-sub _save_state    { $_prev_mce = $MCE; $MCE = $_[0]; return; }
+sub _save_state {
+   $_prev_mce = $MCE; $MCE = $_[0];
+   return;
+}
+sub _restore_state {
+   $_prev_mce->{_wrk_status} = $MCE->{_wrk_status};
+   $MCE = $_prev_mce; $_prev_mce = undef;
+   return;
+}
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -398,10 +407,11 @@ sub new {
 
    if (!exists $self{posix_exit}) {
       $self{posix_exit} = 1 if (
-         ( $_has_threads && $_tid ) || $INC{'Mojo/IOLoop.pm'} ||
+         $^S || ( $_has_threads && $_tid ) || $INC{'Mojo/IOLoop.pm'} ||
          $INC{'Curses.pm'} || $INC{'CGI.pm'} || $INC{'FCGI.pm'} ||
          $INC{'Prima.pm'} || $INC{'Tk.pm'} || $INC{'Wx.pm'} ||
-         $INC{'Gearman/Util.pm'} || $INC{'Gearman/XS.pm'}
+         $INC{'Gearman/Util.pm'} || $INC{'Gearman/XS.pm'} ||
+         $INC{'Coro.pm'} || $INC{'Win32/GUI.pm'}
       );
    }
 
@@ -438,6 +448,8 @@ sub new {
    }
 
    require MCE::Core::Validation unless $INC{'MCE/Core/Validation.pm'};
+   require MCE::Core::Manager    unless $INC{'MCE/Core/Manager.pm'};
+   require MCE::Core::Worker     unless $INC{'MCE/Core/Worker.pm'};
 
    _validate_args(\%self);
 
@@ -507,9 +519,7 @@ sub spawn {
    ## Start the shared-manager process if present.
    MCE::Shared->start() if $INC{'MCE/Shared.pm'};
 
-   ## Load worker and input modules.
-   require MCE::Core::Worker unless $INC{'MCE/Core/Worker.pm'};
-
+   ## Load input module.
    if (defined $self->{sequence}) {
       require MCE::Core::Input::Sequence
          unless $INC{'MCE/Core/Input/Sequence.pm'};
@@ -1123,8 +1133,6 @@ sub run {
          }
       }
 
-      require MCE::Core::Manager unless $INC{'MCE/Core/Manager.pm'};
-
       _output_loop( $self, $_input_data, $_input_glob,
          \%_plugin_function, \@_plugin_loop_begin, \@_plugin_loop_end
       );
@@ -1144,14 +1152,14 @@ sub run {
    $self->{_send_cnt} = 0;
 
    ## Shutdown workers.
-   if ( $_auto_shutdown || $self->{_total_exited} ) {
+   if ($_auto_shutdown || $self->{_total_exited}) {
       $self->shutdown();
    }
    elsif ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
       if (
          !$INC{'Gearman/XS.pm'} && !$INC{'Gearman/Util.pm'} &&
          !$INC{'Prima.pm'} && !$INC{'Tk.pm'} && !$INC{'Wx.pm'} &&
-         !$INC{'Mojo/IOLoop.pm'}
+         !$INC{'Mojo/IOLoop.pm'} && !$INC{'Win32/GUI.pm'}
       ) {
          # running inside eval or IPerl, check stack trace
          my $_t = Carp::longmess(); $_t =~ s/\teval [^\n]+\n$//;
@@ -1464,6 +1472,9 @@ sub exit {
    unless ($self->{_exiting}) {
       $self->{_exiting} = 1;
 
+      ## Check nested Hobo workers not yet joined.
+      MCE::Hobo->finish('MCE') if $INC{'MCE/Hobo.pm'};
+
       local $\ = undef if (defined $\);
       my $_len = length $_exit_msg;
 
@@ -1751,15 +1762,23 @@ sub _croak {
 sub _exit {
    my $self = shift;
 
+   delete $self->{_wuf}; _end();
+
    ## Exit thread/child process.
    $SIG{__DIE__}  = sub { } unless $_tid;
    $SIG{__WARN__} = sub { };
 
-   if ($self->{use_threads}) {
-      threads->exit(0);
-   }
-   elsif ($self->{posix_exit} && !$_is_MSWin32) {
+   threads->exit(0) if $self->{use_threads};
+
+   $SIG{HUP} = $SIG{INT} = $SIG{QUIT} = $SIG{TERM} = sub {
+      $SIG{$_[0]} = $SIG{INT} = sub { };
+      CORE::kill($_[0], getppid()) if ($_[0] eq 'INT' && !$_is_MSWin32);
+      CORE::kill('KILL', $$);
+   };
+
+   if ($self->{posix_exit} && !$_is_MSWin32) {
       eval { MCE::Mutex::Channel::_destroy() };
+      POSIX::_exit(0) if $INC{'POSIX.pm'};
       CORE::kill('KILL', $$);
    }
 
@@ -1893,6 +1912,9 @@ sub _dispatch {
    if (!$self->{use_threads}) {
       my ($_wid, $_seed) = ($_args[1], $self->{_seed});
       srand(abs($_seed - ($_wid * 100000)) % 2147483560);
+
+      MCE::Hobo->_clear()
+         if ( $INC{'MCE/Hobo.pm'} && MCE::Hobo->can('_clear') );
    }
 
    if ($INC{'Math/Random.pm'} && !$self->{use_threads}) {

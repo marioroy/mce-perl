@@ -42,26 +42,10 @@ sub import {
    while (my $_argument = shift) {
       my $_arg = lc $_argument;
 
-      if ( $_arg eq 'await' ) {
-         _croak('Error: (AWAIT) must be 1 or 0')
-            if (!defined $_[0] || ($_[0] ne '1' && $_[0] ne '0'));
-         $_p->{AWAIT} = shift; next;
-      }
-      if ( $_arg eq 'fast' ) {
-         _croak('Error: (FAST) must be 1 or 0')
-            if (!defined $_[0] || ($_[0] ne '1' && $_[0] ne '0'));
-         $_p->{FAST} = shift; next;
-      }
-      if ( $_arg eq 'porder' ) {
-         _croak('Error: (PORDER) must be 1 or 0')
-            if (!defined $_[0] || ($_[0] ne '1' && $_[0] ne '0'));
-         $_p->{PORDER} = shift; next;
-      }
-      if ( $_arg eq 'type' ) {
-         _croak('Error: (TYPE) must be 1 or 0')
-            if (!defined $_[0] || ($_[0] ne '1' && $_[0] ne '0'));
-         $_p->{TYPE} = shift; next;
-      }
+      $_p->{AWAIT } = shift, next if ( $_arg eq 'await'  );
+      $_p->{FAST  } = shift, next if ( $_arg eq 'fast'   );
+      $_p->{PORDER} = shift, next if ( $_arg eq 'porder' );
+      $_p->{TYPE  } = shift, next if ( $_arg eq 'type'   );
 
       _croak("Error: ($_argument) invalid module option");
    }
@@ -200,19 +184,10 @@ sub new {
 
    ## -------------------------------------------------------------------------
 
-   _croak('Queue: (await) must be 1 or 0')
-      if ($_Q->{_await} ne '1' && $_Q->{_await} ne '0');
-   _croak('Queue: (fast) must be 1 or 0')
-      if ($_Q->{_fast} ne '1' && $_Q->{_fast} ne '0');
-
-   _croak('Queue: (porder) must be 1 or 0')
-      if ($_Q->{_porder} ne '1' && $_Q->{_porder} ne '0');
-   _croak('Queue: (type) must be 1 or 0')
-      if ($_Q->{_type} ne '1' && $_Q->{_type} ne '0');
-
    if (exists $_argv{queue}) {
       _croak('Queue: (queue) is not an ARRAY reference')
-         if (ref $_argv{queue} ne 'ARRAY');
+         unless (ref $_argv{queue} eq 'ARRAY');
+
       $_Q->{_datq} = $_argv{queue};
    }
    else {
@@ -221,7 +196,8 @@ sub new {
 
    if (exists $_argv{gather}) {
       _croak('Queue: (gather) is not a CODE reference')
-         if (ref $_argv{gather} ne 'CODE');
+         unless (ref $_argv{gather} eq 'CODE');
+
       $_Q->{gather} = $_argv{gather};
    }
 
@@ -229,9 +205,9 @@ sub new {
 
    $_Q->{_init_pid} = $_has_threads ? $$ .'.'. $_tid : $$;
    $_Q->{_id} = ++$_qid; $_all->{$_qid} = $_Q;
-   $_Q->{_dsem} = 0 if ($_Q->{_fast});
+   $_Q->{_dsem} = 0 if $_Q->{_fast};
 
-   if ($^O ne 'MSWin32' && $_tid == 0 && $_Q->{_fast} == 0) {
+   if ($^O ne 'MSWin32' && $_tid == 0 && !$_Q->{_fast}) {
       if (caller() !~ /^MCE::/) {
          for my $_i (0 .. MUTEX_LOCKS - 1) {
             $_Q->{'_mutex_'.$_i} = MCE::Mutex->new( impl => 'Channel' );
@@ -608,15 +584,15 @@ sub _heap_insert_high {
 
          if ($_cnt) {
             $_buf = $_MCE->{freeze}(\@_items);
-            print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
+            print {$_DAU_R_SOCK} length($_buf).'1'.$LF, $_buf;
          }
          elsif (defined $_buf) {
-            if (!ref $_buf) {
-               $_buf .= '0';
+            if (!ref $_buf && !looks_like_number $_buf) {
+               print {$_DAU_R_SOCK} length($_buf).'0'.$LF, $_buf;
             } else {
-               $_buf  = $_MCE->{freeze}($_buf).'1';
+               $_buf = $_MCE->{freeze}([ $_buf ]);
+               print {$_DAU_R_SOCK} length($_buf).'1'.$LF, $_buf;
             }
-            print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
          }
          else {
             print {$_DAU_R_SOCK} '-1'.$LF;
@@ -646,12 +622,12 @@ sub _heap_insert_high {
             my $_buf = $_Q->_dequeue();
 
             if (defined $_buf) {
-               if (!ref $_buf) {
-                  $_buf .= '0';
+               if (!ref $_buf && !looks_like_number($_buf)) {
+                  print {$_DAU_R_SOCK} length($_buf).'0'.$LF, $_buf;
                } else {
-                  $_buf  = $_MCE->{freeze}($_buf).'1';
+                  $_buf = $_MCE->{freeze}([ $_buf ]);
+                  print {$_DAU_R_SOCK} length($_buf).'1'.$LF, $_buf;
                }
-               print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
             }
             else {
                print {$_DAU_R_SOCK} '-1'.$LF;
@@ -672,7 +648,7 @@ sub _heap_insert_high {
 
             if ($_cnt) {
                my $_buf = $_MCE->{freeze}(\@_items);
-               print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
+               print {$_DAU_R_SOCK} length($_buf).'1'.$LF, $_buf;
             } else {
                print {$_DAU_R_SOCK} '-1'.$LF;
             }
@@ -712,11 +688,9 @@ sub _heap_insert_high {
          read $_DAU_R_SOCK, my($_buf), $_len;
          $_Q = $_all->{$_id};
 
-         if (chop $_buf) {
-            $_Q->_mce_m_insert($_i, @{ $_MCE->{thaw}($_buf) });
-         } else {
-            $_Q->_mce_m_insert($_i, $_buf);
-         }
+         (chop $_buf)
+            ? $_Q->_mce_m_insert($_i, @{ $_MCE->{thaw}($_buf) })
+            : $_Q->_mce_m_insert($_i, $_buf);
 
          return;
       },
@@ -732,11 +706,9 @@ sub _heap_insert_high {
          read $_DAU_R_SOCK, my($_buf), $_len;
          $_Q = $_all->{$_id};
 
-         if (chop $_buf) {
-            $_Q->_mce_m_insertp($_p, $_i, @{ $_MCE->{thaw}($_buf) });
-         } else {
-            $_Q->_mce_m_insertp($_p, $_i, $_buf);
-         }
+         (chop $_buf)
+            ? $_Q->_mce_m_insertp($_p, $_i, @{ $_MCE->{thaw}($_buf) })
+            : $_Q->_mce_m_insertp($_p, $_i, $_buf);
 
          return;
       },
@@ -754,13 +726,14 @@ sub _heap_insert_high {
 
          unless (defined $_buf) {
             print {$_DAU_R_SOCK} '-1'.$LF;
-         } else {
-            if (ref $_buf) {
-               $_buf  = $_MCE->{freeze}($_buf).'1';
+         }
+         else {
+            if (!ref $_buf && !looks_like_number($_buf)) {
+               print {$_DAU_R_SOCK} length($_buf).'0'.$LF, $_buf;
             } else {
-               $_buf .= '0';
+               $_buf = $_MCE->{freeze}([ $_buf ]);
+               print {$_DAU_R_SOCK} length($_buf).'1'.$LF, $_buf;
             }
-            print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
          }
 
          return;
@@ -778,13 +751,14 @@ sub _heap_insert_high {
 
          unless (defined $_buf) {
             print {$_DAU_R_SOCK} '-1'.$LF;
-         } else {
-            if (ref $_buf) {
-               $_buf  = $_MCE->{freeze}($_buf).'1';
+         }
+         else {
+            if (!ref $_buf && !looks_like_number($_buf)) {
+               print {$_DAU_R_SOCK} length($_buf).'0'.$LF, $_buf;
             } else {
-               $_buf .= '0';
+               $_buf = $_MCE->{freeze}([ $_buf ]);
+               print {$_DAU_R_SOCK} length($_buf).'1'.$LF, $_buf;
             }
-            print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
          }
 
          return;
@@ -799,11 +773,10 @@ sub _heap_insert_high {
          $_Q   = $_all->{$_id};
          $_buf = $_Q->_mce_m_peekh($_i);
 
-         unless (defined $_buf) {
-            print {$_DAU_R_SOCK} '-1'.$LF;
+         if (defined $_buf) {
+            print {$_DAU_R_SOCK} length($_buf).'0'.$LF, $_buf;
          } else {
-            $_buf .= '0';
-            print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
+            print {$_DAU_R_SOCK} '-1'.$LF;
          }
 
          return;
@@ -817,7 +790,7 @@ sub _heap_insert_high {
          $_Q   = $_all->{$_id};
          $_buf = $_MCE->{freeze}([ $_Q->_mce_m_heap() ]);
 
-         print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
+         print {$_DAU_R_SOCK} length($_buf).'1'.$LF, $_buf;
 
          return;
       },
@@ -1279,14 +1252,13 @@ sub _mce_m_heap {
          return defined($_[3]) ? () : undef;
       }
 
+      my $_frozen = chop($_len);
       read $_DAU_W_SOCK, my($_buf), $_len;
       $_dat_un->() if $_lock_chn;
 
-      if ($_[2] == 1) {
-         return (chop $_buf) ? $_MCE->{thaw}($_buf) : $_buf;
-      } else {
-         return @{ $_MCE->{thaw}($_buf) };
-      }
+      ($_[2] == 1)
+         ? ($_frozen) ? ($_MCE->{thaw}($_buf))->[0] : $_buf
+         : @{ $_MCE->{thaw}($_buf) };
    };
 
    sub _mce_w_init {
@@ -1389,7 +1361,7 @@ sub _mce_m_heap {
          my $_buf = $_Q->{_id}.$LF . length($_tmp).$LF;
          $_req1->(OUTPUT_A_QUE, $_buf, $_tmp);
       }
-      elsif (defined $_[0]) {
+      elsif (defined $_[0] && !looks_like_number $_[0]) {
          my $_buf = $_Q->{_id}.$LF . length($_[0]).$LF;
          $_req1->(OUTPUT_S_QUE, $_buf, $_[0]);
       }
@@ -1415,7 +1387,7 @@ sub _mce_m_heap {
          my $_buf = $_Q->{_id}.$LF . $_p.$LF . length($_tmp).$LF;
          $_req1->(OUTPUT_A_QUP, $_buf, $_tmp);
       }
-      elsif (defined $_[0]) {
+      elsif (defined $_[0] && !looks_like_number $_[0]) {
          my $_buf = $_Q->{_id}.$LF . $_p.$LF . length($_[0]).$LF;
          $_req1->(OUTPUT_S_QUP, $_buf, $_[0]);
       }
@@ -1431,7 +1403,7 @@ sub _mce_m_heap {
    ## -------------------------------------------------------------------------
 
    sub _mce_w_dequeue {
-      my $_buf; my ($_Q, $_cnt) = @_;
+      my ($_buf, $_frozen); my ($_Q, $_cnt) = @_;
 
       return $_Q->_mce_m_dequeue($_cnt) if (exists $_all->{ $_Q->{_id} });
 
@@ -1474,15 +1446,14 @@ sub _mce_m_heap {
             return;
          }
 
+         $_frozen = chop($_len);
          read $_DAU_W_SOCK, $_buf, $_len;
          $_dat_un->() if $_lock_chn;
       }
 
-      if ($_cnt == 1) {
-         return (chop $_buf) ? $_MCE->{thaw}($_buf) : $_buf;
-      } else {
-         return @{ $_MCE->{thaw}($_buf) };
-      }
+      ($_cnt == 1)
+         ? ($_frozen) ? ($_MCE->{thaw}($_buf))->[0] : $_buf
+         : @{ $_MCE->{thaw}($_buf) };
    }
 
    sub _mce_w_dequeue_nb {
@@ -1521,7 +1492,7 @@ sub _mce_m_heap {
       chomp($_pending = <$_DAU_W_SOCK>);
       $_dat_un->() if $_lock_chn;
 
-      return $_pending;
+      length($_pending) ? int($_pending) : undef;
    }
 
    sub _mce_w_insert {
@@ -1536,7 +1507,7 @@ sub _mce_m_heap {
 
       my ($_buf, $_tmp);
 
-      if (scalar @_ > 1 || ref $_[0] || !defined $_[0]) {
+      if (scalar @_ > 1 || ref $_[0] || !defined $_[0] || looks_like_number $_[0]) {
          $_tmp = $_MCE->{freeze}([ @_ ]);
          $_buf = $_Q->{_id}.$LF . $_i.$LF . (length($_tmp) + 1).$LF . $_tmp.'1';
       } else {
@@ -1562,7 +1533,7 @@ sub _mce_m_heap {
 
       my ($_buf, $_tmp);
 
-      if (scalar @_ > 1 || ref $_[0] || !defined $_[0]) {
+      if (scalar @_ > 1 || ref $_[0] || !defined $_[0] || looks_like_number $_[0]) {
          $_tmp = $_MCE->{freeze}([ @_ ]);
          $_buf = $_Q->{_id}.$LF . $_p.$LF . $_i.$LF .
             (length($_tmp) + 1).$LF . $_tmp.'1';
@@ -1610,7 +1581,9 @@ sub _mce_m_heap {
       _croak('Queue: (peekh index) is not an integer')
          if (!looks_like_number($_i) || int($_i) != $_i);
 
-      $_req3->(OUTPUT_P_QUH, $_Q->{_id}.$LF . $_i.$LF, 1);
+      my $_ret = $_req3->(OUTPUT_P_QUH, $_Q->{_id}.$LF . $_i.$LF, 1);
+
+      length($_ret) ? int($_ret) : undef;
    }
 
    sub _mce_w_heap {

@@ -160,7 +160,7 @@ MCE utilizes the following modules, which are mostly installed with Perl:
     Sereal::Decoder 3.015+ (optional)
     Sereal::Encoder 3.015+ (optional)
     Socket
-    Storable 2.04+ (default when Sereal 3.015+ isn't available)
+    Storable   2.04+ (default when Sereal isn't available)
     Symbol
     Test::More 0.45+ (for make test only)
     Time::HiRes

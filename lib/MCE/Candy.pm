@@ -147,8 +147,15 @@ sub out_iter_array {
 
    my $_aref = shift; my %_tmp; my $_order_id = 1;
 
-   MCE::_croak('The argument to (out_iter_array) is not an array ref.')
-      unless (ref($_aref) eq 'ARRAY');
+   if (ref $_aref eq 'MCE::Shared::Object') {
+      my $_pkg = $_aref->blessed;
+      MCE::_croak('The argument to (out_iter_array) is not valid.')
+         unless $_pkg->can('TIEARRAY');
+   }
+   else {
+      MCE::_croak('The argument to (out_iter_array) is not an array ref.')
+         unless (ref $_aref eq 'ARRAY');
+   }
 
    return sub {
       my $_chunk_id = shift;

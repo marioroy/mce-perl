@@ -121,69 +121,48 @@ use bytes;
          $_wa = WANTS_SCALAR;
       }
 
+      local $\ = undef if (defined $\);
+
       ## Crossover: Send arguments
 
-      if (scalar @{ $_aref } > 0) {               ## Multiple Args >> Callback
-         if (scalar @{ $_aref } > 1 || ref $_aref->[0]) {
-            $_tag = OUTPUT_A_CBK;
-            $_buf = $self->{freeze}($_aref);
-            $_len = length $_buf; local $\ = undef if (defined $\);
-
-            $_dat_ex->() if $_lock_chn;
-            print({$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF),
-            print({$_DAU_W_SOCK} $_wa.$LF . $_val.$LF . $_len.$LF, $_buf);
-
-         }
-         else {                                   ## Scalar >> Callback
-            $_tag = OUTPUT_S_CBK;
-            $_len = length $_aref->[0]; local $\ = undef if (defined $\);
-
-            $_dat_ex->() if $_lock_chn;
-            print({$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF),
-            print({$_DAU_W_SOCK} $_wa.$LF . $_val.$LF . $_len.$LF, $_aref->[0]);
-         }
-      }
-      else {                                      ## No Args >> Callback
-         $_tag = OUTPUT_N_CBK;
-         local $\ = undef if (defined $\);
-
+      if ( ! @{ $_aref } ) {
          $_dat_ex->() if $_lock_chn;
-         print({$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF),
+         print({$_DAT_W_SOCK} OUTPUT_N_CBK.$LF . $_chn.$LF),
          print({$_DAU_W_SOCK} $_wa.$LF . $_val.$LF);
       }
+      elsif ( @{ $_aref } == 1 && !ref $_aref->[0] &&
+              defined $_aref->[0] && !looks_like_number($_aref->[0]) ) {
+         $_len = length $_aref->[0];
 
-      ## Crossover: Receive return value
-
-      if ($_wa == WANTS_UNDEF) {
-         $_dat_un->() if $_lock_chn;
-         return;
-      }
-      elsif ($_wa == WANTS_ARRAY) {
-         local $/ = $LF if (!$/ || $/ ne $LF);
-         chomp($_len = <$_DAU_W_SOCK>);
-
-         read($_DAU_W_SOCK, $_buf, $_len || 0);
-         $_dat_un->() if $_lock_chn;
-
-         return @{ $self->{thaw}($_buf) };
+         $_dat_ex->() if $_lock_chn;
+         print({$_DAT_W_SOCK} OUTPUT_S_CBK.$LF . $_chn.$LF),
+         print({$_DAU_W_SOCK} $_wa.$LF . $_val.$LF . $_len.$LF, $_aref->[0]);
       }
       else {
-         local $/ = $LF if (!$/ || $/ ne $LF);
-         chomp($_wa = <$_DAU_W_SOCK>);
-         chomp($_len     = <$_DAU_W_SOCK>);
+         $_buf = $self->{freeze}($_aref);
+         $_len = length $_buf;
 
-         if ($_len >= 0) {
-            read($_DAU_W_SOCK, $_buf, $_len || 0);
-            $_dat_un->() if $_lock_chn;
-
-            return $_buf if ($_wa == WANTS_SCALAR);
-            return $self->{thaw}($_buf);
-         }
-         else {
-            $_dat_un->() if $_lock_chn;
-            return;
-         }
+         $_dat_ex->() if $_lock_chn;
+         print({$_DAT_W_SOCK} OUTPUT_A_CBK.$LF . $_chn.$LF),
+         print({$_DAU_W_SOCK} $_wa.$LF . $_val.$LF . $_len.$LF, $_buf);
       }
+
+      ## Crossover: Receive value
+
+      if ( $_wa ) {
+         local $/ = $LF if ($/ ne $LF);
+         chomp(my $_len = <$_DAU_W_SOCK>);
+
+         my $_frozen = chop($_len);
+         read $_DAU_W_SOCK, my($_buf), $_len;
+         $_dat_un->() if $_lock_chn;
+
+         return ( $_wa != WANTS_ARRAY )
+            ? $_frozen ? ($self->{thaw}($_buf))->[0] : $_buf
+            : @{ $self->{thaw}($_buf) };
+      }
+
+      $_dat_un->() if $_lock_chn;
    }
 
    ## -------------------------------------------------------------------------
@@ -194,7 +173,8 @@ use bytes;
 
       return unless (scalar @{ $_aref });
 
-      if (scalar @{ $_aref } > 1 || ref $_aref->[0]) {
+      if (scalar @{ $_aref } > 1 || ref $_aref->[0] ||
+            !defined $_aref->[0] || looks_like_number $_aref->[0]) {
          $_tag = OUTPUT_A_GTR;
          $_buf = $self->{freeze}($_aref);
          $_len = length $_buf;
@@ -504,6 +484,8 @@ sub _worker_do {
       $self->sync() if ($_task_id == 0 && defined $self->{init_relay});
       $self->{user_end}($self, $_task_id, $_task_name);
    }
+
+   delete $self->{_wuf};
 
    ## Check nested Hobo workers not yet joined.
    MCE::Hobo->finish('MCE') if $INC{'MCE/Hobo.pm'};
