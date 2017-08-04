@@ -20,7 +20,6 @@ Revision history for Perl module MCE.
 
   * Refactored logic for MCE->do, bi-directional callback feature.
   * Preserve lexical type for numbers during IPC: MCE->do and MCE::Queue.
-  * Autoflush STDERR and STDOUT handles whenever init_relay is specified.
 
   * No longer loads threads on the Windows platform in MCE::Signal.
     This enables MCE::Hobo 1.827 to spin faster, including lesser
