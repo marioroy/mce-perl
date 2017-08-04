@@ -597,6 +597,8 @@ sub spawn {
       : MCE::Util::_sock_pair($self, qw(_que_r_sock _que_w_sock));
 
    if (defined $self->{init_relay}) {                               # relay
+      select(( select(STDERR), $| = 1 )[0]) if (defined fileno(STDERR));
+      select(( select(STDOUT), $| = 1 )[0]) if (defined fileno(STDOUT));
       unless (exists $INC{'MCE/Relay.pm'}) {
          require MCE::Relay; MCE::Relay->import();
       }

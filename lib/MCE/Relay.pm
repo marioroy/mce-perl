@@ -198,6 +198,9 @@ sub relay_recv {
 
    my ($_chn, $_nxt, $_rdr, $_len, $_ref); local $_;
 
+   local $\ = undef if (defined $\);
+   local $/ = $LF   if ($/ ne $LF );
+
    $_chn = $self->{_chunk_id} || $self->{_wid};
    $_chn = ($_chn - 1) % $self->{max_workers};
    $_nxt = $_chn + 1;
@@ -254,6 +257,9 @@ sub relay (;&) {
    }
 
    my ($_chn, $_nxt, $_rdr, $_wtr);
+
+   local $\ = undef if (defined $\);
+   local $/ = $LF   if ($/ ne $LF );
 
    $_chn = $self->{_chunk_id} || $self->{_wid};
    $_chn = ($_chn - 1) % $self->{max_workers};

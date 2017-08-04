@@ -1,7 +1,14 @@
 
 Revision history for Perl module MCE.
 
-1.830 Wed Aug 02 11:00:00 EST 2017
+1.830 Thu Aug 03 23:00:00 EST 2017
+
+  [BUG FIXES]
+
+  * Fixed MCE::Relay stalling due to setting the input record separator.
+    See http://www.perlmonks.org/?node_id=1196701. Thank you, JediWombat.
+
+  [ENHANCEMENTS]
 
   * Added Coro and Win32::GUI to list for enabling posix_exit.
   * Added support for Haiku to get_ncpu in MCE::Util.
@@ -13,6 +20,7 @@ Revision history for Perl module MCE.
 
   * Refactored logic for MCE->do, bi-directional callback feature.
   * Preserve lexical type for numbers during IPC: MCE->do and MCE::Queue.
+  * Autoflush STDERR and STDOUT handles whenever init_relay is specified.
 
   * No longer loads threads on the Windows platform in MCE::Signal.
     This enables MCE::Hobo 1.827 to spin faster, including lesser
