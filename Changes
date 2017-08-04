@@ -5,7 +5,7 @@ Revision history for Perl module MCE.
 
   [BUG FIXES]
 
-  * Fixed MCE::Relay stalling due to setting the input record separator.
+  * Fixed MCE and MCE::Relay stalling when setting the input record separator.
     See http://www.perlmonks.org/?node_id=1196701. Thank you, JediWombat.
 
   [ENHANCEMENTS]
