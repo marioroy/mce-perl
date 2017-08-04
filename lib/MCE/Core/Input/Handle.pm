@@ -58,7 +58,6 @@ sub _worker_read_handle {
    my $_use_slurpio = $self->{use_slurpio};
    my $_parallel_io = $self->{parallel_io};
    my $_RS          = $self->{RS} || $/;
-   my $_RS_FLG      = (!$_RS || $_RS ne $LF);
    my $_wuf         = $self->{_wuf};
 
    my ($_data_size, $_next, $_chunk_id, $_offset_pos, $_IN_FILE, $_tmp_cs);
@@ -137,7 +136,7 @@ sub _worker_read_handle {
 
       ## Read data.
       if ($_chunk_size <= MAX_RECS_SIZE) {        # One or many records.
-         local $/ = $_RS if ($_RS_FLG);
+         local $/ = $_RS if ($/ ne $_RS);
          seek $_IN_FILE, $_offset_pos, 0;
 
          if ($_chunk_size == 1) {
@@ -185,9 +184,9 @@ sub _worker_read_handle {
          $_dat_un->() if $_lock_chn;
       }
       else {                                      # Large chunk.
-         local $/ = $_RS if ($_RS_FLG);
+         local $/ = $_RS if ($/ ne $_RS);
 
-         if ($_parallel_io && ! $_RS_FLG) {
+         if ($_parallel_io && $_RS eq $LF) {
             1 until syswrite ( $_QUE_W_SOCK,
                pack($_que_template, $_chunk_id, $_offset_pos + $_chunk_size)
             ) || ($! && !$!{'EINTR'});
@@ -250,7 +249,7 @@ sub _worker_read_handle {
          }
          else {
             if ($_chunk_size > MAX_RECS_SIZE) {
-               local $/ = $_RS if ($_RS_FLG);
+               local $/ = $_RS if ($/ ne $_RS);
                _sync_buffer_to_array(\$_, \@_recs, $_chop_str);
                undef $_;
             }
