@@ -350,6 +350,8 @@ use bytes;
       $_user_func->($self, $_chunk, $_chunk_id);
 
       if ($self->{progress} && $self->{_task_id} == 0) {
+         local $\ = undef if (defined $\);
+
          $_dat_ex->() if $_lock_chn;
          print({$_DAT_W_SOCK} OUTPUT_P_NFY.$LF . $_chn.$LF),
          print({$_DAU_W_SOCK} $_size.$LF);

@@ -46,7 +46,6 @@ sub _worker_user_iterator {
    my $_DAU_W_SOCK  = $self->{_dat_w_sock}->[$_chn];
    my $_lock_chn    = $self->{_lock_chn};
    my $_chunk_size  = $self->{chunk_size};
-   my $_I_FLG       = (!$/ || $/ ne $LF);
    my $_wuf         = $self->{_wuf};
 
    my ($_dat_ex, $_dat_un, $_pid);
@@ -83,7 +82,8 @@ sub _worker_user_iterator {
 
       ## Obtain the next chunk of data.
       {
-         local $\ = undef if (defined $\); local $/ = $LF if ($_I_FLG);
+         local $\ = undef if (defined $\);
+         local $/ = $LF   if ($/ ne $LF );
 
          $_dat_ex->() if $_lock_chn;
          print {$_DAT_W_SOCK} OUTPUT_I_REF . $LF . $_chn . $LF;

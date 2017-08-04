@@ -50,7 +50,6 @@ sub _worker_request_chunk {
    my $_use_slurpio = $self->{use_slurpio};
    my $_RS          = $self->{RS} || $/;
    my $_RS_FLG      = (!$_RS || $_RS ne $LF);
-   my $_I_FLG       = (!$/ || $/ ne $LF);
    my $_wuf         = $self->{_wuf};
 
    my ($_dat_ex, $_dat_un, $_pid);
@@ -107,7 +106,8 @@ sub _worker_request_chunk {
 
       ## Obtain the next chunk of data.
       {
-         local $\ = undef if (defined $\); local $/ = $LF if ($_I_FLG);
+         local $\ = undef if (defined $\);
+         local $/ = $LF   if ($/ ne $LF );
 
          $_dat_ex->() if $_lock_chn;
          print {$_DAT_W_SOCK} $_output_tag . $LF . $_chn . $LF;
