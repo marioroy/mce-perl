@@ -453,7 +453,7 @@ sub _heap_insert_high {
             $_Q->{gather}($_Q, @{ $_ });
          }
          else {
-            if ($_Q->{_ended}) {
+            if (exists $_Q->{_ended}) {
                warn "Queue: (enqueue) called on queue that has been 'end'ed\n";
                return;
             }
@@ -497,7 +497,7 @@ sub _heap_insert_high {
             $_Q->{gather}($_Q, $_);
          }
          else {
-            if ($_Q->{_ended}) {
+            if (exists $_Q->{_ended}) {
                warn "Queue: (enqueue) called on queue that has been 'end'ed\n";
                return;
             }
@@ -578,7 +578,7 @@ sub _heap_insert_high {
             }
          }
 
-         if ($_Q->{_ended} && !$_Q->_has_data()) {
+         if (exists $_Q->{_ended} && !$_Q->_has_data()) {
             1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
          }
 
@@ -617,6 +617,10 @@ sub _heap_insert_high {
          chomp($_cnt = <$_DAU_R_SOCK>);
 
          $_Q = $_all->{$_id};
+
+         if (!$_Q->{_nb_flag} && $_Q->_has_data()) {
+            1 until sysread($_Q->{_qr_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
+         }
 
          if ($_cnt == 1) {
             my $_buf = $_Q->_dequeue();
@@ -861,11 +865,11 @@ sub _mce_m_clear {
 sub _mce_m_end {
    my ($_Q) = @_;
 
-   if (!$_Q->{_ended}) {
+   if (!exists $_Q->{_ended}) {
       if (!$_Q->{_nb_flag}) {
          1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
       }
-      $_Q->{_ended} = 1;
+      $_Q->{_ended} = undef;
    }
 
    return;
@@ -878,7 +882,7 @@ sub _mce_m_enqueue {
 
    return unless (scalar @_);
 
-   if ($_Q->{_ended}) {
+   if (exists $_Q->{_ended}) {
       warn "Queue: (enqueue) called on queue that has been 'end'ed\n";
       return;
    }
@@ -902,7 +906,7 @@ sub _mce_m_enqueuep {
 
    return unless (scalar @_);
 
-   if ($_Q->{_ended}) {
+   if (exists $_Q->{_ended}) {
       warn "Queue: (enqueuep) called on queue that has been 'end'ed\n";
       return;
    }
@@ -967,7 +971,7 @@ sub _mce_m_dequeue {
       }
    }
 
-   if ($_Q->{_ended} && !$_Q->_has_data()) {
+   if (exists $_Q->{_ended} && !$_Q->_has_data()) {
       1 until syswrite($_Q->{_qw_sock}, $LF) || ($! && !$!{'EINTR'});
    }
 
@@ -988,7 +992,9 @@ sub _mce_m_dequeue_nb {
       return;
    }
 
-   $_Q->{_nb_flag} = $_Q->_has_data() ? 1 : 0;
+   if (!$_Q->{_nb_flag} && $_Q->_has_data()) {
+      1 until sysread($_Q->{_qr_sock}, my($_b), 1) || ($! && !$!{'EINTR'});
+   }
 
    if (defined $_cnt && $_cnt ne '1') {
       _croak('Queue: (dequeue count argument) is not valid')
@@ -1001,12 +1007,15 @@ sub _mce_m_dequeue_nb {
             $_pending += @{ $_Q->{_datp}->{$_h} };
          }
       }
+
+      $_Q->{_nb_flag} = $_pending > $_cnt ? 1 : 0;
       $_cnt = $_pending if $_pending < $_cnt;
 
       return map { $_Q->_dequeue() } 1 .. $_cnt;
    }
 
    my $_buf = $_Q->_dequeue();
+   $_Q->{_nb_flag} = $_Q->_has_data() ? 1 : 0;
 
    return defined($_buf) ? $_buf : ();
 }
@@ -1023,7 +1032,7 @@ sub _mce_m_pending {
       }
    }
 
-   return ($_Q->{_ended})
+   return (exists $_Q->{_ended})
       ? $_pending ? $_pending : undef
       : $_pending;
 }
@@ -1038,7 +1047,7 @@ sub _mce_m_insert {
 
    return unless (scalar @_);
 
-   if ($_Q->{_ended}) {
+   if (exists $_Q->{_ended}) {
       warn "Queue: (insert) called on queue that has been 'end'ed\n";
       return;
    }
@@ -1086,7 +1095,7 @@ sub _mce_m_insertp {
 
    return unless (scalar @_);
 
-   if ($_Q->{_ended}) {
+   if (exists $_Q->{_ended}) {
       warn "Queue: (insertp) called on queue that has been 'end'ed\n";
       return;
    }

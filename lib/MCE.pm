@@ -314,7 +314,7 @@ sub _attach_plugin {
    my $_ext_module = caller;
 
    unless (exists $_plugin_list{$_ext_module}) {
-      $_plugin_list{$_ext_module} = 1;
+      $_plugin_list{$_ext_module} = undef;
 
       my $_ext_output_function    = $_[0];
       my $_ext_output_loop_begin  = $_[1];
@@ -748,37 +748,37 @@ sub relay (;&) {
 sub AUTOLOAD {
    # $AUTOLOAD = MCE::<method_name>
 
-   my $_fn  = substr($MCE::AUTOLOAD, 5);
+   my $_fcn = substr($MCE::AUTOLOAD, 5);
    my $self = shift; $self = $MCE unless ref($self);
 
    # "for" sugar methods
 
-   if ($_fn eq 'forchunk') {
+   if ($_fcn eq 'forchunk') {
       require MCE::Candy unless $INC{'MCE/Candy.pm'};
       return  MCE::Candy::forchunk($self, @_);
    }
-   elsif ($_fn eq 'foreach') {
+   elsif ($_fcn eq 'foreach') {
       require MCE::Candy unless $INC{'MCE/Candy.pm'};
       return  MCE::Candy::foreach($self, @_);
    }
-   elsif ($_fn eq 'forseq') {
+   elsif ($_fcn eq 'forseq') {
       require MCE::Candy unless $INC{'MCE/Candy.pm'};
       return  MCE::Candy::forseq($self, @_);
    }
 
    # relay stubs for MCE::Relay
 
-   if ($_fn eq 'relay_lock' || $_fn eq 'relay_recv') {
+   if ($_fcn eq 'relay_lock' || $_fcn eq 'relay_recv') {
       _croak('MCE::relay: (init_relay) is not specified')
          unless (defined $MCE->{init_relay});
    }
-   elsif ($_fn eq 'relay_final') {
+   elsif ($_fcn eq 'relay_final') {
       return;
    }
 
    # worker immediately exits the chunking loop
 
-   if ($_fn eq 'last') {
+   if ($_fcn eq 'last') {
       _croak('MCE::last: method is not allowed by the manager process')
          unless ($self->{_wid});
 
@@ -789,7 +789,7 @@ sub AUTOLOAD {
 
    # worker starts the next iteration of the chunking loop
 
-   elsif ($_fn eq 'next') {
+   elsif ($_fcn eq 'next') {
       _croak('MCE::next: method is not allowed by the manager process')
          unless ($self->{_wid});
 
@@ -800,7 +800,7 @@ sub AUTOLOAD {
 
    # return the process ID, include thread ID for threads
 
-   elsif ($_fn eq 'pid') {
+   elsif ($_fcn eq 'pid') {
       if (defined $self->{_pid}) {
          return $self->{_pid};
       } elsif ($_has_threads && $self->{use_threads}) {
@@ -812,14 +812,14 @@ sub AUTOLOAD {
    # return the exit status
    # _wrk_status holds the greatest exit status among workers exiting
 
-   elsif ($_fn eq 'status') {
+   elsif ($_fcn eq 'status') {
       _croak('MCE::status: method is not allowed by the worker process')
          if ($self->{_wid});
 
       return (defined $self->{_wrk_status}) ? $self->{_wrk_status} : 0;
    }
 
-   _croak("Can't locate object method \"$_fn\" via package \"MCE\"");
+   _croak("Can't locate object method \"$_fcn\" via package \"MCE\"");
 }
 
 ###############################################################################
@@ -1077,7 +1077,7 @@ sub run {
             $_t->{_total_running} = $_t->{_total_workers};
          }
          for my $_i (1 .. @{ $self->{_state} } - 1) {
-            $_task0_wids{$_i} = 1 unless ($self->{_state}[$_i]{_task_id});
+            $_task0_wids{$_i} = undef unless ($self->{_state}[$_i]{_task_id});
          }
       }
 

@@ -882,10 +882,10 @@ sub _output_loop {
 
       my $_val_bytes = "\x00\x00\x00\x00";
       my $_ptr_bytes = unpack( 'I', pack('P', $_val_bytes) );
-      my ($_count, $_done, $_nbytes, $_start) = (1, 0);
+      my ($_done, $_count, $_nbytes, $_start) = (0);
 
       while (!$_done) {
-         $_start = time;
+         $_start = time, $_count = 1;
 
          # MSWin32 FIONREAD
          IOCTL: ioctl($_DAT_R_SOCK, 0x4004667f, $_ptr_bytes);
@@ -899,8 +899,6 @@ sub _output_loop {
             }
             goto IOCTL;
          }
-
-         $_count = 1;
 
          do {
             sysread($_DAT_R_SOCK, $_func, 8);

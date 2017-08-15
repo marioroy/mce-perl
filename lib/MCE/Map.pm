@@ -227,7 +227,7 @@ sub run_seq (&@) {
    _croak("$_tag: (end) is not specified for sequence")
       unless (defined $_end);
 
-   $_params->{$_pid}{sequence_run} = 1;
+   $_params->{$_pid}{sequence_run} = undef;
 
    @_ = ();
 

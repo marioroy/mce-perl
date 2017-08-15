@@ -173,17 +173,10 @@ Below, a new instance is configured with all available options.
          # parallel_io when running MCE on many nodes with input coming
          # from shared storage.
 
-         # Set posix_exit to avoid all END and destructor processing for
-         # non-threads spawned via fork. Constructing MCE inside a thread
-         # or running inside an eval block implies posix_exit => 1 or if
-         # present Curses, CGI, FCGI, Prima, Gearman::Util, Gearman::XS,
-         # Coro, Mojo::IOLoop, Tk, Wx, or Win32::GUI.
-
-         # Not all modules on CPAN are thread-safe nor safe to use running
-         # many processes. Set posix_exit explicitly if your application
-         # is crashing, due to using a module with a DESTROY or END block
-         # not accounting for the process ID the object was constructed
-         # under: e.g. Cache::BDB, IO::Socket::INET::Daemon.
+         # Set posix_exit to avoid all END and destructor processing.
+         # Constructing MCE inside a thread implies 1 or if present CGI,
+         # FCGI, Coro, Curses, Gearman::Util, Gearman::XS, Mojo::IOLoop,
+         # Prima, Tk, Wx, or Win32::GUI.
 
          # Enable slurpio to pass the raw chunk (scalar ref) to the user
          # function when reading input files.
