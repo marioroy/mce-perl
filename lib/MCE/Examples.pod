@@ -12,16 +12,16 @@ This document describes MCE::Examples version 1.830
 A wrapper script for parallelizing the grep binary. Hence, processing is done
 by the binary, not Perl. This wrapper resides under the bin directory.
 
-    mce_grep
-        A wrapper script with support for the following C binaries.
-        agrep, grep, egrep, fgrep, and tre-agrep
+  mce_grep
+      A wrapper script with support for the following C binaries.
+      agrep, grep, egrep, fgrep, and tre-agrep
 
-        Chunking may be applied either at the [file] level, for large
-        file(s), or at the [list] level when parsing many files
-        recursively.
+      Chunking may be applied either at the [file] level, for large
+      file(s), or at the [list] level when parsing many files
+      recursively.
 
-        The gain in performance is noticeable for expensive patterns,
-        especially with agrep and tre-agrep.
+      The gain in performance is noticeable for expensive patterns,
+      especially with agrep and tre-agrep.
 
 =head1 MCE EXAMPLES ON GITHUB
 
@@ -44,213 +44,213 @@ how one can output results immediately while still preserving output order
 as if processing serially. The %tmp hash is a temporary cache for
 out-of-order results.
 
-   use MCE;
+ use MCE;
 
-   ## Return an iterator for preserving output order.
+ ## Return an iterator for preserving output order.
 
-   sub preserve_order {
-      my (%result_n, %result_d); my $order_id = 1;
+ sub preserve_order {
+    my (%result_n, %result_d); my $order_id = 1;
 
-      return sub {
-         my ($chunk_id, $n, $data) = @_;
+    return sub {
+       my ($chunk_id, $n, $data) = @_;
 
-         $result_n{ $chunk_id } = $n;
-         $result_d{ $chunk_id } = $data;
+       $result_n{ $chunk_id } = $n;
+       $result_d{ $chunk_id } = $data;
 
-         while (1) {
-            last unless exists $result_d{$order_id};
+       while (1) {
+          last unless exists $result_d{$order_id};
 
-            printf "n: %5d sqrt(n): %7.3f\n",
-               $result_n{$order_id}, $result_d{$order_id};
+          printf "n: %5d sqrt(n): %7.3f\n",
+             $result_n{$order_id}, $result_d{$order_id};
 
-            delete $result_n{$order_id};
-            delete $result_d{$order_id};
+          delete $result_n{$order_id};
+          delete $result_d{$order_id};
 
-            $order_id++;
-         }
+          $order_id++;
+       }
 
-         return;
-      };
-   }
+       return;
+    };
+ }
 
-   ## Use $chunk_ref->[0] or $_ to retrieve the element.
-   my @input_data = (0 .. 18000 - 1);
+ ## Use $chunk_ref->[0] or $_ to retrieve the element.
+ my @input_data = (0 .. 18000 - 1);
 
-   my $mce = MCE->new(
-      gather => preserve_order, input_data => \@input_data,
-      chunk_size => 1, max_workers => 3,
+ my $mce = MCE->new(
+    gather => preserve_order, input_data => \@input_data,
+    chunk_size => 1, max_workers => 3,
 
-      user_func => sub {
-         my ($mce, $chunk_ref, $chunk_id) = @_;
-         MCE->gather($chunk_id, $_, sqrt($_));
-      }
-   );
+    user_func => sub {
+       my ($mce, $chunk_ref, $chunk_id) = @_;
+       MCE->gather($chunk_id, $_, sqrt($_));
+    }
+ );
 
-   $mce->run;
+ $mce->run;
 
 This does the same thing using the foreach "sugar" method. 
 
-   use MCE;
+ use MCE;
 
-   sub preserve_order {
-      ...
-   }
+ sub preserve_order {
+    ...
+ }
 
-   my $mce = MCE->new(
-      chunk_size => 1, max_workers => 3,
-      gather => preserve_order
-   );
+ my $mce = MCE->new(
+    chunk_size => 1, max_workers => 3,
+    gather => preserve_order
+ );
 
-   ## Use $chunk_ref->[0] or $_ to retrieve the element.
-   my @input_data = (0 .. 18000 - 1);
+ ## Use $chunk_ref->[0] or $_ to retrieve the element.
+ my @input_data = (0 .. 18000 - 1);
 
-   $mce->foreach( \@input_data, sub {
-      my ($mce, $chunk_ref, $chunk_id) = @_;
-      MCE->gather($chunk_id, $_, sqrt($_));
-   });
+ $mce->foreach( \@input_data, sub {
+    my ($mce, $chunk_ref, $chunk_id) = @_;
+    MCE->gather($chunk_id, $_, sqrt($_));
+ });
 
 The 2 examples described above were done using the Core API. MCE 1.5 comes
 with several models. The L<MCE::Loop> model is used below.
 
-   use MCE::Loop;
+ use MCE::Loop;
 
-   sub preserve_order {
-      ...
-   }
+ sub preserve_order {
+    ...
+ }
 
-   MCE::Loop::init {
-      chunk_size => 1, max_workers => 3,
-      gather => preserve_order
-   };
+ MCE::Loop::init {
+    chunk_size => 1, max_workers => 3,
+    gather => preserve_order
+ };
 
-   ## Use $chunk_ref->[0] or $_ to retrieve the element.
-   my @input_data = (0 .. 18000 - 1);
+ ## Use $chunk_ref->[0] or $_ to retrieve the element.
+ my @input_data = (0 .. 18000 - 1);
 
-   mce_loop {
-      my ($mce, $chunk_ref, $chunk_id) = @_;
-      MCE->gather($chunk_id, $_, sqrt($_));
+ mce_loop {
+    my ($mce, $chunk_ref, $chunk_id) = @_;
+    MCE->gather($chunk_id, $_, sqrt($_));
 
-   } @input_data;
+ } @input_data;
 
-   MCE::Loop::finish;
+ MCE::Loop::finish;
 
 =head2 CHUNKING INPUT DATA
 
 Chunking has the effect of reducing IPC overhead by many folds. A chunk
 containing $chunk_size items is sent to the next available worker.
 
-   use MCE;
+ use MCE;
 
-   ## Return an iterator for preserving output order.
+ ## Return an iterator for preserving output order.
 
-   sub preserve_order {
-      my (%result_n, %result_d, $size); my $order_id = 1;
+ sub preserve_order {
+    my (%result_n, %result_d, $size); my $order_id = 1;
 
-      return sub {
-         my ($chunk_id, $n_ref, $data_ref) = @_;
+    return sub {
+       my ($chunk_id, $n_ref, $data_ref) = @_;
 
-         $result_n{ $chunk_id } = $n_ref;
-         $result_d{ $chunk_id } = $data_ref;
+       $result_n{ $chunk_id } = $n_ref;
+       $result_d{ $chunk_id } = $data_ref;
 
-         while (1) {
-            last unless exists $result_d{$order_id};
-            $size = @{ $result_d{$order_id} };
+       while (1) {
+          last unless exists $result_d{$order_id};
+          $size = @{ $result_d{$order_id} };
 
-            for (0 .. $size - 1) {
-               printf "n: %5d sqrt(n): %7.3f\n",
-                  $result_n{$order_id}->[$_], $result_d{$order_id}->[$_];
-            }
+          for (0 .. $size - 1) {
+             printf "n: %5d sqrt(n): %7.3f\n",
+                $result_n{$order_id}->[$_], $result_d{$order_id}->[$_];
+          }
 
-            delete $result_n{$order_id};
-            delete $result_d{$order_id};
+          delete $result_n{$order_id};
+          delete $result_d{$order_id};
 
-            $order_id++;
-         }
+          $order_id++;
+       }
 
-         return;
-      };
-   }
+       return;
+    };
+ }
 
-   ## Chunking requires one to loop inside the code block.
-   my @input_data = (0 .. 18000 - 1);
+ ## Chunking requires one to loop inside the code block.
+ my @input_data = (0 .. 18000 - 1);
 
-   my $mce = MCE->new(
-      gather => preserve_order, input_data => \@input_data,
-      chunk_size => 500, max_workers => 3,
+ my $mce = MCE->new(
+    gather => preserve_order, input_data => \@input_data,
+    chunk_size => 500, max_workers => 3,
 
-      user_func => sub {
-         my ($mce, $chunk_ref, $chunk_id) = @_;
-         my (@n, @result);
+    user_func => sub {
+       my ($mce, $chunk_ref, $chunk_id) = @_;
+       my (@n, @result);
 
-         foreach ( @{ $chunk_ref } ) {
-            push @n, $_;
-            push @result, sqrt($_);
-         }
+       foreach ( @{ $chunk_ref } ) {
+          push @n, $_;
+          push @result, sqrt($_);
+       }
 
-         MCE->gather($chunk_id, \@n, \@result);
-      }
-   );
+       MCE->gather($chunk_id, \@n, \@result);
+    }
+ );
 
-   $mce->run;
+ $mce->run;
 
 This does the same thing using the forchunk "sugar" method. 
 
-   use MCE;
+ use MCE;
 
-   sub preserve_order {
-      ...
-   }
+ sub preserve_order {
+    ...
+ }
 
-   my $mce = MCE->new(
-      chunk_size => 500, max_workers => 3,
-      gather => preserve_order
-   );
+ my $mce = MCE->new(
+    chunk_size => 500, max_workers => 3,
+    gather => preserve_order
+ );
 
-   ## Chunking requires one to loop inside the code block.
-   my @input_data = (0 .. 18000 - 1);
+ ## Chunking requires one to loop inside the code block.
+ my @input_data = (0 .. 18000 - 1);
 
-   $mce->forchunk( \@input_data, sub {
-      my ($mce, $chunk_ref, $chunk_id) = @_;
-      my (@n, @result);
+ $mce->forchunk( \@input_data, sub {
+    my ($mce, $chunk_ref, $chunk_id) = @_;
+    my (@n, @result);
 
-      foreach ( @{ $chunk_ref } ) {
-         push @n, $_;
-         push @result, sqrt($_);
-      }
+    foreach ( @{ $chunk_ref } ) {
+       push @n, $_;
+       push @result, sqrt($_);
+    }
 
-      MCE->gather($chunk_id, \@n, \@result);
-   });
+    MCE->gather($chunk_id, \@n, \@result);
+ });
 
 Finally, chunking with the L<MCE::Loop> model.
 
-   use MCE::Loop;
+ use MCE::Loop;
 
-   sub preserve_order {
-      ...
-   }
+ sub preserve_order {
+    ...
+ }
 
-   MCE::Loop::init {
-      chunk_size => 500, max_workers => 3,
-      gather => preserve_order
-   };
+ MCE::Loop::init {
+    chunk_size => 500, max_workers => 3,
+    gather => preserve_order
+ };
 
-   ## Chunking requires one to loop inside the code block.
-   my @input_data = (0 .. 18000 - 1);
+ ## Chunking requires one to loop inside the code block.
+ my @input_data = (0 .. 18000 - 1);
 
-   mce_loop {
-      my ($mce, $chunk_ref, $chunk_id) = @_;
-      my (@n, @result);
+ mce_loop {
+    my ($mce, $chunk_ref, $chunk_id) = @_;
+    my (@n, @result);
 
-      foreach ( @{ $chunk_ref } ) {
-         push @n, $_;
-         push @result, sqrt($_);
-      }
+    foreach ( @{ $chunk_ref } ) {
+       push @n, $_;
+       push @result, sqrt($_);
+    }
 
-      MCE->gather($chunk_id, \@n, \@result);
+    MCE->gather($chunk_id, \@n, \@result);
 
-   } @input_data;
+ } @input_data;
 
-   MCE::Loop::finish;
+ MCE::Loop::finish;
 
 =head1 DEMO APPLYING SEQUENCES WITH USER_TASKS
 
@@ -261,91 +261,91 @@ options may be specified uniquely per each task.
 The input scalar $_ (not shown below) contains the same value as $seq_n in
 user_func.
 
-   use MCE;
-   use Time::HiRes 'sleep';
+ use MCE;
+ use Time::HiRes 'sleep';
 
-   ## Run with seq_demo.pl | sort
+ ## Run with seq_demo.pl | sort
 
-   sub user_func {
-      my ($mce, $seq_n, $chunk_id) = @_;
+ sub user_func {
+    my ($mce, $seq_n, $chunk_id) = @_;
 
-      my $wid      = MCE->wid;
-      my $task_id  = MCE->task_id;
-      my $task_wid = MCE->task_wid;
+    my $wid      = MCE->wid;
+    my $task_id  = MCE->task_id;
+    my $task_wid = MCE->task_wid;
 
-      if (ref $seq_n eq 'ARRAY') {
-         ## seq_n or $_ is an array reference when chunk_size > 1
-         foreach (@{ $seq_n }) {
-            MCE->printf(
-               "task_id %d: seq_n %s: chunk_id %d: wid %d: task_wid %d\n",
-               $task_id,    $_,       $chunk_id,   $wid,   $task_wid
-            );
-         }
-      }
-      else {
-         MCE->printf(
-            "task_id %d: seq_n %s: chunk_id %d: wid %d: task_wid %d\n",
-            $task_id,    $seq_n,   $chunk_id,   $wid,   $task_wid
-         );
-      }
+    if (ref $seq_n eq 'ARRAY') {
+       ## seq_n or $_ is an array reference when chunk_size > 1
+       foreach (@{ $seq_n }) {
+          MCE->printf(
+             "task_id %d: seq_n %s: chunk_id %d: wid %d: task_wid %d\n",
+             $task_id,    $_,       $chunk_id,   $wid,   $task_wid
+          );
+       }
+    }
+    else {
+       MCE->printf(
+          "task_id %d: seq_n %s: chunk_id %d: wid %d: task_wid %d\n",
+          $task_id,    $seq_n,   $chunk_id,   $wid,   $task_wid
+       );
+    }
 
-      sleep 0.003;
+    sleep 0.003;
 
-      return;
-   }
+    return;
+ }
 
-   ## Each task can be configured uniquely.
+ ## Each task can be configured uniquely.
 
-   my $mce = MCE->new(
-      user_tasks => [{
-         max_workers => 2,
-         chunk_size  => 1,
-         sequence    => { begin => 11, end => 19, step => 1 },
-         user_func   => \&user_func
-      },{
-         max_workers => 2,
-         chunk_size  => 5,
-         sequence    => { begin => 21, end => 29, step => 1 },
-         user_func   => \&user_func
-      },{
-         max_workers => 2,
-         chunk_size  => 3,
-         sequence    => { begin => 31, end => 39, step => 1 },
-         user_func   => \&user_func
-      }]
-   );
+ my $mce = MCE->new(
+    user_tasks => [{
+       max_workers => 2,
+       chunk_size  => 1,
+       sequence    => { begin => 11, end => 19, step => 1 },
+       user_func   => \&user_func
+    },{
+       max_workers => 2,
+       chunk_size  => 5,
+       sequence    => { begin => 21, end => 29, step => 1 },
+       user_func   => \&user_func
+    },{
+       max_workers => 2,
+       chunk_size  => 3,
+       sequence    => { begin => 31, end => 39, step => 1 },
+       user_func   => \&user_func
+    }]
+ );
 
-   $mce->run;
+ $mce->run;
 
-   -- Output
+ -- Output
 
-   task_id 0: seq_n 11: chunk_id 1: wid 2: task_wid 2
-   task_id 0: seq_n 12: chunk_id 2: wid 1: task_wid 1
-   task_id 0: seq_n 13: chunk_id 3: wid 2: task_wid 2
-   task_id 0: seq_n 14: chunk_id 4: wid 1: task_wid 1
-   task_id 0: seq_n 15: chunk_id 5: wid 2: task_wid 2
-   task_id 0: seq_n 16: chunk_id 6: wid 1: task_wid 1
-   task_id 0: seq_n 17: chunk_id 7: wid 2: task_wid 2
-   task_id 0: seq_n 18: chunk_id 8: wid 1: task_wid 1
-   task_id 0: seq_n 19: chunk_id 9: wid 2: task_wid 2
-   task_id 1: seq_n 21: chunk_id 1: wid 3: task_wid 1
-   task_id 1: seq_n 22: chunk_id 1: wid 3: task_wid 1
-   task_id 1: seq_n 23: chunk_id 1: wid 3: task_wid 1
-   task_id 1: seq_n 24: chunk_id 1: wid 3: task_wid 1
-   task_id 1: seq_n 25: chunk_id 1: wid 3: task_wid 1
-   task_id 1: seq_n 26: chunk_id 2: wid 4: task_wid 2
-   task_id 1: seq_n 27: chunk_id 2: wid 4: task_wid 2
-   task_id 1: seq_n 28: chunk_id 2: wid 4: task_wid 2
-   task_id 1: seq_n 29: chunk_id 2: wid 4: task_wid 2
-   task_id 2: seq_n 31: chunk_id 1: wid 5: task_wid 1
-   task_id 2: seq_n 32: chunk_id 1: wid 5: task_wid 1
-   task_id 2: seq_n 33: chunk_id 1: wid 5: task_wid 1
-   task_id 2: seq_n 34: chunk_id 2: wid 6: task_wid 2
-   task_id 2: seq_n 35: chunk_id 2: wid 6: task_wid 2
-   task_id 2: seq_n 36: chunk_id 2: wid 6: task_wid 2
-   task_id 2: seq_n 37: chunk_id 3: wid 5: task_wid 1
-   task_id 2: seq_n 38: chunk_id 3: wid 5: task_wid 1
-   task_id 2: seq_n 39: chunk_id 3: wid 5: task_wid 1
+ task_id 0: seq_n 11: chunk_id 1: wid 2: task_wid 2
+ task_id 0: seq_n 12: chunk_id 2: wid 1: task_wid 1
+ task_id 0: seq_n 13: chunk_id 3: wid 2: task_wid 2
+ task_id 0: seq_n 14: chunk_id 4: wid 1: task_wid 1
+ task_id 0: seq_n 15: chunk_id 5: wid 2: task_wid 2
+ task_id 0: seq_n 16: chunk_id 6: wid 1: task_wid 1
+ task_id 0: seq_n 17: chunk_id 7: wid 2: task_wid 2
+ task_id 0: seq_n 18: chunk_id 8: wid 1: task_wid 1
+ task_id 0: seq_n 19: chunk_id 9: wid 2: task_wid 2
+ task_id 1: seq_n 21: chunk_id 1: wid 3: task_wid 1
+ task_id 1: seq_n 22: chunk_id 1: wid 3: task_wid 1
+ task_id 1: seq_n 23: chunk_id 1: wid 3: task_wid 1
+ task_id 1: seq_n 24: chunk_id 1: wid 3: task_wid 1
+ task_id 1: seq_n 25: chunk_id 1: wid 3: task_wid 1
+ task_id 1: seq_n 26: chunk_id 2: wid 4: task_wid 2
+ task_id 1: seq_n 27: chunk_id 2: wid 4: task_wid 2
+ task_id 1: seq_n 28: chunk_id 2: wid 4: task_wid 2
+ task_id 1: seq_n 29: chunk_id 2: wid 4: task_wid 2
+ task_id 2: seq_n 31: chunk_id 1: wid 5: task_wid 1
+ task_id 2: seq_n 32: chunk_id 1: wid 5: task_wid 1
+ task_id 2: seq_n 33: chunk_id 1: wid 5: task_wid 1
+ task_id 2: seq_n 34: chunk_id 2: wid 6: task_wid 2
+ task_id 2: seq_n 35: chunk_id 2: wid 6: task_wid 2
+ task_id 2: seq_n 36: chunk_id 2: wid 6: task_wid 2
+ task_id 2: seq_n 37: chunk_id 3: wid 5: task_wid 1
+ task_id 2: seq_n 38: chunk_id 3: wid 5: task_wid 1
+ task_id 2: seq_n 39: chunk_id 3: wid 5: task_wid 1
 
 =head1 GLOBALLY SCOPED VARIABLES AND MCE MODELS
 
@@ -357,113 +357,113 @@ Let's take a look. The $i variable is declared with my and being reference in
 both user_begin and mce_loop blocks. This will cause Perl to create a new code
 ref for mce_loop on subsequent runs.
 
-   use MCE::Loop;
+ use MCE::Loop;
 
-   my $i = 0;   ## <-- this is the reason, try our instead
+ my $i = 0;   ## <-- this is the reason, try our instead
 
-   MCE::Loop::init {
-      user_begin => sub {
-         print "process_id: $$\n" if MCE->wid == 1;
-         $i++;
-      },
-      chunk_size => 1, max_workers => 'auto',
-   };
+ MCE::Loop::init {
+    user_begin => sub {
+       print "process_id: $$\n" if MCE->wid == 1;
+       $i++;
+    },
+    chunk_size => 1, max_workers => 'auto',
+ };
 
-   for (1..2) {
-      ## Perl creates another code block ref causing workers
-      ## to re-spawn on subsequent runs.
-      print "\n"; mce_loop { print "$i: $_\n" } 1..4;
-   }
+ for (1..2) {
+    ## Perl creates another code block ref causing workers
+    ## to re-spawn on subsequent runs.
+    print "\n"; mce_loop { print "$i: $_\n" } 1..4;
+ }
 
-   MCE::Loop::finish;
+ MCE::Loop::finish;
 
-   -- Output
+ -- Output
 
-   process_id: 51380
-   1: 1
-   1: 2
-   1: 3
-   1: 4
+ process_id: 51380
+ 1: 1
+ 1: 2
+ 1: 3
+ 1: 4
 
-   process_id: 51388
-   1: 1
-   1: 2
-   1: 3
-   1: 4
+ process_id: 51388
+ 1: 1
+ 1: 2
+ 1: 3
+ 1: 4
 
 By making the one line change, we see that workers persist for the duration of
 the script.
 
-   use MCE::Loop;
+ use MCE::Loop;
 
-   our $i = 0;  ## <-- changed my to our
+ our $i = 0;  ## <-- changed my to our
 
-   MCE::Loop::init {
-      user_begin => sub {
-         print "process_id: $$\n" if MCE->wid == 1;
-         $i++;
-      },
-      chunk_size => 1, max_workers => 'auto',
-   };
+ MCE::Loop::init {
+    user_begin => sub {
+       print "process_id: $$\n" if MCE->wid == 1;
+       $i++;
+    },
+    chunk_size => 1, max_workers => 'auto',
+ };
 
-   for (1..2) {
-      ## Workers persist between runs. No re-spawning.
-      print "\n"; mce_loop { print "$i: $_\n" } 1..4;
-   }
+ for (1..2) {
+    ## Workers persist between runs. No re-spawning.
+    print "\n"; mce_loop { print "$i: $_\n" } 1..4;
+ }
 
-   -- Output
+ -- Output
 
-   process_id: 51457
-   1: 1
-   1: 2
-   1: 4
-   1: 3
+ process_id: 51457
+ 1: 1
+ 1: 2
+ 1: 4
+ 1: 3
 
-   process_id: 51457
-   2: 1
-   2: 2
-   2: 3
-   2: 4
+ process_id: 51457
+ 2: 1
+ 2: 2
+ 2: 3
+ 2: 4
 
 One may alternatively specify a code reference to existing routines for
 user_begin and mce_loop. Take notice of the comma after \&_func though.
 
-   use MCE::Loop;
+ use MCE::Loop;
 
-   my $i = 0;  ## my (ok)
+ my $i = 0;  ## my (ok)
 
-   sub _begin {
-      print "process_id: $$\n" if MCE->wid == 1;
-      $i++;
-   }
-   sub _func {
-      print "$i: $_\n";
-   }
+ sub _begin {
+    print "process_id: $$\n" if MCE->wid == 1;
+    $i++;
+ }
+ sub _func {
+    print "$i: $_\n";
+ }
 
-   MCE::Loop::init {
-      user_begin => \&_begin,
-      chunk_size => 1, max_workers => 'auto',
-   };
+ MCE::Loop::init {
+    user_begin => \&_begin,
+    chunk_size => 1, max_workers => 'auto',
+ };
 
-   for (1..2) {
-      print "\n"; mce_loop \&_func, 1..4;
-   }
+ for (1..2) {
+    print "\n"; mce_loop \&_func, 1..4;
+ }
 
-   MCE::Loop::finish;
+ MCE::Loop::finish;
 
-   -- Output
+ -- Output
 
-   process_id: 51626
-   1: 1
-   1: 2
-   1: 3
-   1: 4
+ process_id: 51626
+ 1: 1
+ 1: 2
+ 1: 3
+ 1: 4
 
-   process_id: 51626
-   2: 1
-   2: 2
-   2: 3
-   2: 4
+ process_id: 51626
+ 2: 1
+ 2: 2
+ 2: 3
+ 2: 4
 
 =head1 MANDELBROT DEMONSTRATION
 
@@ -471,108 +471,108 @@ For the next demonstration, L<MCE::Relay> allows a section of code to run
 serially and orderly between workers. Relay capabilities is enabled with
 the C<init_relay> option, which loads MCE::Relay.
 
-   # perl mandelbrot.pl 16000 > image.pbm
-   # outputs a pbm binary to STDOUT
+ # perl mandelbrot.pl 16000 > image.pbm
+ # outputs a pbm binary to STDOUT
 
-   # The Computer Language Benchmarks Game
-   # http://benchmarksgame.alioth.debian.org/
-   #
-   # Started with:
-   # C#  : Adapted by Antti Lankila from Isaac Gouy's implementation
-   # Perl: Contributed by Mykola Zubach
-   #
-   # MCE::Loop version by Mario Roy
-   # requires MCE 1.807+
+ # The Computer Language Benchmarks Game
+ # http://benchmarksgame.alioth.debian.org/
+ #
+ # Started with:
+ # C#  : Adapted by Antti Lankila from Isaac Gouy's implementation
+ # Perl: Contributed by Mykola Zubach
+ #
+ # MCE::Loop version by Mario Roy
+ # requires MCE 1.807+
 
-   use strict;
-   use warnings;
+ use strict;
+ use warnings;
 
-   use MCE::Loop;
+ use MCE::Loop;
 
-   use constant MAXITER => 50;
-   use constant LIMIT   => 4.0;
-   use constant XMIN    => -1.5;
-   use constant YMIN    => -1.0;
+ use constant MAXITER => 50;
+ use constant LIMIT   => 4.0;
+ use constant XMIN    => -1.5;
+ use constant YMIN    => -1.0;
 
-   my ( $w, $h, $m, $invN );
+ my ( $w, $h, $m, $invN );
 
-   sub draw_lines {
-      my ( $y1, $y2 ) = @_;
-      my @result;
+ sub draw_lines {
+    my ( $y1, $y2 ) = @_;
+    my @result;
 
-      # Workers run simultaneously, in parallel.
+    # Workers run simultaneously, in parallel.
 
-      for my $y ( $y1 .. $y2 ) {
-         my ( $bits, $xcounter, @line ) = ( 0, 0 );
-         my $Ci = $y * $invN + YMIN;
+    for my $y ( $y1 .. $y2 ) {
+       my ( $bits, $xcounter, @line ) = ( 0, 0 );
+       my $Ci = $y * $invN + YMIN;
 
-         for my $x ( 0 .. $w - 1 ) {
-            my ( $Zr, $Zi, $Tr, $Ti ) = ( 0, 0, 0, 0 );
-            my $Cr = $x * $invN + XMIN;
+       for my $x ( 0 .. $w - 1 ) {
+          my ( $Zr, $Zi, $Tr, $Ti ) = ( 0, 0, 0, 0 );
+          my $Cr = $x * $invN + XMIN;
 
-            $bits = $bits << 1;
+          $bits = $bits << 1;
 
-            for ( 1 .. MAXITER ) {
-               $Zi = $Zi * 2 * $Zr + $Ci;
-               $Zr = $Tr - $Ti + $Cr;
-               $Ti = $Zi * $Zi, $Tr = $Zr * $Zr;
+          for ( 1 .. MAXITER ) {
+             $Zi = $Zi * 2 * $Zr + $Ci;
+             $Zr = $Tr - $Ti + $Cr;
+             $Ti = $Zi * $Zi, $Tr = $Zr * $Zr;
 
-               $bits |= 1, last if ( $Tr + $Ti > LIMIT );
-            }
+             $bits |= 1, last if ( $Tr + $Ti > LIMIT );
+          }
 
-            if ( ++$xcounter == 8 ) {
-               push @line, $bits ^ 0xff;
-               $bits = $xcounter = 0;
-            }
-         }
+          if ( ++$xcounter == 8 ) {
+             push @line, $bits ^ 0xff;
+             $bits = $xcounter = 0;
+          }
+       }
 
-         if ( $xcounter ) {
-            push @line, ( $bits << ( 8 - $xcounter ) ) ^ 0xff;
-         }
+       if ( $xcounter ) {
+          push @line, ( $bits << ( 8 - $xcounter ) ) ^ 0xff;
+       }
 
-         push @result, pack 'C*', @line;
-      }
+       push @result, pack 'C*', @line;
+    }
 
-      # Statements between lock & unlock are processed serially & orderly.
+    # Statements between lock & unlock are processed serially & orderly.
 
-      MCE->relay_lock;
+    MCE->relay_lock;
 
-      print @result;          # Workers display upper-half only.
-      MCE->gather( @result ); # Gather lines for the manager-process.
+    print @result;          # Workers display upper-half only.
+    MCE->gather( @result ); # Gather lines for the manager-process.
 
-      MCE->relay_unlock;
-   }
+    MCE->relay_unlock;
+ }
 
-   ## MAIN()
+ ## MAIN()
 
-   # Important, must flush output immediately.
+ # Important, must flush output immediately.
 
-   $| = 1; binmode STDOUT;
+ $| = 1; binmode STDOUT;
 
-   $w = $h = shift || 200;
-   $m = int( $h / 2 );
-   $invN = 2 / $w;
+ $w = $h = shift || 200;
+ $m = int( $h / 2 );
+ $invN = 2 / $w;
 
-   print "P4\n$w $h\n"; # PBM image header.
+ print "P4\n$w $h\n"; # PBM image header.
 
-   # Workers display upper-half only. Also, lines are gathered to be
-   # displayed later by the manager-process after running.
+ # Workers display upper-half only. Also, lines are gathered to be
+ # displayed later by the manager-process after running.
 
-   MCE::Loop->init(
-      init_relay  => 0, # Enables MCE::Relay capabilities if defined.
-      max_workers => 4,
-      bounds_only => 1,
-   );
+ MCE::Loop->init(
+    init_relay  => 0, # Enables MCE::Relay capabilities if defined.
+    max_workers => 4,
+    bounds_only => 1,
+ );
 
-   my @upper = mce_loop_s { draw_lines( $_[1][0], $_[1][1] ) } 0, $m;
+ my @upper = mce_loop_s { draw_lines( $_[1][0], $_[1][1] ) } 0, $m;
 
-   MCE::Loop->finish;
+ MCE::Loop->finish;
 
-   # Remove first and last lines from the upper half.
-   # Then, output bottom half.
+ # Remove first and last lines from the upper half.
+ # Then, output bottom half.
 
-   shift @upper, pop @upper;
-   print reverse @upper;
+ shift @upper, pop @upper;
+ print reverse @upper;
 
 =head1 MONTE CARLO SIMULATION
 
@@ -584,127 +584,127 @@ The serial code is based off the one by "gamo". A sleep is added to imitate
 extra CPU time. The while loop is wrapped within a for loop to run 10 times.
 The random number generator is seeded as well.
 
-   use Time::HiRes qw/sleep time/;
+ use Time::HiRes qw/sleep time/;
 
-   srand 5906;
+ srand 5906;
 
-   my ($var, $foo, $bar) = (1, 2, 3);
-   my ($r, $a, $b);
+ my ($var, $foo, $bar) = (1, 2, 3);
+ my ($r, $a, $b);
 
-   my $start = time;
+ my $start = time;
 
-   for (1..10) {
-      while (1) {
-         $r = rand;
+ for (1..10) {
+    while (1) {
+       $r = rand;
 
-         $a = $r * ($var + $foo + $bar);
-         $b = sqrt($var + $foo + $bar);
+       $a = $r * ($var + $foo + $bar);
+       $b = sqrt($var + $foo + $bar);
 
-         last if ($a < $b + 0.001 && $a > $b - 0.001);
-         sleep 0.002;
-      }
+       last if ($a < $b + 0.001 && $a > $b - 0.001);
+       sleep 0.002;
+    }
 
-      print "$r -> $a\n";
-   }
+    print "$r -> $a\n";
+ }
 
-   my $end = time;
+ my $end = time;
 
-   printf {*STDERR} "\n## compute time: %0.03f secs\n\n", $end - $start;
+ printf {*STDERR} "\n## compute time: %0.03f secs\n\n", $end - $start;
 
-   -- Output
+ -- Output
 
-   0.408246276657106 -> 2.44947765994264
-   0.408099657137821 -> 2.44859794282693
-   0.408285842931324 -> 2.44971505758794
-   0.408342292008765 -> 2.45005375205259
-   0.408333076522673 -> 2.44999845913604
-   0.408344266898869 -> 2.45006560139321
-   0.408084104120526 -> 2.44850462472316
-   0.408197400014714 -> 2.44918440008828
-   0.408344783704855 -> 2.45006870222913
-   0.408248062985479 -> 2.44948837791287
+ 0.408246276657106 -> 2.44947765994264
+ 0.408099657137821 -> 2.44859794282693
+ 0.408285842931324 -> 2.44971505758794
+ 0.408342292008765 -> 2.45005375205259
+ 0.408333076522673 -> 2.44999845913604
+ 0.408344266898869 -> 2.45006560139321
+ 0.408084104120526 -> 2.44850462472316
+ 0.408197400014714 -> 2.44918440008828
+ 0.408344783704855 -> 2.45006870222913
+ 0.408248062985479 -> 2.44948837791287
 
-   ## compute time: 93.049 secs
+ ## compute time: 93.049 secs
 
 Next, we'd do the same with MCE. The demonstration requires at least MCE 1.509
 to run properly. Folks on prior releases (1.505 - 1.508) will not see output
 for the 2nd run and beyond.
 
-   use Time::HiRes qw/sleep time/;
-   use MCE::Loop;
+ use Time::HiRes qw/sleep time/;
+ use MCE::Loop;
 
-   srand 5906;
+ srand 5906;
 
-   ## Configure MCE. Move common variables inside the user_begin
-   ## block when not needed by the manager process.
+ ## Configure MCE. Move common variables inside the user_begin
+ ## block when not needed by the manager process.
 
-   MCE::Loop::init {
-      user_begin => sub {
-         use vars qw($var $foo $bar);
-         our ($var, $foo, $bar) = (1, 2, 3);
-      },
-      chunk_size => 1, max_workers => 'auto',
-      input_data => \&_input, gather => \&_gather
-   };
+ MCE::Loop::init {
+    user_begin => sub {
+       use vars qw($var $foo $bar);
+       our ($var, $foo, $bar) = (1, 2, 3);
+    },
+    chunk_size => 1, max_workers => 'auto',
+    input_data => \&_input, gather => \&_gather
+ };
 
-   ## Callback functions.
+ ## Callback functions.
 
-   my ($done, $r, $a);
+ my ($done, $r, $a);
 
-   sub _input {
-      return if $done;
-      return rand;
-   }
+ sub _input {
+    return if $done;
+    return rand;
+ }
 
-   sub _gather {
-      my ($_r, $_a, $_b) = @_;
-      return if $done;
+ sub _gather {
+    my ($_r, $_a, $_b) = @_;
+    return if $done;
 
-      if ($_a < $_b + 0.001 && $_a > $_b - 0.001) {
-         ($done, $r, $a) = (1, $_r, $_a);
-      }
-      return;
-   }
+    if ($_a < $_b + 0.001 && $_a > $_b - 0.001) {
+       ($done, $r, $a) = (1, $_r, $_a);
+    }
+    return;
+ }
 
-   ## Compute in parallel.
+ ## Compute in parallel.
 
-   my $start = time;
+ my $start = time;
 
-   for (1..10) {
-      $done = 0;      ## Reset $done before running
+ for (1..10) {
+    $done = 0;      ## Reset $done before running
 
-      mce_loop {
-       # my ($mce, $chunk_ref, $chunk_id) = @_;
-       # my $r = $chunk_ref->[0];
+    mce_loop {
+     # my ($mce, $chunk_ref, $chunk_id) = @_;
+     # my $r = $chunk_ref->[0];
 
-         my $r = $_;  ## Valid due to chunk_size => 1
+       my $r = $_;  ## Valid due to chunk_size => 1
 
-         my $a = $r * ($var + $foo + $bar);
-         my $b = sqrt($var + $foo + $bar);
+       my $a = $r * ($var + $foo + $bar);
+       my $b = sqrt($var + $foo + $bar);
 
-         MCE->gather($r, $a, $b);
-         sleep 0.002;
-      };
+       MCE->gather($r, $a, $b);
+       sleep 0.002;
+    };
 
-      print "$r -> $a\n";
-   }
+    print "$r -> $a\n";
+ }
 
-   printf "\n## compute time: %0.03f secs\n\n", time - $start;
+ printf "\n## compute time: %0.03f secs\n\n", time - $start;
 
-   -- Output
+ -- Output
 
-   0.408246276657106 -> 2.44947765994264
-   0.408099657137821 -> 2.44859794282693
-   0.408285842931324 -> 2.44971505758794
-   0.408342292008765 -> 2.45005375205259
-   0.408333076522673 -> 2.44999845913604
-   0.408344266898869 -> 2.45006560139321
-   0.408084104120526 -> 2.44850462472316
-   0.408197400014714 -> 2.44918440008828
-   0.408344783704855 -> 2.45006870222913
-   0.408248062985479 -> 2.44948837791287
+ 0.408246276657106 -> 2.44947765994264
+ 0.408099657137821 -> 2.44859794282693
+ 0.408285842931324 -> 2.44971505758794
+ 0.408342292008765 -> 2.45005375205259
+ 0.408333076522673 -> 2.44999845913604
+ 0.408344266898869 -> 2.45006560139321
+ 0.408084104120526 -> 2.44850462472316
+ 0.408197400014714 -> 2.44918440008828
+ 0.408344783704855 -> 2.45006870222913
+ 0.408248062985479 -> 2.44948837791287
 
-   ## compute time: 12.990 secs
+ ## compute time: 12.990 secs
 
 Well, there you have it. MCE is able to complete the same simulation many
 times faster.
@@ -717,197 +717,197 @@ MCE. The "do" and "sendto" methods, for sending data to the manager process,
 are demonstrated below. Both process serially by the manager process on a
 first come, first serve basis.
 
-   use MCE::Flow max_workers => 4;
+ use MCE::Flow max_workers => 4;
 
-   sub report_stats {
-      my ($wid, $msg, $h_ref) = @_;
-      print "Worker $wid says $msg: ", $h_ref->{"counter"}, "\n";
-   }
+ sub report_stats {
+    my ($wid, $msg, $h_ref) = @_;
+    print "Worker $wid says $msg: ", $h_ref->{"counter"}, "\n";
+ }
 
-   mce_flow sub {
-      my ($mce) = @_;
-      my $wid = MCE->wid;
+ mce_flow sub {
+    my ($mce) = @_;
+    my $wid = MCE->wid;
 
-      if ($wid == 1) {
-         my %h = ("counter" => 0);
-         while (1) {
-            $h{"counter"} += 1;
-            MCE->do("report_stats", $wid, "Hey there", \%h);
-            last if ($h{"counter"} == 4);
-            sleep 2;
-         }
-      }
-      else {
-         my %h = ("counter" => 0);
-         while (1) {
-            $h{"counter"} += 1;
-            MCE->do("report_stats", $wid, "Welcome..", \%h);
-            last if ($h{"counter"} == 2);
-            sleep 4;
-         }
-      }
+    if ($wid == 1) {
+       my %h = ("counter" => 0);
+       while (1) {
+          $h{"counter"} += 1;
+          MCE->do("report_stats", $wid, "Hey there", \%h);
+          last if ($h{"counter"} == 4);
+          sleep 2;
+       }
+    }
+    else {
+       my %h = ("counter" => 0);
+       while (1) {
+          $h{"counter"} += 1;
+          MCE->do("report_stats", $wid, "Welcome..", \%h);
+          last if ($h{"counter"} == 2);
+          sleep 4;
+       }
+    }
 
-      MCE->print(\*STDERR, "Worker $wid is exiting\n");
-   };
+    MCE->print(\*STDERR, "Worker $wid is exiting\n");
+ };
 
-   -- Output
+ -- Output
 
-   Note how worker 2 comes first in the 2nd run below.
+ Note how worker 2 comes first in the 2nd run below.
 
-   $ ./demo.pl
-   Worker 1 says Hey there: 1
-   Worker 2 says Welcome..: 1
-   Worker 3 says Welcome..: 1
-   Worker 4 says Welcome..: 1
-   Worker 1 says Hey there: 2
-   Worker 2 says Welcome..: 2
-   Worker 3 says Welcome..: 2
-   Worker 1 says Hey there: 3
-   Worker 2 is exiting
-   Worker 3 is exiting
-   Worker 4 says Welcome..: 2
-   Worker 4 is exiting
-   Worker 1 says Hey there: 4
-   Worker 1 is exiting
+ $ ./demo.pl
+ Worker 1 says Hey there: 1
+ Worker 2 says Welcome..: 1
+ Worker 3 says Welcome..: 1
+ Worker 4 says Welcome..: 1
+ Worker 1 says Hey there: 2
+ Worker 2 says Welcome..: 2
+ Worker 3 says Welcome..: 2
+ Worker 1 says Hey there: 3
+ Worker 2 is exiting
+ Worker 3 is exiting
+ Worker 4 says Welcome..: 2
+ Worker 4 is exiting
+ Worker 1 says Hey there: 4
+ Worker 1 is exiting
 
-   $ ./demo.pl
-   Worker 2 says Welcome..: 1
-   Worker 1 says Hey there: 1
-   Worker 4 says Welcome..: 1
-   Worker 3 says Welcome..: 1
-   Worker 1 says Hey there: 2
-   Worker 2 says Welcome..: 2
-   Worker 4 says Welcome..: 2
-   Worker 3 says Welcome..: 2
-   Worker 2 is exiting
-   Worker 4 is exiting
-   Worker 1 says Hey there: 3
-   Worker 3 is exiting
-   Worker 1 says Hey there: 4
-   Worker 1 is exiting
+ $ ./demo.pl
+ Worker 2 says Welcome..: 1
+ Worker 1 says Hey there: 1
+ Worker 4 says Welcome..: 1
+ Worker 3 says Welcome..: 1
+ Worker 1 says Hey there: 2
+ Worker 2 says Welcome..: 2
+ Worker 4 says Welcome..: 2
+ Worker 3 says Welcome..: 2
+ Worker 2 is exiting
+ Worker 4 is exiting
+ Worker 1 says Hey there: 3
+ Worker 3 is exiting
+ Worker 1 says Hey there: 4
+ Worker 1 is exiting
 
 =head1 TESTING AND CAPTURING OUTPUT
 
 Capturing C<STDERR> and C<STDOUT> is possible with L<App::Cmd::Tester>.
 MCE v1.708 or later is required to run the demonstration.
 
-   use App::Cmd::Tester;
-   use MCE;
+ use App::Cmd::Tester;
+ use MCE;
 
-   my $mce = MCE->new(
-      max_workers => 4,
+ my $mce = MCE->new(
+    max_workers => 4,
 
-      user_func => sub {
-         my $wid = MCE->wid;
+    user_func => sub {
+       my $wid = MCE->wid;
 
-         # MCE->sendto('stderr', "$wid: sendto err\n");
-         # MCE->sendto(\*STDERR, "$wid: sendto err\n");
-           MCE->print(\*STDERR, "$wid: print err\n");
+       # MCE->sendto('stderr', "$wid: sendto err\n");
+       # MCE->sendto(\*STDERR, "$wid: sendto err\n");
+         MCE->print(\*STDERR, "$wid: print err\n");
 
-         # MCE->sendto('stdout', "$wid: sendto out\n");
-         # MCE->sendto(\*STDOUT, "$wid: sendto out\n");
-         # MCE->print(\*STDOUT, "$wid: print out\n");
-           MCE->print("$wid: print out\n");
-      }
-   );
+       # MCE->sendto('stdout', "$wid: sendto out\n");
+       # MCE->sendto(\*STDOUT, "$wid: sendto out\n");
+       # MCE->print(\*STDOUT, "$wid: print out\n");
+         MCE->print("$wid: print out\n");
+    }
+ );
 
-   my $result = test_app(
-      $mce => []
-   );
+ my $result = test_app(
+    $mce => []
+ );
 
-   print "# stderr\n";
-   print $result->stderr;
-   print "\n";
+ print "# stderr\n";
+ print $result->stderr;
+ print "\n";
 
-   print "# stdout\n";
-   print $result->stdout;
-   print "\n";
+ print "# stdout\n";
+ print $result->stdout;
+ print "\n";
 
-   print "# output\n";
-   print $result->output;
-   print "\n";
+ print "# output\n";
+ print $result->output;
+ print "\n";
 
-   print "# exit code\n";
-   print $result->exit_code;
-   print "\n\n";
+ print "# exit code\n";
+ print $result->exit_code;
+ print "\n\n";
 
-   -- Output
+ -- Output
 
-   # stderr
-   3: print err
-   4: print err
-   1: print err
-   2: print err
+ # stderr
+ 3: print err
+ 4: print err
+ 1: print err
+ 2: print err
 
-   # stdout
-   3: print out
-   4: print out
-   1: print out
-   2: print out
+ # stdout
+ 3: print out
+ 4: print out
+ 1: print out
+ 2: print out
 
-   # output
-   3: print err
-   3: print out
-   4: print err
-   1: print err
-   4: print out
-   1: print out
-   2: print err
-   2: print out
+ # output
+ 3: print err
+ 3: print out
+ 4: print err
+ 1: print err
+ 4: print out
+ 1: print out
+ 2: print err
+ 2: print out
 
-   # exit code
-   0
+ # exit code
+ 0
 
 The next demonstration captures a sequence of numbers orderly. The slot name
 for C<IO::TieCombine> must be C<stdout> or C<stderr> for MCE->print to work.
 
-   use MCE::Flow;
-   use MCE::Candy;
-   use IO::TieCombine;
+ use MCE::Flow;
+ use MCE::Candy;
+ use IO::TieCombine;
 
-   my $hub = IO::TieCombine->new;
+ my $hub = IO::TieCombine->new;
 
-   {
-      tie local *STDOUT, $hub, 'stdout';
+ {
+    tie local *STDOUT, $hub, 'stdout';
 
-      MCE::Flow::init {
-         max_workers => 4,
-         chunk_size  => 500,
-         bounds_only => 1,
-         gather      => MCE::Candy::out_iter_fh(\*STDOUT),
-      };
+    MCE::Flow::init {
+       max_workers => 4,
+       chunk_size  => 500,
+       bounds_only => 1,
+       gather      => MCE::Candy::out_iter_fh(\*STDOUT),
+    };
 
-      mce_flow_s sub {
-         my ($mce, $seq, $chunk_id) = @_;
-         my $output = '';
+    mce_flow_s sub {
+       my ($mce, $seq, $chunk_id) = @_;
+       my $output = '';
 
-         for my $n ( $seq->[0] .. $seq->[1] ) {
-            $output .= "$n\n";
-         }
+       for my $n ( $seq->[0] .. $seq->[1] ) {
+          $output .= "$n\n";
+       }
 
-         # do this if output order is not required
-         # $mce->print(\*STDOUT, $output);
+       # do this if output order is not required
+       # $mce->print(\*STDOUT, $output);
 
-         # or this if preserving output order is desired
-           $mce->gather($chunk_id, $output);
+       # or this if preserving output order is desired
+         $mce->gather($chunk_id, $output);
 
-      }, 1, 100000;
+    }, 1, 100000;
 
-      MCE::Flow::finish;
-   }
+    MCE::Flow::finish;
+ }
 
-   my $content = $hub->slot_contents('stdout');
-   my $answer  = join("", map { "$_\n" } 1..100000);
+ my $content = $hub->slot_contents('stdout');
+ my $answer  = join("", map { "$_\n" } 1..100000);
 
-   if ($content eq $answer) {
-      print "ordered: yes\n";
-   } else {
-      print "ordered: no\n";
-   }
+ if ($content eq $answer) {
+    print "ordered: yes\n";
+ } else {
+    print "ordered: no\n";
+ }
 
-   -- Output
+ -- Output
 
-   ordered: yes
+ ordered: yes
 
 =head1 CROSS-PLATFORM TEMPLATE FOR BINARY EXECUTABLE
 
@@ -915,74 +915,74 @@ Making an executable is possible with the L<PAR::Packer> module.
 On the Windows platform, threads, threads::shared, and exiting via
 threads are necessary for the binary to exit successfully.
 
-   # https://metacpan.org/pod/PAR::Packer
-   # https://metacpan.org/pod/pp
-   #
-   #   pp -o demo.exe demo.pl
-   #   ./demo.exe
+ # https://metacpan.org/pod/PAR::Packer
+ # https://metacpan.org/pod/pp
+ #
+ #   pp -o demo.exe demo.pl
+ #   ./demo.exe
 
-   use strict;
-   use warnings;
+ use strict;
+ use warnings;
 
-   use if $^O eq "MSWin32", "threads";
-   use if $^O eq "MSWin32", "threads::shared";
+ use if $^O eq "MSWin32", "threads";
+ use if $^O eq "MSWin32", "threads::shared";
 
-   use Time::HiRes (); # include minimum dependencies for MCE
-   use Storable ();
+ use Time::HiRes (); # include minimum dependencies for MCE
+ use Storable ();
 
-   use IO::FDPass ();  # optional: for MCE::Shared->condvar, handle, queue
-   use Sereal ();      # optional: faster serialization, may omit Storable
+ use IO::FDPass ();  # optional: for MCE::Shared->condvar, handle, queue
+ use Sereal ();      # optional: faster serialization, may omit Storable
 
-   use MCE;
+ use MCE;
 
-   my $mce = MCE->new(
-      max_workers => 4,
-      user_func => sub {
-         print "hello from ", MCE->wid(), "\n";
-      }
-   );
+ my $mce = MCE->new(
+    max_workers => 4,
+    user_func => sub {
+       print "hello from ", MCE->wid(), "\n";
+    }
+ );
 
-   $mce->run();
+ $mce->run();
 
-   threads->exit(0) if $INC{"threads.pm"};
+ threads->exit(0) if $INC{"threads.pm"};
 
 With L<MCE::Shared> 1.808 and later releases, L<MCE::Hobo> works just
 the same. The following compiles fine on UNIX and the Windows platform.
 
-   # https://metacpan.org/pod/PAR::Packer
-   # https://metacpan.org/pod/pp
-   #
-   #   pp -o demo.exe demo.pl
-   #   ./demo.exe
+ # https://metacpan.org/pod/PAR::Packer
+ # https://metacpan.org/pod/pp
+ #
+ #   pp -o demo.exe demo.pl
+ #   ./demo.exe
 
-   use strict;
-   use warnings;
+ use strict;
+ use warnings;
 
-   use if $^O eq "MSWin32", "threads";
-   use if $^O eq "MSWin32", "threads::shared";
+ use if $^O eq "MSWin32", "threads";
+ use if $^O eq "MSWin32", "threads::shared";
 
-   use Time::HiRes (); # include minimum dependencies for MCE::Hobo
-   use Storable ();
+ use Time::HiRes (); # include minimum dependencies for MCE::Hobo
+ use Storable ();
 
-   use IO::FDPass ();  # optional: for MCE::Shared->condvar, handle, queue
-   use Sereal ();      # optional: faster serialization, may omit Storable
+ use IO::FDPass ();  # optional: for MCE::Shared->condvar, handle, queue
+ use Sereal ();      # optional: faster serialization, may omit Storable
 
-   use MCE::Hobo;      # 1.808 or later on Windows
-   use MCE::Shared;
+ use MCE::Hobo;      # 1.808 or later on Windows
+ use MCE::Shared;
 
-   my $seq_a = MCE::Shared->sequence( 1, 30 );
+ my $seq_a = MCE::Shared->sequence( 1, 30 );
 
-   sub task {
-      my ( $id ) = @_;
-      while ( defined ( my $num = $seq_a->next ) ) {
-         print "$id: $num\n";
-      }
-   }
+ sub task {
+    my ( $id ) = @_;
+    while ( defined ( my $num = $seq_a->next ) ) {
+       print "$id: $num\n";
+    }
+ }
 
-   MCE::Hobo->new( \&task, $_ ) for 1 .. 2;
-   MCE::Hobo->waitall;
+ MCE::Hobo->new( \&task, $_ ) for 1 .. 2;
+ MCE::Hobo->waitall;
 
-   threads->exit(0) if $INC{"threads.pm"};
+ threads->exit(0) if $INC{"threads.pm"};
 
 =head1 FCGI::PROCMANAGER DEMONSTRATIONS
 
@@ -990,164 +990,164 @@ The demonstrations requires MCE 1.804 to run. Otherwise, the MCE C<posix_exit>
 option must be specified and set to 1. This applies to UNIX only and set
 automatically in 1.804 when C<(F)CGI.pm> is present.
 
-   #!/usr/bin/perl
+ #!/usr/bin/perl
 
-   # http://127.0.0.1/cgi-bin/test_mce1.fcgi
-   # http://127.0.0.1/cgi-bin/test_mce1.fcgi?size=8
+ # http://127.0.0.1/cgi-bin/test_mce1.fcgi
+ # http://127.0.0.1/cgi-bin/test_mce1.fcgi?size=8
 
-   use strict;
-   use warnings;
+ use strict;
+ use warnings;
 
-   use MCE::Map max_workers => 3;
+ use MCE::Map max_workers => 3;
 
-   use CGI::Fast;
-   use FCGI::ProcManager;
+ use CGI::Fast;
+ use FCGI::ProcManager;
 
-   my $count = 0;
+ my $count = 0;
 
-   my $proc_manager = FCGI::ProcManager->new({ n_processes => 4 });
-   $proc_manager->pm_manage();
+ my $proc_manager = FCGI::ProcManager->new({ n_processes => 4 });
+ $proc_manager->pm_manage();
 
-   while ( my $query = CGI::Fast->new() ) {
-      $proc_manager->pm_pre_dispatch();
+ while ( my $query = CGI::Fast->new() ) {
+    $proc_manager->pm_pre_dispatch();
 
-      print "Content-type: text/html\r\n\r\n";
-      print "$$: ", ++$count, "<br>\n";
-      print "<hr>\n";
+    print "Content-type: text/html\r\n\r\n";
+    print "$$: ", ++$count, "<br>\n";
+    print "<hr>\n";
 
-      print "$_ = $ENV{$_}<br>\n" foreach sort keys %ENV;
-      print "<hr>\n";
+    print "$_ = $ENV{$_}<br>\n" foreach sort keys %ENV;
+    print "<hr>\n";
 
-      my %params;
+    my %params;
 
-      foreach ( sort $query->param() ) {
-         $params{$_} = $query->param($_);
-         print $_, " = ", $params{$_}, "<br>\n";
-      }
+    foreach ( sort $query->param() ) {
+       $params{$_} = $query->param($_);
+       print $_, " = ", $params{$_}, "<br>\n";
+    }
 
-      print "<hr>\n";
+    print "<hr>\n";
 
-      my @ret = mce_map { "$$: ".( $_ * 2 ) } 1 .. $params{'size'} || 8;
+    my @ret = mce_map { "$$: ".( $_ * 2 ) } 1 .. $params{'size'} || 8;
 
-      print join("<br>\n", @ret), "<br>\n";
+    print join("<br>\n", @ret), "<br>\n";
 
-      $proc_manager->pm_post_dispatch();
-   }
+    $proc_manager->pm_post_dispatch();
+ }
 
 Initializing MCE options before calling C<pm_manage> is not recommended.
 The following is one way to do it and does the same thing.
 
-   #!/usr/bin/perl
+ #!/usr/bin/perl
 
-   # http://127.0.0.1/cgi-bin/test_mce2.fcgi
-   # http://127.0.0.1/cgi-bin/test_mce2.fcgi?size=8
+ # http://127.0.0.1/cgi-bin/test_mce2.fcgi
+ # http://127.0.0.1/cgi-bin/test_mce2.fcgi?size=8
 
-   use strict;
-   use warnings;
+ use strict;
+ use warnings;
 
-   use MCE::Map;
+ use MCE::Map;
 
-   use CGI::Fast;
-   use FCGI::ProcManager;
+ use CGI::Fast;
+ use FCGI::ProcManager;
 
-   my ($first_time, $count) = (1, 0);
+ my ($first_time, $count) = (1, 0);
 
-   my $proc_manager = FCGI::ProcManager->new({ n_processes => 4 });
-   $proc_manager->pm_manage();
+ my $proc_manager = FCGI::ProcManager->new({ n_processes => 4 });
+ $proc_manager->pm_manage();
 
-   while ( my $query = CGI::Fast->new() ) {
-      $proc_manager->pm_pre_dispatch();
+ while ( my $query = CGI::Fast->new() ) {
+    $proc_manager->pm_pre_dispatch();
 
-      print "Content-type: text/html\r\n\r\n";
-      print "$$: ", ++$count, "<br>\n";
-      print "<hr>\n";
+    print "Content-type: text/html\r\n\r\n";
+    print "$$: ", ++$count, "<br>\n";
+    print "<hr>\n";
 
-      print "$_ = $ENV{$_}<br>\n" foreach sort keys %ENV;
-      print "<hr>\n";
+    print "$_ = $ENV{$_}<br>\n" foreach sort keys %ENV;
+    print "<hr>\n";
 
-      my %params;
+    my %params;
 
-      foreach ( sort $query->param() ) {
-         $params{$_} = $query->param($_);
-         print $_, " = ", $params{$_}, "<br>\n";
-      }
+    foreach ( sort $query->param() ) {
+       $params{$_} = $query->param($_);
+       print $_, " = ", $params{$_}, "<br>\n";
+    }
 
-      print "<hr>\n";
+    print "<hr>\n";
 
-      if ( $first_time ) {
-         MCE::Map::init( max_workers => 3 );
-      }
+    if ( $first_time ) {
+       MCE::Map::init( max_workers => 3 );
+    }
 
-      my @ret = mce_map { "$$: ".( $_ * 2 ) } 1 .. $params{'size'} || 8;
+    my @ret = mce_map { "$$: ".( $_ * 2 ) } 1 .. $params{'size'} || 8;
 
-      print join("<br>\n", @ret), "<br>\n";
+    print join("<br>\n", @ret), "<br>\n";
 
-      $proc_manager->pm_post_dispatch();
-   }
+    $proc_manager->pm_post_dispatch();
+ }
 
 Sharing data is possible via C<MCE::Shared> between C<FCGI> and C<MCE> workers.
 The following is a demonstration utilizing a shared counter variable which
 increments by one regardless of the C<FCGI> worker serving the request.
 
-   #!/usr/bin/perl
+ #!/usr/bin/perl
 
-   # http://127.0.0.1/cgi-bin/test_mce3.fcgi
-   # http://127.0.0.1/cgi-bin/test_mce3.fcgi?size=8
+ # http://127.0.0.1/cgi-bin/test_mce3.fcgi
+ # http://127.0.0.1/cgi-bin/test_mce3.fcgi?size=8
 
-   use strict;
-   use warnings;
+ use strict;
+ use warnings;
 
-   use MCE::Map;
-   use MCE::Shared;
+ use MCE::Map;
+ use MCE::Shared;
 
-   use CGI::Fast;
-   use FCGI::ProcManager;
+ use CGI::Fast;
+ use FCGI::ProcManager;
 
-   # Shared variables must be defined before FCGI::ProcManager.
-   my $count = MCE::Shared->scalar( 0 );
-   my $first_time = 1;
+ # Shared variables must be defined before FCGI::ProcManager.
+ my $count = MCE::Shared->scalar( 0 );
+ my $first_time = 1;
 
-   my $proc_manager = FCGI::ProcManager->new({ n_processes => 4 });
-   $proc_manager->pm_manage();
+ my $proc_manager = FCGI::ProcManager->new({ n_processes => 4 });
+ $proc_manager->pm_manage();
 
-   # Optional, the following statement must come after $pm->pm_manage.
-   MCE::Shared->init(); # enables shared parallel-IPC capabilities
+ # Optional, the following statement must come after $pm->pm_manage.
+ MCE::Shared->init(); # enables shared parallel-IPC capabilities
 
-   while ( my $query = CGI::Fast->new() ) {
-      $proc_manager->pm_pre_dispatch();
+ while ( my $query = CGI::Fast->new() ) {
+    $proc_manager->pm_pre_dispatch();
 
-      print "Content-type: text/html\r\n\r\n";
-      print "$$: ", $count->incr(), "<br>\n";
-      print "<hr>\n";
+    print "Content-type: text/html\r\n\r\n";
+    print "$$: ", $count->incr(), "<br>\n";
+    print "<hr>\n";
 
-      print "$_ = $ENV{$_}<br>\n" foreach sort keys %ENV;
-      print "<hr>\n";
+    print "$_ = $ENV{$_}<br>\n" foreach sort keys %ENV;
+    print "<hr>\n";
 
-      my %params;
+    my %params;
 
-      foreach ( sort $query->param() ) {
-         $params{$_} = $query->param($_);
-         print $_, " = ", $params{$_}, "<br>\n";
-      }
+    foreach ( sort $query->param() ) {
+       $params{$_} = $query->param($_);
+       print $_, " = ", $params{$_}, "<br>\n";
+    }
 
-      print "<hr>\n";
+    print "<hr>\n";
 
-      if ( $first_time ) {
-         MCE::Map->init( max_workers => 3 );
-         $first_time = 0;
-      }
+    if ( $first_time ) {
+       MCE::Map->init( max_workers => 3 );
+       $first_time = 0;
+    }
 
-      my @ret = mce_map { "$$: ".( $_ * 2 ) } 1 .. $params{'size'} || 8;
+    my @ret = mce_map { "$$: ".( $_ * 2 ) } 1 .. $params{'size'} || 8;
 
-      print join("<br>\n", @ret), "<br>\n";
+    print join("<br>\n", @ret), "<br>\n";
 
-      $proc_manager->pm_post_dispatch();
-   }
+    $proc_manager->pm_post_dispatch();
+ }
 
 Resetting the environment is helpful during development. The shared-manager
 process stops immediately upon receiving the C<TERM> signal.
 
-   killall -TERM perl-fcgi perl-fcgi-pm ; service httpd restart
+ killall -TERM perl-fcgi perl-fcgi-pm ; service httpd restart
 
 =head1 TK DEMONSTRATIONS
 
@@ -1155,110 +1155,110 @@ The demonstrations requires MCE 1.805 to run. Otherwise, the MCE C<posix_exit>
 option must be specified and set to 1. This applies to UNIX only and set
 automatically in 1.805 when C<Tk.pm> is present.
 
-   #!/usr/bin/perl
+ #!/usr/bin/perl
 
-   use strict;
-   use warnings;
+ use strict;
+ use warnings;
 
-   use MCE;
-   use Tk;
+ use MCE;
+ use Tk;
 
-   my $mw = MainWindow->new( -title => 'MCE/Tk Test' );
+ my $mw = MainWindow->new( -title => 'MCE/Tk Test' );
 
-   $mw->geometry( '300x300' );
-   $mw->Button( -text => "Test MCE", -command => \&test_mce )->pack();
+ $mw->geometry( '300x300' );
+ $mw->Button( -text => "Test MCE", -command => \&test_mce )->pack();
 
-   my $frame = $mw->Frame->pack( -fill => 'x' );
+ my $frame = $mw->Frame->pack( -fill => 'x' );
 
-   my $mce = MCE->new(
-      max_workers => 4,
-      user_func => sub {
-         my @args = @{ MCE->user_args() };
-         print MCE->pid(), ": $_\n";
-      },
-   )->spawn;
+ my $mce = MCE->new(
+    max_workers => 4,
+    user_func => sub {
+       my @args = @{ MCE->user_args() };
+       print MCE->pid(), ": $_\n";
+    },
+ )->spawn;
 
-   MainLoop;
+ MainLoop;
 
-   # Do not call $mce->shutdown on Windows ($^O eq 'MSWin32').
-   # Workers terminate with the application.
-   #
-   # $mce->shutdown();
+ # Do not call $mce->shutdown on Windows ($^O eq 'MSWin32').
+ # Workers terminate with the application.
+ #
+ # $mce->shutdown();
 
-   print "Exiting...\n";
+ print "Exiting...\n";
 
-   sub test_mce {
-      $mce->process({
-         user_args  => [ 'arg1', 'arg2', 'argN' ],
-         input_data => [ 1 .. 10 ],
-         chunk_size => 1,
-      });
-   }
+ sub test_mce {
+    $mce->process({
+       user_args  => [ 'arg1', 'arg2', 'argN' ],
+       input_data => [ 1 .. 10 ],
+       chunk_size => 1,
+    });
+ }
 
 The following demonstration does the same thing via MCE::Flow.
 
-   #!/usr/bin/perl
+ #!/usr/bin/perl
 
-   use strict;
-   use warnings;
+ use strict;
+ use warnings;
 
-   use MCE::Flow max_workers => 4;
-   use Tk;
+ use MCE::Flow max_workers => 4;
+ use Tk;
 
-   my $mw = MainWindow->new( -title => 'MCE/Tk Test' );
+ my $mw = MainWindow->new( -title => 'MCE/Tk Test' );
 
-   $mw->geometry( '300x300' );
-   $mw->Button( -text => "Test MCE", -command => \&test_mce )->pack();
+ $mw->geometry( '300x300' );
+ $mw->Button( -text => "Test MCE", -command => \&test_mce )->pack();
 
-   my $frame = $mw->Frame->pack( -fill => 'x' );
+ my $frame = $mw->Frame->pack( -fill => 'x' );
 
-   sub task {
-      my @args = @{ MCE->user_args() };
-      print MCE->pid(), ": $_\n";
-   }
+ sub task {
+    my @args = @{ MCE->user_args() };
+    print MCE->pid(), ": $_\n";
+ }
 
-   MainLoop;
+ MainLoop;
 
-   print "Exiting...\n";
+ print "Exiting...\n";
 
-   sub test_mce {
-      MCE::Flow->init(
-         user_args  => [ 'arg1', 'arg2', 'argN' ],
-         chunk_size => 1
-      );
-      MCE::Flow->run( \&task, [ 1 .. 10 ] );
-   }
+ sub test_mce {
+    MCE::Flow->init(
+       user_args  => [ 'arg1', 'arg2', 'argN' ],
+       chunk_size => 1
+    );
+    MCE::Flow->run( \&task, [ 1 .. 10 ] );
+ }
 
 MCE::Hobo 1.804 or later is another possibility if running on a UNIX platform.
 
-   #!/usr/bin/perl
+ #!/usr/bin/perl
 
-   use strict;
-   use warnings;
+ use strict;
+ use warnings;
 
-   use MCE::Hobo;
-   use Tk;
+ use MCE::Hobo;
+ use Tk;
 
-   my $mw = MainWindow->new( -title => 'MCE/Tk Test' );
+ my $mw = MainWindow->new( -title => 'MCE/Tk Test' );
 
-   $mw->geometry( '300x300' );
-   $mw->Button( -text => "Test MCE", -command => \&test_mce )->pack();
+ $mw->geometry( '300x300' );
+ $mw->Button( -text => "Test MCE", -command => \&test_mce )->pack();
 
-   my $frame = $mw->Frame->pack( -fill => 'x' );
+ my $frame = $mw->Frame->pack( -fill => 'x' );
 
-   sub task {
-      my @args = @_;
-      print MCE::Hobo->pid(), ": $_\n";
-   }
+ sub task {
+    my @args = @_;
+    print MCE::Hobo->pid(), ": $_\n";
+ }
 
-   MainLoop;
+ MainLoop;
 
-   print "Exiting...\n";
+ print "Exiting...\n";
 
-   sub test_mce {
-      MCE::Hobo->create(\&task, 'arg1', 'arg2', 'argN') for ( 1 .. 4 );
-      MCE::Hobo->waitall();
-   }
+ sub test_mce {
+    MCE::Hobo->create(\&task, 'arg1', 'arg2', 'argN') for ( 1 .. 4 );
+    MCE::Hobo->waitall();
+ }
 
 =head1 INDEX
 

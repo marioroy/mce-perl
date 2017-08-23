@@ -1,14 +1,14 @@
 
 Revision history for Perl module MCE.
 
-1.830 Wed Aug 23 19:00:00 EST 2017
+1.830 Wed Aug 23 19:30:00 EST 2017
 
   [BUG FIXES]
 
   * Fixed MCE and MCE::Relay stalling when setting the input record separator.
     See http://www.perlmonks.org/?node_id=1196701. Thank you, JediWombat.
 
-  * Fixed bug with dequeue_nb in MCE::Queue (#8). Thank you, Tomohiro Hosaka.
+  * Fixed bug with dequeue_nb in MCE::Queue (#8). Thank you, @bokutin.
   * Fixed signal handler (#9). Thank you, @chrisdenley.
 
   [ENHANCEMENTS]
@@ -27,6 +27,8 @@ Revision history for Perl module MCE.
   * No longer loads threads on the Windows platform in MCE::Signal.
     This enables MCE::Hobo 1.827 to spin faster, including lesser
     memory consumption. Threads isn't required to run MCE::Hobo.
+
+  * Removed extra white-space from POD documentation.
 
 1.829 Wed May 03 03:00:00 EST 2017
 

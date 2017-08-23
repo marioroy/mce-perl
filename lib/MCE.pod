@@ -34,104 +34,104 @@ stream to the next available worker.
 
 This is a simplistic use case of MCE running with 5 workers.
 
-   # Construction using the Core API
+ # Construction using the Core API
 
-   use MCE;
+ use MCE;
 
-   my $mce = MCE->new(
-      max_workers => 5,
-      user_func => sub {
-         my ($mce) = @_;
-         $mce->say("Hello from " . $mce->wid);
-      }
-   );
+ my $mce = MCE->new(
+    max_workers => 5,
+    user_func => sub {
+       my ($mce) = @_;
+       $mce->say("Hello from " . $mce->wid);
+    }
+ );
 
-   $mce->run;
+ $mce->run;
 
-   # Construction using a MCE model
+ # Construction using a MCE model
 
-   use MCE::Flow max_workers => 5;
+ use MCE::Flow max_workers => 5;
 
-   mce_flow sub {
-      my ($mce) = @_;
-      MCE->say("Hello from " . MCE->wid);
-   };
+ mce_flow sub {
+    my ($mce) = @_;
+    MCE->say("Hello from " . MCE->wid);
+ };
 
 The following is a demonstration for parsing a huge log file in parallel.
 
-   use MCE::Loop;
+ use MCE::Loop;
 
-   MCE::Loop::init { max_workers => 8, use_slurpio => 1 };
+ MCE::Loop::init { max_workers => 8, use_slurpio => 1 };
 
-   my $pattern  = 'something';
-   my $hugefile = 'very_huge.file';
+ my $pattern  = 'something';
+ my $hugefile = 'very_huge.file';
 
-   my @result = mce_loop_f {
-      my ($mce, $slurp_ref, $chunk_id) = @_;
+ my @result = mce_loop_f {
+    my ($mce, $slurp_ref, $chunk_id) = @_;
 
-      # Quickly determine if a match is found.
-      # Process the slurped chunk only if true.
+    # Quickly determine if a match is found.
+    # Process the slurped chunk only if true.
 
-      if ($$slurp_ref =~ /$pattern/m) {
-         my @matches;
+    if ($$slurp_ref =~ /$pattern/m) {
+       my @matches;
 
-         # The following is fast on Unix, but performance degrades
-         # drastically on Windows beyond 4 workers.
+       # The following is fast on Unix, but performance degrades
+       # drastically on Windows beyond 4 workers.
 
-         open my $MEM_FH, '<', $slurp_ref;
-         binmode $MEM_FH, ':raw';
-         while (<$MEM_FH>) { push @matches, $_ if (/$pattern/); }
-         close   $MEM_FH;
+       open my $MEM_FH, '<', $slurp_ref;
+       binmode $MEM_FH, ':raw';
+       while (<$MEM_FH>) { push @matches, $_ if (/$pattern/); }
+       close   $MEM_FH;
 
-         # Therefore, use the following construction on Windows.
+       # Therefore, use the following construction on Windows.
 
-         while ( $$slurp_ref =~ /([^\n]+\n)/mg ) {
-            my $line = $1; # save $1 to not lose the value
-            push @matches, $line if ($line =~ /$pattern/);
-         }
+       while ( $$slurp_ref =~ /([^\n]+\n)/mg ) {
+          my $line = $1; # save $1 to not lose the value
+          push @matches, $line if ($line =~ /$pattern/);
+       }
 
-         # Gather matched lines.
+       # Gather matched lines.
 
-         MCE->gather(@matches);
-      }
+       MCE->gather(@matches);
+    }
 
-   } $hugefile;
+ } $hugefile;
 
-   print join('', @result);
+ print join('', @result);
 
 The next demonstration loops through a sequence of numbers with MCE::Flow.
 
-   use MCE::Flow;
+ use MCE::Flow;
 
-   my $N = shift || 4_000_000;
+ my $N = shift || 4_000_000;
 
-   sub compute_pi {
-      my ( $beg_seq, $end_seq ) = @_;
-      my ( $pi, $t ) = ( 0.0 );
+ sub compute_pi {
+    my ( $beg_seq, $end_seq ) = @_;
+    my ( $pi, $t ) = ( 0.0 );
 
-      foreach my $i ( $beg_seq .. $end_seq ) {
-         $t = ( $i + 0.5 ) / $N;
-         $pi += 4.0 / ( 1.0 + $t * $t );
-      }
+    foreach my $i ( $beg_seq .. $end_seq ) {
+       $t = ( $i + 0.5 ) / $N;
+       $pi += 4.0 / ( 1.0 + $t * $t );
+    }
 
-      MCE->gather( $pi );
-   }
+    MCE->gather( $pi );
+ }
 
-   # Compute bounds only, workers receive [ begin, end ] values
+ # Compute bounds only, workers receive [ begin, end ] values
 
-   MCE::Flow::init(
-      chunk_size  => 200_000,
-      max_workers => 8,
-      bounds_only => 1
-   );
+ MCE::Flow::init(
+    chunk_size  => 200_000,
+    max_workers => 8,
+    bounds_only => 1
+ );
 
-   my @ret = mce_flow_s sub {
-      compute_pi( $_->[0], $_->[1] );
-   }, 0, $N - 1;
+ my @ret = mce_flow_s sub {
+    compute_pi( $_->[0], $_->[1] );
+ }, 0, $N - 1;
 
-   my $pi = 0.0;  $pi += $_ for @ret;
+ my $pi = 0.0;  $pi += $_ for @ret;
 
-   printf "pi = %0.13f\n", $pi / $N;  # 3.1415926535898
+ printf "pi = %0.13f\n", $pi / $N;  # 3.1415926535898
 
 =head1 CORE MODULES
 
@@ -195,7 +195,7 @@ and shutdown.
 
 =item L<MCE::Loop>
 
-Provides a parallel loop utilizing MCE for building creative loops.
+Provides a MCE model for building parallel loops.
 
 =item L<MCE::Flow>
 

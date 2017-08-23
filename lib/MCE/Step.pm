@@ -742,45 +742,45 @@ QUEUE-LIKE FEATURES below.
 
 It is trivial to parallelize with mce_stream shown below.
 
-   ## Native map function
-   my @a = map { $_ * 4 } map { $_ * 3 } map { $_ * 2 } 1..10000;
+ ## Native map function
+ my @a = map { $_ * 4 } map { $_ * 3 } map { $_ * 2 } 1..10000;
 
-   ## Same as with MCE::Stream (processing from right to left)
-   @a = mce_stream
-        sub { $_ * 4 }, sub { $_ * 3 }, sub { $_ * 2 }, 1..10000;
+ ## Same as with MCE::Stream (processing from right to left)
+ @a = mce_stream
+      sub { $_ * 4 }, sub { $_ * 3 }, sub { $_ * 2 }, 1..10000;
 
-   ## Pass an array reference to have writes occur simultaneously
-   mce_stream \@a,
-        sub { $_ * 4 }, sub { $_ * 3 }, sub { $_ * 2 }, 1..10000;
+ ## Pass an array reference to have writes occur simultaneously
+ mce_stream \@a,
+      sub { $_ * 4 }, sub { $_ * 3 }, sub { $_ * 2 }, 1..10000;
 
 However, let's have MCE::Step compute the same in parallel. Unlike the example
 in L<MCE::Flow>, the use of MCE::Queue is totally transparent. This calls for
 preserving output order provided by MCE::Candy.
 
-   use MCE::Step;
-   use MCE::Candy;
+ use MCE::Step;
+ use MCE::Candy;
 
 Next are the 3 sub-tasks. Compare these 3 sub-tasks with the same as described
 in L<MCE::Flow>. The call to MCE->step simplifies the passing of data to
 subsequent sub-task.
 
-   sub task_a {
-      my @ans; my ($mce, $chunk_ref, $chunk_id) = @_;
-      push @ans, map { $_ * 2 } @{ $chunk_ref };
-      MCE->step(\@ans, $chunk_id);
-   }
+ sub task_a {
+    my @ans; my ($mce, $chunk_ref, $chunk_id) = @_;
+    push @ans, map { $_ * 2 } @{ $chunk_ref };
+    MCE->step(\@ans, $chunk_id);
+ }
 
-   sub task_b {
-      my @ans; my ($mce, $chunk_ref, $chunk_id) = @_;
-      push @ans, map { $_ * 3 } @{ $chunk_ref };
-      MCE->step(\@ans, $chunk_id);
-   }
+ sub task_b {
+    my @ans; my ($mce, $chunk_ref, $chunk_id) = @_;
+    push @ans, map { $_ * 3 } @{ $chunk_ref };
+    MCE->step(\@ans, $chunk_id);
+ }
 
-   sub task_c {
-      my @ans; my ($mce, $chunk_ref, $chunk_id) = @_;
-      push @ans, map { $_ * 4 } @{ $chunk_ref };
-      MCE->gather($chunk_id, \@ans);
-   }
+ sub task_c {
+    my @ans; my ($mce, $chunk_ref, $chunk_id) = @_;
+    push @ans, map { $_ * 4 } @{ $chunk_ref };
+    MCE->gather($chunk_id, \@ans);
+ }
 
 In summary, MCE::Step builds out a MCE instance behind the scene and starts
 running. The task_name (shown), max_workers, and use_threads options can take
@@ -788,15 +788,15 @@ an anonymous array for specifying the values uniquely per each sub-task.
 
 The task_name option is required to use ->enq, ->enqp, and ->await.
 
-   my @a;
+ my @a;
 
-   mce_step {
-      task_name => [ 'a', 'b', 'c' ],
-      gather => MCE::Candy::out_iter_array(\@a)
+ mce_step {
+    task_name => [ 'a', 'b', 'c' ],
+    gather => MCE::Candy::out_iter_array(\@a)
 
-   }, \&task_a, \&task_b, \&task_c, 1..10000;
+ }, \&task_a, \&task_b, \&task_c, 1..10000;
 
-   print "@a\n";
+ print "@a\n";
 
 =head1 STEP DEMO
 
@@ -807,81 +807,81 @@ receive $mce as the first argument.
 
 First, defining 3 sub-tasks.
 
-   use MCE::Step;
+ use MCE::Step;
 
-   sub task_a {
-      my ($mce, $chunk_ref, $chunk_id) = @_;
+ sub task_a {
+    my ($mce, $chunk_ref, $chunk_id) = @_;
 
-      if ($_ % 2 == 0) {
-         MCE->gather($_);
-       # MCE->gather($_ * 4);        ## Ok to gather multiple times
-      }
-      else {
-         MCE->print("a step: $_, $_ * $_\n");
-         MCE->step($_, $_ * $_);
-       # MCE->step($_, $_ * 4 );     ## Ok to step multiple times
-      }
-   }
+    if ($_ % 2 == 0) {
+       MCE->gather($_);
+     # MCE->gather($_ * 4);        ## Ok to gather multiple times
+    }
+    else {
+       MCE->print("a step: $_, $_ * $_\n");
+       MCE->step($_, $_ * $_);
+     # MCE->step($_, $_ * 4 );     ## Ok to step multiple times
+    }
+ }
 
-   sub task_b {
-      my ($mce, $arg1, $arg2) = @_;
+ sub task_b {
+    my ($mce, $arg1, $arg2) = @_;
 
-      MCE->print("b args: $arg1, $arg2\n");
+    MCE->print("b args: $arg1, $arg2\n");
 
-      if ($_ % 3 == 0) {             ## $_ is the same as $arg1
-         MCE->gather($_);
-      }
-      else {
-         MCE->print("b step: $_ * $_\n");
-         MCE->step($_ * $_);
-      }
-   }
+    if ($_ % 3 == 0) {             ## $_ is the same as $arg1
+       MCE->gather($_);
+    }
+    else {
+       MCE->print("b step: $_ * $_\n");
+       MCE->step($_ * $_);
+    }
+ }
 
-   sub task_c {
-      my ($mce, $arg1) = @_;
+ sub task_c {
+    my ($mce, $arg1) = @_;
 
-      MCE->print("c: $_\n");
-      MCE->gather($_);
-   }
+    MCE->print("c: $_\n");
+    MCE->gather($_);
+ }
 
 Next, pass MCE options, using chunk_size 1, and run all 3 tasks in parallel.
 Notice how max_workers and use_threads can take an anonymous array, similarly
 to task_name.
 
-   my @arr = mce_step {
-      task_name   => [ 'a', 'b', 'c' ],
-      max_workers => [  2,   2,   2  ],
-      use_threads => [  0,   0,   0  ],
-      chunk_size  => 1
+ my @arr = mce_step {
+    task_name   => [ 'a', 'b', 'c' ],
+    max_workers => [  2,   2,   2  ],
+    use_threads => [  0,   0,   0  ],
+    chunk_size  => 1
 
-   }, \&task_a, \&task_b, \&task_c, 1..10;
+ }, \&task_a, \&task_b, \&task_c, 1..10;
 
 Finally, sort the array and display its contents.
 
-   @arr = sort { $a <=> $b } @arr;
+ @arr = sort { $a <=> $b } @arr;
 
-   print "\n@arr\n\n";
+ print "\n@arr\n\n";
 
-   -- Output
+ -- Output
 
-   a step: 1, 1 * 1
-   a step: 3, 3 * 3
-   a step: 5, 5 * 5
-   a step: 7, 7 * 7
-   a step: 9, 9 * 9
-   b args: 1, 1
-   b step: 1 * 1
-   b args: 3, 9
-   b args: 7, 49
-   b step: 7 * 7
-   b args: 5, 25
-   b step: 5 * 5
-   b args: 9, 81
-   c: 1
-   c: 49
-   c: 25
+ a step: 1, 1 * 1
+ a step: 3, 3 * 3
+ a step: 5, 5 * 5
+ a step: 7, 7 * 7
+ a step: 9, 9 * 9
+ b args: 1, 1
+ b step: 1 * 1
+ b args: 3, 9
+ b args: 7, 49
+ b step: 7 * 7
+ b args: 5, 25
+ b step: 5 * 5
+ b args: 9, 81
+ c: 1
+ c: 49
+ c: 25
 
-   1 2 3 4 6 8 9 10 25 49
+ 1 2 3 4 6 8 9 10 25 49
 
 =head1 SYNOPSIS when CHUNK_SIZE EQUALS 1
 
@@ -896,70 +896,70 @@ variable $_ when chunk_size equals 1. Otherwise, $_ points to $chunk_ref
 containing many items. Basically, line 2 below may be omitted from your code
 when using $_. One can call MCE->chunk_id to obtain the current chunk id.
 
-   line 1:  user_func => sub {
-   line 2:     my ($mce, $chunk_ref, $chunk_id) = @_;
-   line 3:
-   line 4:     $_ points to $chunk_ref->[0]
-   line 5:        in MCE 1.5 when chunk_size == 1
-   line 6:
-   line 7:     $_ points to $chunk_ref
-   line 8:        in MCE 1.5 when chunk_size  > 1
-   line 9:  }
+ line 1:  user_func => sub {
+ line 2:     my ($mce, $chunk_ref, $chunk_id) = @_;
+ line 3:
+ line 4:     $_ points to $chunk_ref->[0]
+ line 5:        in MCE 1.5 when chunk_size == 1
+ line 6:
+ line 7:     $_ points to $chunk_ref
+ line 8:        in MCE 1.5 when chunk_size  > 1
+ line 9:  }
 
 Follow this synopsis when chunk_size equals one. Looping is not required from
 inside the first block. Hence, the block is called once per each item.
 
-   ## Exports mce_step, mce_step_f, and mce_step_s
-   use MCE::Step;
+ ## Exports mce_step, mce_step_f, and mce_step_s
+ use MCE::Step;
 
-   MCE::Step::init {
-      chunk_size => 1
-   };
+ MCE::Step::init {
+    chunk_size => 1
+ };
 
-   ## Array or array_ref
-   mce_step sub { do_work($_) }, 1..10000;
-   mce_step sub { do_work($_) }, [ 1..10000 ];
+ ## Array or array_ref
+ mce_step sub { do_work($_) }, 1..10000;
+ mce_step sub { do_work($_) }, [ 1..10000 ];
 
-   ## File_path, glob_ref, or scalar_ref
-   mce_step_f sub { chomp; do_work($_) }, "/path/to/file";
-   mce_step_f sub { chomp; do_work($_) }, $file_handle;
-   mce_step_f sub { chomp; do_work($_) }, \$scalar;
+ ## File_path, glob_ref, or scalar_ref
+ mce_step_f sub { chomp; do_work($_) }, "/path/to/file";
+ mce_step_f sub { chomp; do_work($_) }, $file_handle;
+ mce_step_f sub { chomp; do_work($_) }, \$scalar;
 
-   ## Sequence of numbers (begin, end [, step, format])
-   mce_step_s sub { do_work($_) }, 1, 10000, 5;
-   mce_step_s sub { do_work($_) }, [ 1, 10000, 5 ];
+ ## Sequence of numbers (begin, end [, step, format])
+ mce_step_s sub { do_work($_) }, 1, 10000, 5;
+ mce_step_s sub { do_work($_) }, [ 1, 10000, 5 ];
 
-   mce_step_s sub { do_work($_) }, {
-      begin => 1, end => 10000, step => 5, format => undef
-   };
+ mce_step_s sub { do_work($_) }, {
+    begin => 1, end => 10000, step => 5, format => undef
+ };
 
 =head1 SYNOPSIS when CHUNK_SIZE is GREATER THAN 1
 
 Follow this synopsis when chunk_size equals 'auto' or greater than 1.
 This means having to loop through the chunk from inside the first block.
 
-   use MCE::Step;
+ use MCE::Step;
 
-   MCE::Step::init {          ## Chunk_size defaults to 'auto' when
-      chunk_size => 'auto'    ## not specified. Therefore, the init
-   };                         ## function may be omitted.
+ MCE::Step::init {          ## Chunk_size defaults to 'auto' when
+    chunk_size => 'auto'    ## not specified. Therefore, the init
+ };                         ## function may be omitted.
 
-   ## Syntax is shown for mce_step for demonstration purposes.
-   ## Looping inside the block is the same for mce_step_f and
-   ## mce_step_s.
+ ## Syntax is shown for mce_step for demonstration purposes.
+ ## Looping inside the block is the same for mce_step_f and
+ ## mce_step_s.
 
-   mce_step sub { do_work($_) for (@{ $_ }) }, 1..10000;
+ mce_step sub { do_work($_) for (@{ $_ }) }, 1..10000;
 
-   ## Same as above, resembles code using the Core API.
+ ## Same as above, resembles code using the Core API.
 
-   mce_step sub {
-      my ($mce, $chunk_ref, $chunk_id) = @_;
+ mce_step sub {
+    my ($mce, $chunk_ref, $chunk_id) = @_;
 
-      for (@{ $chunk_ref }) {
-         do_work($_);
-      }
+    for (@{ $chunk_ref }) {
+       do_work($_);
+    }
 
-   }, 1..10000;
+ }, 1..10000;
 
 Chunking reduces the number of IPC calls behind the scene. Think in terms of
 chunks whenever processing a large amount of data. For relatively small data,
@@ -969,23 +969,23 @@ choosing 1 for chunk_size is fine.
 
 The following list options which may be overridden when loading the module.
 
-   use Sereal qw( encode_sereal decode_sereal );
-   use CBOR::XS qw( encode_cbor decode_cbor );
-   use JSON::XS qw( encode_json decode_json );
+ use Sereal qw( encode_sereal decode_sereal );
+ use CBOR::XS qw( encode_cbor decode_cbor );
+ use JSON::XS qw( encode_json decode_json );
 
-   use MCE::Step
-       max_workers => 8,                # Default 'auto'
-       chunk_size => 500,               # Default 'auto'
-       tmp_dir => "/path/to/app/tmp",   # $MCE::Signal::tmp_dir
-       freeze => \&encode_sereal,       # \&Storable::freeze
-       thaw => \&decode_sereal,         # \&Storable::thaw
-       fast => 1                        # Default 0 (fast dequeue)
-   ;
+ use MCE::Step
+     max_workers => 8,                # Default 'auto'
+     chunk_size => 500,               # Default 'auto'
+     tmp_dir => "/path/to/app/tmp",   # $MCE::Signal::tmp_dir
+     freeze => \&encode_sereal,       # \&Storable::freeze
+     thaw => \&decode_sereal,         # \&Storable::thaw
+     fast => 1                        # Default 0 (fast dequeue)
+ ;
 
 From MCE 1.8 onwards, Sereal 3.015+ is loaded automatically if available.
 Specify C<Sereal => 0> to use Storable instead.
 
-   use MCE::Step Sereal => 0;
+ use MCE::Step Sereal => 0;
 
 =head1 CUSTOMIZING MCE
 
@@ -999,43 +999,43 @@ The init function accepts a hash of MCE options. Unlike with MCE::Stream,
 both gather and bounds_only options may be specified when calling init
 (not shown below).
 
-   use MCE::Step;
+ use MCE::Step;
 
-   MCE::Step::init {
-      chunk_size => 1, max_workers => 4,
+ MCE::Step::init {
+    chunk_size => 1, max_workers => 4,
 
-      user_begin => sub {
-         print "## ", MCE->wid, " started\n";
-      },
+    user_begin => sub {
+       print "## ", MCE->wid, " started\n";
+    },
 
-      user_end => sub {
-         print "## ", MCE->wid, " completed\n";
-      }
-   };
+    user_end => sub {
+       print "## ", MCE->wid, " completed\n";
+    }
+ };
 
-   my %a = mce_step sub { MCE->gather($_, $_ * $_) }, 1..100;
+ my %a = mce_step sub { MCE->gather($_, $_ * $_) }, 1..100;
 
-   print "\n", "@a{1..100}", "\n";
+ print "\n", "@a{1..100}", "\n";
 
-   -- Output
+ -- Output
 
-   ## 3 started
-   ## 1 started
-   ## 4 started
-   ## 2 started
-   ## 3 completed
-   ## 4 completed
-   ## 1 completed
-   ## 2 completed
+ ## 3 started
+ ## 1 started
+ ## 4 started
+ ## 2 started
+ ## 3 completed
+ ## 4 completed
+ ## 1 completed
+ ## 2 completed
 
-   1 4 9 16 25 36 49 64 81 100 121 144 169 196 225 256 289 324 361
-   400 441 484 529 576 625 676 729 784 841 900 961 1024 1089 1156
-   1225 1296 1369 1444 1521 1600 1681 1764 1849 1936 2025 2116 2209
-   2304 2401 2500 2601 2704 2809 2916 3025 3136 3249 3364 3481 3600
-   3721 3844 3969 4096 4225 4356 4489 4624 4761 4900 5041 5184 5329
-   5476 5625 5776 5929 6084 6241 6400 6561 6724 6889 7056 7225 7396
-   7569 7744 7921 8100 8281 8464 8649 8836 9025 9216 9409 9604 9801
-   10000
+ 1 4 9 16 25 36 49 64 81 100 121 144 169 196 225 256 289 324 361
+ 400 441 484 529 576 625 676 729 784 841 900 961 1024 1089 1156
+ 1225 1296 1369 1444 1521 1600 1681 1764 1849 1936 2025 2116 2209
+ 2304 2401 2500 2601 2704 2809 2916 3025 3136 3249 3364 3481 3600
+ 3721 3844 3969 4096 4225 4356 4489 4624 4761 4900 5041 5184 5329
+ 5476 5625 5776 5929 6084 6241 6400 6561 6724 6889 7056 7225 7396
+ 7569 7744 7921 8100 8281 8464 8649 8836 9025 9216 9409 9604 9801
+ 10000
 
 =back
 
@@ -1055,42 +1055,42 @@ Removing both calls to MCE->step will cause the script to complete in just
 1 second. The reason is due to the 2nd and subsequent sub-tasks awaiting
 data from an internal queue. Workers terminate upon receiving an undef.
 
-   use threads;
-   use MCE::Step;
+ use threads;
+ use MCE::Step;
 
-   my @a = mce_step {
-      task_name   => [ 'a', 'b', 'c' ],
-      max_workers => [  3,   4,   2, ],
-      use_threads => [  1,   0,   0, ],
+ my @a = mce_step {
+    task_name   => [ 'a', 'b', 'c' ],
+    max_workers => [  3,   4,   2, ],
+    use_threads => [  1,   0,   0, ],
 
-      user_end => sub {
-         my ($mce, $task_id, $task_name) = @_;
-         MCE->print("$task_id - $task_name completed\n");
-      },
+    user_end => sub {
+       my ($mce, $task_id, $task_name) = @_;
+       MCE->print("$task_id - $task_name completed\n");
+    },
 
-      task_end => sub {
-         my ($mce, $task_id, $task_name) = @_;
-         MCE->print("$task_id - $task_name ended\n");
-      }
-   },
-   sub { sleep 1; MCE->step(""); },   ## 3 workers, named a
-   sub { sleep 2; MCE->step(""); },   ## 4 workers, named b
-   sub { sleep 3;                };   ## 2 workers, named c
+    task_end => sub {
+       my ($mce, $task_id, $task_name) = @_;
+       MCE->print("$task_id - $task_name ended\n");
+    }
+ },
+ sub { sleep 1; MCE->step(""); },   ## 3 workers, named a
+ sub { sleep 2; MCE->step(""); },   ## 4 workers, named b
+ sub { sleep 3;                };   ## 2 workers, named c
 
-   -- Output
+ -- Output
 
-   0 - a completed
-   0 - a completed
-   0 - a completed
-   0 - a ended
-   1 - b completed
-   1 - b completed
-   1 - b completed
-   1 - b completed
-   1 - b ended
-   2 - c completed
-   2 - c completed
-   2 - c ended
+ 0 - a completed
+ 0 - a completed
+ 0 - a completed
+ 0 - a ended
+ 1 - b completed
+ 1 - b completed
+ 1 - b completed
+ 1 - b completed
+ 1 - b ended
+ 2 - c completed
+ 2 - c completed
+ 2 - c ended
 
 =head1 API DOCUMENTATION
 
@@ -1109,64 +1109,64 @@ Unlike MCE::Loop, Map, and Grep which take a block as C<{ ... }>, Step takes a
 C<sub { ... }> or a code reference. The other difference is that the comma is
 needed after the block.
 
-   # $_ contains the item when chunk_size => 1
+ # $_ contains the item when chunk_size => 1
 
-   mce_step sub { $_ }, 1..1000;
-   mce_step sub { $_ }, \@list;
+ mce_step sub { $_ }, 1..1000;
+ mce_step sub { $_ }, \@list;
 
-   # chunking, any chunk_size => 1 or higher
+ # chunking, any chunk_size => 1 or higher
 
-   my %res = mce_step sub {
-      my ($mce, $chunk_ref, $chunk_id) = @_;
-      my %ret;
-      for my $item (@{ $chunk_ref }) {
-         $ret{$item} = $item * 2;
-      }
-      MCE->gather(%ret);
-   },
-   \@list;
+ my %res = mce_step sub {
+    my ($mce, $chunk_ref, $chunk_id) = @_;
+    my %ret;
+    for my $item (@{ $chunk_ref }) {
+       $ret{$item} = $item * 2;
+    }
+    MCE->gather(%ret);
+ },
+ \@list;
 
-   # input hash, current API available since 1.828
+ # input hash, current API available since 1.828
 
-   my %res = mce_step sub {
-      my ($mce, $chunk_ref, $chunk_id) = @_;
-      my %ret;
-      for my $key (keys %{ $chunk_ref }) {
-         $ret{$key} = $chunk_ref->{$key} * 2;
-      }
-      MCE->gather(%ret);
-   },
-   \%hash;
+ my %res = mce_step sub {
+    my ($mce, $chunk_ref, $chunk_id) = @_;
+    my %ret;
+    for my $key (keys %{ $chunk_ref }) {
+       $ret{$key} = $chunk_ref->{$key} * 2;
+    }
+    MCE->gather(%ret);
+ },
+ \%hash;
 
-   # unlike MCE::Loop, MCE::Step doesn't need input to run
+ # unlike MCE::Loop, MCE::Step doesn't need input to run
 
-   mce_step { max_workers => 4 }, sub {
-      MCE->say( MCE->wid );
-   };
+ mce_step { max_workers => 4 }, sub {
+    MCE->say( MCE->wid );
+ };
 
-   # ... and can run multiple tasks
+ # ... and can run multiple tasks
 
-   mce_step {
-      max_workers => [  1,   3  ],
-      task_name   => [ 'p', 'c' ]
-   },
-   sub {
-      # 1 producer
-      MCE->say( "producer: ", MCE->wid );
-   },
-   sub {
-      # 3 consumers
-      MCE->say( "consumer: ", MCE->wid );
-   };
+ mce_step {
+    max_workers => [  1,   3  ],
+    task_name   => [ 'p', 'c' ]
+ },
+ sub {
+    # 1 producer
+    MCE->say( "producer: ", MCE->wid );
+ },
+ sub {
+    # 3 consumers
+    MCE->say( "consumer: ", MCE->wid );
+ };
 
-   # here, options are specified via init
+ # here, options are specified via init
 
-   MCE::Step::init {
-      max_workers => [  1,   3  ],
-      task_name   => [ 'p', 'c' ]
-   };
+ MCE::Step::init {
+    max_workers => [  1,   3  ],
+    task_name   => [ 'p', 'c' ]
+ };
 
-   mce_step \&producer, \&consumers;
+ mce_step \&producer, \&consumers;
 
 =item MCE::Step->run_file ( sub { code }, file )
 
@@ -1175,23 +1175,23 @@ needed after the block.
 The fastest of these is the /path/to/file. Workers communicate the next offset
 position among themselves with zero interaction by the manager process.
 
-   # $_ contains the line when chunk_size => 1
+ # $_ contains the line when chunk_size => 1
 
-   mce_step_f sub { $_ }, "/path/to/file";  # faster
-   mce_step_f sub { $_ }, $file_handle;
-   mce_step_f sub { $_ }, \$scalar;
+ mce_step_f sub { $_ }, "/path/to/file";  # faster
+ mce_step_f sub { $_ }, $file_handle;
+ mce_step_f sub { $_ }, \$scalar;
 
-   # chunking, any chunk_size => 1 or higher
+ # chunking, any chunk_size => 1 or higher
 
-   my %res = mce_step_f sub {
-      my ($mce, $chunk_ref, $chunk_id) = @_;
-      my $buf = '';
-      for my $line (@{ $chunk_ref }) {
-         $buf .= $line;
-      }
-      MCE->gather($chunk_id, $buf);
-   },
-   "/path/to/file";
+ my %res = mce_step_f sub {
+    my ($mce, $chunk_ref, $chunk_id) = @_;
+    my $buf = '';
+    for my $line (@{ $chunk_ref }) {
+       $buf .= $line;
+    }
+    MCE->gather($chunk_id, $buf);
+ },
+ "/path/to/file";
 
 =item MCE::Step->run_seq ( sub { code }, $beg, $end [, $step, $fmt ] )
 
@@ -1201,29 +1201,29 @@ Sequence may be defined as a list, an array reference, or a hash reference.
 The functions require both begin and end values to run. Step and format are
 optional. The format is passed to sprintf (% may be omitted below).
 
-   my ($beg, $end, $step, $fmt) = (10, 20, 0.1, "%4.1f");
+ my ($beg, $end, $step, $fmt) = (10, 20, 0.1, "%4.1f");
 
-   # $_ contains the sequence number when chunk_size => 1
+ # $_ contains the sequence number when chunk_size => 1
 
-   mce_step_s sub { $_ }, $beg, $end, $step, $fmt;
-   mce_step_s sub { $_ }, [ $beg, $end, $step, $fmt ];
+ mce_step_s sub { $_ }, $beg, $end, $step, $fmt;
+ mce_step_s sub { $_ }, [ $beg, $end, $step, $fmt ];
 
-   mce_step_s sub { $_ }, {
-      begin => $beg, end => $end,
-      step => $step, format => $fmt
-   };
+ mce_step_s sub { $_ }, {
+    begin => $beg, end => $end,
+    step => $step, format => $fmt
+ };
 
-   # chunking, any chunk_size => 1 or higher
+ # chunking, any chunk_size => 1 or higher
 
-   my %res = mce_step_s sub {
-      my ($mce, $chunk_ref, $chunk_id) = @_;
-      my $buf = '';
-      for my $seq (@{ $chunk_ref }) {
-         $buf .= "$seq\n";
-      }
-      MCE->gather($chunk_id, $buf);
-   },
-   [ $beg, $end ];
+ my %res = mce_step_s sub {
+    my ($mce, $chunk_ref, $chunk_id) = @_;
+    my $buf = '';
+    for my $seq (@{ $chunk_ref }) {
+       $buf .= "$seq\n";
+    }
+    MCE->gather($chunk_id, $buf);
+ },
+ [ $beg, $end ];
 
 The sequence engine can compute 'begin' and 'end' items only, for the chunk,
 and not the items in between (hence boundaries only). This option applies
@@ -1236,44 +1236,44 @@ for looping inside the block; e.g. Monte Carlo simulations.
 
 Time was measured using 1 worker to emphasize the difference.
 
-   use MCE::Step;
+ use MCE::Step;
 
-   MCE::Step::init {
-      max_workers => 1, chunk_size => 1_250_000,
-      bounds_only => 1
-   };
+ MCE::Step::init {
+    max_workers => 1, chunk_size => 1_250_000,
+    bounds_only => 1
+ };
 
-   # Typically, the input scalar $_ contains the sequence number
-   # when chunk_size => 1, unless the bounds_only option is set
-   # which is the case here. Thus, $_ points to $chunk_ref.
+ # Typically, the input scalar $_ contains the sequence number
+ # when chunk_size => 1, unless the bounds_only option is set
+ # which is the case here. Thus, $_ points to $chunk_ref.
 
-   mce_step_s sub {
-      my ($mce, $chunk_ref, $chunk_id) = @_;
+ mce_step_s sub {
+    my ($mce, $chunk_ref, $chunk_id) = @_;
 
-      # $chunk_ref contains 2 items, not 1_250_000
-      # my ( $begin, $end ) = ( $_->[0], $_->[1] );
+    # $chunk_ref contains 2 items, not 1_250_000
+    # my ( $begin, $end ) = ( $_->[0], $_->[1] );
 
-      my $begin = $chunk_ref->[0];
-      my $end   = $chunk_ref->[1];
+    my $begin = $chunk_ref->[0];
+    my $end   = $chunk_ref->[1];
 
-      # for my $seq ( $begin .. $end ) {
-      #    ...
-      # }
+    # for my $seq ( $begin .. $end ) {
+    #    ...
+    # }
 
-      MCE->printf("%7d .. %8d\n", $begin, $end);
-   },
-   [ 1, 10_000_000 ];
+    MCE->printf("%7d .. %8d\n", $begin, $end);
+ },
+ [ 1, 10_000_000 ];
 
-   -- Output
+ -- Output
 
-         1 ..  1250000
-   1250001 ..  2500000
-   2500001 ..  3750000
-   3750001 ..  5000000
-   5000001 ..  6250000
-   6250001 ..  7500000
-   7500001 ..  8750000
-   8750001 .. 10000000
+       1 ..  1250000
+ 1250001 ..  2500000
+ 2500001 ..  3750000
+ 3750001 ..  5000000
+ 5000001 ..  6250000
+ 6250001 ..  7500000
+ 7500001 ..  8750000
+ 8750001 .. 10000000
 
 =item MCE::Step->run ( { input_data => iterator }, sub { code } )
 
@@ -1285,11 +1285,11 @@ configuring the iterator reference as another user task which will not work.
 
 Iterators are described under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 
-   MCE::Step::init {
-      input_data => iterator
-   };
+ MCE::Step::init {
+    input_data => iterator
+ };
 
-   mce_step sub { $_ };
+ mce_step sub { $_ };
 
 =back
 
@@ -1304,36 +1304,36 @@ Iterators are described under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 The ->step method is the simplest form for passing elements into the next
 sub-task.
 
-   use MCE::Step;
+ use MCE::Step;
 
-   sub provider {
-      MCE->step( $_, rand ) for 10 .. 19;
-   }
+ sub provider {
+    MCE->step( $_, rand ) for 10 .. 19;
+ }
 
-   sub consumer {
-      my ( $mce, @args ) = @_;
-      MCE->printf( "%d: %d, %03.06f\n", MCE->wid, $args[0], $args[1] );
-   }
+ sub consumer {
+    my ( $mce, @args ) = @_;
+    MCE->printf( "%d: %d, %03.06f\n", MCE->wid, $args[0], $args[1] );
+ }
 
-   MCE::Step::init {
-      task_name   => [ 'p', 'c' ],
-      max_workers => [  1 ,  4  ]
-   };
+ MCE::Step::init {
+    task_name   => [ 'p', 'c' ],
+    max_workers => [  1 ,  4  ]
+ };
 
-   mce_step \&provider, \&consumer;
+ mce_step \&provider, \&consumer;
 
-   -- Output
+ -- Output
 
-   2: 10, 0.583551
-   4: 11, 0.175319
-   3: 12, 0.843662
-   4: 15, 0.748302
-   2: 14, 0.591752
-   3: 16, 0.357858
-   5: 13, 0.953528
-   4: 17, 0.698907
-   2: 18, 0.985448
-   3: 19, 0.146548
+ 2: 10, 0.583551
+ 4: 11, 0.175319
+ 3: 12, 0.843662
+ 4: 15, 0.748302
+ 2: 14, 0.591752
+ 3: 16, 0.357858
+ 5: 13, 0.953528
+ 4: 17, 0.698907
+ 2: 18, 0.985448
+ 3: 19, 0.146548
 
 =item MCE->enq ( task_name, item )
 
@@ -1355,55 +1355,55 @@ inside an anonymous array.
 The direction of flow is forward only. Thus, stepping to itself or backwards
 will cause an error.
 
-   use MCE::Step;
+ use MCE::Step;
 
-   sub provider {
-      if ( MCE->wid % 2 == 0 ) {
-         MCE->enq( 'c', [ $_, rand ] ) for 10 .. 19;
-      } else {
-         MCE->enq( 'd', [ $_, rand ] ) for 20 .. 29;
-      }
-   }
+ sub provider {
+    if ( MCE->wid % 2 == 0 ) {
+       MCE->enq( 'c', [ $_, rand ] ) for 10 .. 19;
+    } else {
+       MCE->enq( 'd', [ $_, rand ] ) for 20 .. 29;
+    }
+ }
 
-   sub consumer_c {
-      my ( $mce, $args ) = @_;
-      MCE->printf( "C%d: %d, %03.06f\n", MCE->wid, $args->[0], $args->[1] );
-   }
+ sub consumer_c {
+    my ( $mce, $args ) = @_;
+    MCE->printf( "C%d: %d, %03.06f\n", MCE->wid, $args->[0], $args->[1] );
+ }
 
-   sub consumer_d {
-      my ( $mce, $args ) = @_;
-      MCE->printf( "D%d: %d, %03.06f\n", MCE->wid, $args->[0], $args->[1] );
-   }
+ sub consumer_d {
+    my ( $mce, $args ) = @_;
+    MCE->printf( "D%d: %d, %03.06f\n", MCE->wid, $args->[0], $args->[1] );
+ }
 
-   MCE::Step::init {
-      task_name   => [ 'p', 'c', 'd' ],
-      max_workers => [  2 ,  3 ,  3  ]
-   };
+ MCE::Step::init {
+    task_name   => [ 'p', 'c', 'd' ],
+    max_workers => [  2 ,  3 ,  3  ]
+ };
 
-   mce_step \&provider, \&consumer_c, \&consumer_d;
+ mce_step \&provider, \&consumer_c, \&consumer_d;
 
-   -- Output
+ -- Output
 
-   C4: 10, 0.527531
-   D6: 20, 0.420108
-   C5: 11, 0.839770
-   D8: 21, 0.386414
-   C3: 12, 0.834645
-   C4: 13, 0.191014
-   D6: 23, 0.924027
-   C5: 14, 0.899357
-   D8: 24, 0.706186
-   C4: 15, 0.083823
-   D7: 22, 0.479708
-   D6: 25, 0.073882
-   C3: 16, 0.207446
-   D8: 26, 0.560755
-   C5: 17, 0.198157
-   D7: 27, 0.324909
-   C4: 18, 0.147505
-   C5: 19, 0.318371
-   D6: 28, 0.220465
-   D8: 29, 0.630111
+ C4: 10, 0.527531
+ D6: 20, 0.420108
+ C5: 11, 0.839770
+ D8: 21, 0.386414
+ C3: 12, 0.834645
+ C4: 13, 0.191014
+ D6: 23, 0.924027
+ C5: 14, 0.899357
+ D8: 24, 0.706186
+ C4: 15, 0.083823
+ D7: 22, 0.479708
+ D6: 25, 0.073882
+ C3: 16, 0.207446
+ D8: 26, 0.560755
+ C5: 17, 0.198157
+ D7: 27, 0.324909
+ C4: 18, 0.147505
+ C5: 19, 0.318371
+ D6: 28, 0.220465
+ D8: 29, 0.630111
 
 =item MCE->await ( task_name, pending_threshold )
 
@@ -1412,53 +1412,53 @@ consumption. MCE 1.7 adds the ->await method for pausing momentarily until
 the receiving sub-task reaches the minimum threshold for the number of
 items pending in its queue.
 
-   use MCE::Step;
-   use Time::HiRes 'sleep';
+ use MCE::Step;
+ use Time::HiRes 'sleep';
 
-   sub provider {
-      for ( 10 .. 29 ) {
-         # wait until 10 or less items pending
-         MCE->await( 'c', 10 );
-         # forward item to a later sub-task ( 'c' comes after 'p' )
-         MCE->enq( 'c', [ $_, rand ] );
-      }
-   }
+ sub provider {
+    for ( 10 .. 29 ) {
+       # wait until 10 or less items pending
+       MCE->await( 'c', 10 );
+       # forward item to a later sub-task ( 'c' comes after 'p' )
+       MCE->enq( 'c', [ $_, rand ] );
+    }
+ }
 
-   sub consumer {
-      my ($mce, $args) = @_;
-      MCE->printf( "%d: %d, %03.06f\n", MCE->wid, $args->[0], $args->[1] );
-      sleep 0.05;
-   }
+ sub consumer {
+    my ($mce, $args) = @_;
+    MCE->printf( "%d: %d, %03.06f\n", MCE->wid, $args->[0], $args->[1] );
+    sleep 0.05;
+ }
 
-   MCE::Step::init {
-      task_name   => [ 'p', 'c' ],
-      max_workers => [  1 ,  4  ]
-   };
+ MCE::Step::init {
+    task_name   => [ 'p', 'c' ],
+    max_workers => [  1 ,  4  ]
+ };
 
-   mce_step \&provider, \&consumer;
+ mce_step \&provider, \&consumer;
 
-   -- Output
+ -- Output
 
-   3: 10, 0.527307
-   2: 11, 0.036193
-   5: 12, 0.987168
-   4: 13, 0.998140
-   5: 14, 0.219526
-   4: 15, 0.061609
-   2: 16, 0.557664
-   3: 17, 0.658684
-   4: 18, 0.240932
-   3: 19, 0.241042
-   5: 20, 0.884830
-   2: 21, 0.902223
-   4: 22, 0.699223
-   3: 23, 0.208270
-   5: 24, 0.438919
-   2: 25, 0.268854
-   4: 26, 0.596425
-   5: 27, 0.979818
-   2: 28, 0.918173
-   3: 29, 0.358266
+ 3: 10, 0.527307
+ 2: 11, 0.036193
+ 5: 12, 0.987168
+ 4: 13, 0.998140
+ 5: 14, 0.219526
+ 4: 15, 0.061609
+ 2: 16, 0.557664
+ 3: 17, 0.658684
+ 4: 18, 0.240932
+ 3: 19, 0.241042
+ 5: 20, 0.884830
+ 2: 21, 0.902223
+ 4: 22, 0.699223
+ 3: 23, 0.208270
+ 5: 24, 0.438919
+ 2: 25, 0.268854
+ 4: 26, 0.596425
+ 5: 27, 0.979818
+ 2: 28, 0.918173
+ 3: 29, 0.358266
 
 =back
 
@@ -1467,143 +1467,143 @@ items pending in its queue.
 Unlike MCE::Map where gather and output order are done for you automatically,
 the gather method is used to have results sent back to the manager process.
 
-   use MCE::Step chunk_size => 1;
+ use MCE::Step chunk_size => 1;
 
-   ## Output order is not guaranteed.
-   my @a = mce_step sub { MCE->gather($_ * 2) }, 1..100;
-   print "@a\n\n";
+ ## Output order is not guaranteed.
+ my @a = mce_step sub { MCE->gather($_ * 2) }, 1..100;
+ print "@a\n\n";
 
-   ## Outputs to a hash instead (key, value).
-   my %h1 = mce_step sub { MCE->gather($_, $_ * 2) }, 1..100;
-   print "@h1{1..100}\n\n";
+ ## Outputs to a hash instead (key, value).
+ my %h1 = mce_step sub { MCE->gather($_, $_ * 2) }, 1..100;
+ print "@h1{1..100}\n\n";
 
-   ## This does the same thing due to chunk_id starting at one.
-   my %h2 = mce_step sub { MCE->gather(MCE->chunk_id, $_ * 2) }, 1..100;
-   print "@h2{1..100}\n\n";
+ ## This does the same thing due to chunk_id starting at one.
+ my %h2 = mce_step sub { MCE->gather(MCE->chunk_id, $_ * 2) }, 1..100;
+ print "@h2{1..100}\n\n";
 
 The gather method may be called multiple times within the block unlike return
 which would leave the block. Therefore, think of gather as yielding results
 immediately to the manager process without actually leaving the block.
 
-   use MCE::Step chunk_size => 1, max_workers => 3;
+ use MCE::Step chunk_size => 1, max_workers => 3;
 
-   my @hosts = qw(
-      hosta hostb hostc hostd hoste
-   );
+ my @hosts = qw(
+    hosta hostb hostc hostd hoste
+ );
 
-   my %h3 = mce_step sub {
-      my ($output, $error, $status); my $host = $_;
+ my %h3 = mce_step sub {
+    my ($output, $error, $status); my $host = $_;
 
-      ## Do something with $host;
-      $output = "Worker ". MCE->wid .": Hello from $host";
+    ## Do something with $host;
+    $output = "Worker ". MCE->wid .": Hello from $host";
 
-      if (MCE->chunk_id % 3 == 0) {
-         ## Simulating an error condition
-         local $? = 1; $status = $?;
-         $error = "Error from $host"
-      }
-      else {
-         $status = 0;
-      }
+    if (MCE->chunk_id % 3 == 0) {
+       ## Simulating an error condition
+       local $? = 1; $status = $?;
+       $error = "Error from $host"
+    }
+    else {
+       $status = 0;
+    }
 
-      ## Ensure unique keys (key, value) when gathering to
-      ## a hash.
-      MCE->gather("$host.out", $output);
-      MCE->gather("$host.err", $error) if (defined $error);
-      MCE->gather("$host.sta", $status);
+    ## Ensure unique keys (key, value) when gathering to
+    ## a hash.
+    MCE->gather("$host.out", $output);
+    MCE->gather("$host.err", $error) if (defined $error);
+    MCE->gather("$host.sta", $status);
 
-   }, @hosts;
+ }, @hosts;
 
-   foreach my $host (@hosts) {
-      print $h3{"$host.out"}, "\n";
-      print $h3{"$host.err"}, "\n" if (exists $h3{"$host.err"});
-      print "Exit status: ", $h3{"$host.sta"}, "\n\n";
-   }
+ foreach my $host (@hosts) {
+    print $h3{"$host.out"}, "\n";
+    print $h3{"$host.err"}, "\n" if (exists $h3{"$host.err"});
+    print "Exit status: ", $h3{"$host.sta"}, "\n\n";
+ }
 
-   -- Output
+ -- Output
 
-   Worker 3: Hello from hosta
-   Exit status: 0
+ Worker 3: Hello from hosta
+ Exit status: 0
 
-   Worker 2: Hello from hostb
-   Exit status: 0
+ Worker 2: Hello from hostb
+ Exit status: 0
 
-   Worker 1: Hello from hostc
-   Error from hostc
-   Exit status: 1
+ Worker 1: Hello from hostc
+ Error from hostc
+ Exit status: 1
 
-   Worker 3: Hello from hostd
-   Exit status: 0
+ Worker 3: Hello from hostd
+ Exit status: 0
 
-   Worker 2: Hello from hoste
-   Exit status: 0
+ Worker 2: Hello from hoste
+ Exit status: 0
 
 The following uses an anonymous array containing 3 elements when gathering
 data. Serialization is automatic behind the scene.
 
-   my %h3 = mce_step sub {
-      ...
+ my %h3 = mce_step sub {
+    ...
 
-      MCE->gather($host, [$output, $error, $status]);
+    MCE->gather($host, [$output, $error, $status]);
 
-   }, @hosts;
+ }, @hosts;
 
-   foreach my $host (@hosts) {
-      print $h3{$host}->[0], "\n";
-      print $h3{$host}->[1], "\n" if (defined $h3{$host}->[1]);
-      print "Exit status: ", $h3{$host}->[2], "\n\n";
-   }
+ foreach my $host (@hosts) {
+    print $h3{$host}->[0], "\n";
+    print $h3{$host}->[1], "\n" if (defined $h3{$host}->[1]);
+    print "Exit status: ", $h3{$host}->[2], "\n\n";
+ }
 
 Although MCE::Map comes to mind, one may want additional control when
 gathering data such as retaining output order.
 
-   use MCE::Step;
+ use MCE::Step;
 
-   sub preserve_order {
-      my %tmp; my $order_id = 1; my $gather_ref = $_[0];
+ sub preserve_order {
+    my %tmp; my $order_id = 1; my $gather_ref = $_[0];
 
-      return sub {
-         $tmp{ (shift) } = \@_;
+    return sub {
+       $tmp{ (shift) } = \@_;
 
-         while (1) {
-            last unless exists $tmp{$order_id};
-            push @{ $gather_ref }, @{ delete $tmp{$order_id++} };
-         }
+       while (1) {
+          last unless exists $tmp{$order_id};
+          push @{ $gather_ref }, @{ delete $tmp{$order_id++} };
+       }
 
-         return;
-      };
-   }
+       return;
+    };
+ }
 
-   ## Workers persist for the most part after running. Though, not always
-   ## the case and depends on Perl. Pass a reference to a subroutine if
-   ## workers must persist; e.g. mce_step { ... }, \&foo, 1..100000.
+ ## Workers persist for the most part after running. Though, not always
+ ## the case and depends on Perl. Pass a reference to a subroutine if
+ ## workers must persist; e.g. mce_step { ... }, \&foo, 1..100000.
 
-   MCE::Step::init {
-      chunk_size => 'auto', max_workers => 'auto'
-   };
+ MCE::Step::init {
+    chunk_size => 'auto', max_workers => 'auto'
+ };
 
-   for (1..2) {
-      my @m2;
+ for (1..2) {
+    my @m2;
 
-      mce_step {
-         gather => preserve_order(\@m2)
-      },
-      sub {
-         my @a; my ($mce, $chunk_ref, $chunk_id) = @_;
+    mce_step {
+       gather => preserve_order(\@m2)
+    },
+    sub {
+       my @a; my ($mce, $chunk_ref, $chunk_id) = @_;
 
-         ## Compute the entire chunk data at once.
-         push @a, map { $_ * 2 } @{ $chunk_ref };
+       ## Compute the entire chunk data at once.
+       push @a, map { $_ * 2 } @{ $chunk_ref };
 
-         ## Afterwards, invoke the gather feature, which
-         ## will direct the data to the callback function.
-         MCE->gather(MCE->chunk_id, @a);
+       ## Afterwards, invoke the gather feature, which
+       ## will direct the data to the callback function.
+       MCE->gather(MCE->chunk_id, @a);
 
-      }, 1..100000;
+    }, 1..100000;
 
-      print scalar @m2, "\n";
-   }
+    print scalar @m2, "\n";
+ }
 
-   MCE::Step::finish;
+ MCE::Step::finish;
 
 All 6 models support 'auto' for chunk_size unlike the Core API. Think of the
 models as the basis for providing JIT for MCE. They create the instance, tune
@@ -1612,36 +1612,36 @@ max_workers, and tune chunk_size automatically regardless of the hardware.
 The following does the same thing using the Core API. Workers persist after
 running.
 
-   use MCE;
+ use MCE;
 
-   sub preserve_order {
-      ...
-   }
+ sub preserve_order {
+    ...
+ }
 
-   my $mce = MCE->new(
-      max_workers => 'auto', chunk_size => 8000,
+ my $mce = MCE->new(
+    max_workers => 'auto', chunk_size => 8000,
 
-      user_func => sub {
-         my @a; my ($mce, $chunk_ref, $chunk_id) = @_;
+    user_func => sub {
+       my @a; my ($mce, $chunk_ref, $chunk_id) = @_;
 
-         ## Compute the entire chunk data at once.
-         push @a, map { $_ * 2 } @{ $chunk_ref };
+       ## Compute the entire chunk data at once.
+       push @a, map { $_ * 2 } @{ $chunk_ref };
 
-         ## Afterwards, invoke the gather feature, which
-         ## will direct the data to the callback function.
-         MCE->gather(MCE->chunk_id, @a);
-      }
-   );
+       ## Afterwards, invoke the gather feature, which
+       ## will direct the data to the callback function.
+       MCE->gather(MCE->chunk_id, @a);
+    }
+ );
 
-   for (1..2) {
-      my @m2;
+ for (1..2) {
+    my @m2;
 
-      $mce->process({ gather => preserve_order(\@m2) }, [1..100000]);
+    $mce->process({ gather => preserve_order(\@m2) }, [1..100000]);
 
-      print scalar @m2, "\n";
-   }
+    print scalar @m2, "\n";
+ }
 
-   $mce->shutdown;
+ $mce->shutdown;
 
 =head1 MANUAL SHUTDOWN
 
@@ -1655,15 +1655,15 @@ Workers remain persistent as much as possible after running. Shutdown occurs
 automatically when the script terminates. Call finish when workers are no
 longer needed.
 
-   use MCE::Step;
+ use MCE::Step;
 
-   MCE::Step::init {
-      chunk_size => 20, max_workers => 'auto'
-   };
+ MCE::Step::init {
+    chunk_size => 20, max_workers => 'auto'
+ };
 
-   mce_step sub { ... }, 1..100;
+ mce_step sub { ... }, 1..100;
 
-   MCE::Step::finish;
+ MCE::Step::finish;
 
 =back
 

@@ -75,47 +75,47 @@ This document describes MCE::Mutex version 1.830
 
 =head1 SYNOPSIS
 
-   use MCE::Mutex;
+ use MCE::Mutex;
 
-   my $mutex = MCE::Mutex->new;
+ my $mutex = MCE::Mutex->new;
 
-   {
-       use MCE::Flow max_workers => 4;
+ {
+     use MCE::Flow max_workers => 4;
 
-       mce_flow sub {
-           $mutex->lock;
+     mce_flow sub {
+         $mutex->lock;
 
-           # access shared resource
-           my $wid = MCE->wid; MCE->say($wid); sleep 1;
+         # access shared resource
+         my $wid = MCE->wid; MCE->say($wid); sleep 1;
 
-           $mutex->unlock;
-       };
-   }
+         $mutex->unlock;
+     };
+ }
 
-   {
-       use MCE::Hobo;
+ {
+     use MCE::Hobo;
 
-       MCE::Hobo->create('work', $_) for 1..4;
-       MCE::Hobo->waitall;
-   }
+     MCE::Hobo->create('work', $_) for 1..4;
+     MCE::Hobo->waitall;
+ }
 
-   {
-       use threads;
+ {
+     use threads;
 
-       threads->create('work', $_)   for 5..8;
-       $_->join for ( threads->list );
-   }
+     threads->create('work', $_)   for 5..8;
+     $_->join for ( threads->list );
+ }
 
-   sub work {
-       my ($id) = @_;
-       $mutex->lock;
+ sub work {
+     my ($id) = @_;
+     $mutex->lock;
 
-       # access shared resource
-       print $id, "\n";
-       sleep 1;
+     # access shared resource
+     print $id, "\n";
+     sleep 1;
 
-       $mutex->unlock;
-   }
+     $mutex->unlock;
+ }
 
 =head1 DESCRIPTION
 
@@ -148,17 +148,17 @@ it establishes a C<tempfile> internally including removal on scope exit.
 
 Returns the implementation used for the mutex.
 
-   $m1 = MCE::Mutex->new( );
-   $m1->impl();   # Channel
+ $m1 = MCE::Mutex->new( );
+ $m1->impl();   # Channel
 
-   $m2 = MCE::Mutex->new( path => /tmp/my.lock );
-   $m2->impl();   # Flock
+ $m2 = MCE::Mutex->new( path => /tmp/my.lock );
+ $m2->impl();   # Flock
 
-   $m3 = MCE::Mutex->new( impl => "Channel" );
-   $m3->impl();   # Channel
+ $m3 = MCE::Mutex->new( impl => "Channel" );
+ $m3->impl();   # Channel
 
-   $m4 = MCE::Mutex->new( impl => "Flock" );
-   $m4->impl();   # Flock
+ $m4 = MCE::Mutex->new( impl => "Flock" );
+ $m4->impl();   # Flock
 
 Current API available since 1.822.
 
@@ -172,7 +172,7 @@ locked until mutex->unlock is called.
 
 The method C<lock_exclusive> is an alias for C<lock>, available since 1.822.
 
-   ( my $mutex = MCE::Mutex->new( path => $0 ) )->lock_exclusive;
+ ( my $mutex = MCE::Mutex->new( path => $0 ) )->lock_exclusive;
 
 =head2 $mutex->lock_shared ( void )
 
@@ -193,15 +193,15 @@ automatically.
 Obtains a lock, runs the code block, and releases the lock after the block
 completes. Optionally, the method is C<wantarray> aware.
 
-   my $val = $mutex->synchronize( sub {
-       # access shared resource
-       return 'scalar';
-   });
+ my $val = $mutex->synchronize( sub {
+     # access shared resource
+     return 'scalar';
+ });
 
-   my @ret = $mutex->enter( sub {
-       # access shared resource
-       return @list;
-   });
+ my @ret = $mutex->enter( sub {
+     # access shared resource
+     return @list;
+ });
 
 The method C<enter> is an alias for C<synchronize>, available since 1.822.
 
@@ -211,13 +211,13 @@ Blocks until obtaining an exclusive lock. A false value is returned
 if the timeout is reached, and a true value otherwise. The default is
 1 second when omitting timeout.
 
-   my $mutex = MCE::Mutex->new( path => $0 );
+ my $mutex = MCE::Mutex->new( path => $0 );
 
-   # terminate script if a previous instance is still running
+ # terminate script if a previous instance is still running
 
-   exit unless $mutex->timedwait( 2 );
+ exit unless $mutex->timedwait( 2 );
 
-   ...
+ ...
 
 Current API available since 1.822.
 

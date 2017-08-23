@@ -208,68 +208,68 @@ This document describes MCE::Subs version 1.830
 
 =head1 SYNOPSIS
 
-   use MCE::Subs;  ## Exports manager and worker functions only
-                   ## Getter functions are not exported by default
+ use MCE::Subs;  ## Exports manager and worker functions only
+                 ## Getter functions are not exported by default
 
-   use MCE::Subs qw( :getter  );  ## All, including getter functions
-   use MCE::Subs qw( :manager );  ## Exports manager functions only
-   use MCE::Subs qw( :worker  );  ## Exports worker functions only
+ use MCE::Subs qw( :getter  );  ## All, including getter functions
+ use MCE::Subs qw( :manager );  ## Exports manager functions only
+ use MCE::Subs qw( :worker  );  ## Exports worker functions only
 
-   use MCE::Subs qw( :getter :worker );  ## Excludes manager functions
+ use MCE::Subs qw( :getter :worker );  ## Excludes manager functions
 
 =head1 DESCRIPTION
 
 This module exports functions mapped to MCE methods. All exported functions
 are prototyped, therefore allowing one to call them without using parentheses.
 
-   use MCE::Subs qw( :worker );
+ use MCE::Subs qw( :worker );
 
-   sub user_func {
-      my $wid = MCE->wid;
+ sub user_func {
+    my $wid = MCE->wid;
 
-      mce_say "A: $wid";
-      mce_sync;
+    mce_say "A: $wid";
+    mce_sync;
 
-      mce_say "B: $wid";
-      mce_sync;
+    mce_say "B: $wid";
+    mce_sync;
 
-      mce_say "C: $wid";
-      mce_sync;
+    mce_say "C: $wid";
+    mce_sync;
 
-      return;
-   }
+    return;
+ }
 
-   MCE->new(
-      max_workers => 24, user_func => \&user_func
-   );
+ MCE->new(
+    max_workers => 24, user_func => \&user_func
+ );
 
-   mce_run 0 for (1..100);   ## 0 means do not shutdown after running
+ mce_run 0 for (1..100);   ## 0 means do not shutdown after running
 
 For the next example, we only want the worker functions to be exported due
 to using MCE::Map, which takes care of creating a MCE instance and running.
 
-   use MCE::Map;
-   use MCE::Subs qw( :worker );
+ use MCE::Map;
+ use MCE::Subs qw( :worker );
 
-   ## The following serializes output to STDOUT and gathers $_ to @a.
-   ## mce_say displays $_ when called without arguments.
+ ## The following serializes output to STDOUT and gathers $_ to @a.
+ ## mce_say displays $_ when called without arguments.
 
-   my @a = mce_map { mce_say; $_ } 1 .. 100;
+ my @a = mce_map { mce_say; $_ } 1 .. 100;
 
-   print scalar @a, "\n";
+ print scalar @a, "\n";
 
 Unlike the native Perl functions, printf, print, and say methods require the
 comma after the glob reference or file handle.
 
-   MCE->printf(\*STDERR, "%s\n", $error_msg);
-   MCE->print(\*STDERR, $error_msg, "\n");
-   MCE->say(\*STDERR, $error_msg);
-   MCE->say($fh, $error_msg);
+ MCE->printf(\*STDERR, "%s\n", $error_msg);
+ MCE->print(\*STDERR, $error_msg, "\n");
+ MCE->say(\*STDERR, $error_msg);
+ MCE->say($fh, $error_msg);
 
-   mce_printf \*STDERR, "%s\n", $error_msg;
-   mce_print \*STDERR, $error_msg, "\n";
-   mce_say \*STDERR, $error_msg;
-   mce_say $fh, $error_msg;
+ mce_printf \*STDERR, "%s\n", $error_msg;
+ mce_print \*STDERR, $error_msg, "\n";
+ mce_say \*STDERR, $error_msg;
+ mce_say $fh, $error_msg;
 
 =head1 FUNCTIONS for the MANAGER PROCESS via ( :manager )
 

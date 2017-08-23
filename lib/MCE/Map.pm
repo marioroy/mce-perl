@@ -454,25 +454,25 @@ This document describes MCE::Map version 1.830
 
 =head1 SYNOPSIS
 
-   ## Exports mce_map, mce_map_f, and mce_map_s
-   use MCE::Map;
+ ## Exports mce_map, mce_map_f, and mce_map_s
+ use MCE::Map;
 
-   ## Array or array_ref
-   my @a = mce_map { $_ * $_ } 1..10000;
-   my @b = mce_map { $_ * $_ } [ 1..10000 ];
+ ## Array or array_ref
+ my @a = mce_map { $_ * $_ } 1..10000;
+ my @b = mce_map { $_ * $_ } [ 1..10000 ];
 
-   ## File_path, glob_ref, or scalar_ref
-   my @c = mce_map_f { chomp; $_ } "/path/to/file";
-   my @d = mce_map_f { chomp; $_ } $file_handle;
-   my @e = mce_map_f { chomp; $_ } \$scalar;
+ ## File_path, glob_ref, or scalar_ref
+ my @c = mce_map_f { chomp; $_ } "/path/to/file";
+ my @d = mce_map_f { chomp; $_ } $file_handle;
+ my @e = mce_map_f { chomp; $_ } \$scalar;
 
-   ## Sequence of numbers (begin, end [, step, format])
-   my @f = mce_map_s { $_ * $_ } 1, 10000, 5;
-   my @g = mce_map_s { $_ * $_ } [ 1, 10000, 5 ];
+ ## Sequence of numbers (begin, end [, step, format])
+ my @f = mce_map_s { $_ * $_ } 1, 10000, 5;
+ my @g = mce_map_s { $_ * $_ } [ 1, 10000, 5 ];
 
-   my @h = mce_map_s { $_ * $_ } {
-      begin => 1, end => 10000, step => 5, format => undef
-   };
+ my @h = mce_map_s { $_ * $_ } {
+    begin => 1, end => 10000, step => 5, format => undef
+ };
 
 =head1 DESCRIPTION
 
@@ -481,20 +481,20 @@ MCE incurs a small overhead due to passing of data. A fast code block will
 run faster natively. However, the overhead will likely diminish as the
 complexity increases for the code.
 
-   my @m1 =     map { $_ * $_ } 1..1000000;               ## 0.127 secs
-   my @m2 = mce_map { $_ * $_ } 1..1000000;               ## 0.304 secs
+ my @m1 =     map { $_ * $_ } 1..1000000;               ## 0.127 secs
+ my @m2 = mce_map { $_ * $_ } 1..1000000;               ## 0.304 secs
 
 Chunking, enabled by default, greatly reduces the overhead behind the scene.
 The time for mce_map below also includes the time for data exchanges between
 the manager and worker processes. More parallelization will be seen when the
 code incurs additional CPU time.
 
-   sub calc {
-      sqrt $_ * sqrt $_ / 1.3 * 1.5 / 3.2 * 1.07
-   }
+ sub calc {
+    sqrt $_ * sqrt $_ / 1.3 * 1.5 / 3.2 * 1.07
+ }
 
-   my @m1 =     map { calc } 1..1000000;                  ## 0.367 secs
-   my @m2 = mce_map { calc } 1..1000000;                  ## 0.365 secs
+ my @m1 =     map { calc } 1..1000000;                  ## 0.367 secs
+ my @m2 = mce_map { calc } 1..1000000;                  ## 0.365 secs
 
 Even faster is mce_map_s; useful when input data is a range of numbers.
 Workers generate sequences mathematically among themselves without any
@@ -502,49 +502,49 @@ interaction from the manager process. Two arguments are required for
 mce_map_s (begin, end). Step defaults to 1 if begin is smaller than end,
 otherwise -1.
 
-   my @m3 = mce_map_s { calc } 1, 1000000;                ## 0.270 secs
+ my @m3 = mce_map_s { calc } 1, 1000000;                ## 0.270 secs
 
 Although this document is about MCE::Map, the L<MCE::Stream> module can write
 results immediately without waiting for all chunks to complete. This is made
 possible by passing the reference to an array (in this case @m4 and @m5).
 
-   use MCE::Stream;
+ use MCE::Stream;
 
-   sub calc {
-      sqrt $_ * sqrt $_ / 1.3 * 1.5 / 3.2 * 1.07
-   }
+ sub calc {
+    sqrt $_ * sqrt $_ / 1.3 * 1.5 / 3.2 * 1.07
+ }
 
-   my @m4; mce_stream \@m4, sub { calc }, 1..1000000;
+ my @m4; mce_stream \@m4, sub { calc }, 1..1000000;
 
-      ## Completes in 0.272 secs. This is amazing considering the
-      ## overhead for passing data between the manager and workers.
+    ## Completes in 0.272 secs. This is amazing considering the
+    ## overhead for passing data between the manager and workers.
 
-   my @m5; mce_stream_s \@m5, sub { calc }, 1, 1000000;
+ my @m5; mce_stream_s \@m5, sub { calc }, 1, 1000000;
 
-      ## Completed in 0.176 secs. Like with mce_map_s, specifying a
-      ## sequence specification turns out to be faster due to lesser
-      ## overhead for the manager process.
+    ## Completed in 0.176 secs. Like with mce_map_s, specifying a
+    ## sequence specification turns out to be faster due to lesser
+    ## overhead for the manager process.
 
 =head1 OVERRIDING DEFAULTS
 
 The following list options which may be overridden when loading the module.
 
-   use Sereal qw( encode_sereal decode_sereal );
-   use CBOR::XS qw( encode_cbor decode_cbor );
-   use JSON::XS qw( encode_json decode_json );
+ use Sereal qw( encode_sereal decode_sereal );
+ use CBOR::XS qw( encode_cbor decode_cbor );
+ use JSON::XS qw( encode_json decode_json );
 
-   use MCE::Map
-       max_workers => 4,                # Default 'auto'
-       chunk_size => 100,               # Default 'auto'
-       tmp_dir => "/path/to/app/tmp",   # $MCE::Signal::tmp_dir
-       freeze => \&encode_sereal,       # \&Storable::freeze
-       thaw => \&decode_sereal          # \&Storable::thaw
-   ;
+ use MCE::Map
+     max_workers => 4,                # Default 'auto'
+     chunk_size => 100,               # Default 'auto'
+     tmp_dir => "/path/to/app/tmp",   # $MCE::Signal::tmp_dir
+     freeze => \&encode_sereal,       # \&Storable::freeze
+     thaw => \&decode_sereal          # \&Storable::thaw
+ ;
 
 From MCE 1.8 onwards, Sereal 3.015+ is loaded automatically if available.
 Specify C<Sereal => 0> to use Storable instead.
 
-   use MCE::Map Sereal => 0;
+ use MCE::Map Sereal => 0;
 
 =head1 CUSTOMIZING MCE
 
@@ -557,43 +557,43 @@ Specify C<Sereal => 0> to use Storable instead.
 The init function accepts a hash of MCE options. The gather option, if
 specified, is ignored due to being used internally by the module.
 
-   use MCE::Map;
+ use MCE::Map;
 
-   MCE::Map::init {
-      chunk_size => 1, max_workers => 4,
+ MCE::Map::init {
+    chunk_size => 1, max_workers => 4,
 
-      user_begin => sub {
-         print "## ", MCE->wid, " started\n";
-      },
+    user_begin => sub {
+       print "## ", MCE->wid, " started\n";
+    },
 
-      user_end => sub {
-         print "## ", MCE->wid, " completed\n";
-      }
-   };
+    user_end => sub {
+       print "## ", MCE->wid, " completed\n";
+    }
+ };
 
-   my @a = mce_map { $_ * $_ } 1..100;
+ my @a = mce_map { $_ * $_ } 1..100;
 
-   print "\n", "@a", "\n";
+ print "\n", "@a", "\n";
 
-   -- Output
+ -- Output
 
-   ## 2 started
-   ## 1 started
-   ## 3 started
-   ## 4 started
-   ## 1 completed
-   ## 4 completed
-   ## 2 completed
-   ## 3 completed
+ ## 2 started
+ ## 1 started
+ ## 3 started
+ ## 4 started
+ ## 1 completed
+ ## 4 completed
+ ## 2 completed
+ ## 3 completed
 
-   1 4 9 16 25 36 49 64 81 100 121 144 169 196 225 256 289 324 361
-   400 441 484 529 576 625 676 729 784 841 900 961 1024 1089 1156
-   1225 1296 1369 1444 1521 1600 1681 1764 1849 1936 2025 2116 2209
-   2304 2401 2500 2601 2704 2809 2916 3025 3136 3249 3364 3481 3600
-   3721 3844 3969 4096 4225 4356 4489 4624 4761 4900 5041 5184 5329
-   5476 5625 5776 5929 6084 6241 6400 6561 6724 6889 7056 7225 7396
-   7569 7744 7921 8100 8281 8464 8649 8836 9025 9216 9409 9604 9801
-   10000
+ 1 4 9 16 25 36 49 64 81 100 121 144 169 196 225 256 289 324 361
+ 400 441 484 529 576 625 676 729 784 841 900 961 1024 1089 1156
+ 1225 1296 1369 1444 1521 1600 1681 1764 1849 1936 2025 2116 2209
+ 2304 2401 2500 2601 2704 2809 2916 3025 3136 3249 3364 3481 3600
+ 3721 3844 3969 4096 4225 4356 4489 4624 4761 4900 5041 5184 5329
+ 5476 5625 5776 5929 6084 6241 6400 6561 6724 6889 7056 7225 7396
+ 7569 7744 7921 8100 8281 8464 8649 8836 9025 9216 9409 9604 9801
+ 10000
 
 =back
 
@@ -608,10 +608,10 @@ specified, is ignored due to being used internally by the module.
 Input data may be defined using a list or an array reference. Unlike MCE::Loop,
 Flow, and Step, specifying a hash reference as input data isn't allowed.
 
-   my @a = mce_map { $_ * 2 } 1..1000;
-   my @b = mce_map { $_ * 2 } \@list;
+ my @a = mce_map { $_ * 2 } 1..1000;
+ my @b = mce_map { $_ * 2 } \@list;
 
-   my @z = mce_map { $_ * 2 } \%hash;  # not supported
+ my @z = mce_map { $_ * 2 } \%hash;  # not supported
 
 =item MCE::Map->run_file ( sub { code }, file )
 
@@ -620,9 +620,9 @@ Flow, and Step, specifying a hash reference as input data isn't allowed.
 The fastest of these is the /path/to/file. Workers communicate the next offset
 position among themselves with zero interaction by the manager process.
 
-   my @c = mce_map_f { chomp; $_ . "\r\n" } "/path/to/file";  # faster
-   my @d = mce_map_f { chomp; $_ . "\r\n" } $file_handle;
-   my @e = mce_map_f { chomp; $_ . "\r\n" } \$scalar;
+ my @c = mce_map_f { chomp; $_ . "\r\n" } "/path/to/file";  # faster
+ my @d = mce_map_f { chomp; $_ . "\r\n" } $file_handle;
+ my @e = mce_map_f { chomp; $_ . "\r\n" } \$scalar;
 
 =item MCE::Map->run_seq ( sub { code }, $beg, $end [, $step, $fmt ] )
 
@@ -632,15 +632,15 @@ Sequence may be defined as a list, an array reference, or a hash reference.
 The functions require both begin and end values to run. Step and format are
 optional. The format is passed to sprintf (% may be omitted below).
 
-   my ($beg, $end, $step, $fmt) = (10, 20, 0.1, "%4.1f");
+ my ($beg, $end, $step, $fmt) = (10, 20, 0.1, "%4.1f");
 
-   my @f = mce_map_s { $_ } $beg, $end, $step, $fmt;
-   my @g = mce_map_s { $_ } [ $beg, $end, $step, $fmt ];
+ my @f = mce_map_s { $_ } $beg, $end, $step, $fmt;
+ my @g = mce_map_s { $_ } [ $beg, $end, $step, $fmt ];
 
-   my @h = mce_map_s { $_ } {
-      begin => $beg, end => $end,
-      step => $step, format => $fmt
-   };
+ my @h = mce_map_s { $_ } {
+    begin => $beg, end => $end,
+    step => $step, format => $fmt
+ };
 
 =item MCE::Map->run ( sub { code }, iterator )
 
@@ -649,7 +649,7 @@ optional. The format is passed to sprintf (% may be omitted below).
 An iterator reference may be specified for input_data. Iterators are described
 under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 
-   my @a = mce_map { $_ * 2 } make_iterator(10, 30, 2);
+ my @a = mce_map { $_ * 2 } make_iterator(10, 30, 2);
 
 =back
 
@@ -665,15 +665,15 @@ Workers remain persistent as much as possible after running. Shutdown occurs
 automatically when the script terminates. Call finish when workers are no
 longer needed.
 
-   use MCE::Map;
+ use MCE::Map;
 
-   MCE::Map::init {
-      chunk_size => 20, max_workers => 'auto'
-   };
+ MCE::Map::init {
+    chunk_size => 20, max_workers => 'auto'
+ };
 
-   my @a = mce_map { ... } 1..100;
+ my @a = mce_map { ... } 1..100;
 
-   MCE::Map::finish;
+ MCE::Map::finish;
 
 =back
 

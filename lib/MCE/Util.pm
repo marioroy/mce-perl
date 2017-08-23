@@ -487,17 +487,17 @@ This is important for apps which are IO-bound.
 
  my $mce = MCE->new(
 
-   max_workers => 'auto',       ##  1 on HW with 1-lcores;  2 on  2-lcores
-   max_workers =>  16,          ## 16 on HW with 4-lcores; 16 on 32-lcores
+ max_workers => 'auto',       ##  1 on HW with 1-lcores;  2 on  2-lcores
+ max_workers =>  16,          ## 16 on HW with 4-lcores; 16 on 32-lcores
 
-   max_workers => 'auto',       ##  4 on HW with 4-lcores;  8 on 16-lcores
-   max_workers => 'auto*1.5',   ##  4 on HW with 4-lcores; 12 on 16-lcores
-   max_workers => 'auto*2.0',   ##  4 on HW with 4-lcores; 16 on 16-lcores
-   max_workers => 'auto/2.0',   ##  2 on HW with 4-lcores;  4 on 16-lcores
-   max_workers => 'auto+3',     ##  4 on HW with 4-lcores; 11 on 16-lcores
-   max_workers => 'auto-1',     ##  3 on HW with 4-lcores;  7 on 16-lcores
+ max_workers => 'auto',       ##  4 on HW with 4-lcores;  8 on 16-lcores
+ max_workers => 'auto*1.5',   ##  4 on HW with 4-lcores; 12 on 16-lcores
+ max_workers => 'auto*2.0',   ##  4 on HW with 4-lcores; 16 on 16-lcores
+ max_workers => 'auto/2.0',   ##  2 on HW with 4-lcores;  4 on 16-lcores
+ max_workers => 'auto+3',     ##  4 on HW with 4-lcores; 11 on 16-lcores
+ max_workers => 'auto-1',     ##  3 on HW with 4-lcores;  7 on 16-lcores
 
-   max_workers => MCE::Util::get_ncpu,   ## run on all lcores
+ max_workers => MCE::Util::get_ncpu,   ## run on all lcores
  );
 
 In summary:
