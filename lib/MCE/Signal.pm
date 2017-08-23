@@ -43,15 +43,7 @@ our %EXPORT_TAGS = (
 sub _NOOP {}
 
 END {
-   if ($$ == $main_proc_id) {
-      if (defined $MCE::Signal::SIGNAME) {
-         $SIG{ $MCE::Signal::SIGNAME } = 'DEFAULT';
-         CORE::kill($MCE::Signal::SIGNAME, $$);
-      }
-      else {
-         MCE::Signal::stop_and_exit($?);
-      }
-   }
+   MCE::Signal->stop_and_exit($?) if ($$ == $main_proc_id);
 }
 
 ###############################################################################
@@ -203,26 +195,12 @@ sub stop_and_exit {
    my ($_exit_status, $_is_sig, $_sig_name) = ($?, 0, $_[0] || 0);
    $SIG{__DIE__} = $SIG{__WARN__} = \&_NOOP;
 
-   if (!defined $MCE::Signal::STATUS) {
-      if (!exists $_sig_name_lkup{ $_sig_name }) {
-         $MCE::Signal::STATUS = $_sig_name if ($_sig_name =~ /^\d+$/);
-      } else {
-         $SIG{INT} = $SIG{$_sig_name} = \&_NOOP;
-         $MCE::Signal::STATUS = $_is_sig = $MCE::Signal::KILLED = 1;
-         $MCE::Signal::STATUS = 255 if ($_sig_name eq '__DIE__');
-         $MCE::Signal::STATUS = 0 if ($_sig_name eq 'PIPE');
-      }
-   }
-
    ## Main process.
    if ($$ == $main_proc_id) {
 
       if (++${ $_handler_count } == 1) {
          ## Kill process group if signaled.
          if ($_is_sig == 1) {
-            if ($_sig_name eq 'INT' || $_sig_name eq 'TERM') {
-               $MCE::Signal::SIGNAME = $_sig_name;
-            }
             ($_sig_name eq 'PIPE')
                ? CORE::kill('PIPE', $_is_MSWin32 ? -$$ : -getpgrp)
                : CORE::kill('INT' , $_is_MSWin32 ? -$$ : -getpgrp);
@@ -271,9 +249,7 @@ sub stop_and_exit {
    }
 
    ## Exit with status.
-   ( defined $MCE::Signal::STATUS )
-      ? CORE::exit( $MCE::Signal::STATUS )
-      : CORE::exit( $_exit_status );
+   CORE::exit($_exit_status);
 }
 
 ###############################################################################
@@ -491,11 +467,9 @@ The following are available options and their meanings.
                      A message is displayed with the location afterwards
 
  -use_dev_shm      - Create the temporary directory under /dev/shm
-
  -no_kill9         - Do not kill -9 after receiving a signal to terminate
 
  -setpgrp          - Calls setpgrp to set the process group for the process
-
                      This option ensures all workers terminate when reading
                      STDIN for MCE releases 1.511 and below.
 

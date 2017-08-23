@@ -1,7 +1,7 @@
 
 Revision history for Perl module MCE.
 
-1.830 Tue Aug 15 05:30:00 EST 2017
+1.830 Wed Aug 23 19:00:00 EST 2017
 
   [BUG FIXES]
 
@@ -9,6 +9,7 @@ Revision history for Perl module MCE.
     See http://www.perlmonks.org/?node_id=1196701. Thank you, JediWombat.
 
   * Fixed bug with dequeue_nb in MCE::Queue (#8). Thank you, Tomohiro Hosaka.
+  * Fixed signal handler (#9). Thank you, @chrisdenley.
 
   [ENHANCEMENTS]
 
