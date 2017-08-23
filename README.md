@@ -130,39 +130,39 @@ The next demonstration loops through a sequence of numbers with MCE::Flow.
 
 To install this module type the following:
 
- MCE_INSTALL_TOOLS=1 perl Makefile.PL   (to include bin/mce_grep)
- (or)                perl Makefile.PL
+    MCE_INSTALL_TOOLS=1 perl Makefile.PL   (to include bin/mce_grep)
+    (or)                perl Makefile.PL
 
- make
- make test
- make install
+    make
+    make test
+    make install
 
 This module requires Perl 5.8.0 or later to run. By default, MCE spawns threads
 on Windows and child processes otherwise on Cygwin and Unix platforms. The use
 of threads requires that you include threads support prior to loading MCE.
 
- processes   (or)   use threads;           (or)   use forks;
-                    use threads::shared;          use forks::shared;
- use MCE;           use MCE;                      use MCE;
+    processes   (or)   use threads;           (or)   use forks;
+                       use threads::shared;          use forks::shared;
+    use MCE;           use MCE;                      use MCE;
 
 ![ScreenShot](https://raw.githubusercontent.com/marioroy/mce-assets/master/images_README/Supported_OS.png)
 
 MCE utilizes the following modules, which are mostly installed with Perl:
 
- bytes
- constant
- Carp
- Fcntl
- File::Path
- IO::Handle
- Scalar::Util
- Sereal::Decoder 3.015+ (optional)
- Sereal::Encoder 3.015+ (optional)
- Socket
- Storable   2.04+ (default when Sereal isn't available)
- Symbol
- Test::More 0.45+ (for make test only)
- Time::HiRes
+    bytes
+    constant
+    Carp
+    Fcntl
+    File::Path
+    IO::Handle
+    Scalar::Util
+    Sereal::Decoder 3.015+ (optional)
+    Sereal::Encoder 3.015+ (optional)
+    Socket
+    Storable   2.04+ (default when Sereal isn't available)
+    Symbol
+    Test::More 0.45+ (for make test only)
+    Time::HiRes
 
 ### Further Reading
 
