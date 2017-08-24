@@ -275,10 +275,12 @@ sub CLONE {
 }
 
 sub DESTROY {
-   CORE::kill('KILL', $$) if ($_is_MSWin32 && $MCE::Signal::KILLED);
+   CORE::kill('KILL', $$)
+      if ( $_is_MSWin32 && $MCE::Signal::KILLED );
 
    $_[0]->shutdown(1)
-      if ( $_[0] && $_[0]->{_spawned} && $_[0]->{_init_pid} eq "$$.$_tid" );
+      if ( $_[0] && $_[0]->{_spawned} && $_[0]->{_init_pid} eq "$$.$_tid" &&
+           !$MCE::Signal::KILLED );
 
    return;
 }

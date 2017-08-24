@@ -195,6 +195,13 @@ sub stop_and_exit {
    my ($_exit_status, $_is_sig, $_sig_name) = ($?, 0, $_[0] || 0);
    $SIG{__DIE__} = $SIG{__WARN__} = \&_NOOP;
 
+   if (exists $_sig_name_lkup{$_sig_name}) {
+      $SIG{INT} = $SIG{$_sig_name} = \&_NOOP,
+      $_is_sig  = $MCE::Signal::KILLED = 1;
+      $_exit_status = 255 if ($_sig_name eq '__DIE__');
+      $_exit_status = 0   if ($_sig_name eq 'PIPE');
+   }
+
    ## Main process.
    if ($$ == $main_proc_id) {
 
