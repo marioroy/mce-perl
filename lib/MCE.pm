@@ -35,9 +35,6 @@ BEGIN {
    $_tid = $_has_threads ? threads->tid() : 0;
    $_oid = "$$.$_tid";
 
-   eval 'PDL::no_clone_skip_warning()' if $INC{'PDL.pm'};
-   eval 'use PDL::IO::Storable'        if $INC{'PDL.pm'};
-
    if ($] ge '5.008008' && !exists $INC{'PDL.pm'}) {
       eval '
          use Sereal::Encoder 3.015 qw( encode_sereal );
@@ -517,6 +514,11 @@ sub spawn {
    lock $_WIN_LOCK if $_is_MSWin32;
 
    sleep 0.015 if ($_tid && !$self->{use_threads});
+
+   if ($INC{'PDL.pm'}) { local $@;
+      eval 'use PDL::IO::Storable' unless $INC{'PDL/IO/Storable.pm'};
+      eval 'PDL::no_clone_skip_warning()';
+   }
 
    ## Start the shared-manager process if present.
    MCE::Shared->start() if $INC{'MCE/Shared.pm'};

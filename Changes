@@ -1,7 +1,7 @@
 
 Revision history for Perl module MCE.
 
-1.830 Wed Aug 23 19:30:00 EST 2017
+1.830 Fri Aug 25 21:00:00 EST 2017
 
   [BUG FIXES]
 
@@ -20,6 +20,7 @@ Revision history for Perl module MCE.
   * Improved CPU count on the AIX platform in MCE::Util.
   * Improved signal handling, including nested parallel-sessions.
   * Improved running MCE::Hobo inside MCE workers.
+  * Improved running MCE with PDL.
 
   * Refactored logic for MCE->do, bi-directional callback feature.
   * Preserve lexical type for numbers during IPC: MCE->do and MCE::Queue.
