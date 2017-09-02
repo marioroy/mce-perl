@@ -1,7 +1,7 @@
 
 Revision history for Perl module MCE.
 
-1.830 Fri Aug 25 21:00:00 EST 2017
+1.830 Fri Sep 01 01:00:00 EST 2017
 
   [BUG FIXES]
 
@@ -30,6 +30,7 @@ Revision history for Perl module MCE.
     memory consumption. Threads isn't required to run MCE::Hobo.
 
   * Removed extra white-space from POD documentation.
+  * Validated MCE on SmartOS.
 
 1.829 Wed May 03 03:00:00 EST 2017
 

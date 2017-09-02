@@ -227,7 +227,7 @@ sub stop_and_exit {
             if ($_sig_name eq 'PIPE' && $INC{'MCE/Hobo.pm'}) {
                CORE::kill('QUIT', $_is_MSWin32 ? -$$ : -getpgrp);
             }
-            if ($_sig_name eq 'INT' && -t STDIN) {
+            if ($_sig_name eq 'INT' && -t STDIN) { ## no critic
                print {*STDERR} "\n";
             }
             if ($INC{'threads.pm'} && ($] lt '5.012000' || threads->tid())) {
