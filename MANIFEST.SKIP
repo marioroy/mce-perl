@@ -40,3 +40,6 @@ _blib$
 \b\.#
 \.gz$
 
+# Avoid GitHup Pages.
+^gh-pages
+

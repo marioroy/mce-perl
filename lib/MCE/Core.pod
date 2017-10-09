@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.830
+This document describes MCE::Core version 1.831
 
 =head1 SYNOPSIS
 
@@ -176,7 +176,7 @@ Below, a new instance is configured with all available options.
        # Set posix_exit to avoid all END and destructor processing.
        # Constructing MCE inside a thread implies 1 or if present CGI,
        # FCGI, Coro, Curses, Gearman::Util, Gearman::XS, Mojo::IOLoop,
-       # Prima, Tk, Wx, or Win32::GUI.
+       # Prima, STFL, Tk, Wx, or Win32::GUI.
 
        # Enable slurpio to pass the raw chunk (scalar ref) to the user
        # function when reading input files.

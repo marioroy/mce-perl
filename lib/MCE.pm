@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.830';
+our $VERSION = '1.831';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -410,7 +410,7 @@ sub new {
          $INC{'Curses.pm'} || $INC{'CGI.pm'} || $INC{'FCGI.pm'} ||
          $INC{'Prima.pm'} || $INC{'Tk.pm'} || $INC{'Wx.pm'} ||
          $INC{'Gearman/Util.pm'} || $INC{'Gearman/XS.pm'} ||
-         $INC{'Coro.pm'} || $INC{'Win32/GUI.pm'}
+         $INC{'Coro.pm'} || $INC{'stfl.pm'} || $INC{'Win32/GUI.pm'}
       );
    }
 
@@ -1912,11 +1912,15 @@ sub _dispatch {
    ## Sets the seed of the base generator uniquely between workers.
    ## The new seed is computed using the current seed and $_wid value.
    ## One may set the seed at the application level for predictable
-   ## results (non-thread workers only). Ditto for Math::Random.
+   ## results (non-thread workers only). Ditto for Math::Prime::Util
+   ## and Math::Random.
 
    if (!$self->{use_threads}) {
       my ($_wid, $_seed) = ($_args[1], $self->{_seed});
       srand(abs($_seed - ($_wid * 100000)) % 2147483560);
+
+      Math::Prime::Util::srand(abs($_seed - ($_wid * 100000)) % 2147483560)
+         if ( $INC{'Math/Prime/Util.pm'} );
 
       MCE::Hobo->_clear()
          if ( $INC{'MCE/Hobo.pm'} && MCE::Hobo->can('_clear') );

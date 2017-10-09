@@ -1,6 +1,14 @@
 
 Revision history for Perl module MCE.
 
+1.831 Sun Oct 08 20:30:00 EST 2017
+
+  * Added STFL (Terminal UI) to list for enabling posix_exit.
+    See http://www.perlmonks.org/?node_id=1200923.
+
+  * Math::Prime::Util random numbers now unique between MCE workers.
+    See http://www.perlmonks.org/?node_id=1200960.
+
 1.830 Tue Sep 12 17:00:00 EST 2017
 
   [BUG FIXES]
