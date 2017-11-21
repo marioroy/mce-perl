@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.831';
+our $VERSION = '1.832';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -216,8 +216,8 @@ use constant {
    # Max data channels. This cannot be greater than 8 on MSWin32.
    DATA_CHANNELS  => ($^O eq 'MSWin32') ? 8 : 12,
 
-   # Maximum chunk size allowed
-   MAX_CHUNK_SIZE => 1024 * 1024 * 64,
+   # Max GC size. Undef variable when exceeding size.
+   MAX_GC_SIZE    => 1024 * 1024 * 64,
 
    MAX_RECS_SIZE  => 8192,     # Reads number of records if N <= value
                                # Reads number of bytes if N > value
@@ -410,7 +410,8 @@ sub new {
          $INC{'Curses.pm'} || $INC{'CGI.pm'} || $INC{'FCGI.pm'} ||
          $INC{'Prima.pm'} || $INC{'Tk.pm'} || $INC{'Wx.pm'} ||
          $INC{'Gearman/Util.pm'} || $INC{'Gearman/XS.pm'} ||
-         $INC{'Coro.pm'} || $INC{'stfl.pm'} || $INC{'Win32/GUI.pm'}
+         $INC{'Coro.pm'} || $INC{'LWP/UserAgent.pm'} ||
+         $INC{'Win32/GUI.pm'} || $INC{'stfl.pm'}
       );
    }
 
@@ -465,7 +466,6 @@ sub new {
    $self{_wid}        = 0;  # Worker ID, starts at 1 per MCE instance
    $self{_wrk_status} = 0;  # For saving exit status when worker exits
 
-   $self{chunk_size}  = MAX_CHUNK_SIZE if ($self{chunk_size} > MAX_CHUNK_SIZE);
    $self{_run_lock}   = threads::shared::share($_run_lock) if $_is_MSWin32;
 
    $self{_last_sref}  = (ref $self{input_data} eq 'SCALAR')
@@ -962,7 +962,23 @@ sub run {
          if ($_has_user_tasks && $self->{user_tasks}->[0]->{chunk_size});
 
       $_run_mode  = 'sequence';
-      $_abort_msg = int(($_end - $_begin) / $_step / $_chunk_size) + 1;
+      $_abort_msg = int(($_end - $_begin) / $_step / $_chunk_size); # + 1;
+
+      # Previously + 1 above. Below, support for large numbers, 1e16 and beyond.
+      # E.g. sequence => [ 1, 1e16 ], chunk_size => 1e11
+      #
+      # Perl: int((1e15 - 1) / 1 / 1e11) =   9999
+      # Perl: int((1e16 - 1) / 1 / 1e11) = 100000 wrong, due to precision limit
+      # Calc: int((1e16 - 1) / 1 / 1e11) =  99999
+
+      if ( $_step > 0 ) {
+         $_abort_msg++
+            if ($_abort_msg * $_chunk_size * abs($_step) + $_begin <= $_end);
+      } else {
+         $_abort_msg++
+            if ($_abort_msg * $_chunk_size * abs($_step) + $_end <= $_begin);
+      }
+
       $_first_msg = 0;
    }
    elsif (defined $self->{input_data}) {

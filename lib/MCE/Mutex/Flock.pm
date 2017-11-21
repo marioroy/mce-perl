@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.831';
+our $VERSION = '1.832';
 
 use base 'MCE::Mutex';
 use Fcntl ':flock';
@@ -159,7 +159,10 @@ sub synchronize {
     flock ($obj->{_fh}, LOCK_EX), $obj->{ $pid } = 1
         unless $obj->{ $pid };
 
-    defined wantarray ? @ret = $code->(@_) : $code->(@_);
+    (defined wantarray)
+      ? @ret = wantarray ? $code->(@_) : scalar $code->(@_)
+      : $code->(@_);
+
     flock ($obj->{_fh}, LOCK_UN), $obj->{ $pid } = 0;
 
     return wantarray ? @ret : $ret[-1];
@@ -183,7 +186,7 @@ MCE::Mutex::Flock - Mutex locking via Fcntl
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Flock version 1.831
+This document describes MCE::Mutex::Flock version 1.832
 
 =head1 DESCRIPTION
 

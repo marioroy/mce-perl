@@ -15,7 +15,7 @@ package MCE::Core::Input::Generator;
 use strict;
 use warnings;
 
-our $VERSION = '1.831';
+our $VERSION = '1.832';
 
 ## Items below are folded into MCE.
 
@@ -115,7 +115,7 @@ sub _worker_sequence_generator {
          if ($_bounds_only) {
             my ($_tmp_b, $_tmp_e) = ($_next);
 
-            if ($_begin < $_end) {
+            if ($_begin <= $_end) {
                if ($_step * ($_chunk_size - 1) + $_n_begin <= $_end) {
                   $_tmp_e = $_step * ($_chunk_size - 1) + $_n_begin;
                }
@@ -156,8 +156,8 @@ sub _worker_sequence_generator {
          ## -------------------------------------------------------------------
 
          else {
-            if ($_begin < $_end) {
-               if (!defined $_fmt && $_step == 1) {
+            if ($_begin <= $_end) {
+               if (!defined $_fmt && $_step == 1 && abs($_end) < ~1 && abs($_begin) < ~1) {
                   @_n = ($_next + $_chunk_size <= $_end)
                      ? ($_next .. $_next + $_chunk_size - 1)
                      : ($_next .. $_end);

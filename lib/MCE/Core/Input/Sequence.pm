@@ -14,7 +14,7 @@ package MCE::Core::Input::Sequence;
 use strict;
 use warnings;
 
-our $VERSION = '1.831';
+our $VERSION = '1.832';
 
 ## Items below are folded into MCE.
 
@@ -119,7 +119,7 @@ sub _worker_sequence_queue {
       $_chunk_id++;
 
       ## Call user function.
-      if ($_chunk_size == 1) {
+      if ($_chunk_size == 1 || $_begin == $_end) {
          $_ = $_offset * $_step + $_begin;
          $_ = _sprintf("%$_fmt", $_) if (defined $_fmt);
          $_ = [ $_, $_ ] if ($_bounds_only);
@@ -134,7 +134,7 @@ sub _worker_sequence_queue {
          if ($_bounds_only) {
             my ($_tmp_b, $_tmp_e) = ($_seq_n);
 
-            if ($_begin < $_end) {
+            if ($_begin <= $_end) {
                if ($_step * ($_chunk_size - 1) + $_n_begin <= $_end) {
                   $_tmp_e = $_step * ($_chunk_size - 1) + $_n_begin;
                }
@@ -173,8 +173,8 @@ sub _worker_sequence_queue {
          ## -------------------------------------------------------------------
 
          else {
-            if ($_begin < $_end) {
-               if (!defined $_fmt && $_step == 1) {
+            if ($_begin <= $_end) {
+               if (!defined $_fmt && $_step == 1 && abs($_end) < ~1 && abs($_begin) < ~1) {
                   $_ = ($_seq_n + $_chunk_size <= $_end)
                      ? [ $_seq_n .. $_seq_n + $_chunk_size - 1 ]
                      : [ $_seq_n .. $_end ];

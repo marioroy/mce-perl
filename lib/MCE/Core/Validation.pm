@@ -14,7 +14,7 @@ package MCE::Core::Validation;
 use strict;
 use warnings;
 
-our $VERSION = '1.831';
+our $VERSION = '1.832';
 
 ## Items below are folded into MCE.
 
@@ -42,32 +42,14 @@ sub _validate_args {
          unless (-e $_s->{input_data});
    }
 
-   _croak("$_tag: (job_delay) is not valid")
-      if ($_s->{job_delay} && (!looks_like_number($_s->{job_delay}) ||
-         $_s->{job_delay} < 0));
-   _croak("$_tag: (spawn_delay) is not valid")
-      if ($_s->{spawn_delay} && (!looks_like_number($_s->{spawn_delay}) ||
-         $_s->{spawn_delay} < 0));
-   _croak("$_tag: (submit_delay) is not valid")
-      if ($_s->{submit_delay} && (!looks_like_number($_s->{submit_delay}) ||
-         $_s->{submit_delay} < 0));
-
-   _croak("$_tag: (freeze) is not a CODE reference")
-      if ($_s->{freeze} && ref $_s->{freeze} ne 'CODE');
-   _croak("$_tag: (thaw) is not a CODE reference")
-      if ($_s->{thaw} && ref $_s->{thaw} ne 'CODE');
-
-   _croak("$_tag: (on_post_exit) is not a CODE reference")
-      if ($_s->{on_post_exit} && ref $_s->{on_post_exit} ne 'CODE');
-   _croak("$_tag: (on_post_run) is not a CODE reference")
-      if ($_s->{on_post_run} && ref $_s->{on_post_run} ne 'CODE');
-   _croak("$_tag: (user_error) is not a CODE reference")
-      if ($_s->{user_error} && ref $_s->{user_error} ne 'CODE');
-   _croak("$_tag: (user_output) is not a CODE reference")
-      if ($_s->{user_output} && ref $_s->{user_output} ne 'CODE');
-
-   _croak("$_tag: (loop_timeout) is not valid")
-      if ($_s->{loop_timeout} && !looks_like_number($_s->{loop_timeout}));
+   for my $_k (qw(job_delay spawn_delay submit_delay loop_timeout)) {
+      _croak("$_tag: ($_k) is not valid")
+         if ($_s->{$_k} && (!looks_like_number($_s->{$_k}) || $_s->{$_k} < 0));
+   }
+   for my $_k (qw(freeze thaw on_post_exit on_post_run user_error user_output)) {
+      _croak("$_tag: ($_k) is not a CODE reference")
+         if ($_s->{$_k} && ref $_s->{$_k} ne 'CODE');
+   }
 
    _validate_args_s($_s);
 
@@ -113,10 +95,9 @@ sub _validate_args_s {
       }
 
       _croak("$_tag: (chunk_size) is not valid")
-         if ($_s->{chunk_size} !~ /\A\d+\z/ or $_s->{chunk_size} == 0);
+         if ($_s->{chunk_size} !~ /\A[0-9e\+]+\z/ or $_s->{chunk_size} == 0);
 
-      $_s->{chunk_size} = MAX_CHUNK_SIZE
-         if ($_s->{chunk_size} > MAX_CHUNK_SIZE);
+      $_s->{chunk_size} = int($_s->{chunk_size});
    }
 
    _croak("$_tag: (RS) is not valid")
@@ -124,14 +105,10 @@ sub _validate_args_s {
    _croak("$_tag: (max_retries) is not valid")
       if ($_s->{max_retries} && $_s->{max_retries} !~ /\A\d+\z/);
 
-   _croak("$_tag: (progress) is not a CODE reference")
-      if ($_s->{progress} && ref $_s->{progress} ne 'CODE');
-   _croak("$_tag: (user_begin) is not a CODE reference")
-      if ($_s->{user_begin} && ref $_s->{user_begin} ne 'CODE');
-   _croak("$_tag: (user_func) is not a CODE reference")
-      if ($_s->{user_func} && ref $_s->{user_func} ne 'CODE');
-   _croak("$_tag: (user_end) is not a CODE reference")
-      if ($_s->{user_end} && ref $_s->{user_end} ne 'CODE');
+   for my $_k (qw(progress user_begin user_end user_func)) {
+      _croak("$_tag: ($_k) is not a CODE reference")
+         if ($_s->{$_k} && ref $_s->{$_k} ne 'CODE');
+   }
 
    if (defined $_s->{gather}) {
       my $_ref = ref $_s->{gather};
@@ -155,10 +132,10 @@ sub _validate_args_s {
             if (ref $_seq ne 'HASH');
       }
 
-      _croak("$_tag: (begin) is not defined for sequence")
-         unless (defined $_seq->{begin});
-      _croak("$_tag: (end) is not defined for sequence")
-         unless (defined $_seq->{end});
+      for my $_k (qw(begin end)) {
+         _croak("$_tag: ($_k) is not defined for sequence")
+            unless (defined $_seq->{$_k});
+      }
 
       for my $_p (qw(begin end step)) {
          _croak("$_tag: ($_p) is not valid for sequence")
@@ -166,9 +143,22 @@ sub _validate_args_s {
       }
 
       unless (defined $_seq->{step}) {
-         $_seq->{step} = ($_seq->{begin} < $_seq->{end}) ? 1 : -1;
+         $_seq->{step} = ($_seq->{begin} <= $_seq->{end}) ? 1 : -1;
          if (ref $_s->{sequence} eq 'ARRAY') {
             $_s->{sequence}->[2] = $_seq->{step};
+         }
+      }
+
+      if (ref $_s->{sequence} eq 'HASH') {
+         for my $_k ('begin', 'end', 'step') {
+            $_s->{sequence}{$_k} = int($_s->{sequence}{$_k})
+               unless ($_s->{sequence}{$_k} =~ /\./);
+         }
+      }
+      else {
+         for my $_i (0, 1, 2) {
+            $_s->{sequence}[$_i] = int($_s->{sequence}[$_i])
+               unless ($_s->{sequence}[$_i] =~ /\./);
          }
       }
 

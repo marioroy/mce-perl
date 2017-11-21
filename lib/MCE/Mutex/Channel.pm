@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.831';
+our $VERSION = '1.832';
 
 use base 'MCE::Mutex';
 use Scalar::Util qw(refaddr weaken);
@@ -103,7 +103,10 @@ sub synchronize {
     sysread($obj->{_r_sock}, my($b), 1), $obj->{ $pid } = 1
         unless $obj->{ $pid };
 
-    (defined wantarray) ? @ret = $code->(@_) : $code->(@_);
+    (defined wantarray)
+      ? @ret = wantarray ? $code->(@_) : scalar $code->(@_)
+      : $code->(@_);
+
     syswrite($obj->{_w_sock}, '0'), $obj->{ $pid } = 0;
 
     return wantarray ? @ret : $ret[-1];
@@ -127,7 +130,7 @@ MCE::Mutex::Channel - Mutex locking via a pipe or socket
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel version 1.831
+This document describes MCE::Mutex::Channel version 1.832
 
 =head1 DESCRIPTION
 

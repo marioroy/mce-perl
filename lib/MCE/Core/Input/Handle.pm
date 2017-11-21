@@ -14,7 +14,7 @@ package MCE::Core::Input::Handle;
 use strict;
 use warnings;
 
-our $VERSION = '1.831';
+our $VERSION = '1.832';
 
 ## Items below are folded into MCE.
 
@@ -106,7 +106,7 @@ sub _worker_read_handle {
    _WORKER_READ_HANDLE__NEXT:
 
    while (1) {
-      my @_recs; undef $_ if (length > MAX_CHUNK_SIZE);
+      my @_recs; undef $_ if (length > MAX_GC_SIZE);
 
       $_ = '';
 

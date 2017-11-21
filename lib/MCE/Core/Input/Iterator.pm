@@ -14,7 +14,7 @@ package MCE::Core::Input::Iterator;
 use strict;
 use warnings;
 
-our $VERSION = '1.831';
+our $VERSION = '1.832';
 
 ## Items below are folded into MCE.
 
@@ -76,7 +76,7 @@ sub _worker_user_iterator {
    _WORKER_USER_ITERATOR__NEXT:
 
    while (1) {
-      undef $_ if (length > MAX_CHUNK_SIZE);
+      undef $_ if (length > MAX_GC_SIZE);
 
       $_ = '';
 

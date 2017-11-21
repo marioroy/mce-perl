@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.831';
+our $VERSION = '1.832';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -214,7 +214,7 @@ sub run_seq (&@) {
       $_begin = $_[0]->[0]; $_end = $_[0]->[1];
       $_params->{$_pid}{sequence} = $_[0];
    }
-   elsif (ref $_[0] eq '') {
+   elsif (ref $_[0] eq '' || ref($_[0]) =~ /^Math::/) {
       $_begin = $_[0]; $_end = $_[1];
       $_params->{$_pid}{sequence} = [ @_ ];
    }
@@ -450,7 +450,7 @@ MCE::Grep - Parallel grep model similar to the native grep function
 
 =head1 VERSION
 
-This document describes MCE::Grep version 1.831
+This document describes MCE::Grep version 1.832
 
 =head1 SYNOPSIS
 

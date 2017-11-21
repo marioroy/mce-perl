@@ -1,6 +1,13 @@
 
 Revision history for Perl module MCE.
 
+1.832 Tue Nov 21 15:30:00 EST 2017
+
+  * Added LWP::UserAgent to list for enabling posix_exit.
+  * Improved number-sequence generation for big integers.
+  * Improved wantarray support in MCE::Mutex synchronize.
+  * Removed limit check on chunk_size option.
+
 1.831 Sun Oct 08 20:30:00 EST 2017
 
   * Added STFL (Terminal UI) to list for enabling posix_exit.

@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.831
+This document describes MCE::Core version 1.832
 
 =head1 SYNOPSIS
 
@@ -74,8 +74,7 @@ Below, a new instance is configured with all available options.
        # how much to return per iteration. For files, smaller than or
        # equal to 8192 is the number of records.  Greater than 8192
        # is the number of bytes. MCE reads until the end of record
-       # before calling user_func. A value above 64 MiB will change
-       # to 64 MiB quietly (the maximum allowed).
+       # before calling user_func.
 
        # chunk_size => 1,               ## Consists of 1 record
        # chunk_size => 1000,            ## Consists of 1000 records
@@ -175,8 +174,8 @@ Below, a new instance is configured with all available options.
 
        # Set posix_exit to avoid all END and destructor processing.
        # Constructing MCE inside a thread implies 1 or if present CGI,
-       # FCGI, Coro, Curses, Gearman::Util, Gearman::XS, Mojo::IOLoop,
-       # Prima, STFL, Tk, Wx, or Win32::GUI.
+       # FCGI, Coro, Curses, Gearman::Util, Gearman::XS, LWP::UserAgent,
+       # Mojo::IOLoop, Prima, STFL, Tk, Wx, or Win32::GUI.
 
        # Enable slurpio to pass the raw chunk (scalar ref) to the user
        # function when reading input files.

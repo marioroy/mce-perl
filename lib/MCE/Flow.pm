@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.831';
+our $VERSION = '1.832';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -200,22 +200,22 @@ sub run_seq (@) {
    }
 
    for my $_i ($_start_pos .. @_ - 1) {
-      my $_ref = ref $_[$_i];
+      my $_r = ref $_[$_i];
 
-      if ($_ref eq '' || $_ref eq 'HASH' || $_ref eq 'ARRAY') {
+      if ($_r eq '' || $_r =~ /^Math::/ || $_r eq 'HASH' || $_r eq 'ARRAY') {
          $_pos = $_i;
 
-         if ($_ref eq '') {
+         if ($_r eq '' || $_r =~ /^Math::/) {
             $_begin = $_[$_pos]; $_end = $_[$_pos + 1];
             $_params->{$_pid}{sequence} = [
                $_[$_pos], $_[$_pos + 1], $_[$_pos + 2], $_[$_pos + 3]
             ];
          }
-         elsif ($_ref eq 'HASH') {
+         elsif ($_r eq 'HASH') {
             $_begin = $_[$_pos]->{begin}; $_end = $_[$_pos]->{end};
             $_params->{$_pid}{sequence} = $_[$_pos];
          }
-         elsif ($_ref eq 'ARRAY') {
+         elsif ($_r eq 'ARRAY') {
             $_begin = $_[$_pos]->[0]; $_end = $_[$_pos]->[1];
             $_params->{$_pid}{sequence} = $_[$_pos];
          }
@@ -495,7 +495,7 @@ MCE::Flow - Parallel flow model for building creative applications
 
 =head1 VERSION
 
-This document describes MCE::Flow version 1.831
+This document describes MCE::Flow version 1.832
 
 =head1 DESCRIPTION
 
