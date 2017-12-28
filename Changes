@@ -1,6 +1,10 @@
 
 Revision history for Perl module MCE.
 
+1.833 Thu Dec 28 16:00:00 EST 2017
+
+  * Fixed bug with sequence (#10), broken in 1.832. Thank you, @djerius.
+
 1.832 Tue Nov 21 15:30:00 EST 2017
 
   * Added LWP::UserAgent to list for enabling posix_exit.
