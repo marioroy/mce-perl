@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.833';
+our $VERSION = '1.834';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -35,7 +35,7 @@ BEGIN {
    $_tid = $_has_threads ? threads->tid() : 0;
    $_oid = "$$.$_tid";
 
-   if ($] ge '5.008008' && !exists $INC{'PDL.pm'}) {
+   if ($] ge '5.008008' && !$INC{'PDL.pm'}) {
       eval '
          use Sereal::Encoder 3.015 qw( encode_sereal );
          use Sereal::Decoder 3.015 qw( decode_sereal );
@@ -359,6 +359,18 @@ sub _restore_state {
 ##
 ###############################################################################
 
+sub _croak {
+   if (MCE->wid == 0 || ! $^S) {
+      $SIG{__DIE__}  = \&MCE::Signal::_die_handler;
+      $SIG{__WARN__} = \&MCE::Signal::_warn_handler;
+   }
+   $\ = undef; goto &Carp::croak;
+}
+
+use MCE::Core::Validation ();
+use MCE::Core::Manager ();
+use MCE::Core::Worker ();
+
 sub new {
    my ($class, %self) = @_;
    my $_pkg = exists $self{pkg} ? delete $self{pkg} : caller;
@@ -447,10 +459,6 @@ sub new {
       }
    }
 
-   require MCE::Core::Validation unless $INC{'MCE/Core/Validation.pm'};
-   require MCE::Core::Manager    unless $INC{'MCE/Core/Manager.pm'};
-   require MCE::Core::Worker     unless $INC{'MCE/Core/Worker.pm'};
-
    _validate_args(\%self);
 
    ## -------------------------------------------------------------------------
@@ -471,13 +479,13 @@ sub new {
    $self{_last_sref}  = (ref $self{input_data} eq 'SCALAR')
       ? refaddr($self{input_data}) : 0;
 
-   my $_data_channels = ($_oid eq "$$.$_tid") ? DATA_CHANNELS : 2;
+   my $_data_channels = ("$$.$_tid" eq $_oid) ? DATA_CHANNELS : 2;
    my $_total_workers = 0;
 
    if (defined $self{user_tasks}) {
       $_total_workers += $_->{max_workers} for (@{ $self{user_tasks} });
    } else {
-      $_total_workers  = $self{max_workers};
+      $_total_workers = $self{max_workers};
    }
 
    $self{_init_total_workers} = $_total_workers;
@@ -486,7 +494,7 @@ sub new {
       ? $_total_workers : $_data_channels;
 
    $self{_lock_chn} = ($_total_workers > $_data_channels) ? 1 : 0;
-   $self{_lock_chn} = 1 if ($INC{'MCE/Hobo.pm'});
+   $self{_lock_chn} = 1 if $INC{'MCE/Hobo.pm'};
 
    $MCE = \%self if ($MCE->{_wid} == 0);
 
@@ -512,8 +520,6 @@ sub spawn {
 
    lock $_MCE_LOCK if $_has_threads;  # Obtain locks
    lock $_WIN_LOCK if $_is_MSWin32;
-
-   sleep 0.015 if ($_tid && !$self->{use_threads});
 
    if ($INC{'PDL.pm'}) { local $@;
       eval 'use PDL::IO::Storable' unless $INC{'PDL/IO/Storable.pm'};
@@ -542,6 +548,10 @@ sub spawn {
          require MCE::Core::Input::Handle
             unless $INC{'MCE/Core/Input/Handle.pm'};
       }
+   }
+
+   if ("$$.$_tid" ne $_oid && (!$self->{use_threads} || $_is_MSWin32)) {
+      sleep 0.015;
    }
 
    my $_die_handler  = $SIG{__DIE__};
@@ -1387,7 +1397,7 @@ sub sync {
    print {$_DAT_W_SOCK} OUTPUT_B_SYN.$LF . $_chn.$LF;
 
    ## Wait until all workers from (task_id 0) have synced.
-   MCE::Util::_sock_ready($_BSB_R_SOCK) if $_is_MSWin32;
+   MCE::Util::_sock_ready($_BSB_R_SOCK, -1) if $_is_MSWin32;
    1 until sysread($_BSB_R_SOCK, $_buf, 1) || ($! && !$!{'EINTR'});
 
    ## Notify the manager process (barrier end).
@@ -1770,15 +1780,6 @@ sub say {
 ## Private methods.
 ##
 ###############################################################################
-
-sub _croak {
-   if (MCE->wid == 0 || ! $^S) {
-      $SIG{__DIE__}  = \&MCE::Signal::_die_handler;
-      $SIG{__WARN__} = \&MCE::Signal::_warn_handler;
-   }
-
-   $\ = undef; goto &Carp::croak;
-}
 
 sub _exit {
    my $self = shift;

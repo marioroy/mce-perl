@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.833';
+our $VERSION = '1.834';
 
 my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
 my $_tid = $_has_threads ? threads->tid() : 0;
@@ -528,7 +528,7 @@ sub _worker_loop {
    my $_job_delay  = $self->{job_delay};
    my $_wid        = $self->{_wid};
 
-   if ( $^O eq 'MSWin32' ) {
+   if ($^O eq 'MSWin32') {
       lock $MCE::_WIN_LOCK;
    }
 

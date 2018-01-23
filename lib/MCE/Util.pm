@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.833';
+our $VERSION = '1.834';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -20,7 +20,7 @@ use Time::HiRes qw( sleep time );
 use base qw( Exporter );
 use bytes;
 
-my ($_is_winenv, $_zero_bytes);
+my ($_is_winenv, $_zero_bytes, %_sock_ready);
 
 BEGIN {
    $_is_winenv  = ( $^O =~ /mswin|mingw|msys|cygwin/i ) ? 1 : 0;
@@ -278,11 +278,18 @@ sub _sock_ready {
 
    my ($_socket, $_timeout) = @_;
 
+   return '' if !defined $_timeout && exists $_sock_ready{"$_socket"};
+
    my $_val_bytes = "\x00\x00\x00\x00";
-   my $_ptr_bytes = unpack( 'I', pack('P', $_val_bytes) );
+   my $_ptr_bytes = unpack('I', pack('P', $_val_bytes));
    my ($_count, $_start) = (1, time);
 
-   $_timeout += time if $_timeout;
+   if (!defined $_timeout) {
+      $_sock_ready{"$_socket"} = undef;
+   } else {
+      $_timeout = undef    if $_timeout < 0;
+      $_timeout += $_start if $_timeout;
+   }
 
    while (1) {
       # MSWin32 FIONREAD
@@ -457,7 +464,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.833
+This document describes MCE::Util version 1.834
 
 =head1 SYNOPSIS
 

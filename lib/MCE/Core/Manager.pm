@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.833';
+our $VERSION = '1.834';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)

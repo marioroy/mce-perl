@@ -1,6 +1,13 @@
 
 Revision history for Perl module MCE.
 
+1.834 Tue Jan 23 08:00:00 EST 2018
+
+  * Improved Queue await and dequeue performance on the Windows platform.
+
+  * Added chameneos-redux parallel demonstrations on Github:
+    https://github.com/marioroy/mce-examples/tree/master/chameneos
+
 1.833 Thu Dec 28 16:00:00 EST 2017
 
   * Fixed bug with sequence (#10), broken in 1.832. Thank you, @djerius.
