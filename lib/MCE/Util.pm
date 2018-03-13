@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.834';
+our $VERSION = '1.835';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -464,7 +464,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.834
+This document describes MCE::Util version 1.835
 
 =head1 SYNOPSIS
 

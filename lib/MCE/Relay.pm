@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.834';
+our $VERSION = '1.835';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 
@@ -343,7 +343,7 @@ MCE::Relay - Extends Many-Core Engine with relay capabilities
 
 =head1 VERSION
 
-This document describes MCE::Relay version 1.834
+This document describes MCE::Relay version 1.835
 
 =head1 SYNOPSIS
 
@@ -919,6 +919,161 @@ Here, workers write exclusively and orderly to C<STDOUT>.
 
  say ">THREE Homo sapiens frequency";
  make_random_fasta( $homosapiens, $n * 5 );
+
+=back
+
+=head1 GATHER AND RELAY DEMONSTRATIONS
+
+I received a request from John Martel to process a large flat file and expand
+each record to many records based on splitting out items in field 4 delimited
+by semicolons. Each row in the output is given a unique ID starting with one
+while preserving output order.
+
+=over 3
+
+=item Input File, possibly larger than 500 GiB in size
+
+ foo|field2|field3|item1;item2;item3;item4;itemN|field5|field6|field7
+ bar|field2|field3|item1;item2;item3;item4;itemN|field5|field6|field7
+ baz|field2|field3|item1;item2;item3;item4;itemN|field5|field6|field7
+ ...
+
+=item Output File
+
+ 000000000000001|item1|foo|field2|field3|field5|field6|field7
+ 000000000000002|item2|foo|field2|field3|field5|field6|field7
+ 000000000000003|item3|foo|field2|field3|field5|field6|field7
+ 000000000000004|item4|foo|field2|field3|field5|field6|field7
+ 000000000000005|itemN|foo|field2|field3|field5|field6|field7
+ 000000000000006|item1|bar|field2|field3|field5|field6|field7
+ 000000000000007|item2|bar|field2|field3|field5|field6|field7
+ 000000000000008|item3|bar|field2|field3|field5|field6|field7
+ 000000000000009|item4|bar|field2|field3|field5|field6|field7
+ 000000000000010|itemN|bar|field2|field3|field5|field6|field7
+ 000000000000011|item1|baz|field2|field3|field5|field6|field7
+ 000000000000012|item2|baz|field2|field3|field5|field6|field7
+ 000000000000013|item3|baz|field2|field3|field5|field6|field7
+ 000000000000014|item4|baz|field2|field3|field5|field6|field7
+ 000000000000015|itemN|baz|field2|field3|field5|field6|field7
+ ...
+
+=item Example One
+
+This example configures a custom function for preserving output order.
+Unfortunately, the sprintf function alone involves extra CPU time causing
+the manager process to fall behind. Thus, workers may idle while waiting
+for the manager process to respond to the gather request.
+
+ use strict;
+ use warnings;
+
+ use MCE::Loop;
+
+ my $infile  = shift or die "Usage: $0 infile\n";
+ my $newfile = 'output.dat';
+
+ open my $fh_out, '>', $newfile or die "open error $newfile: $!\n";
+
+ sub preserve_order {
+     my ($fh) = @_;
+     my ($order_id, $start_idx, $idx, %tmp) = (1, 1);
+
+     return sub {
+         my ($chunk_id, $aref) = @_;
+         $tmp{ $chunk_id } = $aref;
+
+         while ( my $aref = delete $tmp{ $order_id } ) {
+             foreach my $line ( @{ $aref } ) {
+                 $idx = sprintf "%015d", $start_idx++;
+                 print $fh $idx, $line;
+             }
+             $order_id++;
+         }
+     }
+ }
+
+ MCE::Loop::init {
+     chunk_size => 'auto', max_workers => 3,
+     gather => preserve_order($fh_out)
+ };
+
+ mce_loop_f {
+     my ($mce, $chunk_ref, $chunk_id) = @_;
+     my @buf;
+
+     foreach my $line (@{ $chunk_ref }) {
+         $line =~ s/\r//g; chomp $line;
+
+         my ($f1,$f2,$f3,$items,$f5,$f6,$f7) = split /\|/, $line;
+         my @items_array = split /;/, $items;
+
+         foreach my $item (@items_array) {
+             push @buf, "|$item|$f1|$f2|$f3|$f5|$f6|$f7\n";
+         }
+     }
+
+     MCE->gather($chunk_id, \@buf);
+
+ } $infile;
+
+ MCE::Loop::finish();
+ close $fh_out;
+
+=item Example Two
+
+In this example, workers obtain the current ID value and increment/relay for
+the next worker, ordered by chunk ID behind the scene. Workers call sprintf
+in parallel, allowing the manager process (out_iter_fh) to accommodate up to
+32 workers and not fall behind.
+
+Relay accounts for the worker handling the next chunk_id value. Therefore, do
+not call relay more than once per chunk. Doing so will cause IPC to stall.
+
+ use strict;
+ use warnings;
+
+ use MCE::Loop;
+ use MCE::Candy;
+
+ my $infile  = shift or die "Usage: $0 infile\n";
+ my $newfile = 'output.dat';
+
+ open my $fh_out, '>', $newfile or die "open error $newfile: $!\n";
+
+ MCE::Loop::init {
+     chunk_size => 'auto', max_workers => 8,
+     gather => MCE::Candy::out_iter_fh($fh_out),
+     init_relay => 1
+ };
+
+ mce_loop_f {
+     my ($mce, $chunk_ref, $chunk_id) = @_;
+     my @lines;
+
+     foreach my $line (@{ $chunk_ref }) {
+         $line =~ s/\r//g; chomp $line;
+
+         my ($f1,$f2,$f3,$items,$f5,$f6,$f7) = split /\|/, $line;
+         my @items_array = split /;/, $items;
+
+         foreach my $item (@items_array) {
+             push @lines, "$item|$f1|$f2|$f3|$f5|$f6|$f7\n";
+         }
+     }
+
+     my $idx = MCE::relay { $_ += scalar @lines };
+     my $buf = '';
+
+     foreach my $line ( @lines ) {
+         $buf .= sprintf "%015d|%s", $idx++, $line
+     }
+
+     MCE->gather($chunk_id, $buf);
+
+ } $infile;
+
+ MCE::Loop::finish();
+ close $fh_out;
 
 =back
 

@@ -14,7 +14,7 @@ package MCE::Core::Input::Iterator;
 use strict;
 use warnings;
 
-our $VERSION = '1.834';
+our $VERSION = '1.835';
 
 ## Items below are folded into MCE.
 

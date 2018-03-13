@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.834';
+our $VERSION = '1.835';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -59,6 +59,7 @@ BEGIN {
    return;
 }
 
+use IO::Handle ();
 use Scalar::Util qw( looks_like_number refaddr weaken );
 use Socket qw( SOL_SOCKET SO_RCVBUF );
 use Time::HiRes qw( sleep time );
@@ -524,6 +525,9 @@ sub spawn {
    if ($INC{'PDL.pm'}) { local $@;
       eval 'use PDL::IO::Storable' unless $INC{'PDL/IO/Storable.pm'};
       eval 'PDL::no_clone_skip_warning()';
+   }
+   if ( $INC{'LWP/UserAgent.pm'} && !$INC{'Net/HTTP.pm'} ) {
+      local $@; eval 'require Net::HTTP; require Net::HTTPS';
    }
 
    ## Start the shared-manager process if present.

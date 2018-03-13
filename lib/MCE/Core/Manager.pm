@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.834';
+our $VERSION = '1.835';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -570,8 +570,6 @@ sub _output_loop {
          read $_DAU_R_SOCK, $_buf, $_len;
 
          unless (exists $_sendto_fhs{$_fd}) {
-            require IO::Handle unless $INC{'IO/Handle.pm'};
-
             $_sendto_fhs{$_fd} = IO::Handle->new();
             $_sendto_fhs{$_fd}->fdopen($_fd, 'w')
                or _croak "Cannot open file descriptor ($_fd): $!";
