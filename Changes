@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.836 Mon Jun 25 08:30:00 EST 2018
+
+  * Moved validation code from MCE::Util to MCE::Core::Validation.
+  * Applied small optimizations.
+
 1.835 Tue Mar 13 15:00:00 EST 2018
 
   * Added gather and relay demonstrations to MCE::Relay.
