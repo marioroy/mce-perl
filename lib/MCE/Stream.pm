@@ -86,10 +86,10 @@ sub import {
    _croak("Error: (DEFAULT_MODE) is not valid")
       if ($_p->{DEFAULT_MODE} ne 'grep' && $_p->{DEFAULT_MODE} ne 'map');
 
-   $_p->{MAX_WORKERS} = MCE::Util::_parse_max_workers($_p->{MAX_WORKERS});
+   $_p->{MAX_WORKERS} = MCE::_parse_max_workers($_p->{MAX_WORKERS});
 
-   _validate_number($_p->{MAX_WORKERS}, 'MAX_WORKERS');
-   _validate_number($_p->{CHUNK_SIZE}, 'CHUNK_SIZE')
+   MCE::_validate_number($_p->{MAX_WORKERS}, 'MAX_WORKERS', $_tag);
+   MCE::_validate_number($_p->{CHUNK_SIZE}, 'CHUNK_SIZE', $_tag)
       unless ($_p->{CHUNK_SIZE} eq 'auto');
 
    return;
@@ -409,7 +409,7 @@ sub run (@) {
    }
 
    if (defined (my $_p = $_params->{$_pid})) {
-      $_max_workers = MCE::Util::_parse_max_workers($_p->{max_workers})
+      $_max_workers = MCE::_parse_max_workers($_p->{max_workers})
          if (exists $_p->{max_workers} && ref $_p->{max_workers} ne 'ARRAY');
 
       delete $_p->{sequence}    if (defined $_input_data || scalar @_);
@@ -424,7 +424,7 @@ sub run (@) {
       $_max_workers = int($_max_workers / @_code + 0.5) + 1;
    }
 
-   my $_chunk_size = MCE::Util::_parse_chunk_size(
+   my $_chunk_size = MCE::_parse_chunk_size(
       $_def->{$_pkg}{CHUNK_SIZE}, $_max_workers, $_params->{$_pid},
       $_input_data, scalar @_
    );
@@ -651,21 +651,6 @@ sub _gen_user_tasks {
             return;
          }
       };
-   }
-
-   return;
-}
-
-sub _validate_number {
-
-   my ($_n, $_key) = @_;
-
-   _croak("$_tag: ($_key) is not valid") if (!defined $_n);
-
-   $_n =~ s/K\z//i; $_n =~ s/M\z//i;
-
-   if (!looks_like_number($_n) || int($_n) != $_n || $_n < 1) {
-      _croak("$_tag: ($_key) is not valid");
    }
 
    return;

@@ -197,9 +197,6 @@ sub import {
 
    return if $_imported++;
 
-   no strict 'refs'; no warnings 'redefine';
-   *{ 'MCE::_parse_max_workers' } = \&MCE::Util::_parse_max_workers;
-
    ## Instantiate a module-level instance.
    $MCE = MCE->new( _module_instance => 1, max_workers => 0 );
 

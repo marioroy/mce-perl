@@ -130,8 +130,8 @@ use bytes;
          print({$_DAT_W_SOCK} OUTPUT_N_CBK.$LF . $_chn.$LF),
          print({$_DAU_W_SOCK} $_wa.$LF . $_val.$LF);
       }
-      elsif ( @{ $_aref } == 1 && !ref $_aref->[0] &&
-              defined $_aref->[0] && !looks_like_number($_aref->[0]) ) {
+      elsif ( @{ $_aref } == 1 && !looks_like_number $_aref->[0] &&
+              !ref $_aref->[0] && defined $_aref->[0] ) {
          $_len = length $_aref->[0];
 
          $_dat_ex->() if $_lock_chn;
@@ -173,8 +173,8 @@ use bytes;
 
       return unless (scalar @{ $_aref });
 
-      if (scalar @{ $_aref } > 1 || ref $_aref->[0] ||
-            !defined $_aref->[0] || looks_like_number $_aref->[0]) {
+      if ( scalar @{ $_aref } > 1 || looks_like_number $_aref->[0] ||
+            ref $_aref->[0] || !defined $_aref->[0] ) {
          $_tag = OUTPUT_A_GTR;
          $_buf = $self->{freeze}($_aref);
          $_len = length $_buf;

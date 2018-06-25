@@ -587,7 +587,7 @@ sub _heap_insert_high {
             print {$_DAU_R_SOCK} length($_buf).'1'.$LF, $_buf;
          }
          elsif (defined $_buf) {
-            if (!ref $_buf && !looks_like_number $_buf) {
+            if (!looks_like_number $_buf && !ref $_buf) {
                print {$_DAU_R_SOCK} length($_buf).'0'.$LF, $_buf;
             } else {
                $_buf = $_MCE->{freeze}([ $_buf ]);
@@ -626,7 +626,7 @@ sub _heap_insert_high {
             my $_buf = $_Q->_dequeue();
 
             if (defined $_buf) {
-               if (!ref $_buf && !looks_like_number($_buf)) {
+               if (!looks_like_number $_buf && !ref $_buf) {
                   print {$_DAU_R_SOCK} length($_buf).'0'.$LF, $_buf;
                } else {
                   $_buf = $_MCE->{freeze}([ $_buf ]);
@@ -732,7 +732,7 @@ sub _heap_insert_high {
             print {$_DAU_R_SOCK} '-1'.$LF;
          }
          else {
-            if (!ref $_buf && !looks_like_number($_buf)) {
+            if (!looks_like_number $_buf && !ref $_buf) {
                print {$_DAU_R_SOCK} length($_buf).'0'.$LF, $_buf;
             } else {
                $_buf = $_MCE->{freeze}([ $_buf ]);
@@ -757,7 +757,7 @@ sub _heap_insert_high {
             print {$_DAU_R_SOCK} '-1'.$LF;
          }
          else {
-            if (!ref $_buf && !looks_like_number($_buf)) {
+            if (!looks_like_number $_buf && !ref $_buf) {
                print {$_DAU_R_SOCK} length($_buf).'0'.$LF, $_buf;
             } else {
                $_buf = $_MCE->{freeze}([ $_buf ]);
@@ -1370,7 +1370,7 @@ sub _mce_m_heap {
          my $_buf = $_Q->{_id}.$LF . length($_tmp).$LF;
          $_req1->(OUTPUT_A_QUE, $_buf, $_tmp);
       }
-      elsif (defined $_[0] && !looks_like_number $_[0]) {
+      elsif (!looks_like_number $_[0] && defined $_[0]) {
          my $_buf = $_Q->{_id}.$LF . length($_[0]).$LF;
          $_req1->(OUTPUT_S_QUE, $_buf, $_[0]);
       }
@@ -1396,7 +1396,7 @@ sub _mce_m_heap {
          my $_buf = $_Q->{_id}.$LF . $_p.$LF . length($_tmp).$LF;
          $_req1->(OUTPUT_A_QUP, $_buf, $_tmp);
       }
-      elsif (defined $_[0] && !looks_like_number $_[0]) {
+      elsif (!looks_like_number $_[0] && defined $_[0]) {
          my $_buf = $_Q->{_id}.$LF . $_p.$LF . length($_[0]).$LF;
          $_req1->(OUTPUT_S_QUP, $_buf, $_[0]);
       }
@@ -1516,7 +1516,7 @@ sub _mce_m_heap {
 
       my ($_buf, $_tmp);
 
-      if (scalar @_ > 1 || ref $_[0] || !defined $_[0] || looks_like_number $_[0]) {
+      if (scalar @_ > 1 || looks_like_number $_[0] || ref $_[0] || !defined $_[0]) {
          $_tmp = $_MCE->{freeze}([ @_ ]);
          $_buf = $_Q->{_id}.$LF . $_i.$LF . (length($_tmp) + 1).$LF . $_tmp.'1';
       } else {
@@ -1542,7 +1542,7 @@ sub _mce_m_heap {
 
       my ($_buf, $_tmp);
 
-      if (scalar @_ > 1 || ref $_[0] || !defined $_[0] || looks_like_number $_[0]) {
+      if (scalar @_ > 1 || looks_like_number $_[0] || ref $_[0] || !defined $_[0]) {
          $_tmp = $_MCE->{freeze}([ @_ ]);
          $_buf = $_Q->{_id}.$LF . $_p.$LF . $_i.$LF .
             (length($_tmp) + 1).$LF . $_tmp.'1';

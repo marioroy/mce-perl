@@ -116,7 +116,7 @@ sub _output_loop {
       my $_ret = $_cb->(@_);
 
       return print {$_DAU_R_SOCK} length($_ret).'0'.$LF, $_ret
-         if ( !ref $_ret && defined $_ret && !looks_like_number $_ret );
+         if ( !looks_like_number $_ret && !ref $_ret && defined $_ret );
 
       my $_buf = $self->{freeze}([ $_ret ]);
 

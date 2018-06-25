@@ -223,5 +223,160 @@ sub _validate_runstate {
    return;
 }
 
+###############################################################################
+## ----------------------------------------------------------------------------
+## Private functions for MCE Models { Flow, Grep, Loop, Map, Step, Stream }.
+##
+###############################################################################
+
+sub _parse_chunk_size {
+
+   my ($_chunk_size, $_max_workers, $_params, $_input_data, $_array_size) = @_;
+
+   @_ = ();
+
+   return $_chunk_size if (!defined $_chunk_size || !defined $_max_workers);
+
+   if (defined $_params && exists $_params->{chunk_size}) {
+      $_chunk_size = $_params->{chunk_size};
+   }
+
+   if ($_chunk_size =~ /([0-9\.]+)K\z/i) {
+      $_chunk_size = int($1 * 1024 + 0.5);
+   }
+   elsif ($_chunk_size =~ /([0-9\.]+)M\z/i) {
+      $_chunk_size = int($1 * 1024 * 1024 + 0.5);
+   }
+
+   if ($_chunk_size eq 'auto') {
+
+      if ( (defined $_params && ref $_params->{input_data} eq 'CODE') ||
+           (defined $_input_data && ref $_input_data eq 'CODE')
+      ) {
+         # Iterators may optionally use chunk_size to determine how much
+         # to return per iteration. The default is 1 for MCE Models, same
+         # as for the Core API. The user_func receives an array_ref
+         # regardless if 1 or higher.
+         #
+         # sub make_iter {
+         #    ...
+         #    return sub {
+         #       my ($chunk_size) = @_;
+         #       ...
+         #    };
+         # }
+         return 1;
+      }
+
+      my $_is_file;
+      my $_size = $_array_size;
+
+      if (defined $_input_data) {
+         if (ref $_input_data eq 'ARRAY') {
+            $_size = scalar @{ $_input_data };
+         } elsif (ref $_input_data eq 'HASH') {
+            $_size = scalar keys %{ $_input_data };
+         }
+      }
+
+      if (defined $_params && exists $_params->{sequence}) {
+         my ($_begin, $_end, $_step);
+
+         if (ref $_params->{sequence} eq 'HASH') {
+            $_begin = $_params->{sequence}->{begin};
+            $_end   = $_params->{sequence}->{end};
+            $_step  = $_params->{sequence}->{step} || 1;
+         }
+         else {
+            $_begin = $_params->{sequence}[0];
+            $_end   = $_params->{sequence}[1];
+            $_step  = $_params->{sequence}[2] || 1;
+         }
+
+         if (!defined $_input_data && !$_array_size) {
+            $_size = abs($_end - $_begin) / $_step + 1;
+         }
+      }
+      elsif (defined $_params && exists $_params->{_file}) {
+         my $_ref = ref $_params->{_file};
+
+         if ($_ref eq 'SCALAR') {
+            $_size = length ${ $_params->{_file} };
+         } elsif ($_ref eq '') {
+            $_size = -s $_params->{_file};
+         } else {
+            $_size = 0; $_chunk_size = 393_216;  # 384K
+         }
+
+         $_is_file = 1;
+      }
+      elsif (defined $_input_data) {
+         if (ref($_input_data) =~ /^(?:GLOB|FileHandle|IO::)/) {
+            $_is_file = 1; $_size = 0; $_chunk_size = 393_216;  # 384K
+         }
+         elsif (ref $_input_data eq 'SCALAR') {
+            $_is_file = 1; $_size = length ${ $_input_data };
+         }
+      }
+
+      if (defined $_is_file) {
+         if ($_size) {
+            $_chunk_size = int($_size / $_max_workers / 24 + 0.5);
+            $_chunk_size = 5_242_880 if $_chunk_size > 5_242_880;  # 5M
+            $_chunk_size = 2 if $_chunk_size <= 8192;
+         }
+      }
+      else {
+         $_chunk_size = int($_size / $_max_workers / 24 + 0.5);
+         $_chunk_size = 8000 if $_chunk_size > 8000;
+         $_chunk_size = 2 if $_chunk_size < 2;
+      }
+   }
+
+   return $_chunk_size;
+}
+
+sub _parse_max_workers {
+
+   my ($_max_workers) = @_;
+
+   @_ = ();
+
+   return $_max_workers unless (defined $_max_workers);
+
+   if ($_max_workers =~ /^auto(?:$|\s*([\-\+\/\*])\s*(.+)$)/i) {
+      my ($_ncpu_ul, $_ncpu);
+
+      $_ncpu_ul = $_ncpu = MCE::Util::get_ncpu();
+      $_ncpu_ul = 8 if ($_ncpu_ul > 8);
+
+      if ($1 && $2) {
+         local $@; $_max_workers = eval "int($_ncpu_ul $1 $2 + 0.5)";
+         $_max_workers = 1 if (!$_max_workers || $_max_workers < 1);
+         $_max_workers = $_ncpu if ($_max_workers > $_ncpu);
+      }
+      else {
+         $_max_workers = $_ncpu_ul;
+      }
+   }
+
+   return $_max_workers;
+}
+
+sub _validate_number {
+
+   my ($_n, $_key, $_tag) = @_;
+
+   _croak("$_tag: ($_key) is not valid") if (!defined $_n);
+
+   $_n =~ s/K\z//i; $_n =~ s/M\z//i;
+
+   if (!looks_like_number($_n) || int($_n) != $_n || $_n < 1) {
+      _croak("$_tag: ($_key) is not valid");
+   }
+
+   return;
+}
+
 1;
 
