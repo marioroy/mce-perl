@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.836';
+our $VERSION = '1.837';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -672,7 +672,7 @@ MCE::Stream - Parallel stream model for chaining multiple maps and greps
 
 =head1 VERSION
 
-This document describes MCE::Stream version 1.836
+This document describes MCE::Stream version 1.837
 
 =head1 SYNOPSIS
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.836';
+our $VERSION = '1.837';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -1930,8 +1930,8 @@ sub _dispatch {
    ## Sets the seed of the base generator uniquely between workers.
    ## The new seed is computed using the current seed and $_wid value.
    ## One may set the seed at the application level for predictable
-   ## results (non-thread workers only). Ditto for Math::Prime::Util
-   ## and Math::Random.
+   ## results (non-thread workers only). Ditto for Math::Prime::Util,
+   ## Math::Random, and Math::Random::MT::Auto.
 
    if (!$self->{use_threads}) {
       my ($_wid, $_seed) = ($_args[1], $self->{_seed});
@@ -1944,14 +1944,25 @@ sub _dispatch {
          if ( $INC{'MCE/Hobo.pm'} && MCE::Hobo->can('_clear') );
    }
 
-   if ($INC{'Math/Random.pm'} && !$self->{use_threads}) {
+   if (!$self->{use_threads} && $INC{'Math/Random.pm'}) {
       my ($_wid, $_cur_seed) = ($_args[1], Math::Random::random_get_seed());
 
       my $_new_seed = ($_cur_seed < 1073741781)
-         ? $_cur_seed + ($_wid * 100000)
-         : $_cur_seed - ($_wid * 100000);
+         ? $_cur_seed + (($_wid * 100000) % 1073741780)
+         : $_cur_seed - (($_wid * 100000) % 1073741780);
 
       Math::Random::random_set_seed($_new_seed, $_new_seed);
+   }
+
+   if (!$self->{use_threads} && $INC{'Math/Random/MT/Auto.pm'}) {
+      my ($_wid, $_cur_seed) = (
+         $_args[1], Math::Random::MT::Auto::get_seed()->[0]
+      );
+      my $_new_seed = ($_cur_seed < 1073741781)
+         ? $_cur_seed + (($_wid * 100000) % 1073741780)
+         : $_cur_seed - (($_wid * 100000) % 1073741780);
+
+      Math::Random::MT::Auto::set_seed($_new_seed);
    }
 
    ## Run.

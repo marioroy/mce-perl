@@ -1,6 +1,13 @@
 
 Revision history for Perl module MCE.
 
+1.837 Sat Aug 25 13:00:00 EST 2018
+
+  * Seeds the Math::Random::MT::Auto generator automatically when present
+    for non-threads, similarly to Math::Random and Math::Prime::Util, to
+    avoid child processes sharing the same seed value as the parent and
+    each other. The new seed is computed using the current seed.
+
 1.836 Mon Jun 25 08:30:00 EST 2018
 
   * Moved validation code from MCE::Util to MCE::Core::Validation.
