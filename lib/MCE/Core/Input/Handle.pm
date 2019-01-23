@@ -14,7 +14,7 @@ package MCE::Core::Input::Handle;
 use strict;
 use warnings;
 
-our $VERSION = '1.837';
+our $VERSION = '1.838';
 
 ## Items below are folded into MCE.
 
@@ -38,7 +38,7 @@ sub _systell {
    # To minimize memory consumption, SEEK_CUR equals 1 on most platforms.
    # e.g. use Fcntl qw(SEEK_CUR);
 
-   sysseek($_[0], 0, 1);
+   MCE::Util::_sysseek($_[0], 0, 1);
 }
 
 sub _worker_read_handle {
@@ -71,11 +71,11 @@ sub _worker_read_handle {
          $_DAT_LOCK = $self->{'_mutex_'.( $self->{_wid} % 6 + 1 )};
       }
       $_dat_ex = sub {
-         sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
+         MCE::Util::_sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
             unless $_DAT_LOCK->{ $_pid };
       };
       $_dat_un = sub {
-         syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
+         MCE::Util::_syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
             if $_DAT_LOCK->{ $_pid };
       };
    }
@@ -112,18 +112,13 @@ sub _worker_read_handle {
 
       ## Obtain the next chunk_id and offset position.
       $_dat_ex->() if $_lock_chn;
-
-      1 until sysread($_QUE_R_SOCK, $_next, $_que_read_size) || ($! && !$!{'EINTR'});
+      MCE::Util::_sysread($_QUE_R_SOCK, $_next, $_que_read_size);
 
       ($_chunk_id, $_offset_pos) = unpack($_que_template, $_next);
 
       if ($_offset_pos >= $_data_size) {
-         1 until syswrite ( $_QUE_W_SOCK,
-            pack($_que_template, 0, $_offset_pos)
-         ) || ($! && !$!{'EINTR'});
-
+         MCE::Util::_syswrite($_QUE_W_SOCK, pack($_que_template, 0, $_offset_pos));
          $_dat_un->() if $_lock_chn;
-
          close $_IN_FILE; undef $_IN_FILE;
          return;
       }
@@ -177,20 +172,19 @@ sub _worker_read_handle {
             }
          }
 
-         1 until syswrite ( $_QUE_W_SOCK,
-            pack($_que_template, $_chunk_id, tell $_IN_FILE)
-         ) || ($! && !$!{'EINTR'});
-
+         MCE::Util::_syswrite(
+            $_QUE_W_SOCK, pack($_que_template, $_chunk_id, tell $_IN_FILE)
+         );
          $_dat_un->() if $_lock_chn;
       }
       else {                                      # Large chunk.
          local $/ = $_RS if ($/ ne $_RS);
 
          if ($_parallel_io && $_RS eq $LF) {
-            1 until syswrite ( $_QUE_W_SOCK,
+            MCE::Util::_syswrite(
+               $_QUE_W_SOCK,
                pack($_que_template, $_chunk_id, $_offset_pos + $_chunk_size)
-            ) || ($! && !$!{'EINTR'});
-
+            );
             $_dat_un->() if $_lock_chn;
 
             $_tmp_cs = $_chunk_size;
@@ -201,9 +195,9 @@ sub _worker_read_handle {
             }
 
             if ($_proc_type == READ_FILE) {
-               sysseek $_IN_FILE, tell( $_IN_FILE ), 0;
-               sysread $_IN_FILE, $_, $_tmp_cs, $_p;
-                  seek $_IN_FILE, _systell( $_IN_FILE ), 0;
+               MCE::Util::_sysseek($_IN_FILE, tell( $_IN_FILE ), 0);
+               MCE::Util::_sysread($_IN_FILE, $_, $_tmp_cs, $_p);
+               seek $_IN_FILE, _systell($_IN_FILE), 0;
             }
             else {
                read $_IN_FILE, $_, $_tmp_cs, $_p;
@@ -213,9 +207,9 @@ sub _worker_read_handle {
          }
          else {
             if ($_proc_type == READ_FILE) {
-               sysseek $_IN_FILE, $_offset_pos, 0;
-               sysread $_IN_FILE, $_, $_chunk_size, $_p;
-                  seek $_IN_FILE, _systell( $_IN_FILE ), 0;
+               MCE::Util::_sysseek($_IN_FILE, $_offset_pos, 0);
+               MCE::Util::_sysread($_IN_FILE, $_, $_chunk_size, $_p);
+               seek $_IN_FILE, _systell($_IN_FILE), 0;
             }
             else {
                seek $_IN_FILE, $_offset_pos, 0;
@@ -224,10 +218,9 @@ sub _worker_read_handle {
 
             $_ .= <$_IN_FILE>;
 
-            1 until syswrite ( $_QUE_W_SOCK,
-               pack($_que_template, $_chunk_id, tell $_IN_FILE)
-            ) || ($! && !$!{'EINTR'});
-
+            MCE::Util::_syswrite(
+               $_QUE_W_SOCK, pack($_que_template, $_chunk_id, tell $_IN_FILE)
+            );
             $_dat_un->() if $_lock_chn;
          }
       }

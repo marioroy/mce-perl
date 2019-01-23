@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.837';
+our $VERSION = '1.838';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -148,7 +148,7 @@ sub _output_loop {
          if ($_task_id == 0 && defined $_syn_flag && $_sync_cnt) {
             if ($_sync_cnt == $_total_running) {
                for my $_i (1 .. $_total_running) {
-                  1 until syswrite($_BSB_W_SOCK, $LF) || ($! && !$!{'EINTR'});
+                  MCE::Util::_syswrite($_BSB_W_SOCK, $LF);
                }
                undef $_syn_flag;
             }
@@ -180,7 +180,7 @@ sub _output_loop {
          if ($_task_id == 0 && defined $_syn_flag && $_sync_cnt) {
             if ($_sync_cnt == $_total_running) {
                for my $_i (1 .. $_total_running) {
-                  1 until syswrite($_BSB_W_SOCK, $LF) || ($! && !$!{'EINTR'});
+                  MCE::Util::_syswrite($_BSB_W_SOCK, $LF);
                }
                undef $_syn_flag;
             }
@@ -547,11 +547,9 @@ sub _output_loop {
 
             binmode $_sendto_fhs{$_file};
 
-            ## Select new FH, turn on autoflush, restore the old FH.
             if ($_flush_file) {
                local $!;
-               # IO::Handle->autoflush not available in older Perl.
-               select(( select($_sendto_fhs{$_file}), $| = 1 )[0]);
+               $_sendto_fhs{$_file}->autoflush(1);
             }
          }
 
@@ -576,11 +574,9 @@ sub _output_loop {
 
             binmode $_sendto_fhs{$_fd};
 
-            ## Select new FH, turn on autoflush, restore the old FH.
             if ($_flush_file) {
                local $!;
-               # IO::Handle->autoflush not available in older Perl.
-               select(( select($_sendto_fhs{$_fd}), $| = 1 )[0]);
+               $_sendto_fhs{$_fd}->autoflush(1);
             }
          }
 
@@ -603,7 +599,7 @@ sub _output_loop {
 
          if (++$_sync_cnt == $_total_running) {
             for my $_i (1 .. $_total_running) {
-               1 until syswrite($_BSB_W_SOCK, $LF) || ($! && !$!{'EINTR'});
+               MCE::Util::_syswrite($_BSB_W_SOCK, $LF);
             }
             undef $_syn_flag;
          }
@@ -618,7 +614,7 @@ sub _output_loop {
                : $self->{_total_running};
 
             for my $_i (1 .. $_total_running) {
-               1 until syswrite($_BSE_W_SOCK, $LF) || ($! && !$!{'EINTR'});
+               MCE::Util::_syswrite($_BSE_W_SOCK, $LF);
             }
          }
 
@@ -626,7 +622,7 @@ sub _output_loop {
       },
 
       OUTPUT_S_IPC.$LF => sub {                   # Change to win32 IPC
-         1 until syswrite($_DAT_R_SOCK, $LF) || ($! && !$!{'EINTR'});
+         MCE::Util::_syswrite($_DAT_R_SOCK, $LF);
 
          $_win32_ipc = 1, goto _LOOP unless $_win32_ipc;
 
@@ -794,16 +790,11 @@ sub _output_loop {
    }
 
    ## Autoflush STDERR-STDOUT handles if requested.
-   ## Make MCE_STDOUT the default handle.
-
-   my $_old_hndl = select $_MCE_STDOUT;
 
    {
       local $!;
-      # IO::Handle->autoflush not available in older Perl.
-      select($_MCE_STDERR), $| = 1 if ($self->{flush_stderr});
-      select($_MCE_STDOUT), $| = 1 if ($self->{flush_stdout});
-      select($_MCE_STDOUT);
+      $_MCE_STDERR->autoflush(1) if $self->{flush_stderr};
+      $_MCE_STDOUT->autoflush(1) if $self->{flush_stdout};
    }
 
    ## -------------------------------------------------------------------------
@@ -874,50 +865,11 @@ sub _output_loop {
 
    ## Wait on requests *without* timeout capability.
 
-   elsif ($^O eq 'MSWin32' && $_win32_ipc) {
-      # The normal loop hangs on Windows when processes/threads start/exit.
-      # Using ioctl() properly, http://www.perlmonks.org/?node_id=780083
-
-      my $_val_bytes = "\x00\x00\x00\x00";
-      my $_ptr_bytes = unpack( 'I', pack('P', $_val_bytes) );
-      my ($_done, $_count, $_nbytes, $_start) = (0);
-
-      while (!$_done) {
-         $_start = time, $_count = 1;
-
-         # MSWin32 FIONREAD
-         IOCTL: ioctl($_DAT_R_SOCK, 0x4004667f, $_ptr_bytes);
-
-         unless ($_nbytes = unpack('I', $_val_bytes)) {
-            if ($_count) {
-                # delay after a while to not consume a CPU core
-                $_count = 0 if ++$_count % 50 == 0 && time - $_start > 0.030;
-            } else {
-                sleep 0.030;
-            }
-            goto IOCTL;
-         }
-
-         do {
-            sysread($_DAT_R_SOCK, $_func, 8);
-            $_done = 1, last() unless length($_func) == 8;
-            $_DAU_R_SOCK = $_channels->[ substr($_func, -2, 2, '') ];
-
-            if (exists $_core_output_function{$_func}) {
-               $_core_output_function{$_func}();
-            } elsif (exists $_plugin_function->{$_func}) {
-               $_plugin_function->{$_func}();
-            }
-
-         } while (($_nbytes -= 8) >= 8);
-
-         last unless $self->{_total_running};
-      }
-   }
-
    elsif ($^O eq 'MSWin32') {
+      MCE::Util::_nonblocking($_DAT_R_SOCK, 1) if $_win32_ipc;
+
       while ($self->{_total_running}) {
-         sysread($_DAT_R_SOCK, $_func, 8);
+         MCE::Util::_sysread($_DAT_R_SOCK, $_func, 8);
          last() unless length($_func) == 8;
          $_DAU_R_SOCK = $_channels->[ substr($_func, -2, 2, '') ];
 
@@ -928,7 +880,6 @@ sub _output_loop {
          }
       }
    }
-
    else {
       while ($self->{_total_running}) {
          $_func = <$_DAT_R_SOCK>;
@@ -961,9 +912,7 @@ sub _output_loop {
       delete $_sendto_fhs{$_p};
    }
 
-   ## Restore the default handle. Close MCE STDOUT/STDERR handles.
-
-   select $_old_hndl;
+   ## Close MCE STDOUT/STDERR handles.
 
    eval q{
       close $_MCE_STDOUT if (fileno $_MCE_STDOUT > 2);

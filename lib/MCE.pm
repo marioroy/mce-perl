@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.837';
+our $VERSION = '1.838';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -579,7 +579,7 @@ sub spawn {
          my $_DAT_W_SOCK = $TOP_HDLR->{_dat_w_sock}->[0];
          print {$_DAT_W_SOCK} OUTPUT_S_IPC.$LF . '0'.$LF;
 
-         1 until sysread($_DAT_W_SOCK, my($_buf), 1) || ($! && !$!{'EINTR'});
+         MCE::Util::_sysread($_DAT_W_SOCK, my($_buf), 1);
       }
    }
 
@@ -612,7 +612,7 @@ sub spawn {
       : MCE::Util::_sock_pair($self, qw(_que_r_sock _que_w_sock));
 
    if (defined $self->{init_relay}) {                               # relay
-      unless (exists $INC{'MCE/Relay.pm'}) {
+      unless ($INC{'MCE/Relay.pm'}) {
          require MCE::Relay; MCE::Relay->import();
       }
       MCE::Util::_sock_pair($self, qw(_rla_r_sock _rla_w_sock), $_)
@@ -626,6 +626,10 @@ sub spawn {
    ## Spawn workers.
    $self->{_pids}   = [], $self->{_thrs}  = [], $self->{_tids} = [];
    $self->{_status} = [], $self->{_state} = [], $self->{_task} = [];
+
+   local $SIG{TTIN}  unless $_is_MSWin32;
+   local $SIG{TTOU}  unless $_is_MSWin32;
+   local $SIG{WINCH} unless $_is_MSWin32;
 
    if (!defined $self->{user_tasks}) {
       $self->{_total_workers} = $_max_workers;
@@ -758,7 +762,10 @@ sub relay (;&) {
       unless (defined $MCE->{init_relay});
 }
 
-*relay_unlock = \&relay;
+{
+   no warnings 'once';
+   *relay_unlock = \&relay;
+}
 
 sub AUTOLOAD {
    # $AUTOLOAD = MCE::<method_name>
@@ -1116,9 +1123,9 @@ sub run {
 
       ## Insert the first message into the queue if defined.
       if (defined $_first_msg) {
-         1 until syswrite (
+         MCE::Util::_syswrite(
             $self->{_que_w_sock}, pack($_que_template, 0, $_first_msg)
-         ) || ($! && !$!{'EINTR'});
+         );
       }
 
       ## Submit params data to workers.
@@ -1155,11 +1162,11 @@ sub run {
          ## Notify workers to commence processing.
          if ($_is_MSWin32) {
             my $_buf = _sprintf("%${_total_workers}s", "");
-            syswrite $self->{_bse_w_sock}, $_buf;
+            MCE::Util::_syswrite($self->{_bse_w_sock}, $_buf);
          } else {
             my $_BSE_W_SOCK = $self->{_bse_w_sock};
             for my $_i (1 .. $_total_workers) {
-               1 until syswrite($_BSE_W_SOCK, $LF) || ($! && !$!{'EINTR'});
+               MCE::Util::_syswrite($_BSE_W_SOCK, $LF);
             }
          }
       }
@@ -1173,11 +1180,8 @@ sub run {
 
    ## Remove the last message from the queue.
    if (!$_send_cnt && $_run_mode ne 'nodata') {
-      if (defined $self->{_que_r_sock}) {
-         1 until sysread (
-            $self->{_que_r_sock}, my($_buf), $_que_read_size
-         ) || ($! && !$!{'EINTR'});
-      }
+      MCE::Util::_sysread($self->{_que_r_sock}, my($_buf), $_que_read_size)
+         if ( defined $self->{_que_r_sock} );
    }
 
    $self->{_send_cnt} = 0;
@@ -1399,13 +1403,13 @@ sub sync {
 
    ## Wait until all workers from (task_id 0) have synced.
    MCE::Util::_sock_ready($_BSB_R_SOCK, -1) if $_is_MSWin32;
-   1 until sysread($_BSB_R_SOCK, $_buf, 1) || ($! && !$!{'EINTR'});
+   MCE::Util::_sysread($_BSB_R_SOCK, $_buf, 1);
 
    ## Notify the manager process (barrier end).
    print {$_DAT_W_SOCK} OUTPUT_E_SYN.$LF . $_chn.$LF;
 
    ## Wait until all workers from (task_id 0) have un-synced.
-   1 until sysread($_BSE_R_SOCK, $_buf, 1) || ($! && !$!{'EINTR'});
+   MCE::Util::_sysread($_BSE_R_SOCK, $_buf, 1);
 
    return;
 }
@@ -1455,12 +1459,8 @@ sub abort {
       local $\ = undef;
 
       if ($_abort_msg > 0) {
-         1 until sysread (
-            $_QUE_R_SOCK, my($_next), $_que_read_size
-         ) || ($! && !$!{'EINTR'});
-         1 until syswrite (
-            $_QUE_W_SOCK, pack($_que_template, 0, $_abort_msg)
-         ) || ($! && !$!{'EINTR'});
+         MCE::Util::_sysread($_QUE_R_SOCK, my($_next), $_que_read_size);
+         MCE::Util::_syswrite($_QUE_W_SOCK, pack($_que_template, 0, $_abort_msg));
       }
 
       if ($self->{_wid} > 0) {
@@ -1793,11 +1793,13 @@ sub _exit {
 
    threads->exit(0) if $self->{use_threads};
 
-   $SIG{HUP} = $SIG{INT} = $SIG{QUIT} = $SIG{TERM} = sub {
-      $SIG{$_[0]} = $SIG{INT} = sub { };
-      CORE::kill($_[0], getppid()) if ($_[0] eq 'INT' && !$_is_MSWin32);
-      CORE::kill('KILL', $$);
-   };
+   if (! $_tid) {
+      $SIG{HUP} = $SIG{INT} = $SIG{QUIT} = $SIG{TERM} = sub {
+         $SIG{$_[0]} = $SIG{INT} = sub { };
+         CORE::kill($_[0], getppid()) if ($_[0] eq 'INT' && !$_is_MSWin32);
+         CORE::kill('KILL', $$);
+      };
+   }
 
    if ($self->{posix_exit} && !$_is_MSWin32) {
       eval { MCE::Mutex::Channel::_destroy() };

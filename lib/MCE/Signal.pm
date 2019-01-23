@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.837';
+our $VERSION = '1.838';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -196,6 +196,7 @@ sub stop_and_exit {
    $SIG{__DIE__} = $SIG{__WARN__} = \&_NOOP;
 
    if (exists $_sig_name_lkup{$_sig_name}) {
+      no warnings 'once';
       $SIG{INT} = $SIG{$_sig_name} = \&_NOOP,
       $_is_sig  = $MCE::Signal::KILLED = 1;
       $_exit_status = 255 if ($_sig_name eq '__DIE__');
@@ -427,7 +428,7 @@ MCE::Signal - Temporary directory creation/cleanup and signal handling
 
 =head1 VERSION
 
-This document describes MCE::Signal version 1.837
+This document describes MCE::Signal version 1.838
 
 =head1 SYNOPSIS
 

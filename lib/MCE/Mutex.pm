@@ -11,14 +11,12 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.837';
+our $VERSION = '1.838';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use Carp ();
-
-use MCE::Mutex::Channel ();
 
 sub new {
     my ($class, %argv) = @_;
@@ -28,9 +26,8 @@ sub new {
 
     $pkg = ucfirst( lc $pkg );
 
-    if ($INC{"MCE/Mutex/$pkg.pm"} || eval "require MCE::Mutex::$pkg; 1") {
+    if (eval "require MCE::Mutex::$pkg; 1") {
         no strict 'refs'; $pkg = 'MCE::Mutex::'.$pkg;
-
         return $pkg->new(%argv);
     }
 
@@ -71,7 +68,7 @@ MCE::Mutex - Locking for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Mutex version 1.837
+This document describes MCE::Mutex version 1.838
 
 =head1 SYNOPSIS
 

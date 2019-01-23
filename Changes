@@ -1,6 +1,13 @@
 
 Revision history for Perl module MCE.
 
+1.838 Wed Jan 23 08:30:00 EST 2019
+
+  * IPC update, raising reliability across multiple platforms.
+  * Improved hack for the Windows platform for nested MCE sessions.
+  * Added _sysread, _sysseek, _syswrite, and _nonblocking to MCE::Util.
+  * Added barrier option to MCE::Queue: allows one to disable.
+
 1.837 Sat Aug 25 13:00:00 EST 2018
 
   * Seeds the Math::Random::MT::Auto generator automatically when present
