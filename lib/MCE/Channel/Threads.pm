@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.839';
+our $VERSION = '1.840';
 
 use threads;
 use threads::shared;
@@ -326,23 +326,23 @@ MCE::Channel::Threads - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Threads version 1.839
+This document describes MCE::Channel::Threads version 1.840
 
 =head1 DESCRIPTION
 
 A channel class providing queue-like and two-way communication
-for threads only. Locking is handled using threads.
+for threads only. Locking is handled using threads::shared.
 
  use MCE::Channel;
 
  # The default is tuned for one producer and many consumers.
- my $chnl_a = MCE::Channel->new( impl => 'threads' );
+ my $chnl_a = MCE::Channel->new( impl => 'Threads' );
 
  # Specify the 'mp' option for safe use by two or more producers
  # sending or recieving on the left side of the channel.
  # E.g. C<->enqueue/->send> or C<->recv2/->recv2_nb>
 
- my $chnl_b = MCE::Channel->new( impl => 'threads', mp => 1 );
+ my $chnl_b = MCE::Channel->new( impl => 'Threads', mp => 1 );
 
 The API is described in L<MCE::Channel>.
 

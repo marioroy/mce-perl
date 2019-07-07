@@ -1,6 +1,10 @@
 
 Revision history for Perl module MCE.
 
+1.840 Sun Jul 07 05:00:00 EST 2019
+
+  * Update MCE::Channel POD documentation.
+
 1.839 Sun Jul 07 04:30:00 EST 2019
 
   [NEW FEATURES]

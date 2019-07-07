@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.839';
+our $VERSION = '1.840';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -131,7 +131,7 @@ MCE::Channel - Queue-like and two-way communication capability
 
 =head1 VERSION
 
-This document describes MCE::Channel version 1.839
+This document describes MCE::Channel version 1.840
 
 =head1 SYNOPSIS
 
@@ -260,7 +260,7 @@ or defaults to L<Storable> otherwise.
  $chnl->enqueue({ hash_ref1 });
  $chnl->enqueue({ hash_ref2 }, { hash_ref3 }, ...);
 
-=head2 dequeue ()
+=head2 dequeue
 
 =head2 dequeue ( COUNT )
 
@@ -271,7 +271,7 @@ the method will block (i.e. until other producer(s) enqueue more items).
  $item  = $chnl->dequeue();       # item1
  @items = $chnl->dequeue(2);      # ( item2, item3 )
 
-=head2 dequeue_nb ()
+=head2 dequeue_nb
 
 =head2 dequeue_nb ( COUNT )
 
@@ -284,7 +284,7 @@ C<undef> in scalar context.
  $item  = $chnl->dequeue_nb();    # array_ref1
  @items = $chnl->dequeue_nb(2);   # ( array_ref2, array_ref3 )
 
-=head2 end ()
+=head2 end
 
 This is called by a producer to signal that there is no more work to be sent.
 Once ended, no more items may be sent by the producer. Calling C<end> by
@@ -308,9 +308,9 @@ Object (de)serialization is handled automatically.
  $chnl->send($id, [ list_ref ]);
  $chnl->send($id, { hash_ref });
 
-=head2 recv ()
+=head2 recv
 
-=head2 recv_nb ()
+=head2 recv_nb
 
 Blocking and non-blocking fetch methods from the right end of the channel.
 For the latter and when the channel is empty, returns C<an empty list> in
@@ -340,9 +340,9 @@ Object (de)serialization is handled automatically.
  $chnl->send2($id, [ list_ref ]);
  $chnl->send2($id, { hash_ref });
 
-=head2 recv2 ()
+=head2 recv2
 
-=head2 recv2_nb ()
+=head2 recv2_nb
 
 Blocking and non-blocking fetch methods from the left end of the channel.
 For the latter and when the channel is empty, returns C<an empty list> in
@@ -356,13 +356,9 @@ list context or C<undef> in scalar context.
  ($id, $array_ref) = $chnl->recv2_nb();
  ($id, $hash_ref)  = $chnl->recv2_nb();
 
-=head1 EXAMPLES
+=head1 DEMONSTRATIONS
 
-=over 3
-
-=item Example 1 - threads
-
-=back
+=head2 Example 1 - threads
 
 C<MCE::Channel> was made to work efficiently with L<threads>. The reason is from
 using L<threads::shared> for locking versus L<MCE::Mutex>.
@@ -423,11 +419,7 @@ using L<threads::shared> for locking versus L<MCE::Mutex>.
  7932
  80000 total
 
-=over 3
-
-=item Example 2 - MCE::Child
-
-=back
+=head2 Example 2 - MCE::Child
 
 The following is similarly threads-like for Perl lacking threads support.
 It spawns processes instead, thus requires the C<Mutex> channel implementation
@@ -473,11 +465,7 @@ which is the default if omitted.
  print $results{$_}, "\n" for keys %results;
  print "$total total\n\n";
 
-=over 3
-
-=item Example 3 - Two producers
-
-=back
+=head2 Example 3 - Two producers
 
 Running with 2 or more producers requires setting the C<mp> option. Internally,
 this enables locking support for the left end of the channel. The C<mp> option
@@ -537,9 +525,7 @@ Here, using the MCE facility for gathering the final count.
 
  print "$total total\n\n";
 
-=over 3
-
-=item Example 4 - Request input
+=head2 Example 4 - Request input
 
 This demonstration configures a channel per consumer. Plus, a common channel
 for consumers to request the next input item. The C<Simple> implementation is
@@ -547,8 +533,6 @@ specified for the individual channels whereas locking may be necessary for the
 C<$ready> channel. However, consumers do not incur reading and what is written
 is very small (i.e. atomic write is guaranteed by the OS). Thus, am safely
 choosing the C<Simple> implementation versus C<Mutex>.
-
-=back
 
  use strict;
  use warnings;

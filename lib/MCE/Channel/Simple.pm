@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.839';
+our $VERSION = '1.840';
 
 use base 'MCE::Channel';
 use bytes;
@@ -311,7 +311,7 @@ MCE::Channel::Simple - Channel tuned for one producer and one consumer
 
 =head1 VERSION
 
-This document describes MCE::Channel::Simple version 1.839
+This document describes MCE::Channel::Simple version 1.840
 
 =head1 DESCRIPTION
 
@@ -320,7 +320,7 @@ for one process or thread on either end; no locking needed.
 
  use MCE::Channel;
 
- my $chnl = MCE::Channel->new( impl => 'simple' );
+ my $chnl = MCE::Channel->new( impl => 'Simple' );
 
 The API is described in L<MCE::Channel>.
 
