@@ -1,10 +1,10 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## MCE::Mutex::Channel - Mutex locking via a pipe or socket.
+## MCE::Mutex::Channel2 - Provides two mutexes using a single channel.
 ##
 ###############################################################################
 
-package MCE::Mutex::Channel;
+package MCE::Mutex::Channel2;
 
 use strict;
 use warnings;
@@ -13,52 +13,14 @@ no warnings qw( threads recursion uninitialized once );
 
 our $VERSION = '1.839';
 
-use base 'MCE::Mutex';
-use Scalar::Util qw(refaddr weaken);
+use base 'MCE::Mutex::Channel';
 use MCE::Util ();
 
 my $has_threads = $INC{'threads.pm'} ? 1 : 0;
 my $tid = $has_threads ? threads->tid()  : 0;
 
-my @MUTEX;
-
 sub CLONE {
     $tid = threads->tid() if $has_threads;
-}
-
-sub DESTROY {
-    my ($pid, $obj) = ($has_threads ? $$ .'.'. $tid : $$, @_);
-
-    syswrite($obj->{_w_sock}, '0'), $obj->{$pid    } = 0 if $obj->{$pid    };
-    syswrite($obj->{_r_sock}, '0'), $obj->{$pid.'b'} = 0 if $obj->{$pid.'b'};
-
-    if ( $obj->{_init_pid} eq $pid ) {
-        my $addr = refaddr $obj;
-
-        ($^O eq 'MSWin32' && $obj->{impl} eq 'Channel')
-            ? MCE::Util::_destroy_pipes($obj, qw(_w_sock _r_sock))
-            : MCE::Util::_destroy_socks($obj, qw(_w_sock _r_sock));
-
-        if ( ! $has_threads ) {
-            @MUTEX = map { refaddr($_) == $addr ? () : $_ } @MUTEX;
-        }
-    }
-
-    return;
-}
-
-sub _destroy {
-    # Called by { MCE, MCE::Child, and MCE::Hobo }::_exit.
-    # This must iterate a copy.
-
-    if ( @MUTEX ) { local $_; &DESTROY($_) for @{[ @MUTEX ]}; }
-}
-
-sub _save_for_global_destruction {
-    if ( ! $has_threads ) {
-        push @MUTEX, $_[0];
-        weaken $MUTEX[-1];
-    }
 }
 
 ###############################################################################
@@ -68,13 +30,12 @@ sub _save_for_global_destruction {
 ###############################################################################
 
 sub new {
-    my ($class, %obj) = (@_, impl => 'Channel');
+    my ($class, %obj) = (@_, impl => 'Channel2');
     $obj{'_init_pid'} = $has_threads ? $$ .'.'. $tid : $$;
 
-    ($^O eq 'MSWin32')
-        ? MCE::Util::_pipe_pair(\%obj, qw(_r_sock _w_sock))
-        : MCE::Util::_sock_pair(\%obj, qw(_r_sock _w_sock));
+    MCE::Util::_sock_pair(\%obj, qw(_r_sock _w_sock));
 
+    syswrite $obj{_r_sock}, '0';
     syswrite $obj{_w_sock}, '0';
 
     bless \%obj, $class;
@@ -86,47 +47,59 @@ sub new {
     return \%obj;
 }
 
-sub lock {
+sub lock2 {
     my ($pid, $obj) = ($has_threads ? $$ .'.'. $tid : $$, @_);
 
-    MCE::Util::_sysread($obj->{_r_sock}, my($b), 1), $obj->{ $pid } = 1
-        unless $obj->{ $pid };
+    MCE::Util::_sysread($obj->{_w_sock}, my($b), 1), $obj->{ $pid.'b' } = 1
+        unless $obj->{ $pid.'b' };
 
     return;
 }
 
-*lock_exclusive = \&lock;
-*lock_shared    = \&lock;
+*lock_exclusive2 = \&lock2;
+*lock_shared2    = \&lock2;
 
-sub unlock {
+sub unlock2 {
     my ($pid, $obj) = ($has_threads ? $$ .'.'. $tid : $$, @_);
 
-    syswrite($obj->{_w_sock}, '0'), $obj->{ $pid } = 0
-        if $obj->{ $pid };
+    syswrite($obj->{_r_sock}, '0'), $obj->{ $pid.'b' } = 0
+        if $obj->{ $pid.'b' };
 
     return;
 }
 
-sub synchronize {
+sub synchronize2 {
     my ($pid, $obj, $code, @ret) = (
         $has_threads ? $$ .'.'. $tid : $$, shift, shift
     );
     return unless ref($code) eq 'CODE';
 
     # lock, run, unlock - inlined for performance
-    MCE::Util::_sysread($obj->{_r_sock}, my($b), 1), $obj->{ $pid } = 1
-        unless $obj->{ $pid };
+    MCE::Util::_sysread($obj->{_w_sock}, my($b), 1), $obj->{ $pid.'b' } = 1
+        unless $obj->{ $pid.'b' };
 
     (defined wantarray)
       ? @ret = wantarray ? $code->(@_) : scalar $code->(@_)
       : $code->(@_);
 
-    syswrite($obj->{_w_sock}, '0'), $obj->{ $pid } = 0;
+    syswrite($obj->{_r_sock}, '0'), $obj->{ $pid.'b' } = 0;
 
     return wantarray ? @ret : $ret[-1];
 }
 
-*enter = \&synchronize;
+*enter2 = \&synchronize2;
+
+sub timedwait2 {
+    my ($obj, $timeout) = @_;
+
+    local $@; local $SIG{'ALRM'} = sub { alarm 0; die "timed out\n" };
+
+    eval { alarm $timeout || 1; $obj->lock_exclusive2 };
+
+    alarm 0;
+
+    ( $@ && $@ eq "timed out\n" ) ? '' : 1;
+}
 
 1;
 
@@ -140,15 +113,46 @@ __END__
 
 =head1 NAME
 
-MCE::Mutex::Channel - Mutex locking via a pipe or socket
+MCE::Mutex::Channel2 - Provides two mutexes using a single channel
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel version 1.839
+This document describes MCE::Mutex::Channel2 version 1.839
 
 =head1 DESCRIPTION
 
-A pipe-socket implementation for L<MCE::Mutex>. See documentation there.
+A socket implementation based on L<MCE::Mutex>. The secondary lock is accessed
+by calling methods, described in L<MCE::Mutex>, with the C<2> suffix.
+
+ my $mutex = MCE::Mutex->new( impl => 'Channel2' );
+
+=head2 primary lock
+
+=over 3
+
+=item * $mutex->lock
+
+=item * $mutex->unlock
+
+=item * $mutex->synchronize
+
+=item * $mutex->timedwait
+
+=back
+
+=head2 secondary lock
+
+=over 3
+
+=item * $mutex->lock2
+
+=item * $mutex->unlock2
+
+=item * $mutex->synchronize2
+
+=item * $mutex->timedwait2
+
+=back
 
 =head1 AUTHOR
 

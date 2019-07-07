@@ -5,7 +5,7 @@ MCE - Many-Core Engine for Perl providing parallel processing capabilities
 
 =head1 VERSION
 
-This document describes MCE version 1.838
+This document describes MCE version 1.839
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
@@ -135,28 +135,35 @@ The next demonstration loops through a sequence of numbers with MCE::Flow.
 
 =head1 CORE MODULES
 
-Three modules make up the core engine for MCE.
+Four modules make up the core engine for MCE.
 
 =over 3
 
 =item L<MCE::Core>
 
-Provides the Core API for Many-Core Engine. The various MCE options are
-described here. It includes several demonstrations at the end of the page.
+This is the POD documentation describing the core Many-Core Engine (MCE) API.
+Go here for help with the various MCE options. See also, L<MCE::Examples>
+for additional demonstrations.
+
+=item L<MCE::Mutex>
+
+Provides a simple semaphore implementation supporting threads and processes.
+Two implementations are provided; one via pipes or socket depending on the
+platform and the other using Fcntl.
 
 =item L<MCE::Signal>
 
-Temporary directory creation, cleanup, and signal handling.
+Provides signal handling, temporary directory creation, and cleanup for MCE.
 
 =item L<MCE::Util>
 
-Utility functions for Many-Core Engine.
+Provides utility functions for MCE.
 
 =back
 
 =head1 MCE EXTRAS
 
-There are 4 add-on modules for use with MCE.
+There are 5 add-on modules for use with MCE.
 
 =over 3
 
@@ -165,11 +172,18 @@ There are 4 add-on modules for use with MCE.
 Provides a collection of sugar methods and output iterators for preserving
 output order.
 
-=item L<MCE::Mutex>
+=item L<MCE::Channel>
 
-Provides a simple semaphore implementation supporting threads and processes.
-Two implementations are provided. One via pipes or socket depending on the
-platform. The other via Fcntl.
+Introduced in MCE 1.839, provides queue-like and two-way communication
+capability. Three implementations C<Simple>, C<Mutex>, and C<Threads> are
+provided. C<Simple> does not involve locking whereas C<Mutex> and C<Threads>
+do locking transparently using C<MCE::Mutex> and C<threads> respectively.
+
+=item L<MCE::Child>
+
+Also introduced in MCE 1.839, provides a threads-like parallelization module
+that is compatible with Perl 5.8. It is a fork of L<MCE::Hobo>. The difference
+is using a common C<MCE::Channel> object when yielding and joining.
 
 =item L<MCE::Queue>
 
@@ -180,29 +194,23 @@ threads.
 
 =item L<MCE::Relay>
 
-Enables workers to receive and pass on information orderly with zero
-involvement by the manager process while running.
+Provides workers the ability to receive and pass information orderly with zero
+involvement by the manager process. This module is loaded automatically by
+MCE when specifying the C<init_relay> MCE option.
 
 =back
 
 =head1 MCE MODELS
 
-The models take Many-Core Engine to a new level for ease of use. Two options
-(chunk_size and max_workers) are configured automatically as well as spawning
-and shutdown.
+The MCE models are sugar syntax on top of the L<MCE::Core> API. Two MCE options
+(chunk_size and max_workers) are configured automatically. Moreover, spawning
+workers and later shutdown occur transparently behind the scene.
+
+Choosing a MCE Model largely depends on the application. It all boils down
+to how much automation you need MCE to handle transparently. Or if you prefer,
+constructing the MCE object and running using the core MCE API is fine too.
 
 =over 3
-
-=item L<MCE::Loop>
-
-Provides a MCE model for building parallel loops.
-
-=item L<MCE::Flow>
-
-A parallel flow model for building creative applications. This makes use of
-user_tasks in MCE. The author has full control when utilizing this model.
-MCE::Flow is similar to MCE::Loop, but allows for multiple code blocks to
-run in parallel with a slight change to syntax.
 
 =item L<MCE::Grep>
 
@@ -210,21 +218,29 @@ Provides a parallel grep implementation similar to the native grep function.
 
 =item L<MCE::Map>
 
-Provides a parallel map model similar to the native map function.
+Provides a parallel map implementation similar to the native map function.
+
+=item L<MCE::Loop>
+
+Provides a parallel for loop implementation.
+
+=item L<MCE::Flow>
+
+Like C<MCE::Loop>, but with support for multiple pools of workers. The pool
+of workers are configured transparently via the MCE C<user_tasks> option.
 
 =item L<MCE::Step>
 
-Provides a parallel step implementation utilizing MCE::Queue between user
-tasks. MCE::Step is a spin off from MCE::Flow with a touch of MCE::Stream.
-This model, introduced in 1.506, allows one to pass data from one sub-task
-into the next transparently.
+Like C<MCE::Flow>, but adds a C<MCE::Queue> object between each pool of
+workers. This model, introduced in 1.506, allows one to pass data forward
+(left to right) from one sub-task into another with little effort.
 
 =item L<MCE::Stream>
 
-Provides an efficient parallel implementation for chaining multiple maps
-and greps together through user_tasks and MCE::Queue. Like with MCE::Flow,
-MCE::Stream can run multiple code blocks in parallel with a slight change
-to syntax from MCE::Map and MCE::Grep.
+This provides an efficient parallel implementation for chaining multiple maps
+and greps transparently. Like C<MCE::Flow> and C<MCE::Step>, it too supports
+multiple pools of workers. The distinction is that C<MCE::Stream> passes
+data from right to left and done for you transparently.
 
 =back
 
@@ -266,7 +282,8 @@ The source, cookbook, and examples are hosted at GitHub.
 =head1 SEE ALSO
 
 C<MCE::Shared> provides data sharing capabilities for C<MCE>. It includes
-C<MCE::Hobo> for running code asynchronously.
+C<MCE::Hobo> for running code asynchronously with the IPC handled by the
+shared-manager process.
 
 =over 3
 

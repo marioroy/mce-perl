@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -88,7 +88,7 @@ sub _output_loop {
       $_has_user_tasks, $_sess_dir, $_task_id, $_user_error, $_user_output,
       $_input_size, $_offset_pos, $_single_dim, @_gather, $_cs_one_flag,
       $_exit_id, $_exit_pid, $_exit_status, $_exit_wid, $_len, $_sync_cnt,
-      $_BSB_W_SOCK, $_BSE_W_SOCK, $_DAT_R_SOCK, $_DAU_R_SOCK, $_MCE_STDERR,
+      $_BSB_W_SOCK, $_BSB_R_SOCK, $_DAT_R_SOCK, $_DAU_R_SOCK, $_MCE_STDERR,
       $_I_FLG, $_O_FLG, $_I_SEP, $_O_SEP, $_RS, $_RS_FLG, $_MCE_STDOUT,
       @_delay_wid, $_size_completed, $_win32_ipc
    );
@@ -148,7 +148,7 @@ sub _output_loop {
          if ($_task_id == 0 && defined $_syn_flag && $_sync_cnt) {
             if ($_sync_cnt == $_total_running) {
                for my $_i (1 .. $_total_running) {
-                  MCE::Util::_syswrite($_BSB_W_SOCK, $LF);
+                  syswrite($_BSB_W_SOCK, $LF);
                }
                undef $_syn_flag;
             }
@@ -180,7 +180,7 @@ sub _output_loop {
          if ($_task_id == 0 && defined $_syn_flag && $_sync_cnt) {
             if ($_sync_cnt == $_total_running) {
                for my $_i (1 .. $_total_running) {
-                  MCE::Util::_syswrite($_BSB_W_SOCK, $LF);
+                  syswrite($_BSB_W_SOCK, $LF);
                }
                undef $_syn_flag;
             }
@@ -599,7 +599,7 @@ sub _output_loop {
 
          if (++$_sync_cnt == $_total_running) {
             for my $_i (1 .. $_total_running) {
-               MCE::Util::_syswrite($_BSB_W_SOCK, $LF);
+               syswrite($_BSB_W_SOCK, $LF);
             }
             undef $_syn_flag;
          }
@@ -614,7 +614,7 @@ sub _output_loop {
                : $self->{_total_running};
 
             for my $_i (1 .. $_total_running) {
-               MCE::Util::_syswrite($_BSE_W_SOCK, $LF);
+               syswrite($_BSB_R_SOCK, $LF);
             }
          }
 
@@ -622,7 +622,7 @@ sub _output_loop {
       },
 
       OUTPUT_S_IPC.$LF => sub {                   # Change to win32 IPC
-         MCE::Util::_syswrite($_DAT_R_SOCK, $LF);
+         syswrite($_DAT_R_SOCK, $LF);
 
          $_win32_ipc = 1, goto _LOOP unless $_win32_ipc;
 
@@ -801,12 +801,17 @@ sub _output_loop {
 
    ## Output event loop.
 
-   my $_func; my $_channels = $self->{_dat_r_sock};
+   my $_channels = $self->{_dat_r_sock};
+   my $_func;
 
-   $_win32_ipc  = ( $ENV{'PERL_MCE_IPC'} eq 'win32' || $INC{'MCE/Hobo.pm'} );
+   $_win32_ipc = (
+      $ENV{'PERL_MCE_IPC'} eq 'win32' ||
+      $INC{'MCE/Child.pm'} ||
+      $INC{'MCE/Hobo.pm'}
+   );
 
    $_BSB_W_SOCK = $self->{_bsb_w_sock};
-   $_BSE_W_SOCK = $self->{_bse_w_sock};
+   $_BSB_R_SOCK = $self->{_bsb_r_sock};
    $_DAT_R_SOCK = $self->{_dat_r_sock}->[0];
 
    $_RS     = $self->{RS} || $/;

@@ -4,7 +4,6 @@ Copying
 Credits
 LICENSE
 MANIFEST
-MANIFEST.SKIP
 META.json
 META.yml
 README.md
@@ -12,6 +11,11 @@ bin/mce_grep
 lib/MCE.pm
 lib/MCE.pod
 lib/MCE/Candy.pm
+lib/MCE/Channel.pm
+lib/MCE/Channel/Mutex.pm
+lib/MCE/Channel/Simple.pm
+lib/MCE/Channel/Threads.pm
+lib/MCE/Child.pm
 lib/MCE/Core.pod
 lib/MCE/Core/Input/Generator.pm
 lib/MCE/Core/Input/Handle.pm
@@ -28,6 +32,7 @@ lib/MCE/Loop.pm
 lib/MCE/Map.pm
 lib/MCE/Mutex.pm
 lib/MCE/Mutex/Channel.pm
+lib/MCE/Mutex/Channel2.pm
 lib/MCE/Mutex/Flock.pm
 lib/MCE/Queue.pm
 lib/MCE/Relay.pm
@@ -43,6 +48,7 @@ t/01_load_signal_arg.t
 t/01_load_signal_export.t
 t/01_load_signal_tag.t
 t/01_mutex_channel.t
+t/01_mutex_channel2.t
 t/01_mutex_flock.t
 t/02_do_callback_args.t
 t/02_do_callback_result.t
@@ -52,6 +58,12 @@ t/04_norm_que_manager.t
 t/04_norm_que_worker.t
 t/04_prio_que_manager.t
 t/04_prio_que_worker.t
+t/04_channel_mutex.t
+t/04_channel_mutex_mp.t
+t/04_channel_simple.t
+t/04_channel_threads.t
+t/04_channel_threads_mp.t
+t/05_mce_child.t
 t/05_mce_flow.t
 t/05_mce_grep.t
 t/05_mce_loop.t
@@ -62,4 +74,5 @@ t/06_nodata_flow.t
 t/06_nodata_step.t
 t/06_relay.t
 xt/channel_lock.t
+xt/channel2_lock.t
 xt/flock_lock.t

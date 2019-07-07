@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -350,7 +350,7 @@ MCE::Loop - MCE model for building parallel loops
 
 =head1 VERSION
 
-This document describes MCE::Loop version 1.838
+This document describes MCE::Loop version 1.839
 
 =head1 DESCRIPTION
 
@@ -443,7 +443,11 @@ inside the block. Hence, the block is called once per each item.
 
  ## Array or array_ref
  mce_loop { do_work($_) } 1..10000;
- mce_loop { do_work($_) } [ 1..10000 ];
+ mce_loop { do_work($_) } \@list;
+
+ ## Important; pass an array_ref for deeply input data
+ mce_loop { do_work($_) } [ [ 0, 1 ], [ 0, 2 ], ... ];
+ mce_loop { do_work($_) } \@deeply_list;
 
  ## File_path, glob_ref, or scalar_ref
  mce_loop_f { chomp; do_work($_) } "/path/to/file";
@@ -473,10 +477,15 @@ This means having to loop through the chunk from inside the block.
  ## Looping inside the block is the same for mce_loop_f and
  ## mce_loop_s.
 
+ ## Array or array_ref
  mce_loop { do_work($_) for (@{ $_ }) } 1..10000;
+ mce_loop { do_work($_) for (@{ $_ }) } \@list;
 
- ## Same as above, resembles code using the Core API.
+ ## Important; pass an array_ref for deeply input data
+ mce_loop { do_work($_) for (@{ $_ }) } [ [ 0, 1 ], [ 0, 2 ], ... ];
+ mce_loop { do_work($_) for (@{ $_ }) } \@deeply_list;
 
+ ## Resembles code using the core MCE API
  mce_loop {
     my ($mce, $chunk_ref, $chunk_id) = @_;
 
@@ -519,6 +528,8 @@ Specify C<Sereal => 0> to use Storable instead.
 
 =item MCE::Loop::init { options }
 
+=back
+
 The init function accepts a hash of MCE options.
 
  use MCE::Loop;
@@ -559,8 +570,6 @@ The init function accepts a hash of MCE options.
  7569 7744 7921 8100 8281 8464 8649 8836 9025 9216 9409 9604 9801
  10000
 
-=back
-
 =head1 API DOCUMENTATION
 
 The following assumes chunk_size equals 1 in order to demonstrate all the
@@ -572,14 +581,21 @@ possibilities for providing input data.
 
 =item mce_loop { code } list
 
+=back
+
 Input data may be defined using a list, an array ref, or a hash ref.
 
  # $_ contains the item when chunk_size => 1
 
- mce_loop { $_ } 1..1000;
- mce_loop { $_ } \@list;
+ mce_loop { do_work($_) } 1..1000;
+ mce_loop { do_work($_) } \@list;
 
- # chunking, any chunk_size => 1 or higher
+ # Important; pass an array_ref for deeply input data
+
+ mce_loop { do_work($_) } [ [ 0, 1 ], [ 0, 2 ], ... ];
+ mce_loop { do_work($_) } \@deeply_list;
+
+ # Chunking; any chunk_size => 1 or greater
 
  my %res = mce_loop {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -591,7 +607,7 @@ Input data may be defined using a list, an array ref, or a hash ref.
  }
  \@list;
 
- # input hash, current API available since 1.828
+ # Input hash; current API available since 1.828
 
  my %res = mce_loop {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -603,9 +619,13 @@ Input data may be defined using a list, an array ref, or a hash ref.
  }
  \%hash;
 
+=over 3
+
 =item MCE::Loop->run_file ( sub { code }, file )
 
 =item mce_loop_f { code } file
+
+=back
 
 The fastest of these is the /path/to/file. Workers communicate the next offset
 position among themselves with zero interaction by the manager process.
@@ -616,7 +636,7 @@ position among themselves with zero interaction by the manager process.
  mce_loop_f { $_ } $file_handle;
  mce_loop_f { $_ } \$scalar;
 
- # chunking, any chunk_size => 1 or higher
+ # chunking, any chunk_size => 1 or greater
 
  my %res = mce_loop_f {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -628,9 +648,13 @@ position among themselves with zero interaction by the manager process.
  }
  "/path/to/file";
 
+=over 3
+
 =item MCE::Loop->run_seq ( sub { code }, $beg, $end [, $step, $fmt ] )
 
 =item mce_loop_s { code } $beg, $end [, $step, $fmt ]
+
+=back
 
 Sequence may be defined as a list, an array reference, or a hash reference.
 The functions require both begin and end values to run. Step and format are
@@ -648,7 +672,7 @@ optional. The format is passed to sprintf (% may be omitted below).
     step => $step, format => $fmt
  };
 
- # chunking, any chunk_size => 1 or higher
+ # chunking, any chunk_size => 1 or greater
 
  my %res = mce_loop_s {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -710,16 +734,18 @@ Time was measured using 1 worker to emphasize the difference.
  7500001 ..  8750000
  8750001 .. 10000000
 
+=over 3
+
 =item MCE::Loop->run ( sub { code }, iterator )
 
 =item mce_loop { code } iterator
+
+=back
 
 An iterator reference may be specified for input_data. Iterators are described
 under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 
  mce_loop { $_ } make_iterator(10, 30, 2);
-
-=back
 
 =head1 GATHERING DATA
 
@@ -898,6 +924,8 @@ The following does the same thing using the Core API.
 
 =item MCE::Loop::finish
 
+=back
+
 Workers remain persistent as much as possible after running. Shutdown occurs
 automatically when the script terminates. Call finish when workers are no
 longer needed.
@@ -911,8 +939,6 @@ longer needed.
  mce_loop { ... } 1..100;
 
  MCE::Loop::finish;
-
-=back
 
 =head1 INDEX
 

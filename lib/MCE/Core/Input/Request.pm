@@ -14,7 +14,7 @@ package MCE::Core::Input::Request;
 use strict;
 use warnings;
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 ## Items below are folded into MCE.
 
@@ -62,7 +62,7 @@ sub _worker_request_chunk {
             unless $_DAT_LOCK->{ $_pid };
       };
       $_dat_un = sub {
-         MCE::Util::_syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
+         syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
             if $_DAT_LOCK->{ $_pid };
       };
    }

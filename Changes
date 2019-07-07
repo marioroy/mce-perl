@@ -1,12 +1,46 @@
 
 Revision history for Perl module MCE.
 
+1.839 Sun Jul 07 04:30:00 EST 2019
+
+  [NEW FEATURES]
+
+  * Added MCE::Mutex::Channel2 providing two locks using a single channel.
+    The secondary lock is accessible by calling methods with the '2' suffix.
+    E.g. primary mutex ->lock, ->unlock; secondary mutex ->lock2, ->unlock2
+
+  * Added MCE::Channel providing queue-like and two-way communication
+    supporting threads and processes.
+
+  * Added MCE::Child and compatibility with Perl 5.8. MCE::Child is based on
+    MCE::Hobo, but using MCE::Channel for data retrieval without involving
+    a shared-manager process.
+
+  * Added MCE::Channel examples { channel1.pl and channel2.pl } using
+    threads and MCE::Child respectively.
+    https://github.com/marioroy/mce-examples/tree/master/chameneos
+
+  [ENHANCEMENTS]
+
+  * IPC update; removed unnecessary overhead including private methods
+    _sysseek and _syswrite from MCE::Util (no longer needed).
+
+  * Improved MCE->do, now callable by workers and the manager process.
+
+  * Updated MCE::{ Flow, Grep, Loop, Map, Step, and Stream } documentation
+    on passing an array reference versus a list for deeply input data.
+
+  * Updated and re-organized the top-level MCE documentation, particularly
+    improved clarity for the 'MCE Models' section.
+
+  * Removed MANIFEST.SKIP.
+
 1.838 Wed Jan 23 08:30:00 EST 2019
 
   * IPC update, raising reliability across multiple platforms.
   * Improved hack for the Windows platform for nested MCE sessions.
   * Added _sysread, _sysseek, _syswrite, and _nonblocking to MCE::Util.
-  * Added barrier option to MCE::Queue: allows one to disable.
+  * Added barrier option to MCE::Queue allowing one to disable.
 
 1.837 Sat Aug 25 13:00:00 EST 2018
 

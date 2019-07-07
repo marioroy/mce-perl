@@ -14,7 +14,7 @@ package MCE::Core::Validation;
 use strict;
 use warnings;
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 ## Items below are folded into MCE.
 
@@ -256,7 +256,7 @@ sub _parse_chunk_size {
          # Iterators may optionally use chunk_size to determine how much
          # to return per iteration. The default is 1 for MCE Models, same
          # as for the Core API. The user_func receives an array_ref
-         # regardless if 1 or higher.
+         # regardless if 1 or greater.
          #
          # sub make_iter {
          #    ...
@@ -351,7 +351,7 @@ sub _parse_max_workers {
       $_ncpu_ul = 8 if ($_ncpu_ul > 8);
 
       if ($1 && $2) {
-         local $@; $_max_workers = eval "int($_ncpu_ul $1 $2 + 0.5)";
+         local $@; $_max_workers = eval "int($_ncpu_ul $1 $2 + 0.5)"; ## no critic
          $_max_workers = 1 if (!$_max_workers || $_max_workers < 1);
          $_max_workers = $_ncpu if ($_max_workers > $_ncpu);
       }

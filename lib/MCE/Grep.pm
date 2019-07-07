@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -435,7 +435,7 @@ MCE::Grep - Parallel grep model similar to the native grep function
 
 =head1 VERSION
 
-This document describes MCE::Grep version 1.838
+This document describes MCE::Grep version 1.839
 
 =head1 SYNOPSIS
 
@@ -444,18 +444,22 @@ This document describes MCE::Grep version 1.838
 
  ## Array or array_ref
  my @a = mce_grep { $_ % 5 == 0 } 1..10000;
- my @b = mce_grep { $_ % 5 == 0 } [ 1..10000 ];
+ my @b = mce_grep { $_ % 5 == 0 } \@list;
+
+ ## Important; pass an array_ref for deeply input data
+ my @c = mce_grep { $_->[1] % 2 == 0 } [ [ 0, 1 ], [ 0, 2 ], ... ];
+ my @d = mce_grep { $_->[1] % 2 == 0 } \@deeply_list;
 
  ## File_path, glob_ref, or scalar_ref
- my @c = mce_grep_f { /pattern/ } "/path/to/file";
- my @d = mce_grep_f { /pattern/ } $file_handle;
- my @e = mce_grep_f { /pattern/ } \$scalar;
+ my @e = mce_grep_f { /pattern/ } "/path/to/file";
+ my @f = mce_grep_f { /pattern/ } $file_handle;
+ my @g = mce_grep_f { /pattern/ } \$scalar;
 
  ## Sequence of numbers (begin, end [, step, format])
- my @f = mce_grep_s { %_ * 3 == 0 } 1, 10000, 5;
- my @g = mce_grep_s { %_ * 3 == 0 } [ 1, 10000, 5 ];
+ my @h = mce_grep_s { %_ * 3 == 0 } 1, 10000, 5;
+ my @i = mce_grep_s { %_ * 3 == 0 } [ 1, 10000, 5 ];
 
- my @h = mce_grep_s { %_ * 3 == 0 } {
+ my @j = mce_grep_s { %_ * 3 == 0 } {
     begin => 1, end => 10000, step => 5, format => undef
  };
 
@@ -604,6 +608,8 @@ Specify C<Sereal => 0> to use Storable instead.
 
 =item MCE::Grep::init { options }
 
+=back
+
 The init function accepts a hash of MCE options. The gather option, if
 specified, is ignored due to being used internally by the module.
 
@@ -638,8 +644,6 @@ specified, is ignored due to being used internally by the module.
 
  5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100
 
-=back
-
 =head1 API DOCUMENTATION
 
 =over 3
@@ -648,17 +652,29 @@ specified, is ignored due to being used internally by the module.
 
 =item mce_grep { code } list
 
+=back
+
 Input data may be defined using a list or an array reference. Unlike MCE::Loop,
 Flow, and Step, specifying a hash reference as input data isn't allowed.
 
+ ## Array or array_ref
  my @a = mce_grep { /[2357]/ } 1..1000;
  my @b = mce_grep { /[2357]/ } \@list;
 
- my @z = mce_grep { /[2357]/ } \%hash;  # not supported
+ ## Important; pass an array_ref for deeply input data
+ my @c = mce_grep { $_->[1] =~ /[2357]/ } [ [ 0, 1 ], [ 0, 2 ], ... ];
+ my @d = mce_grep { $_->[1] =~ /[2357]/ } \@deeply_list;
+
+ ## Not supported
+ my @z = mce_grep { ... } \%hash;
+
+=over 3
 
 =item MCE::Grep->run_file ( sub { code }, file )
 
 =item mce_grep_f { code } file
+
+=back
 
 The fastest of these is the /path/to/file. Workers communicate the next offset
 position among themselves with zero interaction by the manager process.
@@ -667,9 +683,13 @@ position among themselves with zero interaction by the manager process.
  my @d = mce_grep_f { /pattern/ } $file_handle;
  my @e = mce_grep_f { /pattern/ } \$scalar;
 
+=over 3
+
 =item MCE::Grep->run_seq ( sub { code }, $beg, $end [, $step, $fmt ] )
 
 =item mce_grep_s { code } $beg, $end [, $step, $fmt ]
+
+=back
 
 Sequence may be defined as a list, an array reference, or a hash reference.
 The functions require both begin and end values to run. Step and format are
@@ -685,16 +705,18 @@ optional. The format is passed to sprintf (% may be omitted below).
     step => $step, format => $fmt
  };
 
+=over 3
+
 =item MCE::Grep->run ( sub { code }, iterator )
 
 =item mce_grep { code } iterator
+
+=back
 
 An iterator reference may be specified for input_data. Iterators are described
 under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 
  my @a = mce_grep { $_ % 3 == 0 } make_iterator(10, 30, 2);
-
-=back
 
 =head1 MANUAL SHUTDOWN
 
@@ -703,6 +725,8 @@ under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 =item MCE::Grep->finish
 
 =item MCE::Grep::finish
+
+=back
 
 Workers remain persistent as much as possible after running. Shutdown occurs
 automatically when the script terminates. Call finish when workers are no
@@ -717,8 +741,6 @@ longer needed.
  my @a = mce_grep { ... } 1..100;
 
  MCE::Grep::finish;
-
-=back
 
 =head1 INDEX
 

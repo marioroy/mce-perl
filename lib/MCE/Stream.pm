@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -672,7 +672,7 @@ MCE::Stream - Parallel stream model for chaining multiple maps and greps
 
 =head1 VERSION
 
-This document describes MCE::Stream version 1.838
+This document describes MCE::Stream version 1.839
 
 =head1 SYNOPSIS
 
@@ -695,18 +695,22 @@ This document describes MCE::Stream version 1.838
 
  ## Array or array_ref
  my @a = mce_stream sub { $_ * $_ }, 1..10000;
- my @b = mce_stream sub { $_ * $_ }, [ 1..10000 ];
+ my @b = mce_stream sub { $_ * $_ }, \@list;
+
+ ## Important; pass an array_ref for deeply input data
+ my @c = mce_stream sub { $_->[1] *= 2; $_ }, [ [ 0, 1 ], [ 0, 2 ], ... ];
+ my @d = mce_stream sub { $_->[1] *= 2; $_ }, \@deeply_list;
 
  ## File_path, glob_ref, or scalar_ref
- my @c = mce_stream_f sub { chomp; $_ }, "/path/to/file";
- my @d = mce_stream_f sub { chomp; $_ }, $file_handle;
- my @e = mce_stream_f sub { chomp; $_ }, \$scalar;
+ my @e = mce_stream_f sub { chomp; $_ }, "/path/to/file";
+ my @f = mce_stream_f sub { chomp; $_ }, $file_handle;
+ my @g = mce_stream_f sub { chomp; $_ }, \$scalar;
 
  ## Sequence of numbers (begin, end [, step, format])
- my @f = mce_stream_s sub { $_ * $_ }, 1, 10000, 5;
- my @g = mce_stream_s sub { $_ * $_ }, [ 1, 10000, 5 ];
+ my @h = mce_stream_s sub { $_ * $_ }, 1, 10000, 5;
+ my @i = mce_stream_s sub { $_ * $_ }, [ 1, 10000, 5 ];
 
- my @h = mce_stream_s sub { $_ * $_ }, {
+ my @j = mce_stream_s sub { $_ * $_ }, {
     begin => 1, end => 10000, step => 5, format => undef
  };
 
@@ -791,6 +795,8 @@ Specify C<Sereal => 0> to use Storable instead.
 
 =item MCE::Stream::init { options }
 
+=back
+
 The init function accepts a hash of MCE options. The gather and bounds_only
 options, if specified, are ignored due to being used internally by the
 module (not shown below).
@@ -832,8 +838,6 @@ module (not shown below).
  5476 5625 5776 5929 6084 6241 6400 6561 6724 6889 7056 7225 7396
  7569 7744 7921 8100 8281 8464 8649 8836 9025 9216 9409 9604 9801
  10000
-
-=back
 
 Like with MCE::Stream::init above, MCE options may be specified using an
 anonymous hash for the first argument. Notice how both max_workers and
@@ -916,17 +920,29 @@ possibilities for providing input data.
 
 =item mce_stream sub { code }, list
 
+=back
+
 Input data may be defined using a list or an array reference. Unlike MCE::Loop,
 Flow, and Step, specifying a hash reference as input data isn't allowed.
 
+ ## Array or array_ref
  my @a = mce_stream sub { $_ * 2 }, 1..1000;
  my @b = mce_stream sub { $_ * 2 }, \@list;
 
- my @z = mce_stream sub { $_ * 2 }, \%hash;  # not supported
+ ## Important; pass an array_ref for deeply input data
+ my @c = mce_stream sub { $_->[1] *= 2; $_ }, [ [ 0, 1 ], [ 0, 2 ], ... ];
+ my @d = mce_stream sub { $_->[1] *= 2; $_ }, \@deeply_list;
+
+ ## Not supported
+ my @z = mce_stream sub { ... }, \%hash;
+
+=over 3
 
 =item MCE::Stream->run_file ( sub { code }, file )
 
 =item mce_stream_f sub { code }, file
+
+=back
 
 The fastest of these is the /path/to/file. Workers communicate the next offset
 position among themselves with zero interaction by the manager process.
@@ -935,9 +951,13 @@ position among themselves with zero interaction by the manager process.
  my @d = mce_stream_f sub { chomp; $_ . "\r\n" }, $file_handle;
  my @e = mce_stream_f sub { chomp; $_ . "\r\n" }, \$scalar;
 
+=over 3
+
 =item MCE::Stream->run_seq ( sub { code }, $beg, $end [, $step, $fmt ] )
 
 =item mce_stream_s sub { code }, $beg, $end [, $step, $fmt ]
+
+=back
 
 Sequence may be defined as a list, an array reference, or a hash reference.
 The functions require both begin and end values to run. Step and format are
@@ -952,9 +972,13 @@ optional. The format is passed to sprintf (% may be omitted below).
     begin => $beg, end => $end, step => $step, format => $fmt
  };
 
+=over 3
+
 =item MCE::Stream->run ( { input_data => iterator }, sub { code } )
 
 =item mce_stream { input_data => iterator }, sub { code }
+
+=back
 
 An iterator reference may be specified for input_data. The only other way
 is to specify input_data via MCE::Stream::init. This prevents MCE::Stream
@@ -969,8 +993,6 @@ Iterators are described under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 
  my @a = mce_stream sub { $_ * 3 }, sub { $_ * 2 };
 
-=back
-
 =head1 MANUAL SHUTDOWN
 
 =over 3
@@ -978,6 +1000,8 @@ Iterators are described under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 =item MCE::Stream->finish
 
 =item MCE::Stream::finish
+
+=back
 
 Workers remain persistent as much as possible after running. Shutdown occurs
 automatically when the script terminates. Call finish when workers are no
@@ -992,8 +1016,6 @@ longer needed.
  my @a = mce_stream { ... } 1..100;
 
  MCE::Stream::finish;
-
-=back
 
 =head1 INDEX
 

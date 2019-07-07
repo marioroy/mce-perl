@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -20,18 +20,18 @@ use Carp ();
 
 sub new {
     my ($class, %argv) = @_;
+    my $impl = defined($argv{'impl'})
+        ? $argv{'impl'} : defined($argv{'path'}) ? 'Flock' : 'Channel';
 
-    my $pkg = (defined $argv{'impl'})
-        ? $argv{'impl'} : (defined $argv{'path'}) ? 'Flock' : 'Channel';
+    $impl = ucfirst( lc $impl );
 
-    $pkg = ucfirst( lc $pkg );
+    eval "require MCE::Mutex::$impl; 1" ||
+        Carp::croak("Could not load Mutex implementation '$impl': $@");
 
-    if (eval "require MCE::Mutex::$pkg; 1") {
-        no strict 'refs'; $pkg = 'MCE::Mutex::'.$pkg;
-        return $pkg->new(%argv);
-    }
+    my $pkg = 'MCE::Mutex::'.$impl;
+    no strict 'refs';
 
-    Carp::croak("Could not load Mutex implementation $pkg: $@");
+    return $pkg->new( %argv );
 }
 
 ## base class methods
@@ -68,7 +68,7 @@ MCE::Mutex - Locking for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Mutex version 1.838
+This document describes MCE::Mutex version 1.839
 
 =head1 SYNOPSIS
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 
@@ -343,7 +343,7 @@ MCE::Relay - Extends Many-Core Engine with relay capabilities
 
 =head1 VERSION
 
-This document describes MCE::Relay version 1.838
+This document describes MCE::Relay version 1.839
 
 =head1 SYNOPSIS
 
@@ -411,6 +411,8 @@ across all platforms.
 =item MCE->relay ( sub { code } )
 
 =item MCE::relay { code }
+
+=back
 
 Relay is enabled by specifying the init_relay option which takes a hash or array
 reference, or a scalar value. Relaying is orderly and driven by chunk_id when
@@ -519,7 +521,11 @@ Or simply a scalar value.
  4: 1003
     4012 size
 
+=over 3
+
 =item MCE->relay_final ( void )
+
+=back
 
 Call this method to obtain the final relay value(s) after running. See included
 example findnull.pl for another use case.
@@ -550,7 +556,11 @@ example findnull.pl for another use case.
 
  40 : 180
 
+=over 3
+
 =item MCE->relay_recv ( void )
+
+=back
 
 Call this method to obtain the next relay value before relaying. This allows
 serial-code to be processed orderly between workers. The following is a parallel
@@ -718,9 +728,13 @@ demonstration for the fasta-benchmark on the web.
  say ">THREE Homo sapiens frequency";
  make_random_fasta( $homosapiens, $n * 5 );
 
+=over 3
+
 =item MCE->relay_lock ( void )
 
 =item MCE->relay_unlock ( void )
+
+=back
 
 The C<relay_lock> and C<relay_unlock> methods, added to MCE 1.807, are
 aliases for C<relay_recv> and C<relay> respectively. They allow one to
@@ -920,8 +934,6 @@ Here, workers write exclusively and orderly to C<STDOUT>.
  say ">THREE Homo sapiens frequency";
  make_random_fasta( $homosapiens, $n * 5 );
 
-=back
-
 =head1 GATHER AND RELAY DEMONSTRATIONS
 
 I received a request from John Martel to process a large flat file and expand
@@ -958,6 +970,8 @@ while preserving output order.
  ...
 
 =item Example One
+
+=back
 
 This example configures a custom function for preserving output order.
 Unfortunately, the sprintf function alone involves extra CPU time causing
@@ -1019,7 +1033,11 @@ for the manager process to respond to the gather request.
  MCE::Loop::finish();
  close $fh_out;
 
+=over 3
+
 =item Example Two
+
+=back
 
 In this example, workers obtain the current ID value and increment/relay for
 the next worker, ordered by chunk ID behind the scene. Workers call sprintf
@@ -1074,8 +1092,6 @@ not call relay more than once per chunk. Doing so will cause IPC to stall.
 
  MCE::Loop::finish();
  close $fh_out;
-
-=back
 
 =head1 INDEX
 

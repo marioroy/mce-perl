@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -435,7 +435,7 @@ MCE::Map - Parallel map model similar to the native map function
 
 =head1 VERSION
 
-This document describes MCE::Map version 1.838
+This document describes MCE::Map version 1.839
 
 =head1 SYNOPSIS
 
@@ -444,18 +444,22 @@ This document describes MCE::Map version 1.838
 
  ## Array or array_ref
  my @a = mce_map { $_ * $_ } 1..10000;
- my @b = mce_map { $_ * $_ } [ 1..10000 ];
+ my @b = mce_map { $_ * $_ } \@list;
+
+ ## Important; pass an array_ref for deeply input data
+ my @c = mce_map { $_->[1] *= 2; $_ } [ [ 0, 1 ], [ 0, 2 ], ... ];
+ my @d = mce_map { $_->[1] *= 2; $_ } \@deeply_list;
 
  ## File_path, glob_ref, or scalar_ref
- my @c = mce_map_f { chomp; $_ } "/path/to/file";
- my @d = mce_map_f { chomp; $_ } $file_handle;
- my @e = mce_map_f { chomp; $_ } \$scalar;
+ my @e = mce_map_f { chomp; $_ } "/path/to/file";
+ my @f = mce_map_f { chomp; $_ } $file_handle;
+ my @g = mce_map_f { chomp; $_ } \$scalar;
 
  ## Sequence of numbers (begin, end [, step, format])
- my @f = mce_map_s { $_ * $_ } 1, 10000, 5;
- my @g = mce_map_s { $_ * $_ } [ 1, 10000, 5 ];
+ my @h = mce_map_s { $_ * $_ } 1, 10000, 5;
+ my @i = mce_map_s { $_ * $_ } [ 1, 10000, 5 ];
 
- my @h = mce_map_s { $_ * $_ } {
+ my @j = mce_map_s { $_ * $_ } {
     begin => 1, end => 10000, step => 5, format => undef
  };
 
@@ -539,6 +543,8 @@ Specify C<Sereal => 0> to use Storable instead.
 
 =item MCE::Map::init { options }
 
+=back
+
 The init function accepts a hash of MCE options. The gather option, if
 specified, is ignored due to being used internally by the module.
 
@@ -580,8 +586,6 @@ specified, is ignored due to being used internally by the module.
  7569 7744 7921 8100 8281 8464 8649 8836 9025 9216 9409 9604 9801
  10000
 
-=back
-
 =head1 API DOCUMENTATION
 
 =over 3
@@ -590,17 +594,29 @@ specified, is ignored due to being used internally by the module.
 
 =item mce_map { code } list
 
+=back
+
 Input data may be defined using a list or an array reference. Unlike MCE::Loop,
 Flow, and Step, specifying a hash reference as input data isn't allowed.
 
+ ## Array or array_ref
  my @a = mce_map { $_ * 2 } 1..1000;
  my @b = mce_map { $_ * 2 } \@list;
 
- my @z = mce_map { $_ * 2 } \%hash;  # not supported
+ ## Important; pass an array_ref for deeply input data
+ my @c = mce_map { $_->[1] *= 2; $_ } [ [ 0, 1 ], [ 0, 2 ], ... ];
+ my @d = mce_map { $_->[1] *= 2; $_ } \@deeply_list;
+
+ ## Not supported
+ my @z = mce_map { ... } \%hash;
+
+=over 3
 
 =item MCE::Map->run_file ( sub { code }, file )
 
 =item mce_map_f { code } file
+
+=back
 
 The fastest of these is the /path/to/file. Workers communicate the next offset
 position among themselves with zero interaction by the manager process.
@@ -609,9 +625,13 @@ position among themselves with zero interaction by the manager process.
  my @d = mce_map_f { chomp; $_ . "\r\n" } $file_handle;
  my @e = mce_map_f { chomp; $_ . "\r\n" } \$scalar;
 
+=over 3
+
 =item MCE::Map->run_seq ( sub { code }, $beg, $end [, $step, $fmt ] )
 
 =item mce_map_s { code } $beg, $end [, $step, $fmt ]
+
+=back
 
 Sequence may be defined as a list, an array reference, or a hash reference.
 The functions require both begin and end values to run. Step and format are
@@ -627,16 +647,18 @@ optional. The format is passed to sprintf (% may be omitted below).
     step => $step, format => $fmt
  };
 
+=over 3
+
 =item MCE::Map->run ( sub { code }, iterator )
 
 =item mce_map { code } iterator
+
+=back
 
 An iterator reference may be specified for input_data. Iterators are described
 under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 
  my @a = mce_map { $_ * 2 } make_iterator(10, 30, 2);
-
-=back
 
 =head1 MANUAL SHUTDOWN
 
@@ -645,6 +667,8 @@ under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 =item MCE::Map->finish
 
 =item MCE::Map::finish
+
+=back
 
 Workers remain persistent as much as possible after running. Shutdown occurs
 automatically when the script terminates. Call finish when workers are no
@@ -659,8 +683,6 @@ longer needed.
  my @a = mce_map { ... } 1..100;
 
  MCE::Map::finish;
-
-=back
 
 =head1 INDEX
 

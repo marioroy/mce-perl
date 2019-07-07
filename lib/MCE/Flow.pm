@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -480,7 +480,7 @@ MCE::Flow - Parallel flow model for building creative applications
 
 =head1 VERSION
 
-This document describes MCE::Flow version 1.838
+This document describes MCE::Flow version 1.839
 
 =head1 DESCRIPTION
 
@@ -715,7 +715,11 @@ inside the first block. Hence, the block is called once per each item.
 
  ## Array or array_ref
  mce_flow sub { do_work($_) }, 1..10000;
- mce_flow sub { do_work($_) }, [ 1..10000 ];
+ mce_flow sub { do_work($_) }, \@list;
+
+ ## Important; pass an array_ref for deeply input data
+ mce_flow sub { do_work($_) }, [ [ 0, 1 ], [ 0, 2 ], ... ];
+ mce_flow sub { do_work($_) }, \@deeply_list;
 
  ## File_path, glob_ref, or scalar_ref
  mce_flow_f sub { chomp; do_work($_) }, "/path/to/file";
@@ -745,10 +749,15 @@ This means having to loop through the chunk from inside the first block.
  ## Looping inside the block is the same for mce_flow_f and
  ## mce_flow_s.
 
+ ## Array or array_ref
  mce_flow sub { do_work($_) for (@{ $_ }) }, 1..10000;
+ mce_flow sub { do_work($_) for (@{ $_ }) }, \@list;
 
- ## Same as above, resembles code using the Core API.
+ ## Important; pass an array_ref for deeply input data
+ mce_flow sub { do_work($_) for (@{ $_ }) }, [ [ 0, 1 ], [ 0, 2 ], ... ];
+ mce_flow sub { do_work($_) for (@{ $_ }) }, \@deeply_list;
 
+ ## Resembles code using the core MCE API
  mce_flow sub {
     my ($mce, $chunk_ref, $chunk_id) = @_;
 
@@ -791,6 +800,8 @@ Specify C<Sereal => 0> to use Storable instead.
 
 =item MCE::Flow::init { options }
 
+=back
+
 The init function accepts a hash of MCE options. Unlike with MCE::Stream,
 both gather and bounds_only options may be specified when calling init
 (not shown below).
@@ -832,8 +843,6 @@ both gather and bounds_only options may be specified when calling init
  5476 5625 5776 5929 6084 6241 6400 6561 6724 6889 7056 7225 7396
  7569 7744 7921 8100 8281 8464 8649 8836 9025 9216 9409 9604 9801
  10000
-
-=back
 
 Like with MCE::Flow::init above, MCE options may be specified using an
 anonymous hash for the first argument. Notice how task_name, max_workers,
@@ -891,6 +900,8 @@ equals 1 in order to demonstrate all the possibilities for providing input data.
 
 =item mce_flow sub { code }, list
 
+=back
+
 Input data may be defined using a list, an array ref, or a hash ref.
 
 Unlike MCE::Loop, Map, and Grep which take a block as C<{ ... }>, Flow takes a
@@ -899,10 +910,15 @@ needed after the block.
 
  # $_ contains the item when chunk_size => 1
 
- mce_flow sub { $_ }, 1..1000;
- mce_flow sub { $_ }, \@list;
+ mce_flow sub { do_work($_) }, 1..1000;
+ mce_flow sub { do_work($_) }, \@list;
 
- # chunking, any chunk_size => 1 or higher
+ # Important; pass an array_ref for deeply input data
+
+ mce_flow sub { do_work($_) }, [ [ 0, 1 ], [ 0, 2 ], ... ];
+ mce_flow sub { do_work($_) }, \@deeply_list;
+
+ # Chunking; any chunk_size => 1 or greater
 
  my %res = mce_flow sub {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -914,7 +930,7 @@ needed after the block.
  },
  \@list;
 
- # input hash, current API available since 1.828
+ # Input hash; current API available since 1.828
 
  my %res = mce_flow sub {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -926,7 +942,7 @@ needed after the block.
  },
  \%hash;
 
- # unlike MCE::Loop, MCE::Flow doesn't need input to run
+ # Unlike MCE::Loop, MCE::Flow doesn't need input to run
 
  mce_flow { max_workers => 4 }, sub {
     MCE->say( MCE->wid );
@@ -947,7 +963,7 @@ needed after the block.
     MCE->say( "consumer: ", MCE->wid );
  };
 
- # here, options are specified via init
+ # Here, options are specified via init
 
  MCE::Flow::init {
     max_workers => [  1,   3  ],
@@ -956,9 +972,13 @@ needed after the block.
 
  mce_flow \&producer, \&consumers;
 
+=over 3
+
 =item MCE::Flow->run_file ( sub { code }, file )
 
 =item mce_flow_f sub { code }, file
+
+=back
 
 The fastest of these is the /path/to/file. Workers communicate the next offset
 position among themselves with zero interaction by the manager process.
@@ -969,7 +989,7 @@ position among themselves with zero interaction by the manager process.
  mce_flow_f sub { $_ }, $file_handle;
  mce_flow_f sub { $_ }, \$scalar;
 
- # chunking, any chunk_size => 1 or higher
+ # chunking, any chunk_size => 1 or greater
 
  my %res = mce_flow_f sub {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -981,9 +1001,13 @@ position among themselves with zero interaction by the manager process.
  },
  "/path/to/file";
 
+=over 3
+
 =item MCE::Flow->run_seq ( sub { code }, $beg, $end [, $step, $fmt ] )
 
 =item mce_flow_s sub { code }, $beg, $end [, $step, $fmt ]
+
+=back
 
 Sequence may be defined as a list, an array reference, or a hash reference.
 The functions require both begin and end values to run. Step and format are
@@ -1001,7 +1025,7 @@ optional. The format is passed to sprintf (% may be omitted below).
     step => $step, format => $fmt
  };
 
- # chunking, any chunk_size => 1 or higher
+ # chunking, any chunk_size => 1 or greater
 
  my %res = mce_flow_s sub {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -1063,9 +1087,13 @@ Time was measured using 1 worker to emphasize the difference.
  7500001 ..  8750000
  8750001 .. 10000000
 
+=over 3
+
 =item MCE::Flow->run ( { input_data => iterator }, sub { code } )
 
 =item mce_flow { input_data => iterator }, sub { code }
+
+=back
 
 An iterator reference may be specified for input_data. The only other way
 is to specify input_data via MCE::Flow::init. This prevents MCE::Flow from
@@ -1078,8 +1106,6 @@ Iterators are described under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
  };
 
  mce_flow sub { $_ };
-
-=back
 
 =head1 GATHERING DATA
 
@@ -1270,6 +1296,8 @@ running.
 
 =item MCE::Flow::finish
 
+=back
+
 Workers remain persistent as much as possible after running. Shutdown occurs
 automatically when the script terminates. Call finish when workers are no
 longer needed.
@@ -1283,8 +1311,6 @@ longer needed.
  mce_flow sub { ... }, 1..100;
 
  MCE::Flow::finish;
-
-=back
 
 =head1 INDEX
 

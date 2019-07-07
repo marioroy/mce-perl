@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 use base 'MCE::Mutex';
 use Fcntl ':flock';
@@ -36,7 +36,6 @@ sub DESTROY {
 
 sub _open {
     my ($pid, $obj) = ($has_threads ? $$ .'.'. $tid : $$, @_);
-
     return if exists $obj->{ $pid };
 
     open $obj->{_fh}, '+>>:raw:stdio', $obj->{path}
@@ -150,8 +149,7 @@ sub synchronize {
     my ($pid, $obj, $code, @ret) = (
         $has_threads ? $$ .'.'. $tid : $$, shift, shift
     );
-
-    return if ref($code) ne 'CODE';
+    return unless ref($code) eq 'CODE';
 
     $obj->_open() unless exists $obj->{ $pid };
 
@@ -186,7 +184,7 @@ MCE::Mutex::Flock - Mutex locking via Fcntl
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Flock version 1.838
+This document describes MCE::Mutex::Flock version 1.839
 
 =head1 DESCRIPTION
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -183,7 +183,7 @@ sub _destroy_socks {
          for my $_i (0 .. @{ $_obj->{$_p} } - 1) {
             next unless (defined $_obj->{$_p}[$_i]);
             if (fileno $_obj->{$_p}[$_i]) {
-               MCE::Util::_syswrite($_obj->{$_p}[$_i], '0') if $_is_winenv;
+               syswrite($_obj->{$_p}[$_i], '0') if $_is_winenv;
                eval q{ CORE::shutdown($_obj->{$_p}[$_i], 2) };
                close $_obj->{$_p}[$_i];
             }
@@ -192,7 +192,7 @@ sub _destroy_socks {
       }
       else {
          if (fileno $_obj->{$_p}) {
-            MCE::Util::_syswrite($_obj->{$_p}, '0') if $_is_winenv;
+            syswrite($_obj->{$_p}, '0') if $_is_winenv;
             eval q{ CORE::shutdown($_obj->{$_p}, 2) };
             close $_obj->{$_p};
          }
@@ -262,15 +262,16 @@ sub _sock_pair {
 
 sub _sock_ready {
    my ($_socket, $_timeout) = @_;
-   return '' if !defined $_timeout && exists $_sock_ready{"$_socket"};
+   return '' if !defined $_timeout && $_sock_ready{"$_socket"} > 1;
 
    my $_val_bytes = "\x00\x00\x00\x00";
    my $_ptr_bytes = unpack('I', pack('P', $_val_bytes));
    my ($_delay, $_start) = (0, time);
 
    if (!defined $_timeout) {
-      $_sock_ready{"$_socket"} = undef;
-   } else {
+      $_sock_ready{"$_socket"}++;
+   }
+   else {
       $_timeout = undef    if $_timeout < 0;
       $_timeout += $_start if $_timeout;
    }
@@ -288,14 +289,31 @@ sub _sock_ready {
    }
 }
 
-sub _sysread {
-   my ($_delay, $_start);
+sub _sock_ready_w {
+   my ($_socket) = @_;
+   return if $_sock_ready{"${_socket}_w"} > 1;
 
-   SYSREAD: ( @_ == 3
-      ? sysread($_[0], $_[1], $_[2])
-      : sysread($_[0], $_[1], $_[2], $_[3])
+   my $_vec = '';
+   $_sock_ready{"${_socket}_w"}++;
+
+   while (1) {
+      vec($_vec, fileno($_socket), 1) = 1;
+      return if select(undef, $_vec, undef, 0) > 0;
+      sleep 0.045;
+   }
+
+   return;
+}
+
+sub _sysread {
+   my ($_bytes, $_delay, $_start);
+
+   SYSREAD: $_bytes = ( @_ == 3
+      ? CORE::sysread($_[0], $_[1], $_[2])
+      : CORE::sysread($_[0], $_[1], $_[2], $_[3])
    ) or do {
-      goto SYSREAD if $! == Errno::EINTR();
+      return $_bytes if (defined $MCE::Signal::KILLED);
+      goto   SYSREAD if ($! == Errno::EINTR());
 
       # non-blocking operation could not be completed
       if ( $! == Errno::EWOULDBLOCK() || $! == Errno::EAGAIN() ) {
@@ -309,37 +327,18 @@ sub _sysread {
       }
    };
 
-   return;
-}
-
-sub _sysseek {
-   my $_pos;
-
-   SYSSEEK: $_pos = sysseek($_[0], $_[1], $_[2]) or do {
-      goto SYSSEEK if $! == Errno::EINTR();
-   };
-
-   return $_pos;
-}
-
-sub _syswrite {
-   syswrite($_[0], $_[1]) or do {
-      goto \&_syswrite if $! == Errno::EINTR();
-   };
-   return;
+   return $_bytes;
 }
 
 sub _nonblocking {
    if ($^O eq 'MSWin32') {
-      my $nonblocking = ( $_[1] ) ? "\x00\x00\x00\x01" : "\x00\x00\x00\x00";
-
       # MSWin32 FIONBIO - from winsock2.h macro
+      my $nonblocking = $_[1] ? "\x00\x00\x00\x01" : "\x00\x00\x00\x00";
+
       ioctl($_[0], 0x8004667e, unpack("I", pack('P', $nonblocking)));
    }
    else {
-      my $nonblocking = ( $_[1] ) ? 0 : 1;
-
-      $_[0]->blocking($nonblocking);
+      $_[0]->blocking( $_[1] ? 0 : 1 );
    }
 
    return;
@@ -361,7 +360,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.838
+This document describes MCE::Util version 1.839
 
 =head1 SYNOPSIS
 

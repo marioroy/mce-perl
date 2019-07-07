@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -75,7 +75,6 @@ sub mce_status      ( ) { return $MCE::MCE->status(); }
 
 ## Callable by the worker process only.
 
-sub mce_do          (@) { return $MCE::MCE->do(@_); }
 sub mce_exit        (@) { return $MCE::MCE->exit(@_); }
 sub mce_gather      (@) { return $MCE::MCE->gather(@_); }
 sub mce_last        ( ) { return $MCE::MCE->last(); }
@@ -89,6 +88,7 @@ sub mce_yield       ( ) { return $MCE::MCE->yield(); }
 ## Callable by both the manager and worker processes.
 
 sub mce_abort       ( ) { return $MCE::MCE->abort(); }
+sub mce_do          (@) { return $MCE::MCE->do(@_); }
 sub mce_freeze      (@) { return $MCE::MCE->{freeze}(@_); }
 sub mce_print     (;*@) { return $MCE::MCE->print(@_); }
 sub mce_printf    (;*@) { return $MCE::MCE->printf(@_); }
@@ -147,7 +147,6 @@ sub _export_subs {
    ## Callable by the worker process only.
 
    if ($_w_flg) {
-      *{ $_package . '::mce_do'          } = \&mce_do;
       *{ $_package . '::mce_exit'        } = \&mce_exit;
       *{ $_package . '::mce_gather'      } = \&mce_gather;
       *{ $_package . '::mce_last'        } = \&mce_last;
@@ -163,6 +162,7 @@ sub _export_subs {
 
    if ($_m_flg || $_w_flg) {
       *{ $_package . '::mce_abort'       } = \&mce_abort;
+      *{ $_package . '::mce_do'          } = \&mce_do;
       *{ $_package . '::mce_freeze'      } = \&mce_freeze;
       *{ $_package . '::mce_print'       } = \&mce_print;
       *{ $_package . '::mce_printf'      } = \&mce_printf;
@@ -204,7 +204,7 @@ MCE::Subs - Exports functions mapped directly to MCE methods
 
 =head1 VERSION
 
-This document describes MCE::Subs version 1.838
+This document describes MCE::Subs version 1.839
 
 =head1 SYNOPSIS
 
@@ -278,6 +278,8 @@ MCE methods are described in L<MCE::Core>.
 =over 3
 
 =item * mce_abort
+
+=item * mce_do
 
 =item * mce_forchunk
 

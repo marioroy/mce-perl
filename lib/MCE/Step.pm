@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -716,7 +716,7 @@ MCE::Step - Parallel step model for building creative steps
 
 =head1 VERSION
 
-This document describes MCE::Step version 1.838
+This document describes MCE::Step version 1.839
 
 =head1 DESCRIPTION
 
@@ -903,7 +903,11 @@ inside the first block. Hence, the block is called once per each item.
 
  ## Array or array_ref
  mce_step sub { do_work($_) }, 1..10000;
- mce_step sub { do_work($_) }, [ 1..10000 ];
+ mce_step sub { do_work($_) }, \@list;
+
+ ## Important; pass an array_ref for deeply input data
+ mce_step sub { do_work($_) }, [ [ 0, 1 ], [ 0, 2 ], ... ];
+ mce_step sub { do_work($_) }, \@deeply_list;
 
  ## File_path, glob_ref, or scalar_ref
  mce_step_f sub { chomp; do_work($_) }, "/path/to/file";
@@ -933,10 +937,15 @@ This means having to loop through the chunk from inside the first block.
  ## Looping inside the block is the same for mce_step_f and
  ## mce_step_s.
 
+ ## Array or array_ref
  mce_step sub { do_work($_) for (@{ $_ }) }, 1..10000;
+ mce_step sub { do_work($_) for (@{ $_ }) }, \@list;
 
- ## Same as above, resembles code using the Core API.
+ ## Important; pass an array_ref for deeply input data
+ mce_step sub { do_work($_) for (@{ $_ }) }, [ [ 0, 1 ], [ 0, 2 ], ... ];
+ mce_step sub { do_work($_) for (@{ $_ }) }, \@deeply_list;
 
+ ## Resembles code using the core MCE API
  mce_step sub {
     my ($mce, $chunk_ref, $chunk_id) = @_;
 
@@ -980,6 +989,8 @@ Specify C<Sereal => 0> to use Storable instead.
 
 =item MCE::Step::init { options }
 
+=back
+
 The init function accepts a hash of MCE options. Unlike with MCE::Stream,
 both gather and bounds_only options may be specified when calling init
 (not shown below).
@@ -1021,8 +1032,6 @@ both gather and bounds_only options may be specified when calling init
  5476 5625 5776 5929 6084 6241 6400 6561 6724 6889 7056 7225 7396
  7569 7744 7921 8100 8281 8464 8649 8836 9025 9216 9409 9604 9801
  10000
-
-=back
 
 Like with MCE::Step::init above, MCE options may be specified using an
 anonymous hash for the first argument. Notice how task_name, max_workers,
@@ -1088,6 +1097,8 @@ equals 1 in order to demonstrate all the possibilities for providing input data.
 
 =item mce_step sub { code }, list
 
+=back
+
 Input data may be defined using a list, an array ref, or a hash ref.
 
 Unlike MCE::Loop, Map, and Grep which take a block as C<{ ... }>, Step takes a
@@ -1096,10 +1107,15 @@ needed after the block.
 
  # $_ contains the item when chunk_size => 1
 
- mce_step sub { $_ }, 1..1000;
- mce_step sub { $_ }, \@list;
+ mce_step sub { do_work($_) }, 1..1000;
+ mce_step sub { do_work($_) }, \@list;
 
- # chunking, any chunk_size => 1 or higher
+ # Important; pass an array_ref for deeply input data
+
+ mce_step sub { do_work($_) }, [ [ 0, 1 ], [ 0, 2 ], ... ];
+ mce_step sub { do_work($_) }, \@deeply_list;
+
+ # Chunking; any chunk_size => 1 or greater
 
  my %res = mce_step sub {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -1111,7 +1127,7 @@ needed after the block.
  },
  \@list;
 
- # input hash, current API available since 1.828
+ # Input hash; current API available since 1.828
 
  my %res = mce_step sub {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -1123,7 +1139,7 @@ needed after the block.
  },
  \%hash;
 
- # unlike MCE::Loop, MCE::Step doesn't need input to run
+ # Unlike MCE::Loop, MCE::Step doesn't need input to run
 
  mce_step { max_workers => 4 }, sub {
     MCE->say( MCE->wid );
@@ -1144,7 +1160,7 @@ needed after the block.
     MCE->say( "consumer: ", MCE->wid );
  };
 
- # here, options are specified via init
+ # Here, options are specified via init
 
  MCE::Step::init {
     max_workers => [  1,   3  ],
@@ -1153,9 +1169,13 @@ needed after the block.
 
  mce_step \&producer, \&consumers;
 
+=over 3
+
 =item MCE::Step->run_file ( sub { code }, file )
 
 =item mce_step_f sub { code }, file
+
+=back
 
 The fastest of these is the /path/to/file. Workers communicate the next offset
 position among themselves with zero interaction by the manager process.
@@ -1166,7 +1186,7 @@ position among themselves with zero interaction by the manager process.
  mce_step_f sub { $_ }, $file_handle;
  mce_step_f sub { $_ }, \$scalar;
 
- # chunking, any chunk_size => 1 or higher
+ # chunking, any chunk_size => 1 or greater
 
  my %res = mce_step_f sub {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -1178,9 +1198,13 @@ position among themselves with zero interaction by the manager process.
  },
  "/path/to/file";
 
+=over 3
+
 =item MCE::Step->run_seq ( sub { code }, $beg, $end [, $step, $fmt ] )
 
 =item mce_step_s sub { code }, $beg, $end [, $step, $fmt ]
+
+=back
 
 Sequence may be defined as a list, an array reference, or a hash reference.
 The functions require both begin and end values to run. Step and format are
@@ -1198,7 +1222,7 @@ optional. The format is passed to sprintf (% may be omitted below).
     step => $step, format => $fmt
  };
 
- # chunking, any chunk_size => 1 or higher
+ # chunking, any chunk_size => 1 or greater
 
  my %res = mce_step_s sub {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -1260,9 +1284,13 @@ Time was measured using 1 worker to emphasize the difference.
  7500001 ..  8750000
  8750001 .. 10000000
 
+=over 3
+
 =item MCE::Step->run ( { input_data => iterator }, sub { code } )
 
 =item mce_step { input_data => iterator }, sub { code }
+
+=back
 
 An iterator reference may be specified for input_data. The only other way
 is to specify input_data via MCE::Step::init. This prevents MCE::Step from
@@ -1276,8 +1304,6 @@ Iterators are described under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 
  mce_step sub { $_ };
 
-=back
-
 =head1 QUEUE-LIKE FEATURES
 
 =over 3
@@ -1285,6 +1311,8 @@ Iterators are described under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 =item MCE->step ( item )
 
 =item MCE->step ( arg1, arg2, argN )
+
+=back
 
 The ->step method is the simplest form for passing elements into the next
 sub-task.
@@ -1320,6 +1348,8 @@ sub-task.
  2: 18, 0.985448
  3: 19, 0.146548
 
+=over 3
+
 =item MCE->enq ( task_name, item )
 
 =item MCE->enq ( task_name, [ arg1, arg2, argN ] )
@@ -1331,6 +1361,8 @@ sub-task.
 =item MCE->enqp ( task_name, priority, [ arg1, arg2, argN ] )
 
 =item MCE->enqp ( task_name, priority, [ arg1, arg2 ], [ arg1, arg2 ] )
+
+=back
 
 The MCE 1.7 release enables finer control. Unlike ->step, which take multiple
 arguments, the ->enq and ->enqp methods push items at the end of the array
@@ -1390,7 +1422,11 @@ will cause an error.
  D6: 28, 0.220465
  D8: 29, 0.630111
 
+=over 3
+
 =item MCE->await ( task_name, pending_threshold )
+
+=back
 
 Providers may sometime run faster than consumers. Thus, increasing memory
 consumption. MCE 1.7 adds the ->await method for pausing momentarily until
@@ -1444,8 +1480,6 @@ items pending in its queue.
  5: 27, 0.979818
  2: 28, 0.918173
  3: 29, 0.358266
-
-=back
 
 =head1 GATHERING DATA
 
@@ -1636,6 +1670,8 @@ running.
 
 =item MCE::Step::finish
 
+=back
+
 Workers remain persistent as much as possible after running. Shutdown occurs
 automatically when the script terminates. Call finish when workers are no
 longer needed.
@@ -1649,8 +1685,6 @@ longer needed.
  mce_step sub { ... }, 1..100;
 
  MCE::Step::finish;
-
-=back
 
 =head1 INDEX
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 our @CARP_NOT = qw( MCE );
 
@@ -219,7 +219,7 @@ MCE::Candy - Sugar methods and output iterators
 
 =head1 VERSION
 
-This document describes MCE::Candy version 1.838
+This document describes MCE::Candy version 1.839
 
 =head1 DESCRIPTION
 
@@ -458,7 +458,7 @@ processing input data.
  my @results;
 
  mce_flow {
-    max_workers => 'auto', ## Note that 'auto' is never higher than 8
+    max_workers => 'auto', ## Note that 'auto' is never greater than 8
     gather => MCE::Candy::out_iter_array(\@results)
  },
  sub {

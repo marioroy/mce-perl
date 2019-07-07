@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.838';
+our $VERSION = '1.839';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -86,7 +86,7 @@ sub import {
 use constant {
    MAX_DQ_DEPTH => 192,      # Maximum dequeue notifications
 
-   MUTEX_LOCKS  => 6,        # Number of mutex locks for 1st level defense
+   MUTEX_LOCKS  => 5,        # Number of mutex locks for 1st level defense
                              # against many workers waiting to dequeue
 
    OUTPUT_W_QUE => 'W~QUE',  # Await from the queue
@@ -221,7 +221,7 @@ sub new {
    MCE::Util::_sock_pair($_Q, qw(_ar_sock _aw_sock)) if $_Q->{_await};
 
    if (exists $_argv{queue} && scalar @{ $_argv{queue} }) {
-      MCE::Util::_syswrite($_Q->{_qw_sock}, $LF);
+      syswrite($_Q->{_qw_sock}, $LF);
    }
 
    return $_Q;
@@ -407,7 +407,7 @@ sub _heap_insert_high {
          $_Q->{_tsem} = $_t;
 
          if ($_Q->pending() <= $_t) {
-            MCE::Util::_syswrite($_Q->{_aw_sock}, $LF);
+            syswrite($_Q->{_aw_sock}, $LF);
          } else {
             $_Q->{_asem} += 1;
          }
@@ -460,7 +460,7 @@ sub _heap_insert_high {
                return;
             }
             if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
-               MCE::Util::_syswrite($_Q->{_qw_sock}, $LF);
+               syswrite($_Q->{_qw_sock}, $LF);
             }
             push @{ $_Q->{_datq} }, @{ $_MCE->{thaw}($_buf) };
          }
@@ -504,7 +504,7 @@ sub _heap_insert_high {
                return;
             }
             if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
-               MCE::Util::_syswrite($_Q->{_qw_sock}, $LF);
+               syswrite($_Q->{_qw_sock}, $LF);
             }
             push @{ $_Q->{_datq} }, $_;
          }
@@ -564,7 +564,7 @@ sub _heap_insert_high {
                if ($_pending) {
                   $_pending = MAX_DQ_DEPTH if ($_pending > MAX_DQ_DEPTH);
                   for my $_i (1 .. $_pending) {
-                     MCE::Util::_syswrite($_Q->{_qw_sock}, $LF);
+                     syswrite($_Q->{_qw_sock}, $LF);
                   }
                }
                $_Q->{_dsem} = $_pending;
@@ -575,11 +575,11 @@ sub _heap_insert_high {
          }
          else {
             ## Otherwise, never to exceed one byte in the channel
-            MCE::Util::_syswrite($_Q->{_qw_sock}, $LF) if $_Q->_has_data();
+            syswrite($_Q->{_qw_sock}, $LF) if $_Q->_has_data();
          }
 
          if (exists $_Q->{_ended} && !$_Q->_has_data()) {
-            MCE::Util::_syswrite($_Q->{_qw_sock}, $LF);
+            syswrite($_Q->{_qw_sock}, $LF);
          }
 
          if ($_cnt) {
@@ -587,7 +587,7 @@ sub _heap_insert_high {
             print {$_DAU_R_SOCK} length($_buf).'1'.$LF, $_buf;
          }
          elsif (defined $_buf) {
-            if (!looks_like_number $_buf && !ref $_buf) {
+            if (!ref $_buf) {
                print {$_DAU_R_SOCK} length($_buf).'0'.$LF, $_buf;
             } else {
                $_buf = $_MCE->{freeze}([ $_buf ]);
@@ -600,7 +600,7 @@ sub _heap_insert_high {
 
          if ($_Q->{_await} && $_Q->{_asem} && $_Q->pending() <= $_Q->{_tsem}) {
             for my $_i (1 .. $_Q->{_asem}) {
-               MCE::Util::_syswrite($_Q->{_aw_sock}, $LF);
+               syswrite($_Q->{_aw_sock}, $LF);
             }
             $_Q->{_asem} = 0;
          }
@@ -626,7 +626,7 @@ sub _heap_insert_high {
             my $_buf = $_Q->_dequeue();
 
             if (defined $_buf) {
-               if (!looks_like_number $_buf && !ref $_buf) {
+               if (!ref $_buf) {
                   print {$_DAU_R_SOCK} length($_buf).'0'.$LF, $_buf;
                } else {
                   $_buf = $_MCE->{freeze}([ $_buf ]);
@@ -660,7 +660,7 @@ sub _heap_insert_high {
 
          if ($_Q->{_await} && $_Q->{_asem} && $_Q->pending() <= $_Q->{_tsem}) {
             for my $_i (1 .. $_Q->{_asem}) {
-               MCE::Util::_syswrite($_Q->{_aw_sock}, $LF);
+               syswrite($_Q->{_aw_sock}, $LF);
             }
             $_Q->{_asem} = 0;
          }
@@ -732,7 +732,7 @@ sub _heap_insert_high {
             print {$_DAU_R_SOCK} '-1'.$LF;
          }
          else {
-            if (!looks_like_number $_buf && !ref $_buf) {
+            if (!ref $_buf) {
                print {$_DAU_R_SOCK} length($_buf).'0'.$LF, $_buf;
             } else {
                $_buf = $_MCE->{freeze}([ $_buf ]);
@@ -757,7 +757,7 @@ sub _heap_insert_high {
             print {$_DAU_R_SOCK} '-1'.$LF;
          }
          else {
-            if (!looks_like_number $_buf && !ref $_buf) {
+            if (!ref $_buf) {
                print {$_DAU_R_SOCK} length($_buf).'0'.$LF, $_buf;
             } else {
                $_buf = $_MCE->{freeze}([ $_buf ]);
@@ -858,7 +858,7 @@ sub _mce_m_end {
    my ($_Q) = @_;
 
    if (!exists $_Q->{_ended}) {
-      MCE::Util::_syswrite($_Q->{_qw_sock}, $LF) unless $_Q->{_nb_flag};
+      syswrite($_Q->{_qw_sock}, $LF) unless $_Q->{_nb_flag};
       $_Q->{_ended} = undef;
    }
 
@@ -877,7 +877,7 @@ sub _mce_m_enqueue {
       return;
    }
    if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
-      MCE::Util::_syswrite($_Q->{_qw_sock}, $LF);
+      syswrite($_Q->{_qw_sock}, $LF);
    }
 
    ## Append item(s) into the queue.
@@ -901,7 +901,7 @@ sub _mce_m_enqueuep {
       return;
    }
    if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
-      MCE::Util::_syswrite($_Q->{_qw_sock}, $LF);
+      syswrite($_Q->{_qw_sock}, $LF);
    }
 
    $_Q->_enqueuep($_p, @_);
@@ -945,7 +945,7 @@ sub _mce_m_dequeue {
          if ($_pending) {
             $_pending = MAX_DQ_DEPTH if ($_pending > MAX_DQ_DEPTH);
             for my $_i (1 .. $_pending) {
-               MCE::Util::_syswrite($_Q->{_qw_sock}, $LF);
+               syswrite($_Q->{_qw_sock}, $LF);
             }
          }
          $_Q->{_dsem} = $_pending;
@@ -956,11 +956,11 @@ sub _mce_m_dequeue {
    }
    else {
       ## Otherwise, never to exceed one byte in the channel
-      MCE::Util::_syswrite($_Q->{_qw_sock}, $LF) if $_Q->_has_data();
+      syswrite($_Q->{_qw_sock}, $LF) if $_Q->_has_data();
    }
 
    if (exists $_Q->{_ended} && !$_Q->_has_data()) {
-      MCE::Util::_syswrite($_Q->{_qw_sock}, $LF);
+      syswrite($_Q->{_qw_sock}, $LF);
    }
 
    $_Q->{_nb_flag} = 0;
@@ -1040,7 +1040,7 @@ sub _mce_m_insert {
       return;
    }
    if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
-      MCE::Util::_syswrite($_Q->{_qw_sock}, $LF);
+      syswrite($_Q->{_qw_sock}, $LF);
    }
 
    if (abs($_i) > scalar @{ $_Q->{_datq} }) {
@@ -1088,7 +1088,7 @@ sub _mce_m_insertp {
       return;
    }
    if (!$_Q->{_nb_flag} && !$_Q->_has_data()) {
-      MCE::Util::_syswrite($_Q->{_qw_sock}, $LF);
+      syswrite($_Q->{_qw_sock}, $LF);
    }
 
    if (exists $_Q->{_datp}->{$_p} && scalar @{ $_Q->{_datp}->{$_p} }) {
@@ -1275,7 +1275,7 @@ sub _mce_m_heap {
          };
          $_dat_un = sub {
             my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
-            MCE::Util::_syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
+            syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
                if $_DAT_LOCK->{ $_pid };
          };
       }
@@ -1355,7 +1355,7 @@ sub _mce_m_heap {
          my $_buf = $_Q->{_id}.$LF . length($_tmp).$LF;
          $_req1->(OUTPUT_A_QUE, $_buf, $_tmp);
       }
-      elsif (!looks_like_number $_[0] && defined $_[0]) {
+      elsif (defined $_[0]) {
          my $_buf = $_Q->{_id}.$LF . length($_[0]).$LF;
          $_req1->(OUTPUT_S_QUE, $_buf, $_[0]);
       }
@@ -1381,7 +1381,7 @@ sub _mce_m_heap {
          my $_buf = $_Q->{_id}.$LF . $_p.$LF . length($_tmp).$LF;
          $_req1->(OUTPUT_A_QUP, $_buf, $_tmp);
       }
-      elsif (!looks_like_number $_[0] && defined $_[0]) {
+      elsif (defined $_[0]) {
          my $_buf = $_Q->{_id}.$LF . $_p.$LF . length($_[0]).$LF;
          $_req1->(OUTPUT_S_QUP, $_buf, $_[0]);
       }
@@ -1497,7 +1497,7 @@ sub _mce_m_heap {
 
       my ($_buf, $_tmp);
 
-      if (scalar @_ > 1 || looks_like_number $_[0] || ref $_[0] || !defined $_[0]) {
+      if (scalar @_ > 1 || ref $_[0] || !defined $_[0]) {
          $_tmp = $_MCE->{freeze}([ @_ ]);
          $_buf = $_Q->{_id}.$LF . $_i.$LF . (length($_tmp) + 1).$LF . $_tmp.'1';
       } else {
@@ -1523,7 +1523,7 @@ sub _mce_m_heap {
 
       my ($_buf, $_tmp);
 
-      if (scalar @_ > 1 || looks_like_number $_[0] || ref $_[0] || !defined $_[0]) {
+      if (scalar @_ > 1 || ref $_[0] || !defined $_[0]) {
          $_tmp = $_MCE->{freeze}([ @_ ]);
          $_buf = $_Q->{_id}.$LF . $_p.$LF . $_i.$LF .
             (length($_tmp) + 1).$LF . $_tmp.'1';
@@ -1602,7 +1602,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.838
+This document describes MCE::Queue version 1.839
 
 =head1 SYNOPSIS
 
@@ -2022,21 +2022,21 @@ numbers, not the data.
 
 =over 3
 
-=item L<List::BinarySearch>
+=item * L<List::BinarySearch>
 
 The bsearch_num_pos method was helpful for accommodating the highest and lowest
 order in MCE::Queue.
 
-=item L<POE::Queue::Array>
+=item * L<POE::Queue::Array>
 
 For extra optimization, two if statements were adopted for checking if the item
 belongs at the end or head of the queue.
 
-=item L<List::Priority>
+=item * L<List::Priority>
 
 MCE::Queue supports both normal and priority queues.
 
-=item L<Thread::Queue>
+=item * L<Thread::Queue>
 
 Thread::Queue is used as a template for identifying and documenting the methods.
 
@@ -2051,7 +2051,7 @@ simultaneously; e.g.
 
  $q->pending();                  # counts both normal/priority queues
 
-=item L<Parallel::DataPipe>
+=item * L<Parallel::DataPipe>
 
 The recursion example, in the synopsis above, was largely adopted from this
 module.

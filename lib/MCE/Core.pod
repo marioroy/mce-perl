@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.838
+This document describes MCE::Core version 1.839
 
 =head1 SYNOPSIS
 
@@ -2411,6 +2411,14 @@ can do is report the size completed thus far.
     my ($completed_size) = @_;
     printf "%0.1f kibibytes\n", $completed_size / 1024;
  }
+
+=head1 SEE ALSO
+
+=over 3
+
+=item * L<MCE::Examples>
+
+=back
 
 =head1 INDEX
 
