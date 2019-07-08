@@ -6,6 +6,9 @@ use warnings;
 use Test::More;
 
 BEGIN {
+   if ( $] lt '5.010001' && $^O ne 'MSWin32' ) {
+      plan skip_all => "old Perl and threads not supported on Unix platforms";
+   }
    eval 'use threads'; ## no critic
    plan skip_all => "threads not available" if $@;
 

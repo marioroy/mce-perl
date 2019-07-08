@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.840';
+our $VERSION = '1.841';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -131,7 +131,7 @@ MCE::Channel - Queue-like and two-way communication capability
 
 =head1 VERSION
 
-This document describes MCE::Channel version 1.840
+This document describes MCE::Channel version 1.841
 
 =head1 SYNOPSIS
 
@@ -213,7 +213,7 @@ socketpair handles. Serialization is provided by L<Sereal> if available.
 Defaults to L<Storable> otherwise. Excluding the C<Simple> implementation,
 both ends of the C<channel> support many workers concurrently (with mp => 1).
 
-=head2 MCE::Channel->new ( impl => STRING, mp => BOOLEAN )
+=head2 new ( impl => STRING, mp => BOOLEAN )
 
 This creates a new channel. Three implementations are provided C<Mutex> (default),
 C<Threads>, and C<Simple> indicating the locking mechanism to use C<MCE::Mutex>,

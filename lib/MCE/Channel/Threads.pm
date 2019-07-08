@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.840';
+our $VERSION = '1.841';
 
 use threads;
 use threads::shared;
@@ -326,7 +326,7 @@ MCE::Channel::Threads - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Threads version 1.840
+This document describes MCE::Channel::Threads version 1.841
 
 =head1 DESCRIPTION
 
@@ -345,6 +345,13 @@ for threads only. Locking is handled using threads::shared.
  my $chnl_b = MCE::Channel->new( impl => 'Threads', mp => 1 );
 
 The API is described in L<MCE::Channel>.
+
+=head1 LIMITATIONS
+
+The t/04_channel_threads tests are disabled on Unix platforms for Perl
+less than 5.10.1. Basically, the MCE::Channel::Threads implementation
+is not supported on older Perls unless the OS vendor applied upstream
+patches (i.e. works on RedHat/CentOS 5.x running Perl 5.8.x).
 
 =head1 AUTHOR
 

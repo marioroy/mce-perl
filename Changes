@@ -1,6 +1,15 @@
 
 Revision history for Perl module MCE.
 
+1.841 Sun Jul 07 23:30:00 EST 2019
+
+  * Disabled t/04_channel_threads testing on Unix platforms for Perl less than
+    5.10.1. Basically, the MCE::Channel::Threads implementation is not supported
+    on older Perls unless the OS vendor applied upstream patches (i.e. works on
+    RedHat/CentOS 5.x running Perl 5.8.x).
+
+  * Added LIMITATIONS section to MCE::Channel::Threads.
+
 1.840 Sun Jul 07 05:00:00 EST 2019
 
   * Update MCE::Channel POD documentation.

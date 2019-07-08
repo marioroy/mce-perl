@@ -5,7 +5,7 @@ MCE::Examples - Various examples and demonstrations
 
 =head1 VERSION
 
-This document describes MCE::Examples version 1.840
+This document describes MCE::Examples version 1.841
 
 =head1 INCLUDED WITH THE DISTRIBUTION
 
