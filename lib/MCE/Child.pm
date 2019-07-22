@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.841';
+our $VERSION = '1.842';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -827,6 +827,12 @@ sub exists {
 sub get {
    my ( $self, $wrk_id, $wait_flag ) = @_;
 
+   if ( !CORE::exists $self->[0]{ 'R'.$wrk_id } ) {
+      while ( my $data = $self->[1]->recv2_nb() ) {
+         $self->[0]{ $data->[0] } = $data->[1];
+      }
+   }
+
    if ( $wait_flag ) {
       local $!;
       ( CORE::exists $self->[0]{ 'R'.$wrk_id } ) ? waitpid($wrk_id, 0) : do {
@@ -840,6 +846,13 @@ sub get {
             waitpid($wrk_id, 0), last if $data->[0] eq 'R'.$wrk_id;
          }
       };
+   }
+
+   if ( !CORE::exists $self->[0]{ 'R'.$wrk_id } ) {
+       sleep 0.015; # retry
+       while ( my $data = $self->[1]->recv2_nb() ) {
+          $self->[0]{ $data->[0] } = $data->[1];
+       }
    }
 
    my $result = delete $self->[0]{ 'R'.$wrk_id };
@@ -930,7 +943,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.841
+This document describes MCE::Child version 1.842
 
 =head1 SYNOPSIS
 
@@ -1506,6 +1519,88 @@ A demonstration is provided in the next section for fetching URLs in parallel.
 
  MCE::Child->create( sub { MCE::Child->yield(0.25) } ) for 1 .. 4;
  MCE::Child->wait_all();
+
+=back
+
+=head1 PARALLEL::FORKMANAGER-like DEMONSTRATION
+
+MCE::Child behaves similarly to threads for the most part. It also provides
+L<Parallel::ForkManager>-like capabilities. The C<Parallel::ForkManager>
+example is shown first followed by a version using C<MCE::Child>.
+
+=over 3
+
+=item Parallel::ForkManager
+
+ use strict;
+ use warnings;
+
+ use Parallel::ForkManager;
+ use Time::HiRes 'time';
+
+ my $start = time;
+
+ my $pm = Parallel::ForkManager->new(10);
+ $pm->set_waitpid_blocking_sleep(0);
+
+ $pm->run_on_finish( sub {
+     my ($pid, $exit_code, $ident, $exit_signal, $core_dumped, $resp) = @_;
+     print "child $pid completed: $ident => ", $resp->[0], "\n";
+ });
+
+ DATA_LOOP:
+ foreach my $data ( 1..2000 ) {
+     # forks and returns the pid for the child
+     my $pid = $pm->start($data) and next DATA_LOOP;
+     my $ret = [ $data * 2 ];
+
+     $pm->finish(0, $ret);
+ }
+
+ $pm->wait_all_children;
+
+ printf STDERR "duration: %0.03f seconds\n", time - $start;
+
+=item MCE::Child
+
+ use strict;
+ use warnings;
+
+ use MCE::Child 1.842;
+ use Time::HiRes 'time';
+
+ my $start = time;
+
+ MCE::Child->init(
+     max_workers => 10,
+     on_finish   => sub {
+         my ($pid, $exit_code, $ident, $exit_signal, $error, $resp) = @_;
+         print "child $pid completed: $ident => ", $resp->[0], "\n";
+     }
+ );
+
+ foreach my $data ( 1..2000 ) {
+     MCE::Child->create( $data, sub {
+         [ $data * 2 ];
+     });
+ }
+
+ MCE::Child->wait_all;
+
+ printf STDERR "duration: %0.03f seconds\n", time - $start;
+
+=item Time to run (in seconds)
+
+Results were obtained on a Macbook Pro (2.6 GHz ~ 3.6 GHz with Turbo Boost).
+
+ MCE::Hobo  uses MCE::Shared to retrieve data during reaping.
+ MCE::Child uses MCE::Channel, no shared-manager.
+
+          Version   Cygwin   Windows  Linux   macOS  FreeBSD
+
+ MCE::Child 1.842   26.093s  21.638s  1.356s  2.223s  1.723s
+ MCE::Hobo  1.842   28.080s  25.990s  1.784s  2.371s  2.259s
+ P::FM      1.20    26.692s  24.024s  1.228s  2.109s  2.027s
 
 =back
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.841';
+our $VERSION = '1.842';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -428,7 +428,7 @@ MCE::Signal - Temporary directory creation/cleanup and signal handling
 
 =head1 VERSION
 
-This document describes MCE::Signal version 1.841
+This document describes MCE::Signal version 1.842
 
 =head1 SYNOPSIS
 

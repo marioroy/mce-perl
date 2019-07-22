@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.841';
+our $VERSION = '1.842';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -131,7 +131,7 @@ MCE::Channel - Queue-like and two-way communication capability
 
 =head1 VERSION
 
-This document describes MCE::Channel version 1.841
+This document describes MCE::Channel version 1.842
 
 =head1 SYNOPSIS
 
@@ -292,7 +292,7 @@ multiple producers is not supported.
 
  $chnl->end;
 
-=head1 TWO-WAY COMMUNICATION - PRODUCER TO CONSUMER
+=head1 TWO-WAY IPC - PRODUCER TO CONSUMER
 
 =head2 send ( ARG1 [, ARG2, ... ] )
 
@@ -324,7 +324,7 @@ list context or C<undef> in scalar context.
  ($id, $array_ref) = $chnl->recv_nb();
  ($id, $hash_ref)  = $chnl->recv_nb();
 
-=head1 TWO-WAY COMMUNICATION - CONSUMER TO PRODUCER
+=head1 TWO-WAY IPC - CONSUMER TO PRODUCER
 
 =head2 send2 ( ARG1 [, ARG2, ... ] )
 
@@ -465,7 +465,7 @@ which is the default if omitted.
  print $results{$_}, "\n" for keys %results;
  print "$total total\n\n";
 
-=head2 Example 3 - Two producers
+=head2 Example 3 - Many producers
 
 Running with 2 or more producers requires setting the C<mp> option. Internally,
 this enables locking support for the left end of the channel. The C<mp> option

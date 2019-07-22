@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.842 Sun Jul 21 19:00:00 EST 2019
+
+  * Fixed race condition abnormalities in MCE::Child.
+  * Added Parallel::ForkManager-like demonstration to MCE::Child.
+
 1.841 Sun Jul 07 23:30:00 EST 2019
 
   * Disabled t/04_channel_threads testing on Unix platforms for Perl less than

@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.841
+This document describes MCE::Core version 1.842
 
 =head1 SYNOPSIS
 
@@ -219,7 +219,7 @@ Below, a new instance is configured with all available options.
     progress => sub { ... },            ## Default undef
 
        # A code block for receiving info on progress made.
-       # See section labeled "PROGRESS DEMONSTRATIONS"
+       # See section labeled "MCE PROGRESS DEMONSTRATIONS"
        # at the end of this document.
 
     user_args => { env => 'test' },     ## Default undef
@@ -2137,7 +2137,7 @@ uses 2 workers to minimize the output size. Input is from the sequence option.
 
 The interval.pl example above is included with MCE.
 
-=head1 PROGRESS DEMONSTRATIONS
+=head1 MCE PROGRESS DEMONSTRATIONS
 
 The C<progress> option takes a code block for receiving info on the progress
 made while processing input data; e.g. C<input_data> or C<sequence>. To make
