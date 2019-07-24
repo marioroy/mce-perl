@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.842';
+our $VERSION = '1.843';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -874,7 +874,7 @@ sub _output_loop {
       MCE::Util::_nonblocking($_DAT_R_SOCK, 1) if $_win32_ipc;
 
       while ($self->{_total_running}) {
-         MCE::Util::_sysread($_DAT_R_SOCK, $_func, 8);
+         MCE::Util::_sysread2($_DAT_R_SOCK, $_func, 8);
          last() unless length($_func) == 8;
          $_DAU_R_SOCK = $_channels->[ substr($_func, -2, 2, '') ];
 

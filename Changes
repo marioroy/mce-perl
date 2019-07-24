@@ -1,6 +1,13 @@
 
 Revision history for Perl module MCE.
 
+1.843 Tue Jul 23 22:30:00 EST 2019
+
+  * Updated results in MCE::Child (Parallel::ForkManager-like demonstration).
+
+  * Completed missing interrupt signal-safety for the non-blocking methods
+    in MCE::Channel::Mutex and MCE::Channel::Threads.
+
 1.842 Sun Jul 21 19:00:00 EST 2019
 
   * Fixed race condition abnormalities in MCE::Child.

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.842';
+our $VERSION = '1.843';
 
 use base 'MCE::Channel';
 use MCE::Mutex ();
@@ -140,7 +140,7 @@ sub dequeue_nb {
 
    while ( $count-- ) {
       MCE::Util::_nonblocking( $self->{c_sock}, 1 );
-      sysread( $self->{c_sock}, $plen, 4 );
+      MCE::Util::_sysread( $self->{c_sock}, $plen, 4 );
       MCE::Util::_nonblocking( $self->{c_sock}, 0 );
 
       my $len; $len = unpack('i', $plen) if $plen;
@@ -212,7 +212,7 @@ sub recv_nb {
 
    ( my $c_mutex = $self->{c_mutex} )->lock;
    MCE::Util::_nonblocking( $self->{c_sock}, 1 );
-   sysread( $self->{c_sock}, my($plen), 4 );
+   MCE::Util::_sysread( $self->{c_sock}, my($plen), 4 );
    MCE::Util::_nonblocking( $self->{c_sock}, 0 );
 
    my $len; $len = unpack('i', $plen) if $plen;
@@ -264,7 +264,7 @@ sub recv2 {
    MCE::Util::_sock_ready( $self->{p_sock} ) if $is_MSWin32;
 
    ( $p_mutex || $is_MSWin32 )
-      ? sysread( $self->{p_sock}, $plen, 4 )
+      ? MCE::Util::_sysread( $self->{p_sock}, $plen, 4 )
       : read( $self->{p_sock}, $plen, 4 );
 
    my $len = unpack('i', $plen);
@@ -290,7 +290,7 @@ sub recv2_nb {
    MCE::Util::_nonblocking( $self->{p_sock}, 1 );
 
    ( $p_mutex || $is_MSWin32 )
-      ? sysread( $self->{p_sock}, $plen, 4 )
+      ? MCE::Util::_sysread( $self->{p_sock}, $plen, 4 )
       : read( $self->{p_sock}, $plen, 4 );
 
    MCE::Util::_nonblocking( $self->{p_sock}, 0 );
@@ -328,7 +328,7 @@ MCE::Channel::Mutex - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Mutex version 1.842
+This document describes MCE::Channel::Mutex version 1.843
 
 =head1 DESCRIPTION
 

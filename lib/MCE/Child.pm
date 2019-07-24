@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.842';
+our $VERSION = '1.843';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -943,7 +943,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.842
+This document describes MCE::Child version 1.843
 
 =head1 SYNOPSIS
 
@@ -1566,7 +1566,7 @@ example is shown first followed by a version using C<MCE::Child>.
  use strict;
  use warnings;
 
- use MCE::Child 1.842;
+ use MCE::Child 1.843;
  use Time::HiRes 'time';
 
  my $start = time;
@@ -1589,18 +1589,37 @@ example is shown first followed by a version using C<MCE::Child>.
 
  printf STDERR "duration: %0.03f seconds\n", time - $start;
 
-=item Time to run (in seconds)
+=item Time to spin 2,000 workers and obtain results (in seconds).
 
 Results were obtained on a Macbook Pro (2.6 GHz ~ 3.6 GHz with Turbo Boost).
+Parallel::ForkManager 2.02 uses Moo. Therefore, I ran again with Moo loaded
+at the top of the script.
 
- MCE::Hobo  uses MCE::Shared to retrieve data during reaping.
+ MCE::Hobo uses MCE::Shared to retrieve data during reaping.
  MCE::Child uses MCE::Channel, no shared-manager.
 
-          Version   Cygwin   Windows  Linux   macOS  FreeBSD
+          Version  Cygwin   Windows  Linux   macOS  FreeBSD
 
- MCE::Child 1.842   26.093s  21.638s  1.356s  2.223s  1.723s
- MCE::Hobo  1.842   28.080s  25.990s  1.784s  2.371s  2.259s
- P::FM      1.20    26.692s  24.024s  1.228s  2.109s  2.027s
+ MCE::Child 1.843  19.099s  17.091s  0.965s  1.534s  1.229s
+  MCE::Hobo 1.843  20.514s  19.594s  1.246s  1.629s  1.613s
+      P::FM 1.20   19.703s  19.235s  0.875s  1.445s  1.346s
+
+ MCE::Child 1.843  20.426s  18.417s  1.116s  1.632s  1.338s  Moo loaded
+  MCE::Hobo 1.843  21.809s  20.810s  1.407s  1.759s  1.722s  Moo loaded
+      P::FM 2.02   21.668s  25.927s  1.882s  2.612s  2.483s  Moo used
+
+=item Set posix_exit to avoid all END and destructor processing.
+
+This is helpful in reducing overhead when workers exit. Ditto if using a Perl
+module not parallel safe. The option is ignored on C<$^O eq 'MSWin32'>.
+
+ MCE::Child->init( posix_exit => 1, ... );
+  MCE::Hobo->init( posix_exit => 1, ... );
+
+          Version  Cygwin   Windows  Linux   macOS  FreeBSD
+
+ MCE::Child 1.843  19.815s  ignored  0.824s  1.284s  1.245s  Moo loaded
+  MCE::Hobo 1.843  21.029s  ignored  0.953s  1.335s  1.439s  Moo loaded
 
 =back
 

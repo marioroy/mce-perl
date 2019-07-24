@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.842';
+our $VERSION = '1.843';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -306,7 +306,22 @@ sub _sock_ready_w {
 }
 
 sub _sysread {
+   my $_bytes;
+
+   SYSREAD: $_bytes = ( @_ == 3
+      ? CORE::sysread($_[0], $_[1], $_[2])
+      : CORE::sysread($_[0], $_[1], $_[2], $_[3])
+   ) or do {
+      return $_bytes if (defined $MCE::Signal::KILLED);
+      goto   SYSREAD if ($! == Errno::EINTR());
+   };
+
+   return $_bytes;
+}
+
+sub _sysread2 {
    my ($_bytes, $_delay, $_start);
+   # called by MCE/Core/Manager.pm
 
    SYSREAD: $_bytes = ( @_ == 3
       ? CORE::sysread($_[0], $_[1], $_[2])
@@ -360,7 +375,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.842
+This document describes MCE::Util version 1.843
 
 =head1 SYNOPSIS
 
