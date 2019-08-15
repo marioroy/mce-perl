@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## Array_ref and Glob_ref input reader.
+## Array reference and Glob reference input reader.
 ##
 ## This package provides the request chunk method used internally by the worker
 ## process. Distribution follows a bank-queuing model.
@@ -14,7 +14,7 @@ package MCE::Core::Input::Request;
 use strict;
 use warnings;
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 ## Items below are folded into MCE.
 
@@ -30,6 +30,8 @@ use bytes;
 ## Worker process -- Request chunk.
 ##
 ###############################################################################
+
+my $_is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
 
 sub _worker_request_chunk {
 
@@ -110,6 +112,7 @@ sub _worker_request_chunk {
 
          $_dat_ex->() if $_lock_chn;
          print {$_DAT_W_SOCK} $_output_tag . $LF . $_chn . $LF;
+         MCE::Util::_sock_ready($_DAU_W_SOCK, -1) if $_is_MSWin32;
          chomp($_len = <$_DAU_W_SOCK>);
 
          unless ($_len) {
@@ -188,4 +191,37 @@ sub _worker_request_chunk {
 }
 
 1;
+
+__END__
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Module usage.
+##
+###############################################################################
+
+=head1 NAME
+
+MCE::Core::Input::Request - Array reference and Glob reference input reader
+
+=head1 VERSION
+
+This document describes MCE::Core::Input::Request version 1.844
+
+=head1 DESCRIPTION
+
+This package provides the request chunk method used internally by the worker
+process. Distribution follows a bank-queuing model.
+
+There is no public API.
+
+=head1 SEE ALSO
+
+The syntax for the C<input_data> option is described in L<MCE::Core>.
+
+=head1 AUTHOR
+
+Mario E. Roy, S<E<lt>marioeroy AT gmail DOT comE<gt>>
+
+=cut
 

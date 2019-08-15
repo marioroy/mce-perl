@@ -15,7 +15,7 @@ package MCE::Core::Input::Generator;
 use strict;
 use warnings;
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 ## Items below are folded into MCE.
 
@@ -205,4 +205,38 @@ sub _worker_sequence_generator {
 }
 
 1;
+
+__END__
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Module usage.
+##
+###############################################################################
+
+=head1 NAME
+
+MCE::Core::Input::Generator - Sequence of numbers (for task_id > 0)
+
+=head1 VERSION
+
+This document describes MCE::Core::Input::Generator version 1.844
+
+=head1 DESCRIPTION
+
+This package provides a sequence of numbers used internally by the worker
+process. Distribution is divided equally among workers. This allows sequence
+to be configured independently among multiple user tasks.
+
+There is no public API.
+
+=head1 SEE ALSO
+
+The syntax for the C<sequence> option is described in L<MCE::Core>.
+
+=head1 AUTHOR
+
+Mario E. Roy, S<E<lt>marioeroy AT gmail DOT comE<gt>>
+
+=cut
 

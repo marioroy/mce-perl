@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -31,7 +31,7 @@ use overload (
 
 sub import {
    no strict 'refs'; no warnings 'redefine';
-   *{ caller().'::mce_child' } = \&child;
+   *{ caller().'::mce_child' } = \&mce_child;
    return;
 }
 
@@ -100,11 +100,10 @@ sub init {
    if ( !exists $mngd->{posix_exit} ) {
       $mngd->{posix_exit} = 1 if (
          ( $_has_threads && $_tid ) || $INC{'Mojo/IOLoop.pm'} ||
+         $INC{'Coro.pm'} || $INC{'LWP/UserAgent.pm'} || $INC{'stfl.pm'} ||
          $INC{'Curses.pm'} || $INC{'CGI.pm'} || $INC{'FCGI.pm'} ||
-         $INC{'Prima.pm'} || $INC{'Tk.pm'} || $INC{'Wx.pm'} ||
-         $INC{'Gearman/Util.pm'} || $INC{'Gearman/XS.pm'} ||
-         $INC{'Coro.pm'} || $INC{'LWP/UserAgent.pm'} ||
-         $INC{'Win32/GUI.pm'} || $INC{'stfl.pm'}
+         $INC{'Tk.pm'} || $INC{'Wx.pm'} || $INC{'Win32/GUI.pm'} ||
+         $INC{'Gearman/Util.pm'} || $INC{'Gearman/XS.pm'}
       );
    }
 
@@ -127,7 +126,7 @@ sub init {
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## 'new', 'child (mce_child)', and 'create' for threads-like similarity.
+## 'new', 'mce_child', and 'create' for threads-like similarity.
 ##
 ###############################################################################
 
@@ -138,7 +137,7 @@ sub init {
 ## Use "goto" trick to avoid pad problems from 5.8.1 (fixed in 5.8.2)
 ## Tip found in threads::async.
 
-sub child (&;@) {
+sub mce_child (&;@) {
    goto &create;
 }
 
@@ -175,7 +174,7 @@ sub create {
       local $!;
 
       # Reap completed child processes.
-      $_DATA->{$pkg}->reapdata;
+      $_DATA->{$pkg}->reap_data;
 
       for my $wrk_id ( keys %{ $list->[0] } ) {
          waitpid($wrk_id, _WNOHANG) or next;
@@ -211,10 +210,6 @@ sub create {
    }
 
    %{ $_LIST } = (), $_SELF = $self;                     # child
-
-   if ( UNIVERSAL::can('Prima', 'cleanup') ) {
-      no warnings 'redefine'; local $@; eval '*Prima::cleanup = sub {}';
-   }
 
    MCE::Shared::init($id) if $INC{'MCE/Shared.pm'};
 
@@ -337,7 +332,7 @@ sub is_joinable {
    }
    elsif ( $self->{MGR_ID} eq "$$.$_tid" ) {
       return undef if ( exists $self->{JOINED} );
-      local $!; $_DATA->{$pkg}->reapdata;
+      local $!; $_DATA->{$pkg}->reap_data;
       ( waitpid($wrk_id, _WNOHANG) == 0 ) ? '' : do {
          _reap_child($_LIST->{$pkg}->del($self->{WRK_ID}), 0);
          1;
@@ -358,7 +353,7 @@ sub is_running {
    }
    elsif ( $self->{MGR_ID} eq "$$.$_tid" ) {
       return undef if ( exists $self->{JOINED} );
-      local $!; $_DATA->{$pkg}->reapdata;
+      local $!; $_DATA->{$pkg}->reap_data;
       ( waitpid($wrk_id, _WNOHANG) == 0 ) ? 1 : do {
          _reap_child($_LIST->{$pkg}->del($self->{WRK_ID}), 0);
          '';
@@ -434,7 +429,7 @@ sub list_joinable {
    return () unless ( my $list = $_LIST->{$pkg} );
    local ($!, $?, $_);
 
-   $_DATA->{$pkg}->reapdata;
+   $_DATA->{$pkg}->reap_data;
 
    map {
       ( waitpid($_->{WRK_ID}, _WNOHANG) == 0 ) ? () : do {
@@ -452,7 +447,7 @@ sub list_running {
    return () unless ( my $list = $_LIST->{$pkg} );
    local ($!, $?, $_);
 
-   $_DATA->{$pkg}->reapdata;
+   $_DATA->{$pkg}->reap_data;
 
    map {
       ( waitpid($_->{WRK_ID}, _WNOHANG) == 0 ) ? $_ : do {
@@ -570,7 +565,7 @@ sub _dispatch {
    $mngd->{WRK_ID} = $_SELF->{WRK_ID} = $$;
 
    $ENV{PERL_MCE_IPC} = 'win32' if $_is_MSWin32;
-   $SIG{TERM} = $SIG{INT} = $SIG{HUP} = \&_trap;
+   $SIG{TERM} = $SIG{SEGV} = $SIG{INT} = $SIG{HUP} = \&_trap;
    $SIG{QUIT} = \&_quit;
 
    {
@@ -699,6 +694,7 @@ sub _reap_child {
       if ( ( $code > 100 || $sig == 9 ) && !$err ) {
          $code = 2, $sig = 1,  $err = 'received SIGHUP'  if $code == 101;
          $code = 2, $sig = 2,  $err = 'received SIGINT'  if $code == 102;
+         $code = 2, $sig = 11, $err = 'received SIGSEGV' if $code == 111;
          $code = 2, $sig = 15, $err = 'received SIGTERM' if $code == 115;
          $code = 2, $sig = 9,  $err = 'received SIGKILL' if $sig  == 9;
       }
@@ -721,6 +717,7 @@ sub _trap {
 
    if    ( $name eq 'HUP'  ) { $exit_status = 101 }
    elsif ( $name eq 'INT'  ) { $exit_status = 102 }
+   elsif ( $name eq 'SEGV' ) { $exit_status = 111 }
    elsif ( $name eq 'TERM' ) { $exit_status = 115 }
 
    _exit($exit_status);
@@ -728,19 +725,17 @@ sub _trap {
 
 sub _wait_one {
    my ( $pkg ) = @_;
-   my ( $list, $data ) = ( $_LIST->{$pkg}, $_DATA->{$pkg} );
-   my ( $self, $wrk_id, $found ); local $!;
+   my ( $list ) = ( $_LIST->{$pkg} );
+   my ( $self, $wrk_id ); local $!;
 
    while () {
+      $_DATA->{$pkg}->reap_data;
       for my $child ( $list->vals ) {
          $wrk_id = $child->{WRK_ID};
-         $found  = $data->exists('R'.$wrk_id);
-         waitpid($wrk_id, 0), $self = $list->del($wrk_id), last if $found;
-
-         $self = $list->del($wrk_id), last if waitpid($wrk_id, _WNOHANG);
+         $self   = $list->del($wrk_id), last if waitpid($wrk_id, _WNOHANG);
       }
       last if $self;
-      sleep 0.015;
+      sleep 0.030;
    }
 
    _reap_child($self, 0);
@@ -864,7 +859,7 @@ sub get {
    return ( $result, $error );
 }
 
-sub reapdata {
+sub reap_data {
    my ( $self ) = @_;
 
    while ( my $data = $self->[1]->recv2_nb() ) {
@@ -943,7 +938,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.843
+This document describes MCE::Child version 1.844
 
 =head1 SYNOPSIS
 
@@ -1253,8 +1248,8 @@ to terminate after some time. The default is C<0> for no timeout.
 
 Set C<posix_exit> to avoid all END and destructor processing. Constructing
 MCE::Child inside a thread implies 1 or if present CGI, FCGI, Coro, Curses,
-Gearman::Util, Gearman::XS, LWP::UserAgent, Mojo::IOLoop, Prima, STFL,
-Tk, Wx, or Win32::GUI.
+Gearman::Util, Gearman::XS, LWP::UserAgent, Mojo::IOLoop, STFL, Tk, Wx,
+or Win32::GUI.
 
 Set C<void_context> to create the child process in void context for the
 return value. Otherwise, the return context is wantarray-aware for
@@ -1463,14 +1458,19 @@ Class methods that allows a child to obtain its own ID.
 
 =item MCE::Child->wait_one()
 
+=item MCE::Child->waitone()
+
 =item MCE::Child->wait_all()
+
+=item MCE::Child->waitall()
 
 Meaningful for the manager process only, waits for one or all child processes
 to complete execution. Afterwards, returns the corresponding child objects.
 If a child doesn't exist, returns the C<undef> value or an empty list for
 C<wait_one> and C<wait_all> respectively.
 
-The C<waitone> and C<waitall> methods are aliases respectively.
+The C<waitone> and C<waitall> methods are aliases for compatibility with
+C<MCE::Hobo>.
 
  use MCE::Child;
  use Time::HiRes qw(sleep);
@@ -1610,8 +1610,8 @@ at the top of the script.
 
 =item Set posix_exit to avoid all END and destructor processing.
 
-This is helpful in reducing overhead when workers exit. Ditto if using a Perl
-module not parallel safe. The option is ignored on C<$^O eq 'MSWin32'>.
+This is helpful for reducing overhead when workers exit. Ditto if using a Perl
+module not parallel safe. The option is ignored on Windows C<$^O eq 'MSWin32'>.
 
  MCE::Child->init( posix_exit => 1, ... );
   MCE::Hobo->init( posix_exit => 1, ... );

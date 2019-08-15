@@ -1,6 +1,28 @@
 
 Revision history for Perl module MCE.
 
+1.844 Wed Aug 14 21:30:00 EST 2019
+
+  * Resolved MCE stalling when specifying max_retries with init_relay.
+    Ditto for loop_timeout with init_relay on UNIX platforms.
+    Thank you, Chris Denley.
+
+  * Enhanced loop_timeout to handle workers dieing uncontrollably from
+    any user_tasks (i.e. task_id >= 0). Previously, only task_id == 0.
+
+  * Improved IPC on the Windows platform for edge case when a worker is
+    awaiting input while the manager process is restarting a worker.
+
+  * MCE, MCE::Child workers exit immediately upon receiving a SIGSEGV signal.
+    This safeguards IPC from stalling inside the manager process.
+
+  * Enhanced the _wait_one private function in MCE::Child.
+
+  * Removed Prima from the list for auto-enabling the posix_exit option.
+    Prima (since 1.52) is parallel safe during global cleanup.
+
+  * Reached 100% Pod coverage.
+
 1.843 Tue Jul 23 22:30:00 EST 2019
 
   * Updated results in MCE::Child (Parallel::ForkManager-like demonstration).

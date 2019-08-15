@@ -9,9 +9,9 @@ package MCE::Relay;
 use strict;
 use warnings;
 
-no warnings qw( threads recursion uninitialized );
+no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 
@@ -19,6 +19,7 @@ use bytes;
 
 use constant {
    OUTPUT_W_RLA => 'W~RLA',  # Worker has relayed
+   OUTPUT_R_NFY => 'R~NFY',  # Relay notification
 };
 
 ###############################################################################
@@ -66,6 +67,13 @@ sub import {
          return;
       },
 
+      OUTPUT_R_NFY.$LF => sub {                   # Relay notification
+
+         $_MCE->{_relayed}++;
+
+         return;
+      },
+
    );
 
    sub _mce_m_loop_begin {
@@ -87,6 +95,8 @@ sub import {
 
          my $_RLA_W_SOCK = $_MCE->{_rla_w_sock}->[0];
          my $_init_relay;
+
+         $_MCE->{_relayed} = 0;
 
          if (ref $_MCE->{init_relay} eq '') {
             $_init_relay = $_MCE->{init_relay} . '0';
@@ -115,6 +125,9 @@ sub import {
          my $_RLA_R_SOCK = $_MCE->{_rla_r_sock}->[$_rla_nextid];
          my ($_caller, $_len, $_ret) = ($_MCE->{_caller});
 
+         delete $_MCE->{_relayed};
+
+         MCE::Util::_sock_ready($_RLA_R_SOCK, -1) if $^O eq 'MSWin32';
          chomp($_len = <$_RLA_R_SOCK>);
          read $_RLA_R_SOCK, $_ret, $_len;
 
@@ -209,6 +222,7 @@ sub relay_recv {
 
    print {$self->{_dat_w_sock}->[0]} OUTPUT_W_RLA.$LF . '0'.$LF;
 
+   MCE::Util::_sock_ready($_rdr, -1) if $^O eq 'MSWin32';
    chomp($_len = <$_rdr>);
    read $_rdr, $_, $_len;
    $_ref = chop $_;
@@ -256,12 +270,12 @@ sub relay (;&) {
       weaken $_code;
    }
 
-   my ($_chn, $_nxt, $_rdr, $_wtr);
+   my ($_chn, $_cid, $_nxt, $_rdr, $_wtr);
 
    local $\ = undef if (defined $\);
    local $/ = $LF   if ($/ ne $LF );
 
-   $_chn = $self->{_chunk_id} || $self->{_wid};
+   $_chn = $_cid = $self->{_chunk_id} || $self->{_wid};
    $_chn = ($_chn - 1) % $self->{max_workers};
    $_nxt = $_chn + 1;
    $_nxt = 0 if ($_nxt == $self->{max_workers});
@@ -269,27 +283,28 @@ sub relay (;&) {
    $_wtr = $self->{_rla_w_sock}->[$_nxt];
 
    if (exists $self->{_rla_data}) {
-      local $_ = delete $self->{_rla_data};
+      my $_tmp; local $_ = delete $self->{_rla_data};
       $_code->() if (ref $_code eq 'CODE');
 
       if (ref $_ eq '') {                         ## scalar value
-         my $_tmp = $_ . '0';
-         print {$_wtr} length($_tmp) . $LF . $_tmp;
+         $_tmp = $_ . '0';
       }
       elsif (ref $_ eq 'HASH') {                  ## hash reference
-         my $_tmp = $self->{freeze}($_) . '1';
-         print {$_wtr} length($_tmp) . $LF . $_tmp;
+         $_tmp = $self->{freeze}($_) . '1';
       }
       elsif (ref $_ eq 'ARRAY') {                 ## array reference
-         my $_tmp = $self->{freeze}($_) . '2';
-         print {$_wtr} length($_tmp) . $LF . $_tmp;
+         $_tmp = $self->{freeze}($_) . '2';
       }
+
+      print {$_wtr} length($_tmp) . $LF . $_tmp;
+      print {$self->{_dat_w_sock}->[0]} OUTPUT_R_NFY.$LF . '0'.$LF;
+      $self->{_relayed} = $_cid;
    }
    else {
       my ($_len, $_ref); local $_;
-
       print {$self->{_dat_w_sock}->[0]} OUTPUT_W_RLA.$LF . '0'.$LF;
 
+      MCE::Util::_sock_ready($_rdr, -1) if $^O eq 'MSWin32';
       chomp($_len = <$_rdr>);
       read $_rdr, $_, $_len;
       $_ref = chop $_;
@@ -297,7 +312,11 @@ sub relay (;&) {
       if ($_ref == 0) {                              ## scalar value
          my $_ret = $_;         $_code->() if (ref $_code eq 'CODE');
          my $_tmp = $_ . '0';
+
          print {$_wtr} length($_tmp) . $LF . $_tmp;
+         print {$self->{_dat_w_sock}->[0]} OUTPUT_R_NFY.$LF . '0'.$LF;
+         $self->{_relayed} = $_cid;
+
          return unless defined wantarray;
          return $_ret;
       }
@@ -305,7 +324,11 @@ sub relay (;&) {
          my %_ret = %{ $self->{thaw}($_) };
          local $_ = { %_ret };  $_code->() if (ref $_code eq 'CODE');
          my $_tmp = $self->{freeze}($_) . '1';
+
          print {$_wtr} length($_tmp) . $LF . $_tmp;
+         print {$self->{_dat_w_sock}->[0]} OUTPUT_R_NFY.$LF . '0'.$LF;
+         $self->{_relayed} = $_cid;
+
          return unless defined wantarray;
          return %_ret;
       }
@@ -313,7 +336,11 @@ sub relay (;&) {
          my @_ret = @{ $self->{thaw}($_) };
          local $_ = [ @_ret ];  $_code->() if (ref $_code eq 'CODE');
          my $_tmp = $self->{freeze}($_) . '2';
+
          print {$_wtr} length($_tmp) . $LF . $_tmp;
+         print {$self->{_dat_w_sock}->[0]} OUTPUT_R_NFY.$LF . '0'.$LF;
+         $self->{_relayed} = $_cid;
+
          return unless defined wantarray;
          return @_ret;
       }
@@ -343,7 +370,7 @@ MCE::Relay - Extends Many-Core Engine with relay capabilities
 
 =head1 VERSION
 
-This document describes MCE::Relay version 1.843
+This document describes MCE::Relay version 1.844
 
 =head1 SYNOPSIS
 
@@ -408,9 +435,11 @@ across all platforms.
 
 =over 3
 
+=item MCE::relay { code }
+
 =item MCE->relay ( sub { code } )
 
-=item MCE::relay { code }
+=item $mce->relay ( sub { code } )
 
 =back
 
@@ -525,6 +554,8 @@ Or simply a scalar value.
 
 =item MCE->relay_final ( void )
 
+=item $mce->relay_final ( void )
+
 =back
 
 Call this method to obtain the final relay value(s) after running. See included
@@ -559,6 +590,8 @@ example findnull.pl for another use case.
 =over 3
 
 =item MCE->relay_recv ( void )
+
+=item $mce->relay_recv ( void )
 
 =back
 
@@ -734,15 +767,84 @@ demonstration for the fasta-benchmark on the web.
 
 =item MCE->relay_unlock ( void )
 
+=item $mce->relay_lock ( void )
+
+=item $mce->relay_unlock ( void )
+
 =back
 
 The C<relay_lock> and C<relay_unlock> methods, added to MCE 1.807, are
-aliases for C<relay_recv> and C<relay> respectively. They allow one to
-perform an exclusive action prior to actual relaying of data.
+aliases for C<relay_recv> and C<relay> respectively. Together, they allow
+one to perform an exclusive action prior to actual relaying of data.
 
-Below, C<user_func> is taken from the C<cat.pl> MCE example. Relaying is
-driven by C<chunk_id> or C<task_wid> when not processing input, thus
-occurs orderly.
+Relaying is driven by C<chunk_id> or C<task_wid> when not processing input,
+as seen here.
+
+ MCE->new(
+    max_workers => 8,
+    init_relay => 0,
+    user_func => sub {
+       MCE->relay_lock;
+       MCE->say("wid: ", MCE->task_wid);
+       MCE->relay_unlock( sub {
+          $_ += 2;
+       });
+    }
+ )->run;
+
+ MCE->say("sum: ", MCE->relay_final);
+
+ __END__
+
+ wid: 1
+ wid: 2
+ wid: 3
+ wid: 4
+ wid: 5
+ wid: 6
+ wid: 7
+ wid: 8
+ sum: 16
+
+Described above, C<relay> takes a code block and combines C<relay_lock> and
+C<relay_unlock> into a single call. To make this more interesting, I define
+C<init_relay> to a hash containing two key-value pairs.
+
+ MCE->new(
+    max_workers => 8,
+    init_relay => { count => 0, total => 0 },
+    user_func => sub {
+       MCE->relay_lock;
+       MCE->say("wid: ", MCE->task_wid);
+       MCE->relay_unlock( sub {
+          $_->{count} += 1;
+          $_->{total} += 2;
+       });
+    }
+ )->run;
+
+ my %results = MCE->relay_final;
+
+ MCE->say("count: ", $results{count});
+ MCE->say("total: ", $results{total});
+
+ __END__
+
+ wid: 1
+ wid: 2
+ wid: 3
+ wid: 4
+ wid: 5
+ wid: 6
+ wid: 7
+ wid: 8
+ count: 8
+ total: 16
+
+Below, C<user_func> is taken from the C<cat.pl> MCE example. Incrementing
+the count is done only when the C<-n> switch is passed to the script.
+Otherwise, output is displaced orderly and not necessary to update the
+C<$_> value if exclusive locking is all you need.
 
  user_func => sub {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -767,9 +869,7 @@ occurs orderly.
        ## and relay_unlock run serially and most important orderly.
 
        MCE->relay_lock;      # alias for MCE->relay_recv
-
        print $$chunk_ref;    # ensure $| = 1 in script
-
        MCE->relay_unlock;    # alias for MCE->relay
     }
 

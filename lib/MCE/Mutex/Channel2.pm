@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 use base 'MCE::Mutex::Channel';
 use MCE::Util ();
@@ -117,26 +117,42 @@ MCE::Mutex::Channel2 - Provides two mutexes using a single channel
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel2 version 1.843
+This document describes MCE::Mutex::Channel2 version 1.844
 
 =head1 DESCRIPTION
 
-A socket implementation based on L<MCE::Mutex>. The secondary lock is accessed
-by calling methods, described in L<MCE::Mutex>, with the C<2> suffix.
+A socket implementation based on C<MCE::Mutex>. The secondary lock is accessed
+by calling methods with the C<2> suffix.
+
+The API is described in L<MCE::Mutex>.
+
+=head2 construction
+
+=over 3
+
+=item new
 
  my $mutex = MCE::Mutex->new( impl => 'Channel2' );
+
+=back
 
 =head2 primary lock
 
 =over 3
 
-=item * $mutex->lock
+=item lock
 
-=item * $mutex->unlock
+=item lock_exclusive
 
-=item * $mutex->synchronize
+=item lock_shared
 
-=item * $mutex->timedwait
+=item unlock
+
+=item synchronize
+
+=item enter
+
+=item timedwait
 
 =back
 
@@ -144,13 +160,19 @@ by calling methods, described in L<MCE::Mutex>, with the C<2> suffix.
 
 =over 3
 
-=item * $mutex->lock2
+=item lock2
 
-=item * $mutex->unlock2
+=item lock_exclusive2
 
-=item * $mutex->synchronize2
+=item lock_shared2
 
-=item * $mutex->timedwait2
+=item unlock2
+
+=item synchronize2
+
+=item enter2
+
+=item timedwait2
 
 =back
 

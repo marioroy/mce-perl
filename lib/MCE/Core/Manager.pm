@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -154,7 +154,7 @@ sub _output_loop {
             }
          }
 
-         _task_end($self, $_task_id) unless ($_total_running);
+         _task_end($self, $_task_id) unless $_total_running;
 
          return;
       },
@@ -206,6 +206,8 @@ sub _output_loop {
 
          ## Reap child/thread. Note: Win32 uses negative PIDs.
 
+         local ($!, $?);
+
          if ($_exit_pid =~ /^PID_(-?\d+)/) {
             my $_pid = $1; my $_list = $self->{_pids};
             for my $i (0 .. @{ $_list }) {
@@ -220,7 +222,7 @@ sub _output_loop {
             my $_tid = $1; my $_list = $self->{_tids};
             for my $i (0 .. @{ $_list }) {
                if ($_list->[$i] && $_list->[$i] == $_tid) {
-                  $self->{_thrs}->[$i]->join();
+                  eval { $self->{_thrs}->[$i]->join() };
                   $self->{_thrs}->[$i] = undef;
                   $self->{_tids}->[$i] = undef;
                   last;
@@ -235,13 +237,13 @@ sub _output_loop {
             $self->{_exited_wid} = $_exit_wid;
 
             if (length($_retry_buf)) {
-               $self->{_retry} = $self->{thaw}($_retry_buf);
-               my $_retry_cnt  = $_max_retries - $self->{_retry}[2] - 1;
+               $self->{_retry}     = $self->{thaw}($_retry_buf);
+               $self->{_retry_cnt} = $_max_retries - $self->{_retry}[2] - 1;
 
                $_on_post_exit->($self, {
                   wid => $_exit_wid, pid => $_exit_pid, status => $_exit_status,
                   msg => $_exit_msg, id  => $_exit_id
-               }, $_retry_cnt);
+               }, $self->{_retry_cnt});
 
                delete $self->{_retry};
             }
@@ -261,7 +263,7 @@ sub _output_loop {
             };
          }
 
-         _task_end($self, $_task_id) unless ($_total_running);
+         _task_end($self, $_task_id) unless $_total_running;
 
          return;
       },
@@ -629,6 +631,15 @@ sub _output_loop {
          return;
       },
 
+      OUTPUT_C_NFY.$LF => sub {                   # Chunk ID notification
+         chomp($_len = <$_DAU_R_SOCK>);
+
+         my ($_pid, $_chunk_id) = split /:/, $_len;
+         $self->{_pids_c}{$_pid} = $_chunk_id;
+
+         return;
+      },
+
       OUTPUT_P_NFY.$LF => sub {                   # Progress notification
          chomp($_len = <$_DAU_R_SOCK>);
 
@@ -703,7 +714,7 @@ sub _output_loop {
    $_has_user_tasks = (defined $self->{user_tasks}) ? 1 : 0;
    $_cs_one_flag = ($self->{chunk_size} == 1) ? 1 : 0;
 
-   $_max_retries  = $self->{max_retries} || 0;
+   $_max_retries  = $self->{max_retries};
    $_on_post_exit = $self->{on_post_exit};
    $_on_post_run  = $self->{on_post_run};
    $_chunk_size   = $self->{chunk_size};
@@ -713,16 +724,26 @@ sub _output_loop {
    $_single_dim   = $self->{_single_dim};
    $_sess_dir     = $self->{_sess_dir};
 
-   if ($_max_retries && !$_on_post_exit) {
+   if (defined $_max_retries && !$_on_post_exit) {
       $_on_post_exit = sub {
          my ($self, $_e, $_retry_cnt) = @_;
-         my ($_cnt, $_msg) = ($_retry_cnt + 1, "Error: chunk $_e->{id} failed");
 
-         ($_retry_cnt < $_max_retries)
-            ? print {*STDERR} "$_msg, retrying chunk attempt # ${_cnt}\n"
-            : print {*STDERR} "$_msg\n";
+         if ($_e->{id}) {
+            my $_cnt = $_retry_cnt + 1;
+            my $_msg = "Error: chunk $_e->{id} failed";
 
-         $self->restart_worker;
+            if (defined $self->{init_relay}) {
+               print {*STDERR} "$_msg, retrying chunk attempt # $_cnt\n"
+                  if ($_retry_cnt < $_max_retries);
+            }
+            else {
+               ($_retry_cnt < $_max_retries)
+                  ? print {*STDERR} "$_msg, retrying chunk attempt # $_cnt\n"
+                  : print {*STDERR} "$_msg\n";
+            }
+
+            $self->restart_worker;
+         }
       };
    }
 
@@ -806,6 +827,7 @@ sub _output_loop {
 
    $_win32_ipc = (
       $ENV{'PERL_MCE_IPC'} eq 'win32' ||
+      defined($self->{max_retries}) ||
       $INC{'MCE/Child.pm'} ||
       $INC{'MCE/Hobo.pm'}
    );
@@ -837,35 +859,95 @@ sub _output_loop {
       my ($_list, $_timeout) = ($self->{_pids}, $self->{loop_timeout});
       my ($_DAT_W_SOCK, $_pid) = ($self->{_dat_w_sock}->[0]);
 
+      $self->{_pids_c} = {};  # Chunk ID notification
+
       $_timeout = 5 if $_timeout < 5;
 
       local $SIG{ALRM} = sub {
-         alarm 0;
+         alarm 0; local ($!, $?);
+
          for my $i (0 .. @{ $_list }) {
             if ($_pid = $_list->[$i]) {
                if (waitpid($_pid, _WNOHANG)) {
+
+                  $_list->[$i] = undef;
+
+                  if ($? > abs($self->{_wrk_status})) {
+                     $self->{_wrk_status} = $?;
+                  }
+
+                  my $_task_id = $self->{_pids_t}{$_pid};
+                  my $_wid     = $self->{_pids_w}{$_pid};
+
                   $self->{_total_exited}  += 1;
                   $self->{_total_running} -= 1;
                   $self->{_total_workers} -= 1;
-                  $_list->[$i] = undef;
+
+                  if ($_has_user_tasks && $_task_id >= 0) {
+                     $self->{_task}->[$_task_id]->{_total_running} -= 1;
+                     $self->{_task}->[$_task_id]->{_total_workers} -= 1;
+                  }
+
+                  my $_total_running = ($_has_user_tasks)
+                     ? $self->{_task}->[$_task_id]->{_total_running}
+                     : $self->{_total_running};
+
+                  if ($_task_id == 0 && defined $_syn_flag && $_sync_cnt) {
+                     if ($_sync_cnt == $_total_running) {
+                        for my $_i (1 .. $_total_running) {
+                           syswrite($_BSB_W_SOCK, $LF);
+                        }
+                        undef $_syn_flag;
+                     }
+                  }
+
+                  _task_end($self, $_task_id) unless $_total_running;
+
+                  if (my $_cid = $self->{_pids_c}{$_pid}) {
+                     warn "Error: process $_pid has ended prematurely\n",
+                          "Error: chunk $_cid failed\n";
+
+                     if ($_cid > $self->{_relayed}) {
+                        local $SIG{CHLD} = 'IGNORE';
+                        my $_pid = fork;
+
+                        if (defined $_pid && $_pid == 0) {
+                           delete $self->{max_retries};
+
+                           $self->{_chunk_id} = $_cid;
+                           $self->{_task_id}  = $_task_id;
+                           $self->{_wid}      = $_wid;
+
+                           eval 'MCE::relay';
+
+                           CORE::kill('KILL', $$);
+                           CORE::exit(0);
+                        }
+                     }
+                  }
+
+                  delete $self->{_pids_c}{$_pid};
+                  delete $self->{_pids_t}{$_pid};
+                  delete $self->{_pids_w}{$_pid};
                }
             }
          }
+
          print {$_DAT_W_SOCK} 'NOOP'.$LF . '0'.$LF;
       };
 
       while ( $self->{_total_running} ) {
-         alarm $_timeout;
-         $_func = <$_DAT_R_SOCK>;
+         alarm $_timeout; $_func = <$_DAT_R_SOCK>; alarm 0;
          $_DAU_R_SOCK = $_channels->[ <$_DAT_R_SOCK> ];
 
-         alarm 0;
          if (exists $_core_output_function{$_func}) {
             $_core_output_function{$_func}();
          } elsif (exists $_plugin_function->{$_func}) {
             $_plugin_function->{$_func}();
          }
       }
+
+      delete $self->{_pids_c};
    }
 
    ## Wait on requests *without* timeout capability.
@@ -884,6 +966,8 @@ sub _output_loop {
             $_plugin_function->{$_func}();
          }
       }
+
+      MCE::Util::_nonblocking($_DAT_R_SOCK, 0) if $_win32_ipc;
    }
    else {
       while ($self->{_total_running}) {
@@ -928,4 +1012,33 @@ sub _output_loop {
 }
 
 1;
+
+__END__
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Module usage.
+##
+###############################################################################
+
+=head1 NAME
+
+MCE::Core::Manager - Core methods for the manager process
+
+=head1 VERSION
+
+This document describes MCE::Core::Manager version 1.844
+
+=head1 DESCRIPTION
+
+This package provides the loop and relevant methods used internally by the
+manager process.
+
+There is no public API.
+
+=head1 AUTHOR
+
+Mario E. Roy, S<E<lt>marioeroy AT gmail DOT comE<gt>>
+
+=cut
 

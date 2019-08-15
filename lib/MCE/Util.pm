@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -264,9 +264,8 @@ sub _sock_ready {
    my ($_socket, $_timeout) = @_;
    return '' if !defined $_timeout && $_sock_ready{"$_socket"} > 1;
 
-   my $_val_bytes = "\x00\x00\x00\x00";
+   my ($_delay, $_val_bytes, $_start) = (0, "\x00\x00\x00\x00", time);
    my $_ptr_bytes = unpack('I', pack('P', $_val_bytes));
-   my ($_delay, $_start) = (0, time);
 
    if (!defined $_timeout) {
       $_sock_ready{"$_socket"}++;
@@ -284,8 +283,8 @@ sub _sock_ready {
       return  1 if $_timeout && time > $_timeout;
 
       # delay after a while to not consume a CPU core
-      sleep(0.030), next if $_delay;
-      $_delay = 1 if time - $_start > 0.005;
+      sleep(0.015), next if $_delay;
+      $_delay = 1 if time - $_start > 0.015;
    }
 }
 
@@ -332,11 +331,11 @@ sub _sysread2 {
 
       # non-blocking operation could not be completed
       if ( $! == Errno::EWOULDBLOCK() || $! == Errno::EAGAIN() ) {
-         sleep(0.030), goto SYSREAD if $_delay;
+         sleep(0.015), goto SYSREAD if $_delay;
 
          # delay after a while to not consume a CPU core
          $_start = time unless $_start;
-         $_delay = 1 if time - $_start > 0.005;
+         $_delay = 1 if time - $_start > 0.030;
 
          goto SYSREAD;
       }
@@ -375,7 +374,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.843
+This document describes MCE::Util version 1.844
 
 =head1 SYNOPSIS
 

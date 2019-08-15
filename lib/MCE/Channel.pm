@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -131,7 +131,7 @@ MCE::Channel - Queue-like and two-way communication capability
 
 =head1 VERSION
 
-This document describes MCE::Channel version 1.843
+This document describes MCE::Channel version 1.844
 
 =head1 SYNOPSIS
 
@@ -650,7 +650,7 @@ Mario E. Roy, S<E<lt>marioeroy AT gmail DOT comE<gt>>
 
 Copyright (C) 2019 by Mario E. Roy
 
-MCE::Shared is released under the same license as Perl.
+MCE::Channel is released under the same license as Perl.
 
 See L<http://dev.perl.org/licenses/> for more information.
 

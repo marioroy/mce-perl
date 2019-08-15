@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -68,7 +68,7 @@ MCE::Mutex - Locking for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Mutex version 1.843
+This document describes MCE::Mutex version 1.844
 
 =head1 SYNOPSIS
 
@@ -174,7 +174,8 @@ The method C<lock_exclusive> is an alias for C<lock>, available since 1.822.
 =head2 $mutex->lock_shared ( void )
 
 Like C<lock_exclusive>, but attempts to grab a shared lock instead.
-For non-Fcntl implementations, C<lock_shared> is an alias for C<lock>.
+The C<lock_shared> method is an alias to C<lock> otherwise for non-Fcntl
+implementations.
 
 Current API available since 1.822.
 

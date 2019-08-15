@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 use base 'MCE::Channel';
 use bytes;
@@ -311,18 +311,62 @@ MCE::Channel::Simple - Channel tuned for one producer and one consumer
 
 =head1 VERSION
 
-This document describes MCE::Channel::Simple version 1.843
+This document describes MCE::Channel::Simple version 1.844
 
 =head1 DESCRIPTION
 
 A channel class providing queue-like and two-way communication
 for one process or thread on either end; no locking needed.
 
+The API is described in L<MCE::Channel>.
+
+=over 3
+
+=item new
+
  use MCE::Channel;
 
  my $chnl = MCE::Channel->new( impl => 'Simple' );
 
-The API is described in L<MCE::Channel>.
+=back
+
+=head1 QUEUE-LIKE BEHAVIOR
+
+=over 3
+
+=item enqueue
+
+=item dequeue
+
+=item dequeue_nb
+
+=item end
+
+=back
+
+=head1 TWO-WAY IPC - PRODUCER TO CONSUMER
+
+=over 3
+
+=item send
+
+=item recv
+
+=item recv_nb
+
+=back
+
+=head1 TWO-WAY IPC - CONSUMER TO PRODUCER
+
+=over 3
+
+=item send2
+
+=item recv2
+
+=item recv2_nb
+
+=back
 
 =head1 AUTHOR
 

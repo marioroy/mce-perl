@@ -1,6 +1,6 @@
 ###############################################################################
 ## ----------------------------------------------------------------------------
-## File_path and Scalar_ref input reader.
+## File path and Scalar reference input reader.
 ##
 ## This package provides the read handle method used internally by the worker
 ## process. Distribution follows a bank-queuing model.
@@ -14,7 +14,7 @@ package MCE::Core::Input::Handle;
 use strict;
 use warnings;
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 ## Items below are folded into MCE.
 
@@ -267,4 +267,37 @@ sub _worker_read_handle {
 }
 
 1;
+
+__END__
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Module usage.
+##
+###############################################################################
+
+=head1 NAME
+
+MCE::Core::Input::Handle - File path and Scalar reference input reader
+
+=head1 VERSION
+
+This document describes MCE::Core::Input::Handle version 1.844
+
+=head1 DESCRIPTION
+
+This package provides the read handle method used internally by the worker
+process. Distribution follows a bank-queuing model.
+
+There is no public API.
+
+=head1 SEE ALSO
+
+The syntax for the C<input_data> option is described in L<MCE::Core>.
+
+=head1 AUTHOR
+
+Mario E. Roy, S<E<lt>marioeroy AT gmail DOT comE<gt>>
+
+=cut
 

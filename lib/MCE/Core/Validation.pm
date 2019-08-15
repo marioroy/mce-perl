@@ -14,7 +14,7 @@ package MCE::Core::Validation;
 use strict;
 use warnings;
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 ## Items below are folded into MCE.
 
@@ -379,4 +379,33 @@ sub _validate_number {
 }
 
 1;
+
+__END__
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Module usage.
+##
+###############################################################################
+
+=head1 NAME
+
+MCE::Core::Validation - Core validation methods for Many-Core Engine
+
+=head1 VERSION
+
+This document describes MCE::Core::Validation version 1.844
+
+=head1 DESCRIPTION
+
+This package provides validation methods used internally by the manager
+process.
+
+There is no public API.
+
+=head1 AUTHOR
+
+Mario E. Roy, S<E<lt>marioeroy AT gmail DOT comE<gt>>
+
+=cut
 

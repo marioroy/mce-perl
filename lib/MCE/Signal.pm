@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -90,7 +90,7 @@ sub import {
    setpgrp(0,0) if ($_setpgrp == 1 && !$_is_MSWin32);
 
    ## Make tmp_dir if caller requested it.
-   _make_tmpdir() if (grep /tmp_dir/, @_export_args);
+   _make_tmpdir() if ($_use_dev_shm || grep /tmp_dir/, @_export_args);
 
    return;
 }
@@ -428,7 +428,7 @@ MCE::Signal - Temporary directory creation/cleanup and signal handling
 
 =head1 VERSION
 
-This document describes MCE::Signal version 1.843
+This document describes MCE::Signal version 1.844
 
 =head1 SYNOPSIS
 

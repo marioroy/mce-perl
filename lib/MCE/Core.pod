@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.843
+This document describes MCE::Core version 1.844
 
 =head1 SYNOPSIS
 
@@ -147,14 +147,15 @@ Below, a new instance is configured with all available options.
        #    Record 3:  seq3  ... \n>          >seq3 ... \n
        #    Last Rec:  seqN  ... \n           >seqN ... \n
 
-    loop_timeout => 5,                  ## Default 0
+    loop_timeout => 20,                 ## Default 0
 
        # Added in 1.7, enables the manager process to timeout of a read
-       # on channel 0. The manager process decrements the total workers
-       # running for any worker which have died in an uncontrollable
-       # manner. Specify this option if on occassion a worker runs out
-       # of memory or dies due to an error from an XS module.
-       #
+       # operation on channel 0 (UNIX platforms only). The manager process
+       # decrements the total workers running for any worker which have
+       # died in an uncontrollable manner. Specify this option if on
+       # occassion a worker dies unexpectedly (i.e. from an XS module).
+
+       # Option works with init_relay on UNIX platforms since MCE 1.844.
        # A number smaller than 5 is silently increased to 5.
 
     max_retries => 2,                   ## Default 0
@@ -175,7 +176,7 @@ Below, a new instance is configured with all available options.
        # Set posix_exit to avoid all END and destructor processing.
        # Constructing MCE inside a thread implies 1 or if present CGI,
        # FCGI, Coro, Curses, Gearman::Util, Gearman::XS, LWP::UserAgent,
-       # Mojo::IOLoop, Prima, STFL, Tk, Wx, or Win32::GUI.
+       # Mojo::IOLoop, STFL, Tk, Wx, or Win32::GUI.
 
        # Enable slurpio to pass the raw chunk (scalar ref) to the user
        # function when reading input files.
@@ -196,38 +197,37 @@ Below, a new instance is configured with all available options.
        #   use threads::shared;  (or)  use forks::shared;
        #   use MCE                     use MCE;
 
-    spawn_delay  => 0.035,              ## Default undef
-    submit_delay => 0.002,              ## Default undef
-    job_delay    => 0.150,              ## Default undef
+    spawn_delay  => 0.045,              ## Default undef
+    submit_delay => 0.015,              ## Default undef
+    job_delay    => 0.060,              ## Default undef
 
-       # Time to wait, in fractional seconds, after spawning
-       # a worker, parameters submission to a worker, and
-       # job commencement (running, staggered delay).
+       # Time to wait in fractional seconds after spawning a worker,
+       # after submitting parameters to worker (MCE->run, MCE->process),
+       # and worker running (one time staggered delay).
 
-       # Specify job_delay when wanting to stagger
-       # workers connecting to a database.
+       # Specify job_delay to stagger workers connecting to a database.
 
     on_post_exit => \&on_post_exit,     ## Default undef
     on_post_run  => \&on_post_run,      ## Default undef
 
-       # Execute code block after a worker exits or dies.
-       # MCE->exit, exit, or die
+       # Execute the code block after a worker exits or dies.
+       # (i.e. MCE->exit, exit, die)
 
-       # Execute code block after running.
-       # MCE->process or MCE->run
+       # Execute the code block after running.
+       # (i.e. MCE->process, MCE->run)
 
     progress => sub { ... },            ## Default undef
 
-       # A code block for receiving info on progress made.
-       # See section labeled "MCE PROGRESS DEMONSTRATIONS"
-       # at the end of this document.
+       # A code block for receiving info on the progress made.
+       # See section labeled "MCE PROGRESS DEMONSTRATIONS" at the
+       # end of this document.
 
     user_args => { env => 'test' },     ## Default undef
 
        # MCE release 1.4 added a new parameter to allow one to
        # specify arbitrary arguments such as a string, an ARRAY
-       # or a HASH reference. Workers can access this directly:
-       # my $args = $mce->{user_args} or MCE->user_args;
+       # or HASH reference. Workers can access this directly.
+       # (i.e. my $args = $mce->{user_args} or MCE->user_args)
 
     user_begin => \&user_begin,         ## Default undef
     user_func => \&user_func,           ## Default undef
@@ -338,7 +338,7 @@ Below, a new instance is configured with all available options.
 There are 3 constants which are exportable. Using the constants in lieu of
 0,1,2 makes it more legible when accessing the user_func arguments directly.
 
-=head3 SELF CHUNK CID
+=head3 SELF CHUNK CID - MCE CONSTANTS
 
 Exports SELF => 0, CHUNK => 1, and CID => 2.
 
@@ -921,27 +921,37 @@ Time was measured using 1 worker to emphasize the difference.
 The max_retries option, added in 1.7, allows MCE to retry a failed chunk from
 a worker dying while processing input data or a sequence of numbers.
 
-When max_retries is set, MCE configures the on_post_exit option before running,
-using the following code. Specify on_post_exit explicitly for further tailoring
-if need be. The restart_worker line is necessary, obviously.
+When max_retries is set, MCE configures the on_post_exit option automatically
+using the following code before running. Specify on_post_exit explicitly for
+any further tailoring. The restart_worker line is necessary, obviously.
 
  on_post_exit => sub {
     my ( $mce, $e, $retry_cnt ) = @_;
-    my ( $cnt, $msg ) = ( $retry_cnt + 1, "Error: chunk $e->{id} failed" );
 
-    ( $retry_cnt < $mce->max_retries )
-       ? print {*STDERR} "$msg, retrying chunk attempt # ${cnt}\n"
-       : print {*STDERR} "$msg\n";
+    if ( $e->{id} ) {
+       my $cnt = $retry_cnt + 1;
+       my $msg = "Error: chunk $e->{id} failed";
 
-    $mce->restart_worker;
+       if ( defined $mce->{init_relay} ) {
+          print {*STDERR} "$msg, retrying chunk attempt # $cnt\n"
+             if ( $retry_cnt < $mce->{max_retries} );
+       }
+       else {
+          ( $retry_cnt < $mce->{max_retries} )
+             ? print {*STDERR} "$msg, retrying chunk attempt # $cnt\n"
+             : print {*STDERR} "$msg\n";
+       }
+
+       $mce->restart_worker;
+    }
  }
 
-Below, we let MCE handle on_post_exit automatically, which is essentially the
+We let MCE handle on_post_exit automatically below, which is essentially the
 same code shown above. For max_retries to work, the worker must die, abnormally
-included, or call MCE->exit. Notice that we pass the chunk_id value for the
-3rd argument to MCE->exit.
+included, or call MCE->exit. Notice that we pass the chunk_id value for the 3rd
+argument to MCE->exit (defaults to chunk_id if omitted since MCE 1.844).
 
- ## Running MCE with max_retries.
+ ## max_retries demonstration
 
  use strict;
  use warnings;
@@ -954,7 +964,7 @@ included, or call MCE->exit. Notice that we pass the chunk_id value for the
     # die "Died : chunk_id = 3\n"  if $chunk_id == 3;
     MCE->exit(1, undef, $chunk_id) if $chunk_id == 3;
 
-    print MCE->wid(), ": $chunk_id\n";
+    print "$chunk_id\n";
  }
 
  my $mce = MCE->new(
@@ -963,24 +973,77 @@ included, or call MCE->exit. Notice that we pass the chunk_id value for the
     user_func   => \&user_func,
  )->spawn;
 
- my @input_data = qw( 0 1 2 3 4 5 6 7 );
+ my $input_data = [ 0..7 ];
 
- $mce->process( { chunk_size => 1 }, \@input_data );
-
+ $mce->process( { chunk_size => 1 }, $input_data );
  $mce->shutdown;
 
  -- Output
 
- 1: 1
- 1: 2
+ 1
+ 2
  Error: chunk 3 failed, retrying chunk attempt # 1
  Error: chunk 3 failed, retrying chunk attempt # 2
  Error: chunk 3 failed
- 1: 4
- 1: 5
- 1: 6
- 1: 7
- 1: 8
+ 4
+ 5
+ 6
+ 7
+ 8
+
+Orderly output with max_retries is possible since MCE 1.844. Below, chunk 3
+succeeds whereas chunk 5 fails due to exceeding the number of retries. Be sure
+to call MCE::relay inside C<user_func> and near the end of the block.
+
+ ## max_retries demonstration with init_relay
+
+ use strict;
+ use warnings;
+
+ use MCE;
+ use MCE::Shared;
+
+ tie my $retries1, 'MCE::Shared', 0;
+ tie my $retries2, 'MCE::Shared', 0;
+
+ MCE->new(
+    max_workers  => 4,
+    input_data   => [ 1..7 ],
+    chunk_size   => 1,
+
+    max_retries  => 2,
+    init_relay   => 0,
+
+    user_func    => sub {
+       if ( MCE->chunk_id == 3 ) {
+          MCE->exit if ++$retries1 <= 2;
+       }
+       if ( MCE->chunk_id == 5 ) {
+          MCE->exit if ++$retries2 <= 3;
+       }
+       MCE::relay {
+          $_ += 1;
+          print MCE->chunk_id, "\n";
+       };
+    }
+ )->run;
+
+ print "final: ", MCE::relay_final(), "\n";
+
+ -- Output
+
+ 1
+ 2
+ Error: chunk 3 failed, retrying chunk attempt # 1
+ Error: chunk 5 failed, retrying chunk attempt # 1
+ Error: chunk 3 failed, retrying chunk attempt # 2
+ Error: chunk 5 failed, retrying chunk attempt # 2
+ 3
+ 4
+ Error: chunk 5 failed
+ 6
+ 7
+ final: 6
 
 =head2 SYNTAX for USER_BEGIN and USER_END
 
@@ -1250,6 +1313,8 @@ same as $_, due to chunk_size being greater than 1.
 
 The methods listed below are callable by the main process and workers.
 
+=head2 MCE->abort ( void )
+
 =head2 $mce->abort ( void )
 
 The 'abort' method is applicable when processing input_data only. This
@@ -1260,116 +1325,218 @@ available worker. In essence, the 'abort' method writes the last offset
 position. Workers, on requesting the next offset position, will think
 the end of input_data has been reached and leave the chunking loop.
 
- $mce->abort;
  MCE->abort;
+ $mce->abort;
+
+=head2 MCE->chunk_id ( void )
 
 =head2 $mce->chunk_id ( void )
 
 Returns the chunk_id for the current chunk. The value starts at 1. Chunking
 applies to input_data or sequence. The value is 0 for the manager process.
 
- my $chunk_id = $mce->chunk_id;
  my $chunk_id = MCE->chunk_id;
+ my $chunk_id = $mce->chunk_id;
+
+=head2 MCE->chunk_size ( void )
 
 =head2 $mce->chunk_size ( void )
 
 Getter method for chunk_size used by MCE.
 
- my $chunk_size = $mce->chunk_size;
  my $chunk_size = MCE->chunk_size;
+ my $chunk_size = $mce->chunk_size;
+
+=head2 MCE->do ( 'callback_func' [, $arg1, ... ] )
+
+=head2 $mce->do ( 'callback_func' [, $arg1, ... ] )
+
+MCE serializes data transfers from a worker process via helper functions
+do & sendto to the manager process. The callback function can optionally
+return a reply. Support for calling by the manager process was enabled
+in MCE 1.839.
+
+ [ $reply = ] MCE->do('callback' [, $arg1, ... ]);
+
+Passing args to a callback function using references & scalar.
+
+ sub callback {
+    my ($array_ref, $hash_ref, $scalar_ref, $scalar) = @_;
+    ...
+ }
+
+ MCE->do('main::callback', \@a, \%h, \$s, 'foo');
+ MCE->do('callback', \@a, \%h, \$s, 'foo');
+
+MCE knows if wanting a void, list, hash, or a scalar return value.
+
+ MCE->do('callback' [, $arg1, ... ]);
+
+ my @array  = MCE->do('callback' [, $arg1, ... ]);
+ my %hash   = MCE->do('callback' [, $arg1, ... ]);
+ my $scalar = MCE->do('callback' [, $arg1, ... ]);
+
+=head2 MCE->freeze ( $object_ref )
 
 =head2 $mce->freeze ( $object_ref )
 
 Calls the internal freeze method to serialize an object. The default
 serialization routines are handled by Sereal if available or Storable.
 
- my $frozen = $mce->freeze([ 0, 2, 4 ]);
  my $frozen = MCE->freeze([ 0, 2, 4 ]);
+ my $frozen = $mce->freeze([ 0, 2, 4 ]);
+
+=head2 MCE->max_retries ( void )
 
 =head2 $mce->max_retries ( void )
 
 Getter method for max_retries used by MCE.
 
- my $max_retries = $mce->max_retries;
  my $max_retries = MCE->max_retries;
+ my $max_retries = $mce->max_retries;
+
+=head2 MCE->max_workers ( void )
 
 =head2 $mce->max_workers ( void )
 
 Getter method for max_workers used by MCE.
 
- my $max_workers = $mce->max_workers;
  my $max_workers = MCE->max_workers;
+ my $max_workers = $mce->max_workers;
+
+=head2 MCE->pid ( void )
 
 =head2 $mce->pid ( void )
 
 Returns the Process ID. Threads have thread ID attached to the value.
 
- my $pid = $mce->pid;   ## 16180 (pid) ; 16180.2 (pid.tid)
- my $pid = MCE->pid;
+ my $pid = MCE->pid;    ## 16180 (pid) ; 16180.2 (pid.tid)
+ my $pid = $mce->pid;
+
+=head2 MCE->printf ( $format, $list [, ... ] )
+
+=head2 MCE->print ( $list [, ... ] )
+
+=head2 MCE->say ( $list [, ... ] )
+
+=head2 $mce->printf ( $format, $list [, ... ] )
+
+=head2 $mce->print ( $list [, ... ] )
+
+=head2 $mce->say ( $list [, ... ] )
+
+Use the printf, print, and say methods when wanting to serialize output among
+workers and the manager process. These are sugar syntax for the sendto method.
+These behave similar to the native subroutines in Perl with the exception
+that barewords must be passed as a reference and require the comma after
+it including file handles.
+
+Say is like print, but implicitly appends a newline.
+
+ MCE->printf(\*STDOUT, "%s: %d\n", $name, $age);
+ MCE->printf($fh, "%s: %d\n", $name, $age);
+ MCE->printf("%s: %d\n", $name, $age);
+
+ MCE->print(\*STDERR, "$error_msg\n");
+ MCE->print($fh, $log_msg."\n");
+ MCE->print("$output_msg\n");
+
+ MCE->say(\*STDERR, $error_msg);
+ MCE->say($fh, $log_msg);
+ MCE->say($output_msg);
+
+Caveat: Use the following syntax when passing a reference not a glob or file
+handle. Otherwise, MCE will error indicating the first argument is not a glob
+reference.
+
+ MCE->print(\*STDOUT, \@array, "\n");
+ MCE->print("", \@array, "\n");         ## ok
+
+=head2 MCE->sess_dir ( void )
 
 =head2 $mce->sess_dir ( void )
 
 Returns the session directory used by the MCE instance. This is defined
 during spawning and removed during shutdown.
 
- my $sess_dir = $mce->sess_dir;
  my $sess_dir = MCE->sess_dir;
+ my $sess_dir = $mce->sess_dir;
+
+=head2 MCE->task_id ( void )
 
 =head2 $mce->task_id ( void )
 
 Returns the task ID. This applies to the user_tasks option (starts at 0).
 
- my $task_id = $mce->task_id;
  my $task_id = MCE->task_id;
+ my $task_id = $mce->task_id;
+
+=head2 MCE->task_name ( void )
 
 =head2 $mce->task_name ( void )
 
 Returns the task_name value specified via the task_name option when
 configuring MCE.
 
- my $task_name = $mce->task_name;
  my $task_name = MCE->task_name;
+ my $task_name = $mce->task_name;
+
+=head2 MCE->task_wid ( void )
 
 =head2 $mce->task_wid ( void )
 
 Returns the task worker ID (applies to user_tasks). The value starts at 1 per
 each task configured within user_tasks. The value is 0 for the manager process.
 
- my $task_wid = $mce->task_wid;
  my $task_wid = MCE->task_wid;
+ my $task_wid = $mce->task_wid;
+
+=head2 MCE->thaw ( $frozen )
 
 =head2 $mce->thaw ( $frozen )
 
 Calls the internal thaw method to un-serialize the frozen object.
 
- my $object_ref = $mce->thaw($frozen);
  my $object_ref = MCE->thaw($frozen);
+ my $object_ref = $mce->thaw($frozen);
+
+=head2 MCE->tmp_dir ( void )
 
 =head2 $mce->tmp_dir ( void )
 
 Returns the temporary directory used by MCE.
 
- my $tmp_dir = $mce->tmp_dir;
  my $tmp_dir = MCE->tmp_dir;
+ my $tmp_dir = $mce->tmp_dir;
+
+=head2 MCE->user_args ( void )
 
 =head2 $mce->user_args ( void )
 
 Returns the arguments specified via the user_args option.
 
- my ($arg1, $arg2, $arg3) = $mce->user_args;
  my ($arg1, $arg2, $arg3) = MCE->user_args;
+ my ($arg1, $arg2, $arg3) = $mce->user_args;
+
+=head2 MCE->wid ( void )
 
 =head2 $mce->wid ( void )
 
 Returns the MCE worker ID. Starts at 1 per each MCE instance. The value is
 0 for the manager process.
 
- my $wid = $mce->wid;
  my $wid = MCE->wid;
+ my $wid = $mce->wid;
 
 =head1 METHODS for the MANAGER PROCESS only
 
 Methods listed below are callable by the main process only.
+
+=head2 MCE->forchunk ( $input_data [, { options } ], sub { ... } )
+
+=head2 MCE->foreach ( $input_data [, { options } ], sub { ... } )
+
+=head2 MCE->forseq ( $sequence_spec [, { options } ], sub { ... } )
 
 =head2 $mce->forchunk ( $input_data [, { options } ], sub { ... } )
 
@@ -1379,6 +1546,8 @@ Methods listed below are callable by the main process only.
 
 Forchunk, foreach, and forseq are sugar methods and described in
 L<MCE::Candy>. Stubs exist in MCE which load MCE::Candy automatically.
+
+=head2 MCE->process ( $input_data [, { options } ] )
 
 =head2 $mce->process ( $input_data [, { options } ] )
 
@@ -1438,9 +1607,14 @@ Do the following if wanting workers to persist between jobs.
 
  $mce->shutdown;
 
+=head2 MCE->relay_final ( void )
+
 =head2 $mce->relay_final ( void )
 
-Described in L<MCE::Relay>.
+The relay methods are described in L<MCE::Relay>. Relay capabilities are
+enabled by specifying the C<init_relay> MCE option.
+
+=head2 MCE->restart_worker ( void )
 
 =head2 $mce->restart_worker ( void )
 
@@ -1514,6 +1688,8 @@ Press [ctrl-c] to terminate the script.
 
  ...
 
+=head2 MCE->run ( [ $auto_shutdown [, { options } ] ] )
+
 =head2 $mce->run ( [ $auto_shutdown [, { options } ] ] )
 
 The run method, by default, spawns workers, processes once, and shuts down
@@ -1527,6 +1703,8 @@ process method.
 
  ## Disables auto-shutdown
  $mce->run(0);
+
+=head2 MCE->send ( $data_ref )
 
 =head2 $mce->send ( $data_ref )
 
@@ -1573,6 +1751,8 @@ will receive data first. It depends on which worker is available awaiting data.
  3: Hello from Francis
  4: Hello from Padre
 
+=head2 MCE->shutdown ( void )
+
 =head2 $mce->shutdown ( void )
 
 The run method will automatically spawn workers, run once, and shutdown workers
@@ -1595,6 +1775,8 @@ needed or prior to exiting.
 
  $mce->shutdown;
 
+=head2 MCE->spawn ( void )
+
 =head2 $mce->spawn ( void )
 
 Workers are normally spawned automatically. The spawn method allows one to
@@ -1603,6 +1785,8 @@ spawn workers early if so desired.
  my $mce = MCE->new( ... );
 
  $mce->spawn;
+
+=head2 MCE->status ( void )
 
 =head2 $mce->status ( void )
 
@@ -1619,31 +1803,7 @@ the on_post_exit or on_post_run options for callback support.
 
 Methods listed below are callable by workers only.
 
-=head2 $mce->do ( 'callback_func' [, $arg1, ... ] )
-
-MCE serializes data transfers from a worker process via helper functions
-do & sendto to the manager process. The callback function can optionally
-return a reply.
-
- [ $reply = ] MCE->do('callback' [, $arg1, ... ]);
-
-Passing args to a callback function using references & scalar.
-
- sub callback {
-    my ($array_ref, $hash_ref, $scalar_ref, $scalar) = @_;
-    ...
- }
-
- MCE->do('main::callback', \@a, \%h, \$s, 'foo');
- MCE->do('callback', \@a, \%h, \$s, 'foo');
-
-MCE knows if wanting a void, list, hash, or a scalar return value.
-
- MCE->do('callback' [, $arg1, ... ]);
-
- my @array  = MCE->do('callback' [, $arg1, ... ]);
- my %hash   = MCE->do('callback' [, $arg1, ... ]);
- my $scalar = MCE->do('callback' [, $arg1, ... ]);
+=head2 MCE->exit ( [ $status [, $message [, $id ] ] ] )
 
 =head2 $mce->exit ( [ $status [, $message [, $id ] ] ] )
 
@@ -1655,6 +1815,8 @@ or on_post_run options for callback support.
  MCE->exit(1);
  MCE->exit(2, 'chunk failed', $chunk_id);
  MCE->exit(0, 'msg_foo', 'id_1000');
+
+=head2 MCE->gather ( $arg1, [, $arg2, ... ] )
 
 =head2 $mce->gather ( $arg1, [, $arg2, ... ] )
 
@@ -1719,6 +1881,8 @@ calling this method. See L<MCE::Flow> and L<MCE::Loop> for additional use-case.
  Worker 1: Hello from hoste
  Exit status: 0
 
+=head2 MCE->last ( void )
+
 =head2 $mce->last ( void )
 
 Worker leaves the chunking loop or user_func block immediately. Callable from
@@ -1757,6 +1921,8 @@ inside foreach, forchunk, forseq, and user_func.
  5
  6
 
+=head2 MCE->next ( void )
+
 =head2 $mce->next ( void )
 
 Worker starts the next iteration of the chunking loop. Callable from inside
@@ -1791,43 +1957,20 @@ foreach, forchunk, forseq, and user_func.
  79
  80
 
-=head2 $mce->printf ( $format, $list [, ... ] )
+=head2 MCE::relay { code }
 
-=head2 $mce->print ( $list [, ... ] )
+=head2 MCE->relay ( sub { code } )
 
-=head2 $mce->say ( $list [, ... ] )
-
-Use the printf, print, and say methods when wanting to serialize output among
-workers. These are sugar syntax for the sendto method. These behave similar
-to the native subroutines in Perl with the exception that barewords must be
-passed as a reference and require the comma after it including file handles.
-
-Say is like print, but implicitly appends a newline.
-
- MCE->printf(\*STDOUT, "%s: %d\n", $name, $age);
- MCE->printf($fh, "%s: %d\n", $name, $age);
- MCE->printf("%s: %d\n", $name, $age);
-
- MCE->print(\*STDERR, "$error_msg\n");
- MCE->print($fh, $log_msg."\n");
- MCE->print("$output_msg\n");
-
- MCE->say(\*STDERR, $error_msg);
- MCE->say($fh, $log_msg);
- MCE->say($output_msg);
-
-Caveat: Use the following syntax when passing a reference not a glob or file
-handle. Otherwise, MCE will error indicating the first argument is not a glob
-reference.
-
- MCE->print(\*STDOUT, \@array, "\n");
- MCE->print("", \@array, "\n");         ## ok
+=head2 MCE->relay_recv ( void )
 
 =head2 $mce->relay ( sub { code } )
 
 =head2 $mce->relay_recv ( void )
 
-Described in L<MCE::Relay>.
+The relay methods are described in L<MCE::Relay>. Relay capabilities are
+enabled by specifying the C<init_relay> MCE option.
+
+=head2 MCE->sendto ( $to, $arg1, ... )
 
 =head2 $mce->sendto ( $to, $arg1, ... )
 
@@ -1881,6 +2024,8 @@ file handle.
  MCE->sendto(\*STDERR, "foo\n", \@array, \$scalar, "\n");
  MCE->sendto('fd:2', "foo\n", \@array, \$scalar, "\n");
  MCE->sendto($fh, "foo\n", \@array, \$scalar, "\n");
+
+=head2 MCE->sync ( void )
 
 =head2 $mce->sync ( void )
 
@@ -1972,6 +2117,8 @@ MCE->sync with MCE->do or output serialization methods inside a loop.
                        ## prevent MCE from stalling.
     }
  }
+
+=head2 MCE->yield ( void )
 
 =head2 $mce->yield ( void )
 

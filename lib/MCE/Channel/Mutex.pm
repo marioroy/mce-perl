@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 use base 'MCE::Channel';
 use MCE::Mutex ();
@@ -328,12 +328,18 @@ MCE::Channel::Mutex - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Mutex version 1.843
+This document describes MCE::Channel::Mutex version 1.844
 
 =head1 DESCRIPTION
 
 A channel class providing queue-like and two-way communication
 for processes and threads. Locking is handled using MCE::Mutex.
+
+The API is described in L<MCE::Channel>.
+
+=over 3
+
+=item new
 
  use MCE::Channel;
 
@@ -346,7 +352,45 @@ for processes and threads. Locking is handled using MCE::Mutex.
 
  my $chnl_b = MCE::Channel->new( impl => 'Mutex', mp => 1 );
 
-The API is described in L<MCE::Channel>.
+=back
+
+=head1 QUEUE-LIKE BEHAVIOR
+
+=over 3
+
+=item enqueue
+
+=item dequeue
+
+=item dequeue_nb
+
+=item end
+
+=back
+
+=head1 TWO-WAY IPC - PRODUCER TO CONSUMER
+
+=over 3
+
+=item send
+
+=item recv
+
+=item recv_nb
+
+=back
+
+=head1 TWO-WAY IPC - CONSUMER TO PRODUCER
+
+=over 3
+
+=item send2
+
+=item recv2
+
+=item recv2_nb
+
+=back
 
 =head1 AUTHOR
 

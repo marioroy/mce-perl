@@ -14,7 +14,7 @@ package MCE::Core::Input::Iterator;
 use strict;
 use warnings;
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 ## Items below are folded into MCE.
 
@@ -30,6 +30,8 @@ use bytes;
 ## Worker process -- User Iterator.
 ##
 ###############################################################################
+
+my $_is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
 
 sub _worker_user_iterator {
 
@@ -87,6 +89,7 @@ sub _worker_user_iterator {
 
          $_dat_ex->() if $_lock_chn;
          print {$_DAT_W_SOCK} OUTPUT_I_REF . $LF . $_chn . $LF;
+         MCE::Util::_sock_ready($_DAU_W_SOCK, -1) if $_is_MSWin32;
          chomp($_len = <$_DAU_W_SOCK>);
 
          if ($_len < 0) {
@@ -119,4 +122,37 @@ sub _worker_user_iterator {
 }
 
 1;
+
+__END__
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Module usage.
+##
+###############################################################################
+
+=head1 NAME
+
+MCE::Core::Input::Iterator - Iterator reader
+
+=head1 VERSION
+
+This document describes MCE::Core::Input::Iterator version 1.844
+
+=head1 DESCRIPTION
+
+This package, used interally by the worker process, provides support for
+user specified iterators assigned to C<input_data>.
+
+There is no public API.
+
+=head1 SEE ALSO
+
+The syntax for the C<input_data> option is described in L<MCE::Core>.
+
+=head1 AUTHOR
+
+Mario E. Roy, S<E<lt>marioeroy AT gmail DOT comE<gt>>
+
+=cut
 

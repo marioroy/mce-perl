@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 use base 'MCE::Mutex';
 use Fcntl ':flock';
@@ -184,11 +184,33 @@ MCE::Mutex::Flock - Mutex locking via Fcntl
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Flock version 1.843
+This document describes MCE::Mutex::Flock version 1.844
 
 =head1 DESCRIPTION
 
-A Fcntl implementation for L<MCE::Mutex>. See documentation there.
+A Fcntl implementation for C<MCE::Mutex>.
+
+The API is described in L<MCE::Mutex>.
+
+=over 3
+
+=item new
+
+=item lock
+
+=item lock_exclusive
+
+=item lock_shared
+
+=item unlock
+
+=item synchronize
+
+=item enter
+
+=item timedwait
+
+=back
 
 =head1 AUTHOR
 

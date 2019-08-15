@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -88,7 +88,7 @@ BEGIN {
    ## _chunk_id _pids _run_mode _single_dim _thrs _tids _task_wid _wid _wuf
    ## _exiting _exit_pid _last_sref _total_exited _total_running _total_workers
    ## _send_cnt _sess_dir _spawned _state _status _task _task_id _wrk_status
-   ## _init_pid _init_total_workers
+   ## _init_pid _init_total_workers _pids_t _pids_w _pids_c _relayed
    ##
    ## _bsb_r_sock _bsb_w_sock _com_r_sock _com_w_sock _dat_r_sock _dat_w_sock
    ## _que_r_sock _que_w_sock _rla_r_sock _rla_w_sock _data_channels
@@ -240,7 +240,9 @@ use constant {
    OUTPUT_B_SYN   => 'B~SYN',  # Barrier sync - begin
    OUTPUT_E_SYN   => 'E~SYN',  # Barrier sync - end
    OUTPUT_S_IPC   => 'S~IPC',  # Change to win32 IPC
+   OUTPUT_C_NFY   => 'C~NFY',  # Chunk ID notification
    OUTPUT_P_NFY   => 'P~NFY',  # Progress notification
+   OUTPUT_R_NFY   => 'R~NFY',  # Relay notification
    OUTPUT_S_DIR   => 'S~DIR',  # Make/get sess_dir
    OUTPUT_T_DIR   => 'T~DIR',  # Make/get tmp_dir
    OUTPUT_I_DLY   => 'I~DLY',  # Interval delay
@@ -282,7 +284,9 @@ sub DESTROY {
 
 END {
    return unless ( defined $MCE );
-   $MCE->exit if ( exists $MCE->{_wuf} && $MCE->{_pid} eq "$$" );
+
+   my $_pid = $MCE->{_is_thread} ? $$ .'.'. threads->tid() : $$;
+   $MCE->exit if ( exists $MCE->{_wuf} && $MCE->{_pid} eq $_pid );
 
    _end();
 }
@@ -417,11 +421,10 @@ sub new {
    if (!exists $self{posix_exit}) {
       $self{posix_exit} = 1 if (
          $^S || ( $_has_threads && $_tid ) || $INC{'Mojo/IOLoop.pm'} ||
+         $INC{'Coro.pm'} || $INC{'LWP/UserAgent.pm'} || $INC{'stfl.pm'} ||
          $INC{'Curses.pm'} || $INC{'CGI.pm'} || $INC{'FCGI.pm'} ||
-         $INC{'Prima.pm'} || $INC{'Tk.pm'} || $INC{'Wx.pm'} ||
-         $INC{'Gearman/Util.pm'} || $INC{'Gearman/XS.pm'} ||
-         $INC{'Coro.pm'} || $INC{'LWP/UserAgent.pm'} ||
-         $INC{'Win32/GUI.pm'} || $INC{'stfl.pm'}
+         $INC{'Tk.pm'} || $INC{'Wx.pm'} || $INC{'Win32/GUI.pm'} ||
+         $INC{'Gearman/Util.pm'} || $INC{'Gearman/XS.pm'}
       );
    }
 
@@ -448,6 +451,8 @@ sub new {
             _croak("MCE::new: ($_p) is not a valid task constructor argument")
                unless (exists $_valid_fields_task{$_p});
          }
+         $_task->{max_workers} = 0 unless scalar(keys %{ $_task });
+
          $_task->{max_workers} = $self{max_workers}
             unless (defined $_task->{max_workers});
          $_task->{use_threads} = $self{use_threads}
@@ -582,6 +587,7 @@ sub spawn {
          my $_DAT_W_SOCK = $TOP_HDLR->{_dat_w_sock}->[0];
          print {$_DAT_W_SOCK} OUTPUT_S_IPC.$LF . '0'.$LF;
 
+         MCE::Util::_sock_ready($_DAT_W_SOCK, -1);
          MCE::Util::_sysread($_DAT_W_SOCK, my($_buf), 1);
       }
    }
@@ -628,6 +634,10 @@ sub spawn {
    ## Spawn workers.
    $self->{_pids}   = [], $self->{_thrs}  = [], $self->{_tids} = [];
    $self->{_status} = [], $self->{_state} = [], $self->{_task} = [];
+
+   if ($self->{loop_timeout} && !$_is_MSWin32) {
+      $self->{_pids_t} = {}, $self->{_pids_w} = {};
+   }
 
    local $SIG{TTIN}  unless $_is_MSWin32;
    local $SIG{TTOU}  unless $_is_MSWin32;
@@ -885,6 +895,14 @@ sub restart_worker {
       _dispatch_child($self, $_wid, $_task, $_task_id, $_task_wid, $_params);
    }
 
+   delete $self->{_retry_cnt};
+
+   if (defined $self->{spawn_delay} && $self->{spawn_delay} > 0.0) {
+      sleep $self->{spawn_delay};
+   } elsif ($_is_MSWin32) {
+      sleep 0.045;
+   }
+
    return;
 }
 
@@ -1140,9 +1158,8 @@ sub run {
             $self->{_state}[$_wid]{_params} = \%_params_nodata;
          }
 
-         if (defined $_submit_delay && $_submit_delay > 0.0) {
-            sleep $_submit_delay;
-         }
+         sleep $_submit_delay
+            if defined($_submit_delay) && $_submit_delay > 0.0;
       }
    }
 
@@ -1192,9 +1209,9 @@ sub run {
    }
    elsif ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
       if (
+         !$INC{'Mojo/IOLoop.pm'} && !$INC{'Win32/GUI.pm'} &&
          !$INC{'Gearman/XS.pm'} && !$INC{'Gearman/Util.pm'} &&
-         !$INC{'Prima.pm'} && !$INC{'Tk.pm'} && !$INC{'Wx.pm'} &&
-         !$INC{'Mojo/IOLoop.pm'} && !$INC{'Win32/GUI.pm'}
+         !$INC{'Tk.pm'} && !$INC{'Wx.pm'}
       ) {
          # running inside eval or IPerl, check stack trace
          my $_t = Carp::longmess(); $_t =~ s/\teval [^\n]+\n$//;
@@ -1266,11 +1283,10 @@ sub send {
    print({$_COM_R_SOCK} '_data'.$LF), <$_COM_R_SOCK>;
    print({$_COM_R_SOCK} $_len.$LF, $_frozen_data), <$_COM_R_SOCK>;
 
-   if (defined $_submit_delay && $_submit_delay > 0.0) {
-      sleep $_submit_delay;
-   }
-
    $self->{_send_cnt} += 1;
+
+   sleep $_submit_delay
+      if defined($_submit_delay) && $_submit_delay > 0.0;
 
    return $self;
 }
@@ -1370,6 +1386,11 @@ sub shutdown {
    $self->{_total_workers} = 0;
    $self->{_sess_dir} = undef;
 
+   if ($self->{loop_timeout}) {
+      delete $self->{_pids_t};
+      delete $self->{_pids_w};
+   }
+
    return;
 }
 
@@ -1408,6 +1429,7 @@ sub sync {
    print {$_DAT_W_SOCK} OUTPUT_E_SYN.$LF . $_chn.$LF;
 
    ## Wait until all workers from (task_id 0) have un-synced.
+   MCE::Util::_sock_ready($_BSB_W_SOCK, -1) if $_is_MSWin32;
    MCE::Util::_sysread($_BSB_W_SOCK, $_buf, 1);
 
    return;
@@ -1434,7 +1456,7 @@ sub yield {
    chomp($_delay = <$_DAU_W_SOCK>);
    $_DAT_LOCK->unlock() if $_lock_chn;
 
-   sleep $_delay if ($_delay > 0.0);
+   sleep $_delay if $_delay > 0.0;
 
    return;
 }
@@ -1485,7 +1507,7 @@ sub exit {
 
    my $_exit_status = (defined $_[0]) ? $_[0] : $?;
    my $_exit_msg    = (defined $_[1]) ? $_[1] : '';
-   my $_exit_id     = (defined $_[2]) ? $_[2] : '';
+   my $_exit_id     = (defined $_[2]) ? $_[2] : $self->chunk_id;
 
    @_ = ();
 
@@ -1499,8 +1521,22 @@ sub exit {
    my $_lock_chn   = $self->{_lock_chn};
    my $_task_id    = $self->{_task_id};
 
-   unless ($self->{_exiting}) {
+   unless ( $self->{_exiting} ) {
       $self->{_exiting} = 1;
+
+      my $_pid = $self->{_is_thread} ? $$ .'.'. threads->tid() : $$;
+      my $_max_retries = $self->{max_retries};
+      my $_chunk_id = $self->{_chunk_id};
+
+      if ( defined $self->{init_relay} && !$self->{_relayed} && !$_task_id &&
+           exists $self->{_wuf} && $self->{_pid} eq $_pid ) {
+
+         $self->{_retry_cnt} = -1 unless defined( $self->{_retry_cnt} );
+
+         if ( !$_max_retries || ++$self->{_retry_cnt} == $_max_retries ) {
+            MCE::relay { warn "Error: chunk $_chunk_id failed\n" if $_chunk_id };
+         }
+      }
 
       ## Check for nested workers not yet joined.
       MCE::Child->finish('MCE') if $INC{'MCE/Child.pm'};
@@ -1515,7 +1551,7 @@ sub exit {
       $_DAT_LOCK->lock() if $_lock_chn;
 
       if ($self->{_retry} && $self->{_retry}->[2]--) {
-         my $_buf = $self->{freeze}($self->{_retry});
+         $_exit_status = 0; my $_buf = $self->{freeze}($self->{_retry});
          print({$_DAT_W_SOCK} OUTPUT_W_EXT.$LF . $_chn.$LF),
          print({$_DAU_W_SOCK}
             $_task_id.$LF . $self->{_wid}.$LF . $self->{_exit_pid}.$LF .
@@ -1926,13 +1962,16 @@ sub _dispatch {
    ## To avoid (Scalars leaked: N) messages; fixed in Perl 5.12.x
    @_ = ();
 
-   $ENV{'PERL_MCE_IPC'} = 'win32' if (
-      $_is_MSWin32 && ( $INC{'MCE/Child.pm'} || $INC{'MCE/Hobo.pm'} )
-   );
+   $ENV{'PERL_MCE_IPC'} = 'win32' if ( $_is_MSWin32 && (
+      defined($self->{max_retries}) ||
+      $INC{'MCE/Child.pm'} ||
+      $INC{'MCE/Hobo.pm'}
+   ));
 
-   if (!$_is_thread && UNIVERSAL::can('Prima', 'cleanup')) {
-      no warnings 'redefine'; local $@; eval '*Prima::cleanup = sub {}';
-   }
+   delete $self->{_relayed};
+
+   $self->{_is_thread} = $_is_thread;
+   $self->{_pid}       = $_is_thread ? $$ .'.'. threads->tid() : $$;
 
    ## Sets the seed of the base generator uniquely between workers.
    ## The new seed is computed using the current seed and $_wid value.
@@ -1976,8 +2015,6 @@ sub _dispatch {
 
    ## Run.
 
-   $self->{_pid} = ($_is_thread) ? $$ .'.'. threads->tid() : $$;
-
    _worker_main(@_args, \@_plugin_worker_init);
 
    _exit($self);
@@ -2007,9 +2044,8 @@ sub _dispatch_thread {
    push @{ $self->{_thrs} }, $_thr;
    push @{ $self->{_tids} }, $_thr->tid();
 
-   if (defined $self->{spawn_delay} && $self->{spawn_delay} > 0.0) {
-      sleep $self->{spawn_delay};
-   }
+   sleep $self->{spawn_delay}
+      if defined($self->{spawn_delay}) && $self->{spawn_delay} > 0.0;
 
    return;
 }
@@ -2036,9 +2072,13 @@ sub _dispatch_child {
 
    push @{ $self->{_pids} }, $_pid;
 
-   if (defined $self->{spawn_delay} && $self->{spawn_delay} > 0.0) {
-      sleep $self->{spawn_delay};
+   if ($self->{loop_timeout} && !$_is_MSWin32) {
+      $self->{_pids_t}{$_pid} = $_task_id;
+      $self->{_pids_w}{$_pid} = $_wid;
    }
+
+   sleep $self->{spawn_delay}
+      if defined($self->{spawn_delay}) && $self->{spawn_delay} > 0.0;
 
    return;
 }

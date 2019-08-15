@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 use threads;
 use threads::shared;
@@ -326,12 +326,18 @@ MCE::Channel::Threads - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Threads version 1.843
+This document describes MCE::Channel::Threads version 1.844
 
 =head1 DESCRIPTION
 
 A channel class providing queue-like and two-way communication
 for threads only. Locking is handled using threads::shared.
+
+The API is described in L<MCE::Channel>.
+
+=over 3
+
+=item new
 
  use MCE::Channel;
 
@@ -344,7 +350,45 @@ for threads only. Locking is handled using threads::shared.
 
  my $chnl_b = MCE::Channel->new( impl => 'Threads', mp => 1 );
 
-The API is described in L<MCE::Channel>.
+=back
+
+=head1 QUEUE-LIKE BEHAVIOR
+
+=over 3
+
+=item enqueue
+
+=item dequeue
+
+=item dequeue_nb
+
+=item end
+
+=back
+
+=head1 TWO-WAY IPC - PRODUCER TO CONSUMER
+
+=over 3
+
+=item send
+
+=item recv
+
+=item recv_nb
+
+=back
+
+=head1 TWO-WAY IPC - CONSUMER TO PRODUCER
+
+=over 3
+
+=item send2
+
+=item recv2
+
+=item recv2_nb
+
+=back
 
 =head1 LIMITATIONS
 

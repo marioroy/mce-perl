@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.843';
+our $VERSION = '1.844';
 
 my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
 my $_tid = $_has_threads ? threads->tid() : 0;
@@ -320,6 +320,9 @@ use bytes;
       my ($self, $_chunk, $_chunk_id) = @_;
       my $_size = 0;
 
+      delete $self->{_relayed};
+      $self->{_chunk_id} = $_chunk_id;
+
       if ($self->{progress} && $self->{_task_id} == 0) {
          # use_slurpio
          if (ref $_chunk eq 'SCALAR') {
@@ -342,10 +345,22 @@ use bytes;
          }
       }
 
-      $self->{_retry} = [ $_chunk, $_chunk_id, $self->{max_retries} ]
-         if ($self->{max_retries});
+      if ($self->{max_retries}) {
+         $self->{_retry} = [ $_chunk, $_chunk_id, $self->{max_retries} ];
+      }
 
-      $self->{_chunk_id} = $_chunk_id;
+      if ($self->{loop_timeout} && $self->{_task_id} == 0 &&
+          defined $self->{init_relay} && !$self->{_is_thread} &&
+          $^O ne 'MSWin32') {
+
+         local $\ = undef if (defined $\);
+
+         $_dat_ex->() if $_lock_chn;
+         print({$_DAT_W_SOCK} OUTPUT_C_NFY.$LF . $_chn.$LF),
+         print({$_DAU_W_SOCK} "$$:$_chunk_id".$LF);
+         $_dat_un->() if $_lock_chn;
+      }
+
       $_user_func->($self, $_chunk, $_chunk_id);
 
       if ($self->{progress} && $self->{_task_id} == 0) {
@@ -419,7 +434,9 @@ sub _worker_do {
    if (defined $self->{user_begin}) {
       $self->{_chunk_id} = 0;
       $self->{user_begin}($self, $_task_id, $_task_name);
-      $self->sync() if ($_task_id == 0 && defined $self->{init_relay});
+      if ($_task_id == 0 && defined $self->{init_relay} && !$self->{_retry}) {
+         $self->sync();
+      }
    }
 
    ## Retry chunk if previous attempt died.
@@ -471,6 +488,9 @@ sub _worker_do {
       _worker_read_handle($self, READ_MEMORY, $self->{input_data});
    }
    elsif (defined $self->{user_func}) {
+      if ($self->{max_retries}) {
+         $self->{_retry} = [ undef, 0, $self->{max_retries} ];
+      }
       $self->{_chunk_id} = 0;
       $self->{user_func}->($self);
    }
@@ -526,54 +546,35 @@ sub _worker_loop {
    my $_COM_LOCK   = $self->{_com_lock};
    my $_COM_W_SOCK = $self->{_com_w_sock};
    my $_job_delay  = $self->{job_delay};
-   my $_wid        = $self->{_wid};
 
-   if ($^O eq 'MSWin32') {
-      lock $MCE::_WIN_LOCK;
-   }
+   if ($^O eq 'MSWin32') { lock $MCE::_WIN_LOCK; }
 
    while (1) {
-
       {
          local $\ = undef; local $/ = $LF;
          $_COM_LOCK->lock();
 
          ## Wait for the next job request.
-         $_response = <$_COM_W_SOCK>;
-         print {$_COM_W_SOCK} $_wid.$LF;
+         $_response = <$_COM_W_SOCK>, print {$_COM_W_SOCK} $self->{_wid}.$LF;
 
          ## Return if instructed to exit.
-         if ($_response eq "_exit\n") {
-            $_COM_LOCK->unlock();
-            return;
-         }
+         $_COM_LOCK->unlock(), return if ($_response eq "_exit\n");
 
          ## Process send request.
          if ($_response eq "_data\n") {
-            chomp($_len = <$_COM_W_SOCK>),
-            read($_COM_W_SOCK, $_buf, $_len);
+            chomp($_len = <$_COM_W_SOCK>), read($_COM_W_SOCK, $_buf, $_len);
+            print({$_COM_W_SOCK} $LF), $_COM_LOCK->unlock();
+            $self->{user_data} = $self->{thaw}($_buf), undef $_buf;
 
-            print {$_COM_W_SOCK} $LF;
-            $_COM_LOCK->unlock();
-
-            $self->{user_data} = $self->{thaw}($_buf);
-            undef $_buf;
-
-            if (defined $_job_delay && $_job_delay > 0.0) {
-               sleep $_job_delay * $_wid;
-            }
+            sleep $_job_delay * $self->{_wid}
+               if defined($_job_delay) && $_job_delay > 0.0;
          }
 
          ## Process normal request.
          elsif ($_response =~ /\d+/) {
-            chomp($_len = <$_COM_W_SOCK>),
-            read($_COM_W_SOCK, $_buf, $_len);
-
-            print {$_COM_W_SOCK} $LF;
-            $_COM_LOCK->unlock();
-
-            $_params_ref = $self->{thaw}($_buf);
-            undef $_buf;
+            chomp($_len = <$_COM_W_SOCK>), read($_COM_W_SOCK, $_buf, $_len);
+            print({$_COM_W_SOCK} $LF), $_COM_LOCK->unlock();
+            $_params_ref = $self->{thaw}($_buf), undef $_buf;
          }
 
          ## Leave loop if invalid response.
@@ -589,9 +590,8 @@ sub _worker_loop {
       MCE::Util::_sysread($self->{_bsb_w_sock}, my($_b), 1);
 
       ## Normal request.
-      if (defined $_job_delay && $_job_delay > 0.0) {
-         sleep $_job_delay * $_wid;
-      }
+      sleep $_job_delay * $self->{_wid}
+         if defined($_job_delay) && $_job_delay > 0.0;
 
       _worker_do($self, $_params_ref); undef $_params_ref;
    }
@@ -601,7 +601,7 @@ sub _worker_loop {
 
    $_COM_LOCK->unlock();
 
-   die "Worker ($self->{_wid}) has ended prematurely";
+   die "Error: worker $self->{_wid} has ended prematurely";
 }
 
 ###############################################################################
@@ -638,6 +638,8 @@ sub _worker_main {
    }
 
    my $_running_inside_eval = $^S;
+
+   local $SIG{SEGV} = sub { $self->exit(11) };
 
    local $SIG{__DIE__} = sub {
       if (!defined $^S || $^S) {
@@ -707,12 +709,8 @@ sub _worker_main {
    ## Call module's worker_init routine for modules plugged into MCE.
    for my $_p (@{ $_plugin_worker_init }) { $_p->($self); }
 
-   ## Begin processing if worker was added during processing. Otherwise,
-   ## respond back to the main process if the last worker spawned.
-   if (defined $_params) {
-      _worker_do($self, $_params);
-      undef $_params;
-   }
+   ## Begin processing if worker was added during processing.
+   _worker_do($self, $_params), undef $_params if defined($_params);
 
    ## Enter worker loop.
    _worker_loop($self);
@@ -727,4 +725,33 @@ sub _worker_main {
 }
 
 1;
+
+__END__
+
+###############################################################################
+## ----------------------------------------------------------------------------
+## Module usage.
+##
+###############################################################################
+
+=head1 NAME
+
+MCE::Core::Worker - Core methods for the worker process
+
+=head1 VERSION
+
+This document describes MCE::Core::Worker version 1.844
+
+=head1 DESCRIPTION
+
+This package provides main, loop, and relevant methods used internally by
+the worker process.
+
+There is no public API.
+
+=head1 AUTHOR
+
+Mario E. Roy, S<E<lt>marioeroy AT gmail DOT comE<gt>>
+
+=cut
 
