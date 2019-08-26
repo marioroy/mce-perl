@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.844';
+our $VERSION = '1.845';
 
 my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
 my $_tid = $_has_threads ? threads->tid() : 0;
@@ -255,6 +255,9 @@ use bytes;
          else {
             _do_send($self, SENDTO_FD, $_fd, $_data_ref);
          }
+      }
+      elsif ($_glob->can('print')) {
+         $_glob->print(${ $_data_ref });
       }
       else {
          require Symbol unless $INC{'Symbol.pm'};
@@ -740,7 +743,7 @@ MCE::Core::Worker - Core methods for the worker process
 
 =head1 VERSION
 
-This document describes MCE::Core::Worker version 1.844
+This document describes MCE::Core::Worker version 1.845
 
 =head1 DESCRIPTION
 

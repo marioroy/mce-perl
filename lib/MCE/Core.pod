@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.844
+This document describes MCE::Core version 1.845
 
 =head1 SYNOPSIS
 
@@ -128,6 +128,7 @@ Below, a new instance is configured with all available options.
        # input_data => '/path/to/file'  ## Process file
        # input_data => \@array          ## Process array
        # input_data => \*FILE_HNDL      ## Process file handle
+       # input_data => $io              ## Process IO::All { File, Pipe, STDIO }
        # input_data => \$scalar         ## Treated like a file
        # input_data => \&iterator       ## User specified iterator
 
@@ -513,6 +514,8 @@ Specifying 1 for use_slurpio causes user_func to receive a scalar reference
 containing the raw data (applicable to files only) instead of an array
 reference.
 
+C<IO::All> { File, Pipe, STDIO } is supported since MCE 1.845.
+
  input_data  => '/path/to/file',  ## process file
  input_data  => \@array,          ## process array
  input_data  => \%hash,           ## process hash, API since 1.828
@@ -520,6 +523,7 @@ reference.
  input_data  => $fh,              ## open $fh, "<", "file"
  input_data  => $fh,              ## IO::File "file", "r"
  input_data  => $fh,              ## IO::Uncompress::Gunzip "file.gz"
+ input_data  => $io,              ## IO::All { File, Pipe, STDIO }
  input_data  => \$scalar,         ## treated like a file
  input_data  => \&iterator,       ## user specified iterator
 
@@ -1451,6 +1455,22 @@ reference.
 
  MCE->print(\*STDOUT, \@array, "\n");
  MCE->print("", \@array, "\n");         ## ok
+
+Sending to C<IO::All> { File, Pipe, STDIO } is supported since MCE 1.845.
+
+ use IO::All;
+
+ my $out = io->stdout;
+ my $err = io->stderr;
+
+ MCE->printf($out, "%s\n", "sent to stdout");
+ MCE->printf($err, "%s\n", "sent to stderr");
+
+ MCE->print($out, "sent to stdout\n");
+ MCE->print($err, "sent to stderr\n");
+
+ MCE->say($out, "sent to stdout");
+ MCE->say($err, "sent to stderr");
 
 =head2 MCE->sess_dir ( void )
 

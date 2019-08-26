@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.844';
+our $VERSION = '1.845';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -79,8 +79,7 @@ sub DESTROY {
 
    if ( $self->{'init_pid'} && $self->{'init_pid'} eq $pid ) {
       MCE::Util::_destroy_socks( $self, qw(c_sock p_sock) );
-      delete $self->{c_mutex};
-      delete $self->{p_mutex};
+      delete($self->{c_mutex}), delete($self->{p_mutex});
    }
 
    return;
@@ -131,7 +130,7 @@ MCE::Channel - Queue-like and two-way communication capability
 
 =head1 VERSION
 
-This document describes MCE::Channel version 1.844
+This document describes MCE::Channel version 1.845
 
 =head1 SYNOPSIS
 
@@ -373,11 +372,13 @@ using L<threads::shared> for locking versus L<MCE::Mutex>.
  my $num_consumers = 10;
 
  sub consumer {
-    # receive items
     my $count = 0;
+
+    # receive items
     while ( my ($item1, $item2) = $queue->dequeue(2) ) {
        $count += 2;
     }
+
     # send result
     $queue->send2( threads->tid => $count );
  }
@@ -435,11 +436,13 @@ which is the default if omitted.
  my $num_consumers = 10;
 
  sub consumer {
-    # receive items
     my $count = 0;
+
+    # receive items
     while ( my ($item1, $item2) = $queue->dequeue(2) ) {
        $count += 2;
     }
+
     # send result
     $queue->send2( MCE::Child->pid => $count );
  }
@@ -465,7 +468,67 @@ which is the default if omitted.
  print $results{$_}, "\n" for keys %results;
  print "$total total\n\n";
 
-=head2 Example 3 - Many producers
+=head2 Example 3 - Consumer requests item
+
+Like the previous example, but have the manager process await a notification
+from the consumer before inserting into the queue. This allows the producer
+to end the channel early (i.e. exit loop).
+
+ use strict;
+ use warnings;
+
+ use MCE::Child;
+ use MCE::Channel;
+
+ my $queue = MCE::Channel->new( impl => 'Mutex' );
+ my $num_consumers = 10;
+
+ sub consumer {
+    # receive items
+    my $count = 0;
+
+    while () {
+       # Notify the manager process to send items. This allows the
+       # manager process to enqueue only when requested. The benefit
+       # is being able to end the channel immediately.
+
+       $queue->send2( MCE::Child->pid ); # channel is bi-directional
+
+       my ($item1, $item2) = $queue->dequeue(2);
+       last unless ( defined $item1 );   # channel ended
+
+       $count += 2;
+    }
+
+    # result
+    return ( MCE::Child->pid => $count );
+ }
+
+ MCE::Child->create('consumer') for 1 .. $num_consumers;
+
+ ## producer
+
+ for my $num (1 .. 40000) {
+    # Await worker notification before inserting (blocking).
+    my $consumer_pid = $queue->recv2;
+    $queue->enqueue($num, $num * 2);
+ }
+
+ $queue->end;
+
+ my %results;
+ my $total = 0;
+
+ for my $child ( MCE::Child->list ) {
+    my ($id, $count) = $child->join;
+    $results{$id} = $count;
+    $total += $count;
+ }
+
+ print $results{$_}, "\n" for keys %results;
+ print "$total total\n\n";
+
+=head2 Example 4 - Many producers
 
 Running with 2 or more producers requires setting the C<mp> option. Internally,
 this enables locking support for the left end of the channel. The C<mp> option
@@ -525,7 +588,7 @@ Here, using the MCE facility for gathering the final count.
 
  print "$total total\n\n";
 
-=head2 Example 4 - Request input
+=head2 Example 5 - Many channels
 
 This demonstration configures a channel per consumer. Plus, a common channel
 for consumers to request the next input item. The C<Simple> implementation is

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.844';
+our $VERSION = '1.845';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -672,7 +672,7 @@ MCE::Stream - Parallel stream model for chaining multiple maps and greps
 
 =head1 VERSION
 
-This document describes MCE::Stream version 1.844
+This document describes MCE::Stream version 1.845
 
 =head1 SYNOPSIS
 
@@ -701,16 +701,20 @@ This document describes MCE::Stream version 1.844
  my @c = mce_stream sub { $_->[1] *= 2; $_ }, [ [ 0, 1 ], [ 0, 2 ], ... ];
  my @d = mce_stream sub { $_->[1] *= 2; $_ }, \@deeply_list;
 
- ## File_path, glob_ref, or scalar_ref
- my @e = mce_stream_f sub { chomp; $_ }, "/path/to/file";
+ ## File path, glob ref, IO::All::{ File, Pipe, STDIO } obj, or scalar ref
+ ## Workers read directly and not involve the manager process
+ my @e = mce_stream_f sub { chomp; $_ }, "/path/to/file"; # efficient
+
+ ## Involves the manager process, therefore slower
  my @f = mce_stream_f sub { chomp; $_ }, $file_handle;
- my @g = mce_stream_f sub { chomp; $_ }, \$scalar;
+ my @g = mce_stream_f sub { chomp; $_ }, $io;
+ my @h = mce_stream_f sub { chomp; $_ }, \$scalar;
 
  ## Sequence of numbers (begin, end [, step, format])
- my @h = mce_stream_s sub { $_ * $_ }, 1, 10000, 5;
- my @i = mce_stream_s sub { $_ * $_ }, [ 1, 10000, 5 ];
+ my @i = mce_stream_s sub { $_ * $_ }, 1, 10000, 5;
+ my @j = mce_stream_s sub { $_ * $_ }, [ 1, 10000, 5 ];
 
- my @j = mce_stream_s sub { $_ * $_ }, {
+ my @k = mce_stream_s sub { $_ * $_ }, {
     begin => 1, end => 10000, step => 5, format => undef
  };
 
@@ -947,9 +951,12 @@ Flow, and Step, specifying a hash reference as input data isn't allowed.
 The fastest of these is the /path/to/file. Workers communicate the next offset
 position among themselves with zero interaction by the manager process.
 
+C<IO::All> { File, Pipe, STDIO } is supported since MCE 1.845.
+
  my @c = mce_stream_f sub { chomp; $_ . "\r\n" }, "/path/to/file";  # faster
  my @d = mce_stream_f sub { chomp; $_ . "\r\n" }, $file_handle;
- my @e = mce_stream_f sub { chomp; $_ . "\r\n" }, \$scalar;
+ my @e = mce_stream_f sub { chomp; $_ . "\r\n" }, $io;              # IO::All
+ my @f = mce_stream_f sub { chomp; $_ . "\r\n" }, \$scalar;
 
 =over 3
 

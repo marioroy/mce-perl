@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.844';
+our $VERSION = '1.845';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -1750,7 +1750,10 @@ sub print {
    my $self = shift; $self = $MCE unless ref($self);
    my ($_fd, $_glob, $_data_ref);
 
-   if (ref $_[0] && defined ($_fd = fileno($_[0]))) {
+   if (ref $_[0] && $_[0]->can('fileno') && $_[0]->can('print')) {
+      $_fd = $_[0]->fileno, $_glob = shift;
+   }
+   elsif (ref $_[0] && defined ($_fd = fileno($_[0]))) {
       if (my $_ob = tied *{ $_[0] }) {
          if (ref $_ob eq 'IO::TieCombine::Handle') {
             $_fd = 1 if (lc($_ob->{slot_name}) eq 'stdout');
@@ -1777,7 +1780,10 @@ sub printf {
    my $self = shift; $self = $MCE unless ref($self);
    my ($_fd, $_glob, $_fmt, $_data);
 
-   if (ref $_[0] && defined ($_fd = fileno($_[0]))) {
+   if (ref $_[0] && $_[0]->can('fileno') && $_[0]->can('print')) {
+      $_fd = $_[0]->fileno, $_glob = shift;
+   }
+   elsif (ref $_[0] && defined ($_fd = fileno($_[0]))) {
       if (my $_ob = tied *{ $_[0] }) {
          if (ref $_ob eq 'IO::TieCombine::Handle') {
             $_fd = 1 if (lc($_ob->{slot_name}) eq 'stdout');
@@ -1799,7 +1805,10 @@ sub say {
    my $self = shift; $self = $MCE unless ref($self);
    my ($_fd, $_glob, $_data);
 
-   if (ref $_[0] && defined ($_fd = fileno($_[0]))) {
+   if (ref $_[0] && $_[0]->can('fileno') && $_[0]->can('print')) {
+      $_fd = $_[0]->fileno, $_glob = shift;
+   }
+   elsif (ref $_[0] && defined ($_fd = fileno($_[0]))) {
       if (my $_ob = tied *{ $_[0] }) {
          if (ref $_ob eq 'IO::TieCombine::Handle') {
             $_fd = 1 if (lc($_ob->{slot_name}) eq 'stdout');

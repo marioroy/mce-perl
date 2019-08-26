@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.844';
+our $VERSION = '1.845';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -60,6 +60,9 @@ sub _task_end {
 
          $_task_end->($self, $_task_id, $_task_name);
       }
+   }
+   elsif (defined $self->{task_end}) {
+      $self->{task_end}->($self, 0, $self->{task_name});
    }
 
    return;
@@ -322,13 +325,15 @@ sub _output_loop {
 
             if ($_chunk_size <= MAX_RECS_SIZE) {
                if ($_chunk_size == 1) {
-                  $_buf = <$_input_glob>;
+                  $_buf = $_input_glob->can('getline')
+                     ? $_input_glob->getline : <$_input_glob>;
                   $_eof_flag = 1 unless (length $_buf);
                }
                else {
                   my $_last_len = 0;
                   for (1 .. $_chunk_size) {
-                     $_buf .= <$_input_glob>;
+                     $_buf .= $_input_glob->can('getline')
+                        ? $_input_glob->getline : <$_input_glob>;
                      $_len  = length $_buf;
                      if ($_len == $_last_len) {
                         $_eof_flag = 1;
@@ -339,12 +344,21 @@ sub _output_loop {
                }
             }
             else {
-               if (read($_input_glob, $_buf, $_chunk_size) == $_chunk_size) {
-                  $_buf .= <$_input_glob>;
-                  $_eof_flag = 1 if (length $_buf == $_chunk_size);
+               if ($_input_glob->can('getline') && $_input_glob->can('read')) {
+                  if ($_input_glob->read($_buf, $_chunk_size) == $_chunk_size) {
+                     $_buf .= $_input_glob->getline;
+                     $_eof_flag = 1 if (length $_buf == $_chunk_size);
+                  } else {
+                     $_eof_flag = 1;
+                  }
                }
                else {
-                  $_eof_flag = 1;
+                  if (read($_input_glob, $_buf, $_chunk_size) == $_chunk_size) {
+                     $_buf .= <$_input_glob>;
+                     $_eof_flag = 1 if (length $_buf == $_chunk_size);
+                  } else {
+                     $_eof_flag = 1;
+                  }
                }
             }
          }
@@ -1027,7 +1041,7 @@ MCE::Core::Manager - Core methods for the manager process
 
 =head1 VERSION
 
-This document describes MCE::Core::Manager version 1.844
+This document describes MCE::Core::Manager version 1.845
 
 =head1 DESCRIPTION
 

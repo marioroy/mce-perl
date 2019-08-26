@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.844';
+our $VERSION = '1.845';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -480,7 +480,7 @@ MCE::Flow - Parallel flow model for building creative applications
 
 =head1 VERSION
 
-This document describes MCE::Flow version 1.844
+This document describes MCE::Flow version 1.845
 
 =head1 DESCRIPTION
 
@@ -721,9 +721,13 @@ inside the first block. Hence, the block is called once per each item.
  mce_flow sub { do_work($_) }, [ [ 0, 1 ], [ 0, 2 ], ... ];
  mce_flow sub { do_work($_) }, \@deeply_list;
 
- ## File_path, glob_ref, or scalar_ref
- mce_flow_f sub { chomp; do_work($_) }, "/path/to/file";
+ ## File path, glob ref, IO::All::{ File, Pipe, STDIO } obj, or scalar ref
+ ## Workers read directly and not involve the manager process
+ mce_flow_f sub { chomp; do_work($_) }, "/path/to/file"; # efficient
+
+ ## Involves the manager process, therefore slower
  mce_flow_f sub { chomp; do_work($_) }, $file_handle;
+ mce_flow_f sub { chomp; do_work($_) }, $io;
  mce_flow_f sub { chomp; do_work($_) }, \$scalar;
 
  ## Sequence of numbers (begin, end [, step, format])
@@ -983,10 +987,13 @@ needed after the block.
 The fastest of these is the /path/to/file. Workers communicate the next offset
 position among themselves with zero interaction by the manager process.
 
+C<IO::All> { File, Pipe, STDIO } is supported since MCE 1.845.
+
  # $_ contains the line when chunk_size => 1
 
  mce_flow_f sub { $_ }, "/path/to/file";  # faster
  mce_flow_f sub { $_ }, $file_handle;
+ mce_flow_f sub { $_ }, $io;              # IO::All
  mce_flow_f sub { $_ }, \$scalar;
 
  # chunking, any chunk_size => 1 or greater

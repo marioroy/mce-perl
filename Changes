@@ -1,6 +1,23 @@
 
 Revision history for Perl module MCE.
 
+1.845 Sun Aug 25 22:00:00 EST 2019
+
+  * Croak if is_joinable, is_running, or join is called by a non-managed
+    process in MCE::Child. Added LIMITATION section to the documentation.
+
+  * Improved is_joinable, is_running, list_joinable, and list_running
+    in MCE::Child. Thank you, Philippe Baumgart.
+
+  * Added example (Consumer requests item) to MCE::Channel documentation.
+
+  * Support the task_end option regardless if user_tasks is specified.
+
+  * Support IO::All::{ File, Pipe, STDIO } for input data including
+    output via MCE->print($io, ...), printf, and say.
+
+  * Support gather => MCE::Candy::out_iter_fh($io) using MCE::Candy.
+
 1.844 Wed Aug 14 21:30:00 EST 2019
 
   * Resolved MCE stalling when specifying max_retries with init_relay.

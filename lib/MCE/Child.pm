@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.844';
+our $VERSION = '1.845';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -177,6 +177,7 @@ sub create {
       $_DATA->{$pkg}->reap_data;
 
       for my $wrk_id ( keys %{ $list->[0] } ) {
+         $list->del($wrk_id), next if ( exists $list->[0]{$wrk_id}{JOINED} );
          waitpid($wrk_id, _WNOHANG) or next;
          _reap_child($list->del($wrk_id), 0);
       }
@@ -261,7 +262,7 @@ sub equal {
 
 sub error {
    _croak('Usage: $child->error()') unless ref( my $self = $_[0] );
-   $self->join() if ( !exists $self->{JOINED} );
+   $self->join() unless ( exists $self->{JOINED} );
    $self->{ERROR} || undef;
 }
 
@@ -331,16 +332,16 @@ sub is_joinable {
       '';
    }
    elsif ( $self->{MGR_ID} eq "$$.$_tid" ) {
-      return undef if ( exists $self->{JOINED} );
+      return '' if ( exists $self->{JOINED} );
       local $!; $_DATA->{$pkg}->reap_data;
       ( waitpid($wrk_id, _WNOHANG) == 0 ) ? '' : do {
-         _reap_child($_LIST->{$pkg}->del($self->{WRK_ID}), 0);
+         _reap_child($self, 0) unless ( exists $self->{JOINED} );
          1;
       };
    }
    else {
-      return undef if ( exists $self->{JOINED} );
-      $_DATA->{$pkg}->exists('R'.$wrk_id) ? 1 : '';
+      # limitation for MCE::Child only; allowed for MCE::Hobo
+      _croak('Error: $child->is_joinable() not called by managed process');
    }
 }
 
@@ -352,16 +353,16 @@ sub is_running {
       1;
    }
    elsif ( $self->{MGR_ID} eq "$$.$_tid" ) {
-      return undef if ( exists $self->{JOINED} );
+      return '' if ( exists $self->{JOINED} );
       local $!; $_DATA->{$pkg}->reap_data;
       ( waitpid($wrk_id, _WNOHANG) == 0 ) ? 1 : do {
-         _reap_child($_LIST->{$pkg}->del($self->{WRK_ID}), 0);
+         _reap_child($self, 0) unless ( exists $self->{JOINED} );
          '';
       };
    }
    else {
-      return undef if ( exists $self->{JOINED} );
-      $_DATA->{$pkg}->exists('R'.$wrk_id) ? '' : 1;
+      # limitation for MCE::Child only; allowed for MCE::Hobo
+      _croak('Error: $child->is_running() not called by managed process');
    }
 }
 
@@ -371,6 +372,7 @@ sub join {
 
    if ( exists $self->{JOINED} ) {
       _croak('Child already joined') unless exists( $self->{RESULT} );
+      $_LIST->{$pkg}->del($wrk_id) if exists( $_LIST->{$pkg} );
 
       return ( defined wantarray )
          ? wantarray ? @{ delete $self->{RESULT} } : delete( $self->{RESULT} )->[-1]
@@ -384,8 +386,8 @@ sub join {
       _reap_child($_LIST->{$pkg}->del($wrk_id), 1);
    }
    else {
-      sleep 0.3 until ( $_DATA->{$pkg}->exists('R'.$wrk_id) );
-      _reap_child($self, 0);
+      # limitation for MCE::Child only; allowed for MCE::Hobo
+      _croak('Error: $child->join() not called by managed process');
    }
 
    ( defined wantarray )
@@ -433,7 +435,7 @@ sub list_joinable {
 
    map {
       ( waitpid($_->{WRK_ID}, _WNOHANG) == 0 ) ? () : do {
-         _reap_child($list->del($_->{WRK_ID}), 0);
+         _reap_child($_, 0) unless ( exists $_->{JOINED} );
          $_;
       };
    }
@@ -451,7 +453,7 @@ sub list_running {
 
    map {
       ( waitpid($_->{WRK_ID}, _WNOHANG) == 0 ) ? $_ : do {
-         _reap_child($list->del($_->{WRK_ID}), 0);
+         _reap_child($_, 0) unless ( exists $_->{JOINED} );
          ();
       };
    }
@@ -492,7 +494,7 @@ sub pid {
 
 sub result {
    _croak('Usage: $child->result()') unless ref( my $self = $_[0] );
-   return $self->join() if ( !exists $self->{JOINED} );
+   return $self->join() unless ( exists $self->{JOINED} );
 
    _croak('Child already joined') unless exists( $self->{RESULT} );
    wantarray ? @{ delete $self->{RESULT} } : delete( $self->{RESULT} )->[-1];
@@ -725,14 +727,14 @@ sub _trap {
 
 sub _wait_one {
    my ( $pkg ) = @_;
-   my ( $list ) = ( $_LIST->{$pkg} );
-   my ( $self, $wrk_id ); local $!;
+   my ( $list, $self, $wrk_id ) = ( $_LIST->{$pkg} ); local $!;
 
    while () {
       $_DATA->{$pkg}->reap_data;
       for my $child ( $list->vals ) {
          $wrk_id = $child->{WRK_ID};
-         $self   = $list->del($wrk_id), last if waitpid($wrk_id, _WNOHANG);
+         return  $list->del($wrk_id) if ( exists $child->{JOINED} );
+         $self = $list->del($wrk_id), last if waitpid($wrk_id, _WNOHANG);
       }
       last if $self;
       sleep 0.030;
@@ -844,17 +846,17 @@ sub get {
    }
 
    if ( !CORE::exists $self->[0]{ 'R'.$wrk_id } ) {
-       sleep 0.015; # retry
-       while ( my $data = $self->[1]->recv2_nb() ) {
-          $self->[0]{ $data->[0] } = $data->[1];
-       }
+      sleep 0.015; # retry
+      while ( my $data = $self->[1]->recv2_nb() ) {
+         $self->[0]{ $data->[0] } = $data->[1];
+      }
    }
 
    my $result = delete $self->[0]{ 'R'.$wrk_id };
    my $error  = delete $self->[0]{ 'S'.$wrk_id };
 
-   $result = '' unless defined $result;
-   $error  = '' unless defined $error;
+   $result = '' unless ( defined $result );
+   $error  = '' unless ( defined $error  );
 
    return ( $result, $error );
 }
@@ -891,7 +893,7 @@ sub clear {
 sub del {
    my ( $data, $keys, $indx, $gcnt ) = @{ $_[0] };
    my $pos = delete $indx->{ $_[1] };
-   return undef unless defined $pos;
+   return undef unless ( defined $pos );
 
    $keys->[ $pos ] = undef;
 
@@ -938,7 +940,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.844
+This document describes MCE::Child version 1.845
 
 =head1 SYNOPSIS
 
@@ -975,7 +977,8 @@ This document describes MCE::Child version 1.844
  my @count    = MCE::Child->pending();
 
  # Joining is orderly, e.g. child1 is joined first, child2, child3.
- $_->join() for @procs;
+ $_->join() for @procs;   # (or)
+ $_->join() for @joinable;
 
  # Joining occurs immediately as child processes complete execution.
  1 while MCE::Child->wait_one();
@@ -1892,6 +1895,14 @@ threads are necessary for the binary to exit successfully.
  ( $^O eq "MSWin32" ) ? threads->create(\&main)->join() : main();
 
  threads->exit(0) if $INC{"threads.pm"};
+
+=head1 LIMITATION
+
+MCE::Child emits an error when C<is_joinable>, C<is_running>, and C<join> isn't
+called by the managed process, where the child was spawned. This is a limitation
+in MCE::Child only due to not involving a shared-manager process for IPC.
+
+This use-case is not typical.
 
 =head1 CREDITS
 

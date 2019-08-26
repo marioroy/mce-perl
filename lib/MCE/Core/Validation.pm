@@ -14,7 +14,7 @@ package MCE::Core::Validation;
 use strict;
 use warnings;
 
-our $VERSION = '1.844';
+our $VERSION = '1.845';
 
 ## Items below are folded into MCE.
 
@@ -56,9 +56,6 @@ sub _validate_args {
    if (defined $_s->{user_tasks}) {
       for my $_t (@{ $_s->{user_tasks} }) {
          _validate_args_s($_s, $_t);
-
-         _croak("$_tag: (task_end) is not a CODE reference")
-            if ($_t->{task_end} && ref $_t->{task_end} ne 'CODE');
       }
    }
 
@@ -105,7 +102,7 @@ sub _validate_args_s {
    _croak("$_tag: (max_retries) is not valid")
       if ($_s->{max_retries} && $_s->{max_retries} !~ /\A\d+\z/);
 
-   for my $_k (qw(progress user_begin user_end user_func)) {
+   for my $_k (qw(progress user_begin user_end user_func task_end)) {
       _croak("$_tag: ($_k) is not a CODE reference")
          if ($_s->{$_k} && ref $_s->{$_k} ne 'CODE');
    }
@@ -394,7 +391,7 @@ MCE::Core::Validation - Core validation methods for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Core::Validation version 1.844
+This document describes MCE::Core::Validation version 1.845
 
 =head1 DESCRIPTION
 

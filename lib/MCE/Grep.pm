@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.844';
+our $VERSION = '1.845';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -435,7 +435,7 @@ MCE::Grep - Parallel grep model similar to the native grep function
 
 =head1 VERSION
 
-This document describes MCE::Grep version 1.844
+This document describes MCE::Grep version 1.845
 
 =head1 SYNOPSIS
 
@@ -450,16 +450,20 @@ This document describes MCE::Grep version 1.844
  my @c = mce_grep { $_->[1] % 2 == 0 } [ [ 0, 1 ], [ 0, 2 ], ... ];
  my @d = mce_grep { $_->[1] % 2 == 0 } \@deeply_list;
 
- ## File_path, glob_ref, or scalar_ref
- my @e = mce_grep_f { /pattern/ } "/path/to/file";
+ ## File path, glob ref, IO::All::{ File, Pipe, STDIO } obj, or scalar ref
+ ## Workers read directly and not involve the manager process
+ my @e = mce_grep_f { /pattern/ } "/path/to/file"; # efficient
+
+ ## Involves the manager process, therefore slower
  my @f = mce_grep_f { /pattern/ } $file_handle;
- my @g = mce_grep_f { /pattern/ } \$scalar;
+ my @g = mce_grep_f { /pattern/ } $io;
+ my @h = mce_grep_f { /pattern/ } \$scalar;
 
  ## Sequence of numbers (begin, end [, step, format])
- my @h = mce_grep_s { %_ * 3 == 0 } 1, 10000, 5;
- my @i = mce_grep_s { %_ * 3 == 0 } [ 1, 10000, 5 ];
+ my @i = mce_grep_s { %_ * 3 == 0 } 1, 10000, 5;
+ my @j = mce_grep_s { %_ * 3 == 0 } [ 1, 10000, 5 ];
 
- my @j = mce_grep_s { %_ * 3 == 0 } {
+ my @k = mce_grep_s { %_ * 3 == 0 } {
     begin => 1, end => 10000, step => 5, format => undef
  };
 
@@ -679,9 +683,12 @@ Flow, and Step, specifying a hash reference as input data isn't allowed.
 The fastest of these is the /path/to/file. Workers communicate the next offset
 position among themselves with zero interaction by the manager process.
 
+C<IO::All> { File, Pipe, STDIO } is supported since MCE 1.845.
+
  my @c = mce_grep_f { /pattern/ } "/path/to/file";  # faster
  my @d = mce_grep_f { /pattern/ } $file_handle;
- my @e = mce_grep_f { /pattern/ } \$scalar;
+ my @e = mce_grep_f { /pattern/ } $io;              # IO::All
+ my @f = mce_grep_f { /pattern/ } \$scalar;
 
 =over 3
 

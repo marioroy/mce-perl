@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.844';
+our $VERSION = '1.845';
 
 our @CARP_NOT = qw( MCE );
 
@@ -162,7 +162,7 @@ sub out_iter_array {
 
       if ($_chunk_id == $_order_id && keys %_tmp == 0) {
          ## already orderly
-         $_order_id++; push @{ $_aref }, @_;
+         $_order_id++, push @{ $_aref }, @_;
       }
       else {
          ## hold temporarily otherwise until orderly
@@ -184,23 +184,44 @@ sub out_iter_fh {
    MCE::_croak('The argument to (out_iter_fh) is not a supported file handle.')
       unless (ref($_fh) =~ /^(?:GLOB|FileHandle|IO::)/);
 
-   return sub {
-      my $_chunk_id = shift;
+   if ($_fh->can('print')) {
+      return sub {
+         my $_chunk_id = shift;
 
-      if ($_chunk_id == $_order_id && keys %_tmp == 0) {
-         ## already orderly
-         $_order_id++; print {$_fh} @_;
-      }
-      else {
-         ## hold temporarily otherwise until orderly
-         @{ $_tmp{ $_chunk_id } } = @_;
-
-         while (1) {
-            last unless exists $_tmp{ $_order_id };
-            print {$_fh} @{ delete $_tmp{ $_order_id++ } };
+         if ($_chunk_id == $_order_id && keys %_tmp == 0) {
+            ## already orderly
+            $_order_id++, $_fh->print(@_);
          }
-      }
-   };
+         else {
+            ## hold temporarily otherwise until orderly
+            @{ $_tmp{ $_chunk_id } } = @_;
+
+            while (1) {
+               last unless exists $_tmp{ $_order_id };
+               $_fh->print(@{ delete $_tmp{ $_order_id++ } });
+            }
+         }
+      };
+   }
+   else {
+      return sub {
+         my $_chunk_id = shift;
+
+         if ($_chunk_id == $_order_id && keys %_tmp == 0) {
+            ## already orderly
+            $_order_id++, print {$_fh} @_;
+         }
+         else {
+            ## hold temporarily otherwise until orderly
+            @{ $_tmp{ $_chunk_id } } = @_;
+
+            while (1) {
+               last unless exists $_tmp{ $_order_id };
+               print {$_fh} @{ delete $_tmp{ $_order_id++ } };
+            }
+         }
+      };
+   }
 }
 
 1;
@@ -219,7 +240,7 @@ MCE::Candy - Sugar methods and output iterators
 
 =head1 VERSION
 
-This document describes MCE::Candy version 1.844
+This document describes MCE::Candy version 1.845
 
 =head1 DESCRIPTION
 
@@ -401,6 +422,41 @@ is not desired for the first example.
  }, (100 .. 109);
 
  close $fh;
+
+ -- Output sent to '/tmp/foo.txt'
+
+ 200
+ 202
+ 204
+ 206
+ 208
+ 210
+ 212
+ 214
+ 216
+ 218
+
+=head2 gather => MCE::Candy::out_iter_fh( $io )
+
+Same thing, an C<IO::*> object that can C<print> is supported since MCE 1.845.
+
+ use IO::All;
+ use MCE::Flow;
+ use MCE::Candy;
+
+ my $io = io('/tmp/foo.txt');  # i.e. $io->can('print')
+
+ mce_flow {
+    chunk_size => 1, max_workers => 4,
+    gather => MCE::Candy::out_iter_fh($io)
+ },
+ sub {
+    my ($mce, $chunk_ref, $chunk_id) = @_;
+    $mce->gather($chunk_id, $chunk_ref->[0] * 2, "\n");
+
+ }, (100 .. 109);
+
+ $io->close;
 
  -- Output sent to '/tmp/foo.txt'
 
