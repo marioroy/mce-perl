@@ -1,6 +1,10 @@
 
 Revision history for Perl module MCE.
 
+1.846 Mon Aug 26 21:30:00 EST 2019
+
+  * Fixed code tags in documentation. Thank you, Mohammad S Anwar.
+
 1.845 Sun Aug 25 22:00:00 EST 2019
 
   * Croak if is_joinable, is_running, or join is called by a non-managed

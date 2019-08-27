@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.845';
+our $VERSION = '1.846';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -940,7 +940,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.845
+This document describes MCE::Child version 1.846
 
 =head1 SYNOPSIS
 
@@ -1124,7 +1124,7 @@ The C<new()> method is an alias for C<create()>.
 
 =item mce_child { BLOCK };
 
-C<mce_child> runs the block asynchronously similarly to C<MCE::Child->create()>.
+C<mce_child> runs the block asynchronously similarly to C<< MCE::Child->create() >>.
 It returns the child object, or undef if child creation failed.
 
  my $child = mce_child { foreach (@files) { ... } };
@@ -1193,9 +1193,10 @@ join later if not immediately to not leave a zombie or defunct process.
 
 =item MCE::Child->exit( 0, @ret )
 
-A child can exit at any time by calling C<MCE::Child->exit()>. Otherwise, the
-behavior is the same as C<exit(status)> when called from the main process.
-The child process may optionally return data, to be sent via IPC.
+A child can exit at any time by calling C<< MCE::Child->exit() >>.
+Otherwise, the behavior is the same as C<exit(status)> when called from
+the main process. The child process may optionally return data, to be
+sent via IPC.
 
 =item MCE::Child->finish()
 

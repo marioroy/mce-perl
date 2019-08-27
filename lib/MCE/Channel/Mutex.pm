@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.845';
+our $VERSION = '1.846';
 
 use base 'MCE::Channel';
 use MCE::Mutex ();
@@ -328,7 +328,7 @@ MCE::Channel::Mutex - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Mutex version 1.845
+This document describes MCE::Channel::Mutex version 1.846
 
 =head1 DESCRIPTION
 
@@ -347,8 +347,8 @@ The API is described in L<MCE::Channel>.
  my $chnl_a = MCE::Channel->new( impl => 'Mutex' );
 
  # Specify the 'mp' option for safe use by two or more producers
- # sending or recieving on the left side of the channel.
- # E.g. C<->enqueue/->send> or C<->recv2/->recv2_nb>
+ # sending or recieving on the left side of the channel (i.e.
+ # ->enqueue/->send or ->recv2/->recv2_nb).
 
  my $chnl_b = MCE::Channel->new( impl => 'Mutex', mp => 1 );
 

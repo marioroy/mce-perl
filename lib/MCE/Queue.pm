@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.845';
+our $VERSION = '1.846';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -1602,7 +1602,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.845
+This document describes MCE::Queue version 1.846
 
 =head1 SYNOPSIS
 
@@ -1947,7 +1947,7 @@ by a call to dequeue.
 =head2 $q->insertp ( $p, $index, $item [, $item, ... ] )
 
 Adds the list of items to the queue at the specified index position with
-priority. The behavior is similarly to C<$q->insert> otherwise.
+priority. The behavior is similarly to C<< $q->insert >> otherwise.
 
 =head2 $q->pending ( void )
 
@@ -1985,7 +1985,7 @@ call to dequeue. Negative index values are supported, similarly to arrays.
 
 Returns an item from the queue with priority, at the specified index, without
 dequeuing anything. It defaults to the head of the queue if index is not
-specified. The behavior is similarly to C<$q->peek> otherwise.
+specified. The behavior is similarly to C<< $q->peek >> otherwise.
 
 =head2 $q->peekh ( [ $index ] )
 
@@ -2014,7 +2014,7 @@ numbers, not the data.
 
  @h = $q->heap;   # $MCE::Queue::HIGHEST
  # Heap contains: 6, 5, 4
- 
+
  @h = $q->heap;   # $MCE::Queue::LOWEST
  # Heap contains: 4, 5, 6
 

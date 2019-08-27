@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.845';
+our $VERSION = '1.846';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -435,7 +435,7 @@ MCE::Map - Parallel map model similar to the native map function
 
 =head1 VERSION
 
-This document describes MCE::Map version 1.845
+This document describes MCE::Map version 1.846
 
 =head1 SYNOPSIS
 
@@ -535,7 +535,7 @@ The following list options which may be overridden when loading the module.
  ;
 
 From MCE 1.8 onwards, Sereal 3.015+ is loaded automatically if available.
-Specify C<Sereal => 0> to use Storable instead.
+Specify C<< Sereal => 0 >> to use Storable instead.
 
  use MCE::Map Sereal => 0;
 

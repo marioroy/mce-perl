@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.845';
+our $VERSION = '1.846';
 
 use base 'MCE::Mutex::Channel';
 use MCE::Util ();
@@ -117,7 +117,7 @@ MCE::Mutex::Channel2 - Provides two mutexes using a single channel
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel2 version 1.845
+This document describes MCE::Mutex::Channel2 version 1.846
 
 =head1 DESCRIPTION
 
