@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.846';
+our $VERSION = '1.847';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -26,17 +26,15 @@ $Carp::Internal{ (__PACKAGE__) }++;
 my ( $freeze, $thaw );
 
 BEGIN {
-   if ( ! defined $INC{'PDL.pm'} ) {
-      local $@; eval '
-         use Sereal::Encoder 3.015 qw( encode_sereal );
-         use Sereal::Decoder 3.015 qw( decode_sereal );
-      ';
+   if ( $] ge '5.008008' && ! $INC{'PDL.pm'} ) {
+      local $@;
+      eval 'use Sereal::Encoder 3.015; use Sereal::Decoder 3.015;';
       if ( ! $@ ) {
          my $encoder_ver = int( Sereal::Encoder->VERSION() );
          my $decoder_ver = int( Sereal::Decoder->VERSION() );
          if ( $encoder_ver - $decoder_ver == 0 ) {
-            $freeze = \&encode_sereal;
-            $thaw   = \&decode_sereal;
+            $freeze = \&Sereal::Encoder::encode_sereal;
+            $thaw   = \&Sereal::Decoder::decode_sereal;
          }
       }
    }
@@ -59,9 +57,9 @@ sub new {
    my ( $class, %argv ) = @_;
    my $impl = defined( $argv{impl} ) ? ucfirst( lc $argv{impl} ) : 'Mutex';
 
-   $impl = 'Threads' if ( $^O eq 'MSWin32' && $impl eq 'Mutex' );
+   $impl = 'Threads' if ( $impl eq 'Mutex' && $^O eq 'MSWin32' );
 
-   eval "require MCE::Channel::$impl; 1" ||
+   eval "require MCE::Channel::$impl; 1;" ||
       Carp::croak("Could not load Channel implementation '$impl': $@");
 
    my $pkg = 'MCE::Channel::'.$impl;
@@ -130,7 +128,7 @@ MCE::Channel - Queue-like and two-way communication capability
 
 =head1 VERSION
 
-This document describes MCE::Channel version 1.846
+This document describes MCE::Channel version 1.847
 
 =head1 SYNOPSIS
 

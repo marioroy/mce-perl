@@ -11,12 +11,12 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.846';
+our $VERSION = '1.847';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
 use IO::Handle ();
-use Socket qw( PF_UNIX PF_UNSPEC SOCK_STREAM SOL_SOCKET SO_SNDBUF SO_RCVBUF );
+use Socket qw( AF_UNIX SOCK_STREAM SOL_SOCKET SO_SNDBUF SO_RCVBUF );
 use Time::HiRes qw( sleep time );
 use Errno ();
 use base qw( Exporter );
@@ -230,7 +230,7 @@ sub _sock_pair {
       ($_i) = $_i =~ /(.*)/;
 
       socketpair( $_obj->{$_r_sock}[$_i], $_obj->{$_w_sock}[$_i],
-         PF_UNIX, SOCK_STREAM, PF_UNSPEC ) or die "socketpair: $!\n";
+         AF_UNIX, SOCK_STREAM, 0 ) or die "socketpair: $!\n";
 
       if ($^O ne 'aix' && $^O ne 'linux') {
          setsockopt($_obj->{$_r_sock}[$_i], SOL_SOCKET, SO_SNDBUF, int $_size);
@@ -244,7 +244,7 @@ sub _sock_pair {
    }
    else {
       socketpair( $_obj->{$_r_sock}, $_obj->{$_w_sock},
-         PF_UNIX, SOCK_STREAM, PF_UNSPEC ) or die "socketpair: $!\n";
+         AF_UNIX, SOCK_STREAM, 0 ) or die "socketpair: $!\n";
 
       if ($^O ne 'aix' && $^O ne 'linux') {
          setsockopt($_obj->{$_r_sock}, SOL_SOCKET, SO_SNDBUF, int $_size);
@@ -374,7 +374,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.846
+This document describes MCE::Util version 1.847
 
 =head1 SYNOPSIS
 

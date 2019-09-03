@@ -5,7 +5,7 @@ MCE::Examples - Various examples and demonstrations
 
 =head1 VERSION
 
-This document describes MCE::Examples version 1.846
+This document describes MCE::Examples version 1.847
 
 =head1 INCLUDED WITH THE DISTRIBUTION
 
@@ -26,7 +26,7 @@ by the binary, not Perl. This wrapper resides under the bin directory.
 =head1 MCE EXAMPLES ON GITHUB
 
 The examples directory, beginning with 1.700, is maintained separately at a
-Github repository L<https://github.com/marioroy/mce-examples> and no longer
+GitHub repository L<https://github.com/marioroy/mce-examples> and no longer
 included with the Perl MCE distribution.
 
 =head1 PROCESSING INPUT DATA

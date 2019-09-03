@@ -1,6 +1,16 @@
 
 Revision history for Perl module MCE.
 
+1.847 Mon Sep 02 23:30:00 EST 2019
+
+  * Obsolete RedHat MCE-1.840-Sereal-deps.patch file. This patch file 
+    is no longer needed and finally resolved with this release.
+
+  * PDL random numbers now unique between threads. Thank you, PerlMonks (vr).
+    See https://www.perlmonks.org/?node_id=1214439.
+
+  * Replaced "PF_UNIX" with "AF_UNIX" in MCE::Util.
+
 1.846 Mon Aug 26 21:30:00 EST 2019
 
   * Fixed code tags in documentation. Thank you, Mohammad S Anwar.
@@ -135,7 +145,7 @@ Revision history for Perl module MCE.
 
   * Improved Queue await and dequeue performance on the Windows platform.
 
-  * Added chameneos-redux parallel demonstrations on Github:
+  * Added chameneos-redux parallel demonstrations on GitHub:
     https://github.com/marioroy/mce-examples/tree/master/chameneos
 
 1.833 Thu Dec 28 16:00:00 EST 2017
@@ -305,7 +315,7 @@ Revision history for Perl module MCE.
 
   * Improved reliability when running MCE with threads.
 
-  * Added parallel Net::Pcap and Ping demonstrations on Github:
+  * Added parallel Net::Pcap and Ping demonstrations on GitHub:
     https://github.com/marioroy/mce-examples/tree/master/network
 
   * Optimized 'dequeue' method in MCE::Queue.
@@ -383,7 +393,7 @@ Revision history for Perl module MCE.
   * Imply posix_exit => 1 if Gearman::XS or Gearman::Util is present during
     MCE construction.
 
-  * Added MCE + Gearman demonstrations (xs and non-xs) on Github:
+  * Added MCE + Gearman demonstrations (xs and non-xs) on GitHub:
     https://github.com/marioroy/mce-examples/tree/master/gearman_xs
     https://github.com/marioroy/mce-examples/tree/master/gearman
 
@@ -526,7 +536,7 @@ Revision history for Perl module MCE.
 
   * Enabled auto-destroy for MCE objects.
   * Enabled freeze callbacks for Sereal.
-  * Switched bug tracking to Github.
+  * Switched bug tracking to GitHub.
   * Tweaked test scripts.
 
 1.703 Sat Mar 19 23:00:00 EST 2016
@@ -976,7 +986,7 @@ Revision history for Perl module MCE.
 
   [ENHANCEMENTS]
 
-  * The mce-sandbox demo has been released on Github demonstrating
+  * The mce-sandbox demo has been released on GitHub demonstrating
     Perl + MCE + Inline::C. The theme is Prime Numbers. This journey
     which began 2 years ago has been completed. There is also the
     mce-sort exercise demonstrating Perl + MCE + External C.

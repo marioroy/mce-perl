@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.846';
+our $VERSION = '1.847';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -25,7 +25,7 @@ sub new {
 
     $impl = ucfirst( lc $impl );
 
-    eval "require MCE::Mutex::$impl; 1" ||
+    eval "require MCE::Mutex::$impl; 1;" ||
         Carp::croak("Could not load Mutex implementation '$impl': $@");
 
     my $pkg = 'MCE::Mutex::'.$impl;
@@ -45,7 +45,7 @@ sub timedwait {
 
     local $@; local $SIG{'ALRM'} = sub { alarm 0; die "timed out\n" };
 
-    eval { alarm $timeout || 1; $obj->lock_exclusive };
+    eval { alarm $timeout || 1; $obj->lock_exclusive; };
 
     alarm 0;
 
@@ -68,7 +68,7 @@ MCE::Mutex - Locking for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Mutex version 1.846
+This document describes MCE::Mutex version 1.847
 
 =head1 SYNOPSIS
 

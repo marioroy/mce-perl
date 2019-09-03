@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.846';
+our $VERSION = '1.847';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -24,39 +24,34 @@ my ($_has_threads, $_freeze, $_thaw, $_tid, $_oid);
 BEGIN {
    local $@;
 
-   if ($^O eq 'MSWin32' && !$INC{'threads.pm'}) {
-      eval 'use threads; use threads::shared';
+   if ( $^O eq 'MSWin32' && ! $INC{'threads.pm'} ) {
+      eval 'use threads; use threads::shared;';
    }
-   elsif ($INC{'threads.pm'} && !$INC{'threads/shared.pm'}) {
-      eval 'use threads::shared';
+   elsif ( $INC{'threads.pm'} && ! $INC{'threads/shared.pm'} ) {
+      eval 'use threads::shared;';
    }
 
    $_has_threads = $INC{'threads.pm'} ? 1 : 0;
    $_tid = $_has_threads ? threads->tid() : 0;
    $_oid = "$$.$_tid";
 
-   if ($] ge '5.008008' && !$INC{'PDL.pm'}) {
-      eval '
-         use Sereal::Encoder 3.015 qw( encode_sereal );
-         use Sereal::Decoder 3.015 qw( decode_sereal );
-      ';
-      if ( !$@ ) {
+   if ( $] ge '5.008008' && ! $INC{'PDL.pm'} ) {
+      eval 'use Sereal::Encoder 3.015; use Sereal::Decoder 3.015;';
+      if ( ! $@ ) {
          my $_encoder_ver = int( Sereal::Encoder->VERSION() );
          my $_decoder_ver = int( Sereal::Decoder->VERSION() );
          if ( $_encoder_ver - $_decoder_ver == 0 ) {
-            $_freeze = \&encode_sereal,
-            $_thaw   = \&decode_sereal;
+            $_freeze = \&Sereal::Encoder::encode_sereal;
+            $_thaw   = \&Sereal::Decoder::decode_sereal;
          }
       }
    }
 
-   if (!defined $_freeze) {
+   if ( ! defined $_freeze ) {
       require Storable;
-      $_freeze = \&Storable::freeze,
+      $_freeze = \&Storable::freeze;
       $_thaw   = \&Storable::thaw;
    }
-
-   return;
 }
 
 use IO::Handle ();
@@ -1988,17 +1983,19 @@ sub _dispatch {
    ## results (non-thread workers only). Ditto for Math::Prime::Util,
    ## Math::Random, and Math::Random::MT::Auto.
 
-   if (!$self->{use_threads}) {
+   {
       my ($_wid, $_seed) = ($_args[1], $self->{_seed});
       srand(abs($_seed - ($_wid * 100000)) % 2147483560);
 
-      Math::Prime::Util::srand(abs($_seed - ($_wid * 100000)) % 2147483560)
-         if ( $INC{'Math/Prime/Util.pm'} );
+      if (!$self->{use_threads}) {
+         Math::Prime::Util::srand(abs($_seed - ($_wid * 100000)) % 2147483560)
+            if ( $INC{'Math/Prime/Util.pm'} );
 
-      MCE::Hobo->_clear()
-         if ( $INC{'MCE/Hobo.pm'} && MCE::Hobo->can('_clear') );
+         MCE::Hobo->_clear()
+            if ( $INC{'MCE/Hobo.pm'} && MCE::Hobo->can('_clear') );
 
-      MCE::Child->_clear() if $INC{'MCE/Child.pm'};
+         MCE::Child->_clear() if $INC{'MCE/Child.pm'};
+      }
    }
 
    if (!$self->{use_threads} && $INC{'Math/Random.pm'}) {
