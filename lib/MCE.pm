@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.847';
+our $VERSION = '1.848';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -1694,20 +1694,27 @@ sub gather {
       $_dest = (exists $_sendto_lkup{$_to}) ? $_sendto_lkup{$_to} : undef;
 
       if (!defined $_dest) {
-         if (ref $_to && defined (my $_fd = fileno($_to))) {
+         my $_fd;
+
+         if (ref $_to && ( defined ($_fd = fileno($_to)) ||
+                           defined ($_fd = $_to->fileno) )) {
+
             if (my $_ob = tied *{ $_to }) {
                if (ref $_ob eq 'IO::TieCombine::Handle') {
                   $_fd = 1 if (lc($_ob->{slot_name}) eq 'stdout');
                   $_fd = 2 if (lc($_ob->{slot_name}) eq 'stderr');
                }
             }
+
             my $_data_ref = (scalar @_ == 1) ? \$_[0] : \join('', @_);
             return _do_send_glob($self, $_to, $_fd, $_data_ref);
          }
+
          if (defined $_to && $_to =~ /$_v2_regx/o) {
             $_dest  = (exists $_sendto_lkup{$1}) ? $_sendto_lkup{$1} : undef;
             $_value = $2;
          }
+
          if (!defined $_dest || ( !defined $_value && (
                $_dest == SENDTO_FILEV2 || $_dest == SENDTO_FD
          ))) {
@@ -1745,16 +1752,16 @@ sub print {
    my $self = shift; $self = $MCE unless ref($self);
    my ($_fd, $_glob, $_data_ref);
 
-   if (ref $_[0] && $_[0]->can('fileno') && $_[0]->can('print')) {
-      $_fd = $_[0]->fileno, $_glob = shift;
-   }
-   elsif (ref $_[0] && defined ($_fd = fileno($_[0]))) {
+   if (ref $_[0] && ( defined ($_fd = fileno($_[0])) ||
+                      defined ($_fd = $_[0]->fileno) )) {
+
       if (my $_ob = tied *{ $_[0] }) {
          if (ref $_ob eq 'IO::TieCombine::Handle') {
             $_fd = 1 if (lc($_ob->{slot_name}) eq 'stdout');
             $_fd = 2 if (lc($_ob->{slot_name}) eq 'stderr');
          }
       }
+
       $_glob = shift;
    }
 
@@ -1775,16 +1782,16 @@ sub printf {
    my $self = shift; $self = $MCE unless ref($self);
    my ($_fd, $_glob, $_fmt, $_data);
 
-   if (ref $_[0] && $_[0]->can('fileno') && $_[0]->can('print')) {
-      $_fd = $_[0]->fileno, $_glob = shift;
-   }
-   elsif (ref $_[0] && defined ($_fd = fileno($_[0]))) {
+   if (ref $_[0] && ( defined ($_fd = fileno($_[0])) ||
+                      defined ($_fd = $_[0]->fileno) )) {
+
       if (my $_ob = tied *{ $_[0] }) {
          if (ref $_ob eq 'IO::TieCombine::Handle') {
             $_fd = 1 if (lc($_ob->{slot_name}) eq 'stdout');
             $_fd = 2 if (lc($_ob->{slot_name}) eq 'stderr');
          }
       }
+
       $_glob = shift;
    }
 
@@ -1800,16 +1807,16 @@ sub say {
    my $self = shift; $self = $MCE unless ref($self);
    my ($_fd, $_glob, $_data);
 
-   if (ref $_[0] && $_[0]->can('fileno') && $_[0]->can('print')) {
-      $_fd = $_[0]->fileno, $_glob = shift;
-   }
-   elsif (ref $_[0] && defined ($_fd = fileno($_[0]))) {
+   if (ref $_[0] && ( defined ($_fd = fileno($_[0])) ||
+                      defined ($_fd = $_[0]->fileno) )) {
+
       if (my $_ob = tied *{ $_[0] }) {
          if (ref $_ob eq 'IO::TieCombine::Handle') {
             $_fd = 1 if (lc($_ob->{slot_name}) eq 'stdout');
             $_fd = 2 if (lc($_ob->{slot_name}) eq 'stderr');
          }
       }
+
       $_glob = shift;
    }
 

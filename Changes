@@ -1,6 +1,12 @@
 
 Revision history for Perl module MCE.
 
+1.848 Tue Sep 03 23:30:00 EST 2019
+
+  * Improved IO::All::{ File, Pipe, STDIO } output via MCE->print($io, ...),
+    printf, and say. This resolves a bug introduced in 1.845 when using
+    App::Cmd::Tester to capture output.
+
 1.847 Mon Sep 02 23:30:00 EST 2019
 
   * Obsolete RedHat MCE-1.840-Sereal-deps.patch file. This patch file 
