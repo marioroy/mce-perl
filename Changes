@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.849 Sun Sep 08 23:30:00 EST 2019
+
+  * Fixed edge case in MCE::Child when reaping inside a signal handler.
+  * Added list_pids class method to MCE::Child.
+
 1.848 Tue Sep 03 23:30:00 EST 2019
 
   * Improved IO::All::{ File, Pipe, STDIO } output via MCE->print($io, ...),

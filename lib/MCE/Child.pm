@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.848';
+our $VERSION = '1.849';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -383,7 +383,9 @@ sub join {
       _croak('Cannot join self');
    }
    elsif ( $self->{MGR_ID} eq "$$.$_tid" ) {
-      _reap_child($_LIST->{$pkg}->del($wrk_id), 1);
+      # do not remove from the list until after reaping
+      _reap_child($self, 1);
+      $_LIST->{$pkg}->del($wrk_id);
    }
    else {
       # limitation for MCE::Child only; allowed for MCE::Hobo
@@ -422,6 +424,13 @@ sub list {
    my $pkg = "$$.$_tid.".caller();
 
    ( exists $_LIST->{$pkg} ) ? $_LIST->{$pkg}->vals() : ();
+}
+
+sub list_pids {
+   _croak('Usage: MCE::Child->list_pids()') if ref($_[0]);
+   my $pkg = "$$.$_tid.".caller(); local $_;
+
+   ( exists $_LIST->{$pkg} ) ? map { $_->pid } $_LIST->{$pkg}->vals() : ();
 }
 
 sub list_joinable {
@@ -564,11 +573,16 @@ sub _croak {
 
 sub _dispatch {
    my ( $mngd, $func, $args ) = @_;
-   $mngd->{WRK_ID} = $_SELF->{WRK_ID} = $$;
 
+   $mngd->{WRK_ID} = $_SELF->{WRK_ID} = $$;
    $ENV{PERL_MCE_IPC} = 'win32' if $_is_MSWin32;
-   $SIG{TERM} = $SIG{SEGV} = $SIG{INT} = $SIG{HUP} = \&_trap;
-   $SIG{QUIT} = \&_quit;
+
+   $SIG{TERM} = $SIG{SEGV} = $SIG{INT} = $SIG{HUP} = sub {
+      $_DATA->{ $_SELF->{PKG} }->set('R'.$$, ''); _trap();
+   };
+   $SIG{QUIT} = sub {
+      $_DATA->{ $_SELF->{PKG} }->set('R'.$$, ''); _quit();
+   };
 
    {
       local $!;
@@ -684,6 +698,8 @@ sub _quit {
 
 sub _reap_child {
    my ( $child, $wait_flag ) = @_;
+   return unless $child;
+
    local @_ = $_DATA->{ $child->{PKG} }->get( $child->{WRK_ID}, $wait_flag );
 
    ( $child->{ERROR}, $child->{RESULT}, $child->{JOINED} ) =
@@ -940,7 +956,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.848
+This document describes MCE::Child version 1.849
 
 =head1 SYNOPSIS
 
@@ -972,6 +988,7 @@ This document describes MCE::Child version 1.848
  MCE::Child->create( \&parallel, $_ ) for 1 .. 3;
 
  my @procs    = MCE::Child->list();
+ my @pids     = MCE::Child->list_pids();
  my @running  = MCE::Child->list_running();
  my @joinable = MCE::Child->list_joinable();
  my @count    = MCE::Child->pending();
@@ -1366,6 +1383,18 @@ workers have been notified to quit.
 Returns a list of all child objects not yet joined.
 
  @procs = MCE::Child->list();
+
+=item MCE::Child->list_pids()
+
+Returns a list of all child pids not yet joined (available since 1.849).
+
+ @pids = MCE::Child->list_pids();
+
+ $SIG{QUIT} = $SIG{INT} = $SIG{HUP} = $SIG{TERM} = sub {
+     # Signal workers all at once
+     CORE::kill('KILL', MCE::Child->list_pids());
+     exec('reset');
+ };
 
 =item MCE::Child->list_running()
 
