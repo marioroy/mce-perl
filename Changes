@@ -1,6 +1,10 @@
 
 Revision history for Perl module MCE.
 
+1.850 Mon Sep 09 12:30:00 EST 2019
+
+  * Bumped version to coincide with the stable MCE::Shared 1.850 release.
+
 1.849 Sun Sep 08 23:30:00 EST 2019
 
   * Fixed edge case in MCE::Child when reaping inside a signal handler.
