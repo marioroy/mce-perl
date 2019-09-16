@@ -14,7 +14,7 @@ package MCE::Core::Input::Sequence;
 use strict;
 use warnings;
 
-our $VERSION = '1.850';
+our $VERSION = '1.860';
 
 ## Items below are folded into MCE.
 
@@ -231,7 +231,7 @@ MCE::Core::Input::Sequence - Sequence of numbers (for task_id == 0)
 
 =head1 VERSION
 
-This document describes MCE::Core::Input::Sequence version 1.850
+This document describes MCE::Core::Input::Sequence version 1.860
 
 =head1 DESCRIPTION
 

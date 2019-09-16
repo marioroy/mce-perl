@@ -56,7 +56,7 @@ BEGIN {
 
    $procs[0]->exit();
    $procs[1]->exit();
-   $procs[2]->kill('QUIT');
+   $procs[2]->kill('SIGINT');
 
    $cnt = 0;
 

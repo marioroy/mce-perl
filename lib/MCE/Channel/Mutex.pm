@@ -11,12 +11,13 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.850';
+our $VERSION = '1.860';
 
 use base 'MCE::Channel';
 use MCE::Mutex ();
 use bytes;
 
+my $LF = "\012"; Internals::SvREADONLY($LF, 1);
 my $is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
 my $freeze     = MCE::Channel::_get_freeze();
 my $thaw       = MCE::Channel::_get_thaw();
@@ -54,6 +55,7 @@ sub end {
    my ( $self ) = @_;
    return if $self->{ended};
 
+   local $\ = undef if (defined $\);
    MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
    print { $self->{p_sock} } pack('i', -1);
 
@@ -64,6 +66,7 @@ sub enqueue {
    my $self = shift;
    return MCE::Channel::_ended('enqueue') if $self->{ended};
 
+   local $\ = undef if (defined $\);
    my $p_mutex = $self->{p_mutex};
    $p_mutex->lock2 if $p_mutex;
 
@@ -175,12 +178,12 @@ sub send {
       $data = $_[0], $data .= '0';
    }
 
+   local $\ = undef if (defined $\);
    my $p_mutex = $self->{p_mutex};
    $p_mutex->lock2 if $p_mutex;
 
    MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
    print { $self->{p_sock} } pack('i', length $data), $data;
-
    $p_mutex->unlock2 if $p_mutex;
 
    return 1;
@@ -246,7 +249,9 @@ sub send2 {
       $data = $_[0], $data .= '0';
    }
 
+   local $\ = undef if (defined $\);
    ( my $c_mutex = $self->{c_mutex} )->lock2;
+
    MCE::Util::_sock_ready_w( $self->{c_sock} ) if $is_MSWin32;
    print { $self->{c_sock} } pack('i', length $data), $data;
    $c_mutex->unlock2;
@@ -258,6 +263,7 @@ sub recv2 {
    my ( $self ) = @_;
    my ( $plen, $data );
 
+   local $/ = $LF if ( $/ ne $LF );
    my $p_mutex = $self->{p_mutex};
    $p_mutex->lock if $p_mutex;
 
@@ -284,6 +290,7 @@ sub recv2_nb {
    my ( $self ) = @_;
    my ( $plen, $data );
 
+   local $/ = $LF if ( $/ ne $LF );
    my $p_mutex = $self->{p_mutex};
    $p_mutex->lock if $p_mutex;
 
@@ -328,7 +335,7 @@ MCE::Channel::Mutex - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Mutex version 1.850
+This document describes MCE::Channel::Mutex version 1.860
 
 =head1 DESCRIPTION
 

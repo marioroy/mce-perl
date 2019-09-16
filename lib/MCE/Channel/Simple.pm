@@ -11,11 +11,12 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.850';
+our $VERSION = '1.860';
 
 use base 'MCE::Channel';
 use bytes;
 
+my $LF = "\012"; Internals::SvREADONLY($LF, 1);
 my $is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
 my $freeze     = MCE::Channel::_get_freeze();
 my $thaw       = MCE::Channel::_get_thaw();
@@ -39,6 +40,7 @@ sub end {
    my ( $self ) = @_;
    return if $self->{ended};
 
+   local $\ = undef if (defined $\);
    MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
    print { $self->{p_sock} } pack('i', -1);
 
@@ -49,6 +51,7 @@ sub enqueue {
    my $self = shift;
    return MCE::Channel::_ended('enqueue') if $self->{ended};
 
+   local $\ = undef if (defined $\);
    MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
 
    while ( @_ ) {
@@ -68,9 +71,10 @@ sub dequeue {
    my ( $self, $count ) = @_;
    $count = 1 if ( !$count || $count < 1 );
 
+   local $/ = $LF if ( $/ ne $LF );
+
    if ( $count == 1 ) {
       my ( $plen, $data );
-
       MCE::Util::_sock_ready( $self->{c_sock} ) if $is_MSWin32;
 
       $is_MSWin32
@@ -93,7 +97,6 @@ sub dequeue {
    }
    else {
       my ( $plen, @ret );
-
       MCE::Util::_sock_ready( $self->{c_sock} ) if $is_MSWin32;
 
       while ( $count-- ) {
@@ -125,10 +128,10 @@ sub dequeue_nb {
    $count = 1 if ( !$count || $count < 1 );
 
    my ( $plen, @ret );
+   local $/ = $LF if ( $/ ne $LF );
 
    while ( $count-- ) {
       my $data;
-
       MCE::Util::_nonblocking( $self->{c_sock}, 1 );
 
       $is_MSWin32
@@ -170,6 +173,7 @@ sub send {
       $data = $_[0], $data .= '0';
    }
 
+   local $\ = undef if (defined $\);
    MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
    print { $self->{p_sock} } pack('i', length $data) . $data;
 
@@ -180,6 +184,7 @@ sub recv {
    my ( $self ) = @_;
    my ( $plen, $data );
 
+   local $/ = $LF if ( $/ ne $LF );
    MCE::Util::_sock_ready( $self->{c_sock} ) if $is_MSWin32;
 
    $is_MSWin32
@@ -205,6 +210,7 @@ sub recv_nb {
    my ( $self ) = @_;
    my ( $plen, $data );
 
+   local $/ = $LF if ( $/ ne $LF );
    MCE::Util::_nonblocking( $self->{c_sock}, 1 );
 
    $is_MSWin32
@@ -244,6 +250,7 @@ sub send2 {
       $data = $_[0], $data .= '0';
    }
 
+   local $\ = undef if (defined $\);
    MCE::Util::_sock_ready_w( $self->{c_sock} ) if $is_MSWin32;
    print { $self->{c_sock} } pack('i', length $data) . $data;
 
@@ -254,6 +261,7 @@ sub recv2 {
    my ( $self ) = @_;
    my ( $plen, $data );
 
+   local $/ = $LF if ( $/ ne $LF );
    MCE::Util::_sock_ready( $self->{p_sock} ) if $is_MSWin32;
 
    $is_MSWin32
@@ -275,6 +283,7 @@ sub recv2_nb {
    my ( $self ) = @_;
    my ( $plen, $data );
 
+   local $/ = $LF if ( $/ ne $LF );
    MCE::Util::_nonblocking( $self->{p_sock}, 1 );
 
    $is_MSWin32
@@ -311,7 +320,7 @@ MCE::Channel::Simple - Channel tuned for one producer and one consumer
 
 =head1 VERSION
 
-This document describes MCE::Channel::Simple version 1.850
+This document describes MCE::Channel::Simple version 1.860
 
 =head1 DESCRIPTION
 

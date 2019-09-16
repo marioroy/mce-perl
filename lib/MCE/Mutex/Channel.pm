@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.850';
+our $VERSION = '1.860';
 
 use base 'MCE::Mutex';
 use Scalar::Util qw(refaddr weaken);
@@ -51,14 +51,14 @@ sub _destroy {
     # Called by { MCE, MCE::Child, and MCE::Hobo }::_exit.
     # This must iterate a copy.
 
-    if ( @MUTEX ) { local $_; &DESTROY($_) for @{[ @MUTEX ]}; }
+    if ( @MUTEX ) {
+        local $_;
+        &DESTROY($_) for @{[ @MUTEX ]};
+    }
 }
 
 sub _save_for_global_destruction {
-    if ( ! $has_threads ) {
-        push @MUTEX, $_[0];
-        weaken $MUTEX[-1];
-    }
+    push(@MUTEX, $_[0]), weaken $MUTEX[-1] unless $has_threads;
 }
 
 ###############################################################################
@@ -144,7 +144,7 @@ MCE::Mutex::Channel - Mutex locking via a pipe or socket
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel version 1.850
+This document describes MCE::Mutex::Channel version 1.860
 
 =head1 DESCRIPTION
 

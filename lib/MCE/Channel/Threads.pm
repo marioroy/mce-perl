@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.850';
+our $VERSION = '1.860';
 
 use threads;
 use threads::shared;
@@ -19,6 +19,7 @@ use threads::shared;
 use base 'MCE::Channel';
 use bytes;
 
+my $LF = "\012"; Internals::SvREADONLY($LF, 1);
 my $is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
 my $freeze     = MCE::Channel::_get_freeze();
 my $thaw       = MCE::Channel::_get_thaw();
@@ -50,6 +51,7 @@ sub end {
    my ( $self ) = @_;
    return if $self->{ended};
 
+   local $\ = undef if (defined $\);
    MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
    print { $self->{p_sock} } pack('i', -1);
 
@@ -59,6 +61,8 @@ sub end {
 sub enqueue {
    my $self = shift;
    return MCE::Channel::_ended('enqueue') if $self->{ended};
+
+   local $\ = undef if (defined $\);
 
    {
       CORE::lock $self->{pw_mutex} if $self->{pw_mutex};
@@ -173,6 +177,8 @@ sub send {
       $data = $_[0], $data .= '0';
    }
 
+   local $\ = undef if (defined $\);
+
    {
       CORE::lock $self->{pw_mutex} if $self->{pw_mutex};
       MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
@@ -245,6 +251,8 @@ sub send2 {
       $data = $_[0], $data .= '0';
    }
 
+   local $\ = undef if (defined $\);
+
    {
       CORE::lock $self->{cw_mutex};
       MCE::Util::_sock_ready_w( $self->{c_sock} ) if $is_MSWin32;
@@ -258,10 +266,11 @@ sub recv2 {
    my ( $self ) = @_;
    my ( $plen, $data );
 
+   local $/ = $LF if ( $/ ne $LF );
+
    {
       my $pr_mutex = $self->{pr_mutex};
       CORE::lock $pr_mutex if $pr_mutex;
-
       MCE::Util::_sock_ready( $self->{p_sock} ) if $is_MSWin32;
 
       ( $pr_mutex || $is_MSWin32 )
@@ -284,10 +293,11 @@ sub recv2_nb {
    my ( $self ) = @_;
    my ( $plen, $data );
 
+   local $/ = $LF if ( $/ ne $LF );
+
    {
       my $pr_mutex = $self->{pr_mutex};
       CORE::lock $pr_mutex if $pr_mutex;
-
       MCE::Util::_nonblocking( $self->{p_sock}, 1 );
 
       ( $pr_mutex || $is_MSWin32 )
@@ -326,7 +336,7 @@ MCE::Channel::Threads - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Threads version 1.850
+This document describes MCE::Channel::Threads version 1.860
 
 =head1 DESCRIPTION
 

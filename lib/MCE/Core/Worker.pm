@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.850';
+our $VERSION = '1.860';
 
 my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
 my $_tid = $_has_threads ? threads->tid() : 0;
@@ -111,7 +111,9 @@ use bytes;
 
    sub _do_callback {
 
-      my ($self, $_buf, $_aref);  ($self, $_val, $_aref) = @_;
+      my ($self, $_buf, $_aref);
+
+      ($self, $_val, $_aref) = @_;
 
       unless (defined wantarray) {
          $_wa = WANTS_UNDEF;
@@ -153,7 +155,7 @@ use bytes;
          local $/ = $LF if ($/ ne $LF);
          chomp(my $_len = <$_DAU_W_SOCK>);
 
-         my $_frozen = chop($_len);
+         my $_frozen = chop $_len;
          read $_DAU_W_SOCK, my($_buf), $_len;
          $_dat_un->() if $_lock_chn;
 
@@ -743,7 +745,7 @@ MCE::Core::Worker - Core methods for the worker process
 
 =head1 VERSION
 
-This document describes MCE::Core::Worker version 1.850
+This document describes MCE::Core::Worker version 1.860
 
 =head1 DESCRIPTION
 

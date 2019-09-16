@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.850';
+our $VERSION = '1.860';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -225,9 +225,6 @@ sub stop_and_exit {
 
          ## Signal process group to die.
          if ($_is_sig == 1) {
-            if ($_sig_name eq 'PIPE' && $INC{'MCE/Hobo.pm'}) {
-               CORE::kill('QUIT', $_is_MSWin32 ? -$$ : -getpgrp);
-            }
             if ($_sig_name eq 'INT' && -t STDIN) { ## no critic
                print {*STDERR} "\n";
             }
@@ -428,7 +425,7 @@ MCE::Signal - Temporary directory creation/cleanup and signal handling
 
 =head1 VERSION
 
-This document describes MCE::Signal version 1.850
+This document describes MCE::Signal version 1.860
 
 =head1 SYNOPSIS
 

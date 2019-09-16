@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.850';
+our $VERSION = '1.860';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -1846,8 +1846,11 @@ sub _exit {
 
    if (! $_tid) {
       $SIG{HUP} = $SIG{INT} = $SIG{QUIT} = $SIG{TERM} = sub {
-         $SIG{$_[0]} = $SIG{INT} = sub { };
-         CORE::kill($_[0], getppid()) if ($_[0] eq 'INT' && !$_is_MSWin32);
+         $SIG{$_[0]} = $SIG{INT} = $SIG{TERM} = sub {};
+
+         CORE::kill($_[0], getppid())
+            if (($_[0] eq 'INT' || $_[0] eq 'TERM') && !$_is_MSWin32);
+
          CORE::kill('KILL', $$);
       };
    }

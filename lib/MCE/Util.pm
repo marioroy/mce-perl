@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.850';
+our $VERSION = '1.860';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -31,7 +31,7 @@ BEGIN {
 
 our $LF = "\012";  Internals::SvREADONLY($LF, 1);
 
-our @EXPORT_OK = qw( $LF get_ncpu );
+our @EXPORT_OK   = qw( $LF get_ncpu );
 our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
 ###############################################################################
@@ -305,17 +305,13 @@ sub _sock_ready_w {
 }
 
 sub _sysread {
-   my $_bytes;
-
-   SYSREAD: $_bytes = ( @_ == 3
+   (  @_ == 3
       ? CORE::sysread($_[0], $_[1], $_[2])
       : CORE::sysread($_[0], $_[1], $_[2], $_[3])
-   ) or do {
-      return $_bytes if (defined $MCE::Signal::KILLED);
-      goto   SYSREAD if ($! == Errno::EINTR());
+   )
+   or do {
+      goto \&_sysread if ($! == Errno::EINTR());
    };
-
-   return $_bytes;
 }
 
 sub _sysread2 {
@@ -325,9 +321,9 @@ sub _sysread2 {
    SYSREAD: $_bytes = ( @_ == 3
       ? CORE::sysread($_[0], $_[1], $_[2])
       : CORE::sysread($_[0], $_[1], $_[2], $_[3])
-   ) or do {
-      return $_bytes if (defined $MCE::Signal::KILLED);
-      goto   SYSREAD if ($! == Errno::EINTR());
+   )
+   or do {
+      goto SYSREAD if ($! == Errno::EINTR());
 
       # non-blocking operation could not be completed
       if ( $! == Errno::EWOULDBLOCK() || $! == Errno::EAGAIN() ) {
@@ -374,7 +370,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.850
+This document describes MCE::Util version 1.860
 
 =head1 SYNOPSIS
 
