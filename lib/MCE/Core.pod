@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.860
+This document describes MCE::Core version 1.861
 
 =head1 SYNOPSIS
 

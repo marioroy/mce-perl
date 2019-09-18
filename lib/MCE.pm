@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.860';
+our $VERSION = '1.861';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -1302,7 +1302,7 @@ sub shutdown {
    return unless $self->{_spawned};
 
    ## Return if signaled.
-   if (defined $MCE::Signal::KILLED) {
+   if ($MCE::Signal::KILLED) {
       if (defined $self->{_sess_dir}) {
          my $_sess_dir = delete $self->{_sess_dir};
          rmdir $_sess_dir if -d $_sess_dir;

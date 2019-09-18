@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.860';
+our $VERSION = '1.861';
 
 use base 'MCE::Mutex';
 use Scalar::Util qw(refaddr weaken);
@@ -144,7 +144,7 @@ MCE::Mutex::Channel - Mutex locking via a pipe or socket
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel version 1.860
+This document describes MCE::Mutex::Channel version 1.861
 
 =head1 DESCRIPTION
 

@@ -1,6 +1,12 @@
 
 Revision history for Perl module MCE.
 
+1.861 Wed Sep 18 08:30:00 EST 2019
+
+  * Hotfix for 1.849-1.860. The edge cases regarding signal handling have
+    been finally resolved for MCE::Child. Thank you, Richard Kelsch for the
+    use case involving ctrl-c. See mce-examples/framebuffer on GitHub.
+
 1.860 Sun Sep 15 20:00:00 EST 2019
 
   * Signal-handling update release.

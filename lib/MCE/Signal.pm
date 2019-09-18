@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.860';
+our $VERSION = '1.861';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -180,7 +180,7 @@ sub _remove_tmpdir {
 ###############################################################################
 
 my %_sig_name_lkup = map { $_ => 1 } qw(
-   CHLD __DIE__ HUP INT PIPE QUIT TERM __WARN__
+   __DIE__ HUP INT PIPE QUIT TERM __WARN__
 );
 
 my $_count = 0;
@@ -252,7 +252,7 @@ sub stop_and_exit {
       ## Real child processes.
       else {
          CORE::kill($_sig_name, $main_proc_id, -$$);
-         CORE::kill('KILL', $$, -$$);
+         CORE::kill('KILL', -$$, $$);
       }
    }
 
@@ -425,7 +425,7 @@ MCE::Signal - Temporary directory creation/cleanup and signal handling
 
 =head1 VERSION
 
-This document describes MCE::Signal version 1.860
+This document describes MCE::Signal version 1.861
 
 =head1 SYNOPSIS
 
