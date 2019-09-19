@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.861';
+our $VERSION = '1.862';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -435,7 +435,7 @@ MCE::Map - Parallel map model similar to the native map function
 
 =head1 VERSION
 
-This document describes MCE::Map version 1.861
+This document describes MCE::Map version 1.862
 
 =head1 SYNOPSIS
 
