@@ -14,13 +14,12 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.862';
+our $VERSION = '1.863';
 
-my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
-my $_tid = $_has_threads ? threads->tid() : 0;
+my $_tid = $INC{'threads.pm'} ? threads->tid() : 0;
 
 sub CLONE {
-   $_tid = threads->tid() if $_has_threads;
+   $_tid = threads->tid() if $INC{'threads.pm'};
 }
 
 ## Items below are folded into MCE.
@@ -287,12 +286,12 @@ use bytes;
       if ($_lock_chn) {
          # inlined for performance
          $_dat_ex = sub {
-            my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
+            my $_pid = $_tid ? $$ .'.'. $_tid : $$;
             MCE::Util::_sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
                unless $_DAT_LOCK->{ $_pid };
          };
          $_dat_un = sub {
-            my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
+            my $_pid = $_tid ? $$ .'.'. $_tid : $$;
             syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
                if $_DAT_LOCK->{ $_pid };
          };
@@ -636,7 +635,7 @@ sub _worker_main {
    my $_use_threads = (defined $_task->{use_threads})
       ? $_task->{use_threads} : $self->{use_threads};
 
-   if ($_has_threads && $_use_threads) {
+   if ($INC{'threads.pm'} && $_use_threads) {
       $self->{_exit_pid} = 'TID_' . $_tid;
    } else {
       $self->{_exit_pid} = 'PID_' . $$;
@@ -648,7 +647,7 @@ sub _worker_main {
 
    local $SIG{__DIE__} = sub {
       if (!defined $^S || $^S) {
-         if ( ($_has_threads && $_tid != 0) ||
+         if ( ($INC{'threads.pm'} && $_tid != 0) ||
                $ENV{'PERL_IPERL_RUNNING'} ||
                $_running_inside_eval
          ) {
@@ -666,9 +665,9 @@ sub _worker_main {
          }
       }
 
-      local $SIG{__DIE__}; local $\ = undef;
+      $SIG{__DIE__} = $SIG{__WARN__} = sub {};
       my $_die_msg = (defined $_[0]) ? $_[0] : '';
-      print {*STDERR} $_die_msg;
+      local $\ = undef; print {*STDERR} $_die_msg;
 
       $self->exit(255, $_die_msg, $self->{_chunk_id});
    };
@@ -707,7 +706,7 @@ sub _worker_main {
 
    ## Call MCE::Shared's init routine if present; enables parallel IPC.
    ## For threads, init is called automatically via the CLONE feature.
-   MCE::Shared::init($_wid) if (!$_use_threads && $INC{'MCE/Shared.pm'});
+   MCE::Shared::init() if (!$_use_threads && $INC{'MCE/Shared.pm'});
 
    _do_send_init($self);
 
@@ -745,7 +744,7 @@ MCE::Core::Worker - Core methods for the worker process
 
 =head1 VERSION
 
-This document describes MCE::Core::Worker version 1.862
+This document describes MCE::Core::Worker version 1.863
 
 =head1 DESCRIPTION
 

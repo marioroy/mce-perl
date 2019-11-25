@@ -11,21 +11,20 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.862';
+our $VERSION = '1.863';
 
 use base 'MCE::Mutex';
 use Fcntl ':flock';
 use Carp ();
 
-my $has_threads = $INC{'threads.pm'} ? 1 : 0;
-my $tid = $has_threads ? threads->tid()  : 0;
+my $tid = $INC{'threads.pm'} ? threads->tid() : 0;
 
 sub CLONE {
-    $tid = threads->tid() if $has_threads;
+    $tid = threads->tid() if $INC{'threads.pm'};
 }
 
 sub DESTROY {
-    my ($pid, $obj) = ($has_threads ? $$ .'.'. $tid : $$, @_);
+    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, @_);
 
     $obj->unlock(), close(delete $obj->{_fh}) if $obj->{ $pid };
 
@@ -35,7 +34,7 @@ sub DESTROY {
 }
 
 sub _open {
-    my ($pid, $obj) = ($has_threads ? $$ .'.'. $tid : $$, @_);
+    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, @_);
     return if exists $obj->{ $pid };
 
     open $obj->{_fh}, '+>>:raw:stdio', $obj->{path}
@@ -91,7 +90,7 @@ sub new {
             ($tmp_file) = "$tmp_dir/$prog_name.$pid.$tid.$id" =~ /(.*)/;
         }
 
-        $obj{_init} = $has_threads ? $$ .'.'. $tid : $$;
+        $obj{_init} = $tid ? $$ .'.'. $tid : $$;
         $obj{ path} = $tmp_file.'.lock';
 
         # test open
@@ -115,7 +114,7 @@ sub new {
 }
 
 sub lock {
-    my ($pid, $obj) = ($has_threads ? $$ .'.'. $tid : $$, @_);
+    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, @_);
     $obj->_open() unless exists $obj->{ $pid };
 
     flock ($obj->{_fh}, LOCK_EX), $obj->{ $pid } = 1
@@ -127,7 +126,7 @@ sub lock {
 *lock_exclusive = \&lock;
 
 sub lock_shared {
-    my ($pid, $obj) = ($has_threads ? $$ .'.'. $tid : $$, @_);
+    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, @_);
     $obj->_open() unless exists $obj->{ $pid };
 
     flock ($obj->{_fh}, LOCK_SH), $obj->{ $pid } = 1
@@ -137,7 +136,7 @@ sub lock_shared {
 }
 
 sub unlock {
-    my ($pid, $obj) = ($has_threads ? $$ .'.'. $tid : $$, @_);
+    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, @_);
 
     flock ($obj->{_fh}, LOCK_UN), $obj->{ $pid } = 0
         if $obj->{ $pid };
@@ -146,9 +145,7 @@ sub unlock {
 }
 
 sub synchronize {
-    my ($pid, $obj, $code, @ret) = (
-        $has_threads ? $$ .'.'. $tid : $$, shift, shift
-    );
+    my ($pid, $obj, $code, @ret) = ($tid ? $$ .'.'. $tid : $$, shift, shift);
     return unless ref($code) eq 'CODE';
 
     $obj->_open() unless exists $obj->{ $pid };
@@ -184,7 +181,7 @@ MCE::Mutex::Flock - Mutex locking via Fcntl
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Flock version 1.862
+This document describes MCE::Mutex::Flock version 1.863
 
 =head1 DESCRIPTION
 

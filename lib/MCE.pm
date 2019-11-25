@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.862';
+our $VERSION = '1.863';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -263,7 +263,7 @@ use constant {
 my $_mce_count = 0;
 
 sub CLONE {
-   $_tid = threads->tid() if $_has_threads;
+   $_tid = threads->tid() if $INC{'threads.pm'};
 }
 
 sub DESTROY {
@@ -400,7 +400,7 @@ sub new {
    $self{_caller} = $_pkg, $self{_init_pid} = "$$.$_tid";
 
    if (defined $self{use_threads}) {
-      if (!$_has_threads && $self{use_threads} ne '0') {
+      if (!$_has_threads && $self{use_threads}) {
          my $_msg  = "\n";
             $_msg .= "## Please include threads support prior to loading MCE\n";
             $_msg .= "## when specifying use_threads => $self{use_threads}\n";
@@ -415,7 +415,7 @@ sub new {
 
    if (!exists $self{posix_exit}) {
       $self{posix_exit} = 1 if (
-         $^S || ( $_has_threads && $_tid ) || $INC{'Mojo/IOLoop.pm'} ||
+         $^S || $_tid || $INC{'Mojo/IOLoop.pm'} ||
          $INC{'Coro.pm'} || $INC{'LWP/UserAgent.pm'} || $INC{'stfl.pm'} ||
          $INC{'Curses.pm'} || $INC{'CGI.pm'} || $INC{'FCGI.pm'} ||
          $INC{'Tk.pm'} || $INC{'Wx.pm'} || $INC{'Win32/GUI.pm'} ||
@@ -519,8 +519,11 @@ sub spawn {
    ## Return if workers have already been spawned or if module instance.
    return $self if ($self->{_spawned} || exists $self->{_module_instance});
 
-   lock $_MCE_LOCK if $_has_threads;  # Obtain locks
-   lock $_WIN_LOCK if $_is_MSWin32;
+   lock $_WIN_LOCK if $_is_MSWin32;    # Obtain locks
+   lock $_MCE_LOCK if $_has_threads && $_is_winenv;
+
+   $MCE::_GMUTEX->lock() if ($_tid && $MCE::_GMUTEX);
+   sleep 0.015 if $_tid;
 
    if ($INC{'PDL.pm'}) { local $@;
       eval 'use PDL::IO::Storable' unless $INC{'PDL/IO/Storable.pm'};
@@ -552,10 +555,6 @@ sub spawn {
          require MCE::Core::Input::Handle
             unless $INC{'MCE/Core/Input/Handle.pm'};
       }
-   }
-
-   if ("$$.$_tid" ne $_oid && (!$self->{use_threads} || $_is_MSWin32)) {
-      sleep 0.015;
    }
 
    my $_die_handler  = $SIG{__DIE__};
@@ -634,9 +633,7 @@ sub spawn {
       $self->{_pids_t} = {}, $self->{_pids_w} = {};
    }
 
-   local $SIG{TTIN}  unless $_is_MSWin32;
-   local $SIG{TTOU}  unless $_is_MSWin32;
-   local $SIG{WINCH} unless $_is_MSWin32;
+   local $SIG{TTIN}, local $SIG{TTOU}, local $SIG{WINCH} unless $_is_MSWin32;
 
    if (!defined $self->{user_tasks}) {
       $self->{_total_workers} = $_max_workers;
@@ -650,7 +647,6 @@ sub spawn {
       $self->{_task}->[0] = { _total_workers => $_max_workers };
 
       for my $_i (1 .. $_max_workers) {
-         keys(%{ $self->{_state}->[$_i] }) = 5;
          $self->{_state}->[$_i] = {
             _task => undef, _task_id => undef, _task_wid => undef,
             _params => undef, _chn => $_i % $_data_channels + 1
@@ -703,8 +699,7 @@ sub spawn {
             _total_running => 0, _total_workers => $_task->{max_workers}
          };
          for my $_i (1 .. $_task->{max_workers}) {
-            keys(%{ $self->{_state}->[++$_wid] }) = 5;
-            $self->{_state}->[$_wid] = {
+            $self->{_state}->[++$_wid] = {
                _task => $_task, _task_id => $_task_id, _task_wid => $_i,
                _params => undef, _chn => $_wid % $_data_channels + 1
             }
@@ -722,6 +717,8 @@ sub spawn {
    $SIG{__WARN__} = $_warn_handler;
 
    $MCE = $self if ($MCE->{_wid} == 0);
+
+   $MCE::_GMUTEX->unlock() if ($_tid && $MCE::_GMUTEX);
 
    return $self;
 }
@@ -894,7 +891,7 @@ sub restart_worker {
 
    if (defined $self->{spawn_delay} && $self->{spawn_delay} > 0.0) {
       sleep $self->{spawn_delay};
-   } elsif ($_is_MSWin32) {
+   } elsif ($_tid || $_is_MSWin32) {
       sleep 0.045;
    }
 
@@ -1839,8 +1836,8 @@ sub _exit {
    delete $self->{_wuf}; _end();
 
    ## Exit thread/child process.
-   $SIG{__DIE__}  = sub { } unless $_tid;
-   $SIG{__WARN__} = sub { };
+   $SIG{__DIE__}  = sub {} unless $_tid;
+   $SIG{__WARN__} = sub {};
 
    threads->exit(0) if $self->{use_threads};
 
@@ -1849,7 +1846,7 @@ sub _exit {
          $SIG{$_[0]} = $SIG{INT} = $SIG{TERM} = sub {};
 
          CORE::kill($_[0], getppid())
-            if (($_[0] eq 'INT' || $_[0] eq 'TERM') && !$_is_MSWin32);
+            if (($_[0] eq 'INT' || $_[0] eq 'TERM') && $^O ne 'MSWin32');
 
          CORE::kill('KILL', $$);
       };
@@ -1885,7 +1882,7 @@ sub _make_sessdir {
       $self->{tmp_dir} = MCE::Signal::_make_tmpdir()
          unless defined $self->{tmp_dir};
 
-      my $_mce_tid = $_has_threads ? threads->tid() : '';
+      my $_mce_tid = $INC{'threads.pm'} ? threads->tid() : '';
          $_mce_tid = '' unless defined $self->{_mce_tid};
 
       my $_mce_sid = $$ .'.'. $_mce_tid .'.'. (++$_mce_count);

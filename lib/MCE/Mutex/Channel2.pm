@@ -11,16 +11,15 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.862';
+our $VERSION = '1.863';
 
 use base 'MCE::Mutex::Channel';
 use MCE::Util ();
 
-my $has_threads = $INC{'threads.pm'} ? 1 : 0;
-my $tid = $has_threads ? threads->tid()  : 0;
+my $tid = $INC{'threads.pm'} ? threads->tid() : 0;
 
 sub CLONE {
-    $tid = threads->tid() if $has_threads;
+    $tid = threads->tid() if $INC{'threads.pm'};
 }
 
 ###############################################################################
@@ -31,7 +30,7 @@ sub CLONE {
 
 sub new {
     my ($class, %obj) = (@_, impl => 'Channel2');
-    $obj{'_init_pid'} = $has_threads ? $$ .'.'. $tid : $$;
+    $obj{'_init_pid'} = $tid ? $$ .'.'. $tid : $$;
 
     MCE::Util::_sock_pair(\%obj, qw(_r_sock _w_sock));
 
@@ -41,14 +40,14 @@ sub new {
     bless \%obj, $class;
 
     if ( caller !~ /^MCE:?/ || caller(1) !~ /^MCE:?/ ) {
-        MCE::Mutex::Channel::_save_for_global_destruction(\%obj);
+        MCE::Mutex::Channel::_save_for_global_cleanup(\%obj);
     }
 
     return \%obj;
 }
 
 sub lock2 {
-    my ($pid, $obj) = ($has_threads ? $$ .'.'. $tid : $$, @_);
+    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, @_);
 
     MCE::Util::_sysread($obj->{_w_sock}, my($b), 1), $obj->{ $pid.'b' } = 1
         unless $obj->{ $pid.'b' };
@@ -60,7 +59,7 @@ sub lock2 {
 *lock_shared2    = \&lock2;
 
 sub unlock2 {
-    my ($pid, $obj) = ($has_threads ? $$ .'.'. $tid : $$, @_);
+    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, @_);
 
     syswrite($obj->{_r_sock}, '0'), $obj->{ $pid.'b' } = 0
         if $obj->{ $pid.'b' };
@@ -69,9 +68,7 @@ sub unlock2 {
 }
 
 sub synchronize2 {
-    my ($pid, $obj, $code, @ret) = (
-        $has_threads ? $$ .'.'. $tid : $$, shift, shift
-    );
+    my ($pid, $obj, $code, @ret) = ($tid ? $$ .'.'. $tid : $$, shift, shift);
     return unless ref($code) eq 'CODE';
 
     # lock, run, unlock - inlined for performance
@@ -117,7 +114,7 @@ MCE::Mutex::Channel2 - Provides two mutexes using a single channel
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel2 version 1.862
+This document describes MCE::Mutex::Channel2 version 1.863
 
 =head1 DESCRIPTION
 

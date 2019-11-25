@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.862';
+our $VERSION = '1.863';
 
 use base 'MCE::Channel';
 use MCE::Mutex ();
@@ -36,11 +36,8 @@ sub new {
 
    bless \%obj, $class;
 
-   if ( caller !~ /^MCE:?/ || caller(1) !~ /^MCE:?/ ) {
-      MCE::Mutex::Channel::_save_for_global_destruction($obj{c_mutex});
-      MCE::Mutex::Channel::_save_for_global_destruction($obj{p_mutex})
-         if $obj{mp};
-   }
+   MCE::Mutex::Channel::_save_for_global_cleanup($obj{c_mutex});
+   MCE::Mutex::Channel::_save_for_global_cleanup($obj{p_mutex}) if $obj{mp};
 
    return \%obj;
 }
@@ -250,11 +247,18 @@ sub send2 {
    }
 
    local $\ = undef if (defined $\);
-   ( my $c_mutex = $self->{c_mutex} )->lock2;
+   local $MCE::Signal::SIG;
 
-   MCE::Util::_sock_ready_w( $self->{c_sock} ) if $is_MSWin32;
-   print { $self->{c_sock} } pack('i', length $data), $data;
-   $c_mutex->unlock2;
+   {
+      local $MCE::Signal::IPC = 1;
+      ( my $c_mutex = $self->{c_mutex} )->lock2;
+
+      MCE::Util::_sock_ready_w( $self->{c_sock} ) if $is_MSWin32;
+      print { $self->{c_sock} } pack('i', length $data), $data;
+      $c_mutex->unlock2;
+   }
+
+   CORE::kill($MCE::Signal::SIG, $$) if $MCE::Signal::SIG;
 
    return 1;
 }
@@ -335,7 +339,7 @@ MCE::Channel::Mutex - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Mutex version 1.862
+This document describes MCE::Channel::Mutex version 1.863
 
 =head1 DESCRIPTION
 

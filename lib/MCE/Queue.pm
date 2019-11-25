@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.862';
+our $VERSION = '1.863';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -114,8 +114,7 @@ use constant {
 ## _qr_sock _qw_sock _datp _datq _heap _id _init_pid _nb_flag _porder _type
 ## _ar_sock _aw_sock _asem _tsem
 
-my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
-my $_tid = $_has_threads ? threads->tid() : 0;
+my $_tid = $INC{'threads.pm'} ? threads->tid() : 0;
 
 my %_valid_fields_new = map { $_ => 1 } qw(
    await barrier fast gather porder queue type
@@ -125,12 +124,12 @@ my $_all = {};
 my $_qid = 0;
 
 sub CLONE {
-   $_tid = threads->tid() if $_has_threads;
+   $_tid = threads->tid() if $INC{'threads.pm'};
 }
 
 sub DESTROY {
    my ($_Q) = @_;
-   my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
+   my $_pid = $_tid ? $$ .'.'. $_tid : $$;
 
    delete $_all->{ $_Q->{_id} } if exists $_Q->{_id};
    undef $_Q->{_datp}, undef $_Q->{_datq}, undef $_Q->{_heap};
@@ -203,7 +202,7 @@ sub new {
 
    ## -------------------------------------------------------------------------
 
-   $_Q->{_init_pid} = $_has_threads ? $$ .'.'. $_tid : $$;
+   $_Q->{_init_pid} = $_tid ? $$ .'.'. $_tid : $$;
    $_Q->{_id} = ++$_qid; $_all->{$_qid} = $_Q;
    $_Q->{_dsem} = 0 if $_Q->{_fast};
 
@@ -1269,12 +1268,12 @@ sub _mce_m_heap {
       if ($_lock_chn) {
          # inlined for performance
          $_dat_ex = sub {
-            my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
+            my $_pid = $_tid ? $$ .'.'. $_tid : $$;
             MCE::Util::_sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
                unless $_DAT_LOCK->{ $_pid };
          };
          $_dat_un = sub {
-            my $_pid = $_has_threads ? $$ .'.'. $_tid : $$;
+            my $_pid = $_tid ? $$ .'.'. $_tid : $$;
             syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
                if $_DAT_LOCK->{ $_pid };
          };
@@ -1602,7 +1601,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.862
+This document describes MCE::Queue version 1.863
 
 =head1 SYNOPSIS
 

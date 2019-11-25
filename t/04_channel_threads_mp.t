@@ -6,6 +6,8 @@ use warnings;
 use Test::More;
 
 BEGIN {
+   plan skip_all => "Not used on Cygwin" if ( $^O eq 'cygwin' );
+
    if ( $] lt '5.010001' && $^O ne 'MSWin32' ) {
       plan skip_all => "old Perl and threads not supported on Unix platforms";
    }

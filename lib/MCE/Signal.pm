@@ -9,9 +9,9 @@ package MCE::Signal;
 use strict;
 use warnings;
 
-no warnings qw( threads recursion uninitialized );
+no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.862';
+our $VERSION = '1.863';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -40,10 +40,9 @@ our %EXPORT_TAGS = (
    tmp_dir => [ qw( $tmp_dir ) ]
 );
 
-sub _NOOP {}
-
 END {
-   MCE::Signal->stop_and_exit($?) if ($$ == $main_proc_id);
+   MCE::Signal->stop_and_exit($?)
+      if ($$ == $main_proc_id && !$MCE::Signal::KILLED && !$MCE::Signal::STOPPED);
 }
 
 ###############################################################################
@@ -179,6 +178,16 @@ sub _remove_tmpdir {
 ##
 ###############################################################################
 
+BEGIN {
+   $MCE::Signal::IPC = 0;   # 1 = defer signal_handling until completed IPC
+   $MCE::Signal::SIG = '';  # signal received during IPC in MCE::Shared 1.863
+}
+
+sub defer {
+   $MCE::Signal::SIG = $_[0] if $_[0];
+   return;
+}
+
 my %_sig_name_lkup = map { $_ => 1 } qw(
    __DIE__ HUP INT PIPE QUIT TERM __WARN__
 );
@@ -191,17 +200,22 @@ my $_handler_count = $INC{'threads/shared.pm'}
 
 sub stop_and_exit {
    shift @_ if (defined $_[0] && $_[0] eq 'MCE::Signal');
+   return MCE::Signal::defer($_[0]) if $MCE::Signal::IPC;
 
    my ($_exit_status, $_is_sig, $_sig_name) = ($?, 0, $_[0] || 0);
-   $SIG{__DIE__} = $SIG{__WARN__} = \&_NOOP;
+   $SIG{__DIE__} = $SIG{__WARN__} = sub {};
 
    if (exists $_sig_name_lkup{$_sig_name}) {
-      no warnings 'once';
-      $SIG{INT} = $SIG{$_sig_name} = \&_NOOP,
-      $_is_sig  = $MCE::Signal::KILLED = 1;
+      $_exit_status = $MCE::Signal::KILLED = $_is_sig = 1;
       $_exit_status = 255 if ($_sig_name eq '__DIE__');
       $_exit_status = 0   if ($_sig_name eq 'PIPE');
    }
+   else {
+      $_exit_status = $_sig_name if ($_sig_name =~ /^\d+$/);
+      $MCE::Signal::STOPPED = 1;
+   }
+
+   local $SIG{INT} = local $SIG{$_sig_name} = sub {} if $_is_sig;
 
    ## Main process.
    if ($$ == $main_proc_id) {
@@ -231,7 +245,7 @@ sub stop_and_exit {
             if ($INC{'threads.pm'} && ($] lt '5.012000' || threads->tid())) {
                ($_no_kill9 == 1 || $_sig_name eq 'PIPE')
                   ? CORE::kill('INT', $_is_MSWin32 ? -$$ : -getpgrp)
-                  : CORE::kill('KILL', -$$, $main_proc_id);
+                  : CORE::kill('KILL', -$$);
             }
             else {
                CORE::kill('INT', $_is_MSWin32 ? -$$ : -getpgrp);
@@ -425,7 +439,7 @@ MCE::Signal - Temporary directory creation/cleanup and signal handling
 
 =head1 VERSION
 
-This document describes MCE::Signal version 1.862
+This document describes MCE::Signal version 1.863
 
 =head1 SYNOPSIS
 
@@ -517,6 +531,73 @@ Perl script. For this reason, sys_cmd was added to MCE::Signal.
  use MCE;
 
  my $exit_status = sys_cmd($command);
+
+=head1 DEFER SIGNAL
+
+=head2 defer ( $signal )
+
+Returns immediately inside a signal handler if signaled during IPC.
+The signal is deferred momentarily and re-signaled automatically upon
+completing IPC. Currently, all IPC related methods in C<MCE::Shared> and
+one method C<send2> in C<MCE::Channel> set the flag C<$MCE::Signal::IPC>
+before initiating IPC.
+
+Current API available since 1.863.
+
+ sub sig_handler {
+    return MCE::Signal::defer($_[0]) if $MCE::Signal::IPC;
+    ...
+ }
+
+In a nutshell, C<defer> helps safeguard IPC from stalling between workers
+and the shared manager-process. The following is a demonstration for Unix
+platforms. Deferring the signal inside the C<WINCH> handler prevents the
+app from eventually failing while resizing the window.
+
+ use strict;
+ use warnings;
+
+ use MCE::Hobo;
+ use MCE::Shared;
+ use Time::HiRes 'sleep';
+
+ my $count = MCE::Shared->scalar(0);
+ my $winch = MCE::Shared->scalar(0);
+ my $done  = MCE::Shared->scalar(0);
+
+ $SIG{WINCH} = sub {
+    # defer signal if signaled during IPC
+    return MCE::Signal::defer($_[0]) if $MCE::Signal::IPC;
+
+    # mask signal handler
+    local $SIG{$_[0]} = 'IGNORE';
+
+    printf "inside winch handler %d\n", $winch->incr;
+ };
+
+ $SIG{INT} = sub {
+    # defer signal if signaled during IPC
+    return MCE::Signal::defer($_[0]) if $MCE::Signal::IPC;
+
+    # set flag for workers to leave loop
+    $done->set(1);
+ };
+
+ sub task {
+    while ( ! $done->get ) {
+       $count->incr;
+       sleep 0.03;
+    };
+ }
+
+ print "Resize the terminal window continuously.\n";
+ print "Press Ctrl-C to stop.\n";
+
+ MCE::Hobo->create('task') for 1..8;
+ sleep 0.015 until $done->get;
+ MCE::Hobo->wait_all;
+
+ printf "\ncount incremented %d times\n\n", $count->get;
 
 =head1 INDEX
 

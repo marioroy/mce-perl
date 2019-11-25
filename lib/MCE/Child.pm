@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.862';
+our $VERSION = '1.863';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -19,7 +19,8 @@ our $VERSION = '1.862';
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use MCE::Signal ();
-use MCE::Channel;
+use MCE::Mutex ();
+use MCE::Channel ();
 use Time::HiRes 'sleep';
 use bytes;
 
@@ -48,12 +49,11 @@ my ( $_MNGD, $_DATA, $_DELY, $_LIST ) = ( {}, {}, {}, {} );
 my $_freeze = MCE::Channel::_get_freeze();
 my $_thaw   = MCE::Channel::_get_thaw();
 
-my $_is_MSWin32  = ($^O eq 'MSWin32') ? 1 : 0;
-my $_has_threads = $INC{'threads.pm'} ? 1 : 0;
-my $_tid = $_has_threads ? threads->tid() : 0;
+my $_is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
+my $_tid        = ( $INC{'threads.pm'} ) ? threads->tid() : 0;
 
 sub CLONE {
-   $_tid = threads->tid(), &_clear() if $_has_threads;
+   $_tid = threads->tid(), &_clear() if $INC{'threads.pm'};
 }
 
 sub _clear {
@@ -85,21 +85,26 @@ sub init {
 
    &_force_reap($pkg), $_DATA->{$pkg}->clear() if exists $_LIST->{$pkg};
 
-   # Start the shared-manager process if not running.
-   MCE::Shared->start() if $INC{'MCE/Shared.pm'};
-
    if ( !exists $_LIST->{$pkg} ) {
+      $MCE::_GMUTEX->lock() if ( $_tid && $MCE::_GMUTEX );
+      sleep 0.015 if $_tid;
+
+      # Start the shared-manager process if not running.
+      MCE::Shared->start() if $INC{'MCE/Shared.pm'};
+
       my $chnl = MCE::Channel->new( impl => 'Mutex' );
       $_LIST->{ $pkg } = MCE::Child::_ordhash->new();
       $_DELY->{ $pkg } = MCE::Child::_delay->new( $chnl );
       $_DATA->{ $pkg } = MCE::Child::_hash->new( $chnl );
       $_DATA->{"$pkg:seed"} = int(rand() * 1e9);
       $_DATA->{"$pkg:id"  } = 0;
+
+      $MCE::_GMUTEX->unlock() if ( $_tid && $MCE::_GMUTEX );
    }
 
    if ( !exists $mngd->{posix_exit} ) {
       $mngd->{posix_exit} = 1 if (
-         ( $_has_threads && $_tid ) || $INC{'Mojo/IOLoop.pm'} ||
+         $^S || $_tid || $INC{'Mojo/IOLoop.pm'} ||
          $INC{'Coro.pm'} || $INC{'LWP/UserAgent.pm'} || $INC{'stfl.pm'} ||
          $INC{'Curses.pm'} || $INC{'CGI.pm'} || $INC{'FCGI.pm'} ||
          $INC{'Tk.pm'} || $INC{'Wx.pm'} || $INC{'Win32/GUI.pm'} ||
@@ -191,62 +196,79 @@ sub create {
 
    # ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~
 
-   local $SIG{TTIN}  unless $_is_MSWin32;
-   local $SIG{TTOU}  unless $_is_MSWin32;
-   local $SIG{WINCH} unless $_is_MSWin32;
+   $MCE::_GMUTEX->lock() if ( $_tid && $MCE::_GMUTEX );
 
    my @args = @_; @_ = ();  # To avoid (Scalars leaked: N) messages
-   my $pid  = fork();
+   my ( $killed, $pid );
 
-   if ( !defined $pid ) {                                # error
-      local $\; print {*STDERR} "fork error: $!\n";
+   {
+      local $SIG{TERM} = local $SIG{INT} = sub { $killed = $_[0] }
+         if ( !$_is_MSWin32 && $] ge '5.010001' );
 
-      return undef;
+      local $SIG{TTIN}, local $SIG{TTOU}, local $SIG{WINCH}
+         if ( !$_is_MSWin32 );
+
+      $pid = fork();
+
+      if ( !defined $pid ) {                                # error
+         local $\; print {*STDERR} "fork error: $!\n";
+      }
+      elsif ( $pid ) {                                      # parent
+         $self->{WRK_ID} = $pid, $list->set($pid, $self);
+         $mngd->{on_start}->($pid, $self->{ident}) if $mngd->{on_start};
+      }
+      else {                                                # child
+         %{ $_LIST } = (), $_SELF = $self;
+
+         local $SIG{TERM} = local $SIG{INT} = \&_trap,
+         local $SIG{SEGV} = local $SIG{HUP} = \&_trap,
+         local $SIG{QUIT} = \&_quit;
+
+         MCE::Shared::init() if $INC{'MCE/Shared.pm'};
+         $_DATA->{ $_SELF->{PKG} }->set('S'.$$, '');
+         CORE::kill($killed, $$) if $killed;
+
+         # Sets the seed of the base generator uniquely between workers.
+         # The new seed is computed using the current seed and ID value.
+         # One may set the seed at the application level for predictable
+         # results. Ditto for Math::Prime::Util, Math::Random, and
+         # Math::Random::MT::Auto.
+
+         srand( abs($_DATA->{"$pkg:seed"} - ($id * 100000)) % 2147483560 );
+
+         if ( $INC{'Math/Prime/Util.pm'} ) {
+            Math::Prime::Util::srand(
+                abs($_DATA->{"$pkg:seed"} - ($id * 100000)) % 2147483560
+            );
+         }
+
+         if ( $INC{'Math/Random.pm'} ) {
+            my $cur_seed = Math::Random::random_get_seed();
+            my $new_seed = ($cur_seed < 1073741781)
+               ? $cur_seed + ((abs($id) * 10000) % 1073741780)
+               : $cur_seed - ((abs($id) * 10000) % 1073741780);
+
+            Math::Random::random_set_seed($new_seed, $new_seed);
+         }
+
+         if ( $INC{'Math/Random/MT/Auto.pm'} ) {
+            my $cur_seed = Math::Random::MT::Auto::get_seed()->[0];
+            my $new_seed = ($cur_seed < 1073741781)
+               ? $cur_seed + ((abs($id) * 10000) % 1073741780)
+               : $cur_seed - ((abs($id) * 10000) % 1073741780);
+
+            Math::Random::MT::Auto::set_seed($new_seed);
+         }
+
+         _dispatch($mngd, $func, \@args);
+      }
    }
-   elsif ( $pid ) {                                      # parent
-      $self->{WRK_ID} = $pid, $list->set($pid, $self);
-      $mngd->{on_start}->($pid, $self->{ident}) if $mngd->{on_start};
 
-      return $self;
-   }
+   $MCE::_GMUTEX->unlock() if ( $_tid && $MCE::_GMUTEX );
 
-   %{ $_LIST } = (), $_SELF = $self;                     # child
+   CORE::kill($killed, $$) if $killed;
 
-   MCE::Shared::init($id) if $INC{'MCE/Shared.pm'};
-
-   # Sets the seed of the base generator uniquely between workers.
-   # The new seed is computed using the current seed and ID value.
-   # One may set the seed at the application level for predictable
-   # results. Ditto for Math::Prime::Util, Math::Random, and
-   # Math::Random::MT::Auto.
-
-   srand( abs($_DATA->{"$pkg:seed"} - ($id * 100000)) % 2147483560 );
-
-   if ( $INC{'Math/Prime/Util.pm'} ) {
-      Math::Prime::Util::srand(
-          abs($_DATA->{"$pkg:seed"} - ($id * 100000)) % 2147483560
-      );
-   }
-
-   if ( $INC{'Math/Random.pm'} ) {
-      my $cur_seed = Math::Random::random_get_seed();
-      my $new_seed = ($cur_seed < 1073741781)
-         ? $cur_seed + ((abs($id) * 10000) % 1073741780)
-         : $cur_seed - ((abs($id) * 10000) % 1073741780);
-
-      Math::Random::random_set_seed($new_seed, $new_seed);
-   }
-
-   if ( $INC{'Math/Random/MT/Auto.pm'} ) {
-      my $cur_seed = Math::Random::MT::Auto::get_seed()->[0];
-      my $new_seed = ($cur_seed < 1073741781)
-         ? $cur_seed + ((abs($id) * 10000) % 1073741780)
-         : $cur_seed - ((abs($id) * 10000) % 1073741780);
-
-      Math::Random::MT::Auto::set_seed($new_seed);
-   }
-
-   _dispatch($mngd, $func, \@args);
+   return $pid ? $self : undef;
 }
 
 ###############################################################################
@@ -293,7 +315,7 @@ sub exit {
    if ($_is_MSWin32) {
       CORE::kill('KILL', $wrk_id) if CORE::kill('ZERO', $wrk_id);
    } else {
-      CORE::kill('INT', $wrk_id) if CORE::kill('ZERO', $wrk_id);
+      CORE::kill('QUIT', $wrk_id) if CORE::kill('ZERO', $wrk_id);
    }
 
    $self;
@@ -383,7 +405,7 @@ sub join {
       _croak('Cannot join self');
    }
    elsif ( $self->{MGR_ID} eq "$$.$_tid" ) {
-      # do not remove from the list until after reaping
+      # remove from list after reaping
       _reap_child($self, 1);
       $_LIST->{$pkg}->del($wrk_id);
    }
@@ -391,6 +413,8 @@ sub join {
       # limitation for MCE::Child only; allowed for MCE::Hobo
       _croak('Error: $child->join() not called by managed process');
    }
+
+   return unless ( exists $self->{RESULT} );
 
    ( defined wantarray )
       ? wantarray ? @{ delete $self->{RESULT} } : delete( $self->{RESULT} )->[-1]
@@ -574,24 +598,8 @@ sub _croak {
 sub _dispatch {
    my ( $mngd, $func, $args ) = @_;
 
-   $mngd->{WRK_ID} = $_SELF->{WRK_ID} = $$;
+   $mngd->{WRK_ID} = $_SELF->{WRK_ID} = $$, $? = 0;
    $ENV{PERL_MCE_IPC} = 'win32' if $_is_MSWin32;
-
-   $SIG{TERM} = $SIG{SEGV} = $SIG{INT} = $SIG{HUP} = \&_trap;
-   $SIG{QUIT} = \&_quit;
-
-   # Started.
-   my $signame; $? = 0;
-
-   {
-      local $SIG{INT}  = sub { $signame = 'INT' },
-      local $SIG{QUIT} = sub { $signame = 'QUIT' },
-      local $SIG{TERM} = sub { $signame = 'TERM' };
-
-      $_DATA->{ $_SELF->{PKG} }->set('S'.$$, '');
-   }
-
-   CORE::kill($signame, $$) if $signame;
 
    {
       local $!;
@@ -645,21 +653,18 @@ sub _exit {
    my ( $exit_status ) = @_;
 
    # Check for nested workers not yet joined.
-   if ( !$_SELF->{SIGNALED} ) {
-      MCE::Child->finish('MCE') if ( keys %{ $_LIST } > 0 );
-      MCE::Hobo->finish('MCE')  if ( $INC{'MCE/Hobo.pm'} );
-   }
+   MCE::Child->finish('MCE') if ( !$_SELF->{SIGNALED} && keys %{ $_LIST } );
 
    # Exit child process.
-   $SIG{__DIE__}  = sub { } unless $_tid;
-   $SIG{__WARN__} = sub { };
+   $SIG{__DIE__}  = sub {} unless $_tid;
+   $SIG{__WARN__} = sub {};
 
-   threads->exit($exit_status) if ( $_has_threads && $_is_MSWin32 );
+   threads->exit($exit_status) if ( $INC{'threads.pm'} && $_is_MSWin32 );
 
    my $posix_exit = ( exists $_SELF->{posix_exit} )
       ? $_SELF->{posix_exit} : $_MNGD->{ $_SELF->{PKG} }{posix_exit};
 
-   if ( $posix_exit && !$_is_MSWin32 ) {
+   if ( ( $posix_exit || $_SELF->{SIGNALED} ) && !$_is_MSWin32 ) {
       eval { MCE::Mutex::Channel::_destroy() };
       POSIX::_exit($exit_status) if $INC{'POSIX.pm'};
       CORE::kill('KILL', $$);
@@ -689,6 +694,8 @@ sub _force_reap {
 }
 
 sub _quit {
+   return MCE::Signal::defer($_[0]) if $MCE::Signal::IPC;
+
    my ( $name ) = @_;
    $_SELF->{SIGNALED} = 1, $name =~ s/^SIG//;
 
@@ -729,6 +736,8 @@ sub _reap_child {
 }
 
 sub _trap {
+   return MCE::Signal::defer($_[0]) if $MCE::Signal::IPC;
+
    my ( $exit_status, $name ) = ( 2, @_ );
    $_SELF->{SIGNALED} = 1, $name =~ s/^SIG//;
 
@@ -855,19 +864,17 @@ sub get {
             my $data = $self->[1]->recv2_nb();
             if ( !defined $data ) {
                last if waitpid($wrk_id, _WNOHANG);
-               sleep(0.015), next;
+               sleep(0.030), next;
             }
             $self->[0]{ $data->[0] } = $data->[1];
             waitpid($wrk_id, 0), last if $data->[0] eq 'R'.$wrk_id;
          }
+         if ( !CORE::exists $self->[0]{ 'R'.$wrk_id } ) {
+            while ( my $data = $self->[1]->recv2_nb() ) {
+               $self->[0]{ $data->[0] } = $data->[1];
+            }
+         }
       };
-   }
-
-   # retry
-   if ( !CORE::exists $self->[0]{ 'R'.$wrk_id } ) {
-      while ( my $data = $self->[1]->recv2_nb() ) {
-         $self->[0]{ $data->[0] } = $data->[1];
-      }
    }
 
    my $result = delete $self->[0]{ 'R'.$wrk_id };
@@ -958,7 +965,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.862
+This document describes MCE::Child version 1.863
 
 =head1 SYNOPSIS
 
@@ -1199,7 +1206,7 @@ of C<$@> associated with the child's execution status in its C<eval> context.
 
 =item $child->exit()
 
-This sends C<'SIGINT'> to the child process, notifying the child to exit.
+This sends C<'SIGQUIT'> to the child process, notifying the child to exit.
 It returns the child object to allow for method chaining. It is important to
 join later if not immediately to not leave a zombie or defunct process.
 

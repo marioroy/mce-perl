@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.862';
+our $VERSION = '1.863';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -50,14 +50,14 @@ use MCE::Util ();
 use bytes;
 
 my $is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
-my $has_threads = $INC{'threads.pm'} ? 1 : 0;
-my $tid = $has_threads ? threads->tid() : 0;
+my $tid = $INC{'threads.pm'} ? threads->tid() : 0;
 
 sub new {
    my ( $class, %argv ) = @_;
    my $impl = defined( $argv{impl} ) ? ucfirst( lc $argv{impl} ) : 'Mutex';
 
-   $impl = 'Threads' if ( $impl eq 'Mutex' && $^O eq 'MSWin32' );
+   $impl = 'Threads' if ( $impl eq 'Mutex'   && $^O eq 'MSWin32' );
+   $impl = 'Mutex'   if ( $impl eq 'Threads' && $^O eq 'cygwin' );
 
    eval "require MCE::Channel::$impl; 1;" ||
       Carp::croak("Could not load Channel implementation '$impl': $@");
@@ -69,11 +69,11 @@ sub new {
 }
 
 sub CLONE {
-   $tid = threads->tid if $has_threads;
+   $tid = threads->tid if $INC{'threads.pm'};
 }
 
 sub DESTROY {
-   my ( $pid, $self ) = ( $has_threads ? $$ .'.'. $tid : $$, @_ );
+   my ( $pid, $self ) = ( $tid ? $$ .'.'. $tid : $$, @_ );
 
    if ( $self->{'init_pid'} && $self->{'init_pid'} eq $pid ) {
       MCE::Util::_destroy_socks( $self, qw(c_sock p_sock) );
@@ -109,7 +109,7 @@ sub _read {
 }
 
 sub _pid {
-   $has_threads ? $$ .'.'. $tid : $$;
+   $tid ? $$ .'.'. $tid : $$;
 }
 
 1;
@@ -128,7 +128,7 @@ MCE::Channel - Queue-like and two-way communication capability
 
 =head1 VERSION
 
-This document describes MCE::Channel version 1.862
+This document describes MCE::Channel version 1.863
 
 =head1 SYNOPSIS
 

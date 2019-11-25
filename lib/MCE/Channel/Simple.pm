@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.862';
+our $VERSION = '1.863';
 
 use base 'MCE::Channel';
 use bytes;
@@ -251,8 +251,16 @@ sub send2 {
    }
 
    local $\ = undef if (defined $\);
-   MCE::Util::_sock_ready_w( $self->{c_sock} ) if $is_MSWin32;
-   print { $self->{c_sock} } pack('i', length $data) . $data;
+   local $MCE::Signal::SIG;
+
+   {
+      local $MCE::Signal::IPC = 1;
+
+      MCE::Util::_sock_ready_w( $self->{c_sock} ) if $is_MSWin32;
+      print { $self->{c_sock} } pack('i', length $data) . $data;
+   }
+
+   CORE::kill($MCE::Signal::SIG, $$) if $MCE::Signal::SIG;
 
    return 1;
 }
@@ -320,7 +328,7 @@ MCE::Channel::Simple - Channel tuned for one producer and one consumer
 
 =head1 VERSION
 
-This document describes MCE::Channel::Simple version 1.862
+This document describes MCE::Channel::Simple version 1.863
 
 =head1 DESCRIPTION
 

@@ -11,12 +11,20 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.862';
+our $VERSION = '1.863';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
 
 use Carp ();
+
+## global Mutex used by MCE, MCE::Child, and MCE::Hobo inside threads
+## on UNIX platforms
+
+if ( $INC{'threads.pm'} && $^O !~ /mswin|mingw|msys|cygwin/i ) {
+    $MCE::_GMUTEX = MCE::Mutex->new( impl => 'Channel' );
+    MCE::Mutex::Channel::_save_for_global_cleanup($MCE::_GMUTEX);
+}
 
 sub new {
     my ($class, %argv) = @_;
@@ -68,7 +76,7 @@ MCE::Mutex - Locking for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Mutex version 1.862
+This document describes MCE::Mutex version 1.863
 
 =head1 SYNOPSIS
 
