@@ -1,6 +1,12 @@
 
 Revision history for Perl module MCE.
 
+1.864 Wed Dec 04 13:00:00 EST 2019
+
+  * Bug fix to MCE::Signal - Shared manager not exiting, introduced in 1.863.
+
+  * Use monotonic clock if available in MCE->yield and MCE::Child->yield.
+
 1.863 Sun Nov 26 20:00:00 EST 2019
 
   * On Cygwin, silently use Mutex in MCE::Channel when Threads is specified

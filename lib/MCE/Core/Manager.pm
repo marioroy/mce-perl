@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.863';
+our $VERSION = '1.864';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -699,12 +699,12 @@ sub _output_loop {
             my $_app_st = $_interval->{_time} + ($_delay / $_nodes * $_id);
             my $_wrk_st = ($_delay_wid[$_task_id] - 1) * $_delay + $_app_st;
 
-            $_delay = $_wrk_st - time;
+            $_delay = $_wrk_st - MCE::Util::_time();
 
             if ($_delay < 0.0 && $_app_tb) {
                my $_count = int($_delay * -1 / $_app_tb + 0.5) + 1;
                $_delay += $_app_tb * $_count;
-               $_interval->{_time} = time if ($_count > 2e9);
+               $_interval->{_time} = MCE::Util::_time() if ($_count > 2e9);
             }
 
             ($_delay > 0.0)
@@ -1041,7 +1041,7 @@ MCE::Core::Manager - Core methods for the manager process
 
 =head1 VERSION
 
-This document describes MCE::Core::Manager version 1.863
+This document describes MCE::Core::Manager version 1.864
 
 =head1 DESCRIPTION
 

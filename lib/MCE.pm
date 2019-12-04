@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.863';
+our $VERSION = '1.864';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -1448,9 +1448,7 @@ sub yield {
    chomp($_delay = <$_DAU_W_SOCK>);
    $_DAT_LOCK->unlock() if $_lock_chn;
 
-   sleep $_delay if $_delay > 0.0;
-
-   return;
+   MCE::Util::_sleep( $_delay );
 }
 
 ###############################################################################

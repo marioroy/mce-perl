@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.863';
+our $VERSION = '1.864';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -354,6 +354,46 @@ sub _nonblocking {
    return;
 }
 
+###############################################################################
+## ----------------------------------------------------------------------------
+## Private methods, providing high-resolution time, for MCE->yield,
+## MCE::Child->yield, and MCE::Hobo->yield.
+##
+###############################################################################
+
+## Use monotonic clock if available.
+
+use constant CLOCK_MONOTONIC => eval {
+   Time::HiRes::clock_gettime( Time::HiRes::CLOCK_MONOTONIC() );
+   1;
+};
+
+sub _sleep {
+   my ( $seconds ) = @_;
+   return if ( $seconds < 0 );
+
+   if ( $INC{'Coro/AnyEvent.pm'} ) {
+      Coro::AnyEvent::sleep( $seconds );
+   }
+   elsif ( &Time::HiRes::d_nanosleep ) {
+      Time::HiRes::nanosleep( $seconds * 1e9 );
+   }
+   elsif ( &Time::HiRes::d_usleep ) {
+      Time::HiRes::usleep( $seconds * 1e6 );
+   }
+   else {
+      Time::HiRes::sleep( $seconds );
+   }
+
+   return;
+}
+
+sub _time {
+   return ( CLOCK_MONOTONIC )
+      ? Time::HiRes::clock_gettime( Time::HiRes::CLOCK_MONOTONIC() )
+      : Time::HiRes::time();
+}
+
 1;
 
 __END__
@@ -370,7 +410,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.863
+This document describes MCE::Util version 1.864
 
 =head1 SYNOPSIS
 

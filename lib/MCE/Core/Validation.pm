@@ -14,7 +14,7 @@ package MCE::Core::Validation;
 use strict;
 use warnings;
 
-our $VERSION = '1.863';
+our $VERSION = '1.864';
 
 ## Items below are folded into MCE.
 
@@ -192,7 +192,7 @@ sub _validate_args_s {
 
       $_i->{max_nodes} = 1 unless (exists $_i->{max_nodes});
       $_i->{node_id}   = 1 unless (exists $_i->{node_id});
-      $_i->{_time}     = time;
+      $_i->{_time}     = MCE::Util::_time();
    }
 
    return;
@@ -391,7 +391,7 @@ MCE::Core::Validation - Core validation methods for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Core::Validation version 1.863
+This document describes MCE::Core::Validation version 1.864
 
 =head1 DESCRIPTION
 
