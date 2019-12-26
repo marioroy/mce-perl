@@ -11,14 +11,13 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.864';
+our $VERSION = '1.865';
 
 use base 'MCE::Channel';
 use MCE::Mutex ();
 use bytes;
 
 my $LF = "\012"; Internals::SvREADONLY($LF, 1);
-my $is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
 my $freeze     = MCE::Channel::_get_freeze();
 my $thaw       = MCE::Channel::_get_thaw();
 
@@ -53,7 +52,6 @@ sub end {
    return if $self->{ended};
 
    local $\ = undef if (defined $\);
-   MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
    print { $self->{p_sock} } pack('i', -1);
 
    $self->{ended} = 1;
@@ -66,8 +64,6 @@ sub enqueue {
    local $\ = undef if (defined $\);
    my $p_mutex = $self->{p_mutex};
    $p_mutex->lock2 if $p_mutex;
-
-   MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
 
    while ( @_ ) {
       my $data;
@@ -90,7 +86,6 @@ sub dequeue {
 
    if ( $count == 1 ) {
       ( my $c_mutex = $self->{c_mutex} )->lock;
-      MCE::Util::_sock_ready( $self->{c_sock} ) if $is_MSWin32;
       MCE::Util::_sysread( $self->{c_sock}, my($plen), 4 );
 
       my $len = unpack('i', $plen);
@@ -110,7 +105,6 @@ sub dequeue {
       my ( $plen, @ret );
 
       ( my $c_mutex = $self->{c_mutex} )->lock;
-      MCE::Util::_sock_ready( $self->{c_sock} ) if $is_MSWin32;
 
       while ( $count-- ) {
          MCE::Util::_sysread( $self->{c_sock}, $plen, 4 );
@@ -179,7 +173,6 @@ sub send {
    my $p_mutex = $self->{p_mutex};
    $p_mutex->lock2 if $p_mutex;
 
-   MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
    print { $self->{p_sock} } pack('i', length $data), $data;
    $p_mutex->unlock2 if $p_mutex;
 
@@ -190,7 +183,6 @@ sub recv {
    my ( $self ) = @_;
 
    ( my $c_mutex = $self->{c_mutex} )->lock;
-   MCE::Util::_sock_ready( $self->{c_sock} ) if $is_MSWin32;
    MCE::Util::_sysread( $self->{c_sock}, my($plen), 4 );
 
    my $len = unpack('i', $plen);
@@ -253,7 +245,6 @@ sub send2 {
       local $MCE::Signal::IPC = 1;
       ( my $c_mutex = $self->{c_mutex} )->lock2;
 
-      MCE::Util::_sock_ready_w( $self->{c_sock} ) if $is_MSWin32;
       print { $self->{c_sock} } pack('i', length $data), $data;
       $c_mutex->unlock2;
    }
@@ -271,15 +262,13 @@ sub recv2 {
    my $p_mutex = $self->{p_mutex};
    $p_mutex->lock if $p_mutex;
 
-   MCE::Util::_sock_ready( $self->{p_sock} ) if $is_MSWin32;
-
-   ( $p_mutex || $is_MSWin32 )
+   ( $p_mutex )
       ? MCE::Util::_sysread( $self->{p_sock}, $plen, 4 )
       : read( $self->{p_sock}, $plen, 4 );
 
    my $len = unpack('i', $plen);
 
-   ( $p_mutex || $is_MSWin32 )
+   ( $p_mutex )
       ? MCE::Channel::_read( $self->{p_sock}, $data, $len )
       : read( $self->{p_sock}, $data, $len );
 
@@ -300,7 +289,7 @@ sub recv2_nb {
 
    MCE::Util::_nonblocking( $self->{p_sock}, 1 );
 
-   ( $p_mutex || $is_MSWin32 )
+   ( $p_mutex )
       ? MCE::Util::_sysread( $self->{p_sock}, $plen, 4 )
       : read( $self->{p_sock}, $plen, 4 );
 
@@ -312,7 +301,7 @@ sub recv2_nb {
       return wantarray ? () : undef;
    }
 
-   ( $p_mutex || $is_MSWin32 )
+   ( $p_mutex )
       ? MCE::Channel::_read( $self->{p_sock}, $data, $len )
       : read( $self->{p_sock}, $data, $len );
 
@@ -339,7 +328,7 @@ MCE::Channel::Mutex - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Mutex version 1.864
+This document describes MCE::Channel::Mutex version 1.865
 
 =head1 DESCRIPTION
 

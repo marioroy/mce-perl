@@ -1,11 +1,22 @@
 
 Revision history for Perl module MCE.
 
+1.865 Wed Dec 25 18:00:00 EST 2019
+
+  * Bug fix for two-way IPC stalling on Windows in MCE::Channel::Threads.
+    See https://www.perlmonks.org/?node_id=11110612
+
+  * Remove the check for MSWin32 in MCE::Channel::Mutex. MCE::Channel since
+    the 1st release silently defaults to MCE::Channel::Threads on Windows.
+
+  * Small tweak to MCE::Signal.
+
 1.864 Wed Dec 04 13:00:00 EST 2019
 
-  * Bug fix to MCE::Signal - Shared manager not exiting, introduced in 1.863.
+  * Bug fix in MCE::Signal - Shared manager not exiting, introduced in 1.863.
 
   * Use monotonic clock if available in MCE->yield and MCE::Child->yield.
+    See https://www.perlmonks.org/?node_id=11109673
 
 1.863 Sun Nov 26 20:00:00 EST 2019
 

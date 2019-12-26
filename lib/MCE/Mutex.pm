@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.864';
+our $VERSION = '1.865';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -76,7 +76,7 @@ MCE::Mutex - Locking for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Mutex version 1.864
+This document describes MCE::Mutex version 1.865
 
 =head1 SYNOPSIS
 

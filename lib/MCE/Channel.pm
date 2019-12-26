@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.864';
+our $VERSION = '1.865';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -76,7 +76,7 @@ sub DESTROY {
    my ( $pid, $self ) = ( $tid ? $$ .'.'. $tid : $$, @_ );
 
    if ( $self->{'init_pid'} && $self->{'init_pid'} eq $pid ) {
-      MCE::Util::_destroy_socks( $self, qw(c_sock p_sock) );
+      MCE::Util::_destroy_socks($self, qw(c_sock c2_sock p_sock p2_sock));
       delete($self->{c_mutex}), delete($self->{p_mutex});
    }
 
@@ -128,7 +128,7 @@ MCE::Channel - Queue-like and two-way communication capability
 
 =head1 VERSION
 
-This document describes MCE::Channel version 1.864
+This document describes MCE::Channel version 1.865
 
 =head1 SYNOPSIS
 
@@ -212,17 +212,20 @@ both ends of the C<channel> support many workers concurrently (with mp => 1).
 
 =head2 new ( impl => STRING, mp => BOOLEAN )
 
-This creates a new channel. Three implementations are provided C<Mutex> (default),
-C<Threads>, and C<Simple> indicating the locking mechanism to use C<MCE::Mutex>,
-C<threads::shared>, and no locking respectively.
+This creates a new channel. Three implementations are provided C<Mutex>,
+C<Threads>, and C<Simple> indicating the locking mechanism to use
+C<MCE::Mutex>, C<threads::shared>, and no locking respectively.
 
  $chnl = MCE::Channel->new();     # default: impl => 'Mutex', mp => 0
+                                  # default: impl => 'Threads' on Windows
 
-The C<Mutex> channel implementation supports processes and threads whereas the
-C<Threads> channel implementation is suited for threads only.
+The C<Mutex> implementation supports processes and threads whereas the
+C<Threads> implementation is suited for Windows and threads only.
 
  $chnl = MCE::Channel->new( impl => 'Mutex' );    # MCE::Mutex locking
  $chnl = MCE::Channel->new( impl => 'Threads' );  # threads::shared locking
+
+ # on Windows, silently becomes impl => 'Threads' when specifying 'Mutex'
 
 Set the C<mp> (m)any (p)roducers option to a true value if there will be two
 or more workers calling C<enqueue>, <send>, C<recv2>, or C<recv2_nb> on the
@@ -230,6 +233,8 @@ left end of the channel. This is important to not incur a race condition.
 
  $chnl = MCE::Channel->new( impl => 'Mutex', mp => 1 );
  $chnl = MCE::Channel->new( impl => 'Threads', mp => 1 );
+
+ # on Windows, silently becomes impl => 'Threads' when specifying 'Mutex'
 
 The C<Simple> implementation is optimized for one producer and one consumer max.
 It omits locking for maximum performance. This implementation is preferred for

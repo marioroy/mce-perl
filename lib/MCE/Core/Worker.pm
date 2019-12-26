@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.864';
+our $VERSION = '1.865';
 
 my $_tid = $INC{'threads.pm'} ? threads->tid() : 0;
 
@@ -744,7 +744,7 @@ MCE::Core::Worker - Core methods for the worker process
 
 =head1 VERSION
 
-This document describes MCE::Core::Worker version 1.864
+This document describes MCE::Core::Worker version 1.865
 
 =head1 DESCRIPTION
 

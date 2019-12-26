@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.864';
+our $VERSION = '1.865';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -972,7 +972,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.864
+This document describes MCE::Child version 1.865
 
 =head1 SYNOPSIS
 
@@ -1565,7 +1565,7 @@ similarly to MCE's interval option. It throttles workers from running too fast.
 A demonstration is provided in the next section for fetching URLs in parallel.
 
 The default C<floating_seconds> is 0.008 and 0.015 on UNIX and Windows,
-respectively. Pass 0 if you want to give other workers a chance to run.
+respectively. Pass 0 if simply wanting to give other workers a chance to run.
 
  # total run time: 1.00 second
 

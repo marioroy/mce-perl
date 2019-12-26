@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.864';
+our $VERSION = '1.865';
 
 use threads;
 use threads::shared;
@@ -29,6 +29,7 @@ sub new {
 
    $obj{init_pid} = MCE::Channel::_pid();
    MCE::Util::_sock_pair( \%obj, 'p_sock', 'c_sock' );
+   MCE::Util::_sock_pair( \%obj, 'p2_sock', 'c2_sock' ) if $is_MSWin32;
 
    # locking for the consumer side of the channel
    $obj{cr_mutex} = threads::shared::share( my $cr_mutex );
@@ -255,11 +256,13 @@ sub send2 {
    local $MCE::Signal::SIG;
 
    {
+      my $c_sock = $self->{c2_sock} || $self->{c_sock};
+
       local $MCE::Signal::IPC = 1;
       CORE::lock $self->{cw_mutex};
 
-      MCE::Util::_sock_ready_w( $self->{c_sock} ) if $is_MSWin32;
-      print { $self->{c_sock} } pack('i', length $data), $data;
+      MCE::Util::_sock_ready_w( $c_sock ) if $is_MSWin32;
+      print { $c_sock } pack('i', length $data), $data;
    }
 
    CORE::kill($MCE::Signal::SIG, $$) if $MCE::Signal::SIG;
@@ -274,19 +277,21 @@ sub recv2 {
    local $/ = $LF if ( $/ ne $LF );
 
    {
+      my $p_sock   = $self->{p2_sock} || $self->{p_sock};
       my $pr_mutex = $self->{pr_mutex};
+
       CORE::lock $pr_mutex if $pr_mutex;
-      MCE::Util::_sock_ready( $self->{p_sock} ) if $is_MSWin32;
+      MCE::Util::_sock_ready( $p_sock ) if $is_MSWin32;
 
       ( $pr_mutex || $is_MSWin32 )
-         ? MCE::Util::_sysread( $self->{p_sock}, $plen, 4 )
-         : read( $self->{p_sock}, $plen, 4 );
+         ? MCE::Util::_sysread( $p_sock, $plen, 4 )
+         : read( $p_sock, $plen, 4 );
 
       my $len = unpack('i', $plen);
 
       ( $pr_mutex || $is_MSWin32 )
-         ? MCE::Channel::_read( $self->{p_sock}, $data, $len )
-         : read( $self->{p_sock}, $data, $len );
+         ? MCE::Channel::_read( $p_sock, $data, $len )
+         : read( $p_sock, $data, $len );
    }
 
    chop( $data )
@@ -301,23 +306,25 @@ sub recv2_nb {
    local $/ = $LF if ( $/ ne $LF );
 
    {
+      my $p_sock   = $self->{p2_sock} || $self->{p_sock};
       my $pr_mutex = $self->{pr_mutex};
+
       CORE::lock $pr_mutex if $pr_mutex;
-      MCE::Util::_nonblocking( $self->{p_sock}, 1 );
+      MCE::Util::_nonblocking( $p_sock, 1 );
 
       ( $pr_mutex || $is_MSWin32 )
-         ? MCE::Util::_sysread( $self->{p_sock}, $plen, 4 )
-         : read( $self->{p_sock}, $plen, 4 );
+         ? MCE::Util::_sysread( $p_sock, $plen, 4 )
+         : read( $p_sock, $plen, 4 );
 
-      MCE::Util::_nonblocking( $self->{p_sock}, 0 );
+      MCE::Util::_nonblocking( $p_sock, 0 );
 
       my $len; $len = unpack('i', $plen) if $plen;
 
       return wantarray ? () : undef unless $len;
 
       ( $pr_mutex || $is_MSWin32 )
-         ? MCE::Channel::_read( $self->{p_sock}, $data, $len )
-         : read( $self->{p_sock}, $data, $len );
+         ? MCE::Channel::_read( $p_sock, $data, $len )
+         : read( $p_sock, $data, $len );
    }
 
    chop( $data )
@@ -341,7 +348,7 @@ MCE::Channel::Threads - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Threads version 1.864
+This document describes MCE::Channel::Threads version 1.865
 
 =head1 DESCRIPTION
 
