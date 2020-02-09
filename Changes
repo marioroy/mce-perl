@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.866 Sat Feb 08 21:00:00 EST 2020
+
+  * Bug fix for restart_worker, race condition introduced in 1.863.
+    Thank you, Oliver Gorwits for reporting the issue.
+
 1.865 Wed Dec 25 18:00:00 EST 2019
 
   * Bug fix for two-way IPC stalling on Windows in MCE::Channel::Threads.

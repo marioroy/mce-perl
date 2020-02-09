@@ -14,7 +14,7 @@ package MCE::Core::Input::Handle;
 use strict;
 use warnings;
 
-our $VERSION = '1.865';
+our $VERSION = '1.866';
 
 ## Items below are folded into MCE.
 
@@ -282,7 +282,7 @@ MCE::Core::Input::Handle - File path and Scalar reference input reader
 
 =head1 VERSION
 
-This document describes MCE::Core::Input::Handle version 1.865
+This document describes MCE::Core::Input::Handle version 1.866
 
 =head1 DESCRIPTION
 

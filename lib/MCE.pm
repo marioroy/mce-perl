@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.865';
+our $VERSION = '1.866';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -699,7 +699,8 @@ sub spawn {
             _total_running => 0, _total_workers => $_task->{max_workers}
          };
          for my $_i (1 .. $_task->{max_workers}) {
-            $self->{_state}->[++$_wid] = {
+            $_wid += 1;
+            $self->{_state}->[$_wid] = {
                _task => $_task, _task_id => $_task_id, _task_wid => $_i,
                _params => undef, _chn => $_wid % $_data_channels + 1
             }

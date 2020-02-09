@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.865';
+our $VERSION = '1.866';
 
 use base 'MCE::Channel';
 use bytes;
@@ -328,7 +328,7 @@ MCE::Channel::Simple - Channel tuned for one producer and one consumer
 
 =head1 VERSION
 
-This document describes MCE::Channel::Simple version 1.865
+This document describes MCE::Channel::Simple version 1.866
 
 =head1 DESCRIPTION
 
