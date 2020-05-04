@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.866';
+our $VERSION = '1.867';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -33,8 +33,6 @@ use constant {
    _WNOHANG => ( $INC{'POSIX.pm'} )
       ? &POSIX::WNOHANG : ( $^O eq 'solaris' ) ? 64 : 1
 };
-
-use bytes;
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -77,6 +75,35 @@ sub _task_end {
 ##
 ###############################################################################
 
+my %_sendto_fhs;
+
+sub _sendto_fhs_close {
+   for my $_p (keys %_sendto_fhs) {
+      close  $_sendto_fhs{$_p};
+      delete $_sendto_fhs{$_p};
+   }
+}
+
+sub _sendto_fhs_get {
+   my ($self, $_fd) = @_;
+
+   $_sendto_fhs{$_fd} || do {
+
+      $_sendto_fhs{$_fd} = IO::Handle->new();
+      $_sendto_fhs{$_fd}->fdopen($_fd, 'w')
+         or _croak "Cannot open file descriptor ($_fd): $!";
+
+      binmode $_sendto_fhs{$_fd};
+
+      if (!exists $self->{flush_file} || $self->{flush_file}) {
+         local $!;
+         $_sendto_fhs{$_fd}->autoflush(1)
+      }
+
+      $_sendto_fhs{$_fd};
+   };
+}
+
 sub _output_loop {
 
    my ( $self, $_input_data, $_input_glob, $_plugin_function,
@@ -85,15 +112,15 @@ sub _output_loop {
    @_ = ();
 
    my (
-      $_aborted, $_eof_flag, $_max_retries, $_syn_flag, %_sendto_fhs,
-      $_cb, $_chunk_id, $_chunk_size, $_fd, $_file, $_flush_file, $_wa,
+      $_aborted, $_eof_flag, $_max_retries, $_syn_flag, $_win32_ipc,
+      $_cb, $_chunk_id, $_chunk_size, $_file, $_size_completed, $_wa,
       @_is_c_ref, @_is_h_ref, @_is_q_ref, $_on_post_exit, $_on_post_run,
       $_has_user_tasks, $_sess_dir, $_task_id, $_user_error, $_user_output,
       $_input_size, $_offset_pos, $_single_dim, @_gather, $_cs_one_flag,
       $_exit_id, $_exit_pid, $_exit_status, $_exit_wid, $_len, $_sync_cnt,
       $_BSB_W_SOCK, $_BSB_R_SOCK, $_DAT_R_SOCK, $_DAU_R_SOCK, $_MCE_STDERR,
       $_I_FLG, $_O_FLG, $_I_SEP, $_O_SEP, $_RS, $_RS_FLG, $_MCE_STDOUT,
-      @_delay_wid, $_size_completed, $_win32_ipc
+      @_delay_wid
    );
 
    ## -------------------------------------------------------------------------
@@ -113,17 +140,13 @@ sub _output_loop {
          my @_ret = $_cb->(@_);
          my $_buf = $self->{freeze}(\@_ret);
 
-         return print {$_DAU_R_SOCK} length($_buf).'1'.$LF, $_buf;
+         return print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
       }
 
       my $_ret = $_cb->(@_);
-
-      return print {$_DAU_R_SOCK} length($_ret).'0'.$LF, $_ret
-         if ( !looks_like_number $_ret && !ref $_ret && defined $_ret );
-
       my $_buf = $self->{freeze}([ $_ret ]);
 
-      return print {$_DAU_R_SOCK} length($_buf).'1'.$LF, $_buf;
+      return print {$_DAU_R_SOCK} length($_buf).$LF, $_buf;
    };
 
    ## -------------------------------------------------------------------------
@@ -284,7 +307,7 @@ sub _output_loop {
          }
 
          if ($_single_dim && $_cs_one_flag) {
-            $_buf = $_input_data->[$_offset_pos];
+            $_buf = $self->{freeze}( [ $_input_data->[$_offset_pos] ] );
          }
          else {
             if ($_offset_pos + $_chunk_size - 1 < $_input_size) {
@@ -325,7 +348,7 @@ sub _output_loop {
 
             if ($_chunk_size <= MAX_RECS_SIZE) {
                if ($_chunk_size == 1) {
-                  $_buf = $_input_glob->can('getline')
+                  $_buf .= $_input_glob->can('getline')
                      ? $_input_glob->getline : <$_input_glob>;
                   $_eof_flag = 1 unless (length $_buf);
                }
@@ -366,8 +389,10 @@ sub _output_loop {
          $_len = length $_buf; local $\ = undef if (defined $\);
 
          if ($_len) {
-            print {$_DAU_R_SOCK} $_len.$LF . (++$_chunk_id).$LF, $_buf;
-         } else {
+            my $_tmp = $self->{freeze}(\$_buf);
+            print {$_DAU_R_SOCK} length($_tmp).$LF . (++$_chunk_id).$LF, $_tmp;
+         }
+         else {
             print {$_DAU_R_SOCK} '0'.$LF;
          }
 
@@ -416,16 +441,10 @@ sub _output_loop {
 
          my @_ret_a = $_input_data->($_chunk_size);
 
-         if (scalar @_ret_a > 1 || ref $_ret_a[0]) {
+         if (@_ret_a > 1 || defined $_ret_a[0]) {
             $_buf = $self->{freeze}([ @_ret_a ]);
             $_len = length $_buf; local $\ = undef if (defined $\);
-            print {$_DAU_R_SOCK} $_len.'1'.$LF . (++$_chunk_id).$LF, $_buf;
-
-            return;
-         }
-         elsif (defined $_ret_a[0]) {
-            $_len = length $_ret_a[0]; local $\ = undef if (defined $\);
-            print {$_DAU_R_SOCK} $_len.'0'.$LF . (++$_chunk_id).$LF, $_ret_a[0];
+            print {$_DAU_R_SOCK} $_len.$LF . (++$_chunk_id).$LF, $_buf;
 
             return;
          }
@@ -439,25 +458,17 @@ sub _output_loop {
 
       ## ----------------------------------------------------------------------
 
-      OUTPUT_A_CBK.$LF => sub {                   # Callback w/ multiple args
-         chomp($_wa  = <$_DAU_R_SOCK>),
-         chomp($_cb  = <$_DAU_R_SOCK>),
-         chomp($_len = <$_DAU_R_SOCK>);
-
-         read $_DAU_R_SOCK, my($_buf), $_len;
-         my $_data_ref = $self->{thaw}($_buf); undef $_buf;
-
-         return $_cb_reply->(@{ $_data_ref });
-      },
-
-      OUTPUT_S_CBK.$LF => sub {                   # Callback w/ 1 scalar arg
+      OUTPUT_A_CBK.$LF => sub {                   # Callback w/ args
          chomp($_wa  = <$_DAU_R_SOCK>),
          chomp($_cb  = <$_DAU_R_SOCK>),
          chomp($_len = <$_DAU_R_SOCK>);
 
          read $_DAU_R_SOCK, my($_buf), $_len;
 
-         return $_cb_reply->($_buf);
+         my $_aref = $self->{thaw}($_buf);
+         undef $_buf;
+
+         return $_cb_reply->(@{ $_aref });
       },
 
       OUTPUT_N_CBK.$LF => sub {                   # Callback w/ no args
@@ -467,9 +478,7 @@ sub _output_loop {
          return $_cb_reply->();
       },
 
-      ## ----------------------------------------------------------------------
-
-      OUTPUT_A_GTR.$LF => sub {                   # Gather array/ref
+      OUTPUT_A_GTR.$LF => sub {                   # Gather data
          chomp($_task_id = <$_DAU_R_SOCK>),
          chomp($_len     = <$_DAU_R_SOCK>);
 
@@ -497,39 +506,19 @@ sub _output_loop {
          return;
       },
 
-      OUTPUT_S_GTR.$LF => sub {                   # Gather scalar
-         local $_;
-
-         chomp($_task_id = <$_DAU_R_SOCK>),
-         chomp($_len     = <$_DAU_R_SOCK>);
-
-         read $_DAU_R_SOCK, $_, $_len if ($_len >= 0);
-
-         if ($_is_c_ref[$_task_id]) {
-            $_gather[$_task_id]->($_);
-         }
-         elsif ($_is_h_ref[$_task_id]) {
-            $_gather[$_task_id]->{$_} = undef;
-         }
-         elsif ($_is_q_ref[$_task_id]) {
-            $_gather[$_task_id]->enqueue($_);
-         }
-         else {
-            push @{ $_gather[$_task_id] }, $_;
-         }
-
-         return;
-      },
-
       ## ----------------------------------------------------------------------
 
       OUTPUT_O_SND.$LF => sub {                   # Send >> STDOUT
          chomp($_len = <$_DAU_R_SOCK>);
+
          read $_DAU_R_SOCK, my($_buf), $_len;
+         $_buf = ${ $self->{thaw}($_buf) };
 
          if (defined $_user_output) {
             $_user_output->($_buf);
-         } else {
+         }
+         else {
+            use bytes;
             print {$_MCE_STDOUT} $_buf;
          }
 
@@ -538,11 +527,15 @@ sub _output_loop {
 
       OUTPUT_E_SND.$LF => sub {                   # Send >> STDERR
          chomp($_len = <$_DAU_R_SOCK>);
+
          read $_DAU_R_SOCK, my($_buf), $_len;
+         $_buf = ${ $self->{thaw}($_buf) };
 
          if (defined $_user_error) {
             $_user_error->($_buf);
-         } else {
+         }
+         else {
+            use bytes;
             print {$_MCE_STDERR} $_buf;
          }
 
@@ -552,25 +545,29 @@ sub _output_loop {
       OUTPUT_F_SND.$LF => sub {                   # Send >> File
          my ($_buf, $_OUT_FILE);
 
-         chomp($_file = <$_DAU_R_SOCK>),
-         chomp($_len  = <$_DAU_R_SOCK>);
-
+         chomp($_len = <$_DAU_R_SOCK>);
          read $_DAU_R_SOCK, $_buf, $_len;
 
+         $_buf  = $self->{thaw}($_buf);
+         $_file = $_buf->[0];
+
          unless (exists $_sendto_fhs{$_file}) {
-            open $_sendto_fhs{$_file}, '>>', $_file
+            open $_sendto_fhs{$_file}, ">>", "$_file"
                or _croak "Cannot open file for writing ($_file): $!";
 
             binmode $_sendto_fhs{$_file};
 
-            if ($_flush_file) {
+            if (!exists $self->{flush_file} || $self->{flush_file}) {
                local $!;
                $_sendto_fhs{$_file}->autoflush(1);
             }
          }
 
-         $_OUT_FILE = $_sendto_fhs{$_file};
-         print {$_OUT_FILE} $_buf;
+         {
+            use bytes;
+            $_OUT_FILE = $_sendto_fhs{$_file};
+            print {$_OUT_FILE} $_buf->[1];
+         }
 
          return;
       },
@@ -578,26 +575,16 @@ sub _output_loop {
       OUTPUT_D_SND.$LF => sub {                   # Send >> File descriptor
          my ($_buf, $_OUT_FILE);
 
-         chomp($_fd  = <$_DAU_R_SOCK>),
          chomp($_len = <$_DAU_R_SOCK>);
-
          read $_DAU_R_SOCK, $_buf, $_len;
 
-         unless (exists $_sendto_fhs{$_fd}) {
-            $_sendto_fhs{$_fd} = IO::Handle->new();
-            $_sendto_fhs{$_fd}->fdopen($_fd, 'w')
-               or _croak "Cannot open file descriptor ($_fd): $!";
+         $_buf = $self->{thaw}($_buf);
 
-            binmode $_sendto_fhs{$_fd};
-
-            if ($_flush_file) {
-               local $!;
-               $_sendto_fhs{$_fd}->autoflush(1);
-            }
+         {
+            use bytes;
+            $_OUT_FILE = _sendto_fhs_get($self, $_buf->[0]);
+            print {$_OUT_FILE} $_buf->[1];
          }
-
-         $_OUT_FILE = $_sendto_fhs{$_fd};
-         print {$_OUT_FILE} $_buf;
 
          return;
       },
@@ -732,7 +719,6 @@ sub _output_loop {
    $_on_post_exit = $self->{on_post_exit};
    $_on_post_run  = $self->{on_post_run};
    $_chunk_size   = $self->{chunk_size};
-   $_flush_file   = $self->{flush_file};
    $_user_output  = $self->{user_output};
    $_user_error   = $self->{user_error};
    $_single_dim   = $self->{_single_dim};
@@ -811,7 +797,6 @@ sub _output_loop {
    }
    else {
       $_MCE_STDOUT = \*STDOUT;
-      binmode $_MCE_STDOUT;
    }
 
    if (defined $self->{stderr_file}) {
@@ -821,15 +806,18 @@ sub _output_loop {
    }
    else {
       $_MCE_STDERR = \*STDERR;
-      binmode $_MCE_STDERR;
    }
 
-   ## Autoflush STDERR-STDOUT handles if requested.
+   ## Autoflush STDERR-STDOUT handles if not specified or requested.
 
    {
       local $!;
-      $_MCE_STDERR->autoflush(1) if $self->{flush_stderr};
-      $_MCE_STDOUT->autoflush(1) if $self->{flush_stdout};
+
+      $_MCE_STDERR->autoflush(1)
+         if ( !exists $self->{flush_stderr} || $self->{flush_stderr} );
+
+      $_MCE_STDOUT->autoflush(1)
+         if ( !exists $self->{flush_stdout} || $self->{flush_stdout} );
    }
 
    ## -------------------------------------------------------------------------
@@ -1009,11 +997,7 @@ sub _output_loop {
 
    ## Close opened sendto file handles.
 
-   for my $_p (keys %_sendto_fhs) {
-      close  $_sendto_fhs{$_p};
-      undef  $_sendto_fhs{$_p};
-      delete $_sendto_fhs{$_p};
-   }
+   _sendto_fhs_close();
 
    ## Close MCE STDOUT/STDERR handles.
 
@@ -1041,7 +1025,7 @@ MCE::Core::Manager - Core methods for the manager process
 
 =head1 VERSION
 
-This document describes MCE::Core::Manager version 1.866
+This document describes MCE::Core::Manager version 1.867
 
 =head1 DESCRIPTION
 

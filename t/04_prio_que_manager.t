@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use utf8;
 
 use Test::More;
 
@@ -22,6 +23,20 @@ BEGIN {
 ##  *{ 'MCE::Queue::peekp'    } = \&MCE::Queue::_mce_m_peekp;
 ##  *{ 'MCE::Queue::peekh'    } = \&MCE::Queue::_mce_m_peekh;
 ##  *{ 'MCE::Queue::heap'     } = \&MCE::Queue::_mce_m_heap;
+
+## https://sacred-texts.com/cla/usappho/sph02.htm (VII)
+
+my $sappho_text =
+  "ἔλθε μοι καὶ νῦν, χαλεπᾶν δὲ λῦσον
+   ἐκ μερίμναν ὄσσα δέ μοι τέλεσσαι
+   θῦμοσ ἰμμέρρει τέλεσον, σὐ δ᾽ αὔτα
+   σύμμαχοσ ἔσσο." . "Ǣ";
+
+my $translation =
+  "Come then, I pray, grant me surcease from sorrow,
+   Drive away care, I beseech thee, O goddess
+   Fulfil for me what I yearn to accomplish,
+   Be thou my ally.";
 
 my ($q, @r, @h);
 
@@ -72,6 +87,16 @@ is( $q->peekp(5, -13),   'm', 'fifo, check peekp at index -13' );
 is( $q->peekp(5, -14),   'n', 'fifo, check peekp at index -14' );
 is( $q->peekp(5, -15), undef, 'fifo, check peekp at index -15' );
 is( $q->peekp(5, -20), undef, 'fifo, check peekp at index -20' );
+
+$q->clear;
+
+$q->enqueuep(5, $sappho_text);
+is( join('', @{ $q->_get_aref(5) }), $sappho_text, 'fifo, check unicode enqueuep' );
+is( $q->dequeue, $sappho_text,     'fifo, check unicode dequeue' );
+
+$q->insertp(5, 0, $sappho_text);
+is( $q->peekp(5, 0), $sappho_text, 'fifo, check unicode peekp' );
+is( $q->dequeue_nb, $sappho_text,  'fifo, check unicode insertp' );
 
 ###############################################################################
 
@@ -125,6 +150,16 @@ is( $q->peekp(5, -13),   'm', 'lifo, check peekp at index -13' );
 is( $q->peekp(5, -14),   'n', 'lifo, check peekp at index -14' );
 is( $q->peekp(5, -15), undef, 'lifo, check peekp at index -15' );
 is( $q->peekp(5, -20), undef, 'lifo, check peekp at index -20' );
+
+$q->clear;
+
+$q->enqueuep(5, $sappho_text);
+is( join('', @{ $q->_get_aref(5) }), $sappho_text, 'lifo, check unicode enqueuep' );
+is( $q->dequeue, $sappho_text,     'lifo, check unicode dequeue' );
+
+$q->insertp(5, 0, $sappho_text);
+is( $q->peekp(5, 0), $sappho_text, 'lifo, check unicode peekp' );
+is( $q->dequeue_nb, $sappho_text,  'lifo, check unicode insertp' );
 
 ###############################################################################
 

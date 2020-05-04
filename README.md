@@ -1,6 +1,6 @@
 ## Many-Core Engine for Perl
 
-This document describes MCE version 1.866.
+This document describes MCE version 1.867.
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
@@ -161,7 +161,6 @@ MCE utilizes the following modules, which are mostly installed with Perl:
     Sereal::Encoder 3.015+ (optional)
     Socket
     Storable   2.04+ (default when Sereal isn't available)
-    Symbol
     Test::More 0.45+ (for make test only)
     Time::HiRes
 
@@ -178,7 +177,7 @@ for more recipes.
 
 ### Copyright and Licensing
 
-Copyright (C) 2012-2019 by Mario E. Roy <marioeroy AT gmail DOT com>
+Copyright (C) 2012-2020 by Mario E. Roy <marioeroy AT gmail DOT com>
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself:

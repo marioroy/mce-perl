@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use utf8;
 
 use Test::More;
 
@@ -20,6 +21,20 @@ BEGIN {
 ##  *{ 'MCE::Queue::insert'   } = \&MCE::Queue::_mce_m_insert;
 ##  *{ 'MCE::Queue::pending'  } = \&MCE::Queue::_mce_m_pending;
 ##  *{ 'MCE::Queue::peek'     } = \&MCE::Queue::_mce_m_peek;
+
+## https://sacred-texts.com/cla/usappho/sph02.htm (VI)
+
+my $sappho_text =
+  "καὶ γάρ αἰ φεύγει, ταχέωσ διώξει,
+   αἰ δὲ δῶρα μὴ δέκετ ἀλλά δώσει,
+   αἰ δὲ μὴ φίλει ταχέωσ φιλήσει,
+   κωὐκ ἐθέλοισα." . "Ǣ";
+
+my $translation =
+  "For if now she flees, quickly she shall follow
+   And if she spurns gifts, soon shall she offer them
+   Yea, if she knows not love, soon shall she feel it
+   Even reluctant.";
 
 my (@a, $q, @r);
 
@@ -71,6 +86,16 @@ is( $q->peek(-13),   'm', 'fifo, check peek at index -13' );
 is( $q->peek(-14),   'n', 'fifo, check peek at index -14' );
 is( $q->peek(-15), undef, 'fifo, check peek at index -15' );
 is( $q->peek(-20), undef, 'fifo, check peek at index -20' );
+
+$q->clear;
+
+$q->enqueue($sappho_text);
+is( join('', @{ $q->_get_aref() }), $sappho_text, 'fifo, check unicode enqueue' );
+is( $q->dequeue, $sappho_text,    'fifo, check unicode dequeue' );
+
+$q->insert(0, $sappho_text);
+is( $q->peek(0), $sappho_text,    'fifo, check unicode peek' );
+is( $q->dequeue_nb, $sappho_text, 'fifo, check unicode insert' );
 
 ###############################################################################
 
@@ -125,6 +150,16 @@ is( $q->peek(-13),   'm', 'lifo, check peek at index -13' );
 is( $q->peek(-14),   'n', 'lifo, check peek at index -14' );
 is( $q->peek(-15), undef, 'lifo, check peek at index -15' );
 is( $q->peek(-20), undef, 'lifo, check peek at index -20' );
+
+$q->clear;
+
+$q->enqueue($sappho_text);
+is( join('', @{ $q->_get_aref() }), $sappho_text, 'lifo, check unicode enqueue' );
+is( $q->dequeue, $sappho_text,    'lifo, check unicode dequeue' );
+
+$q->insert(0, $sappho_text);
+is( $q->peek(0), $sappho_text,    'lifo, check unicode peek' );
+is( $q->dequeue_nb, $sappho_text, 'lifo, check unicode insert' );
 
 done_testing;
 

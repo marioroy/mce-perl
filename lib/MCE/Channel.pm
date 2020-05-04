@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.866';
+our $VERSION = '1.867';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -47,7 +47,6 @@ BEGIN {
 }
 
 use MCE::Util ();
-use bytes;
 
 my $is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
 my $tid = $INC{'threads.pm'} ? threads->tid() : 0;
@@ -128,7 +127,7 @@ MCE::Channel - Queue-like and two-way communication capability
 
 =head1 VERSION
 
-This document describes MCE::Channel version 1.866
+This document describes MCE::Channel version 1.867
 
 =head1 SYNOPSIS
 
@@ -714,7 +713,7 @@ Mario E. Roy, S<E<lt>marioeroy AT gmail DOT comE<gt>>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2019 by Mario E. Roy
+Copyright (C) 2019-2020 by Mario E. Roy
 
 MCE::Channel is released under the same license as Perl.
 

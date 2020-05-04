@@ -2,12 +2,15 @@
 
 use strict;
 use warnings;
+use utf8;
 
 use Test::More;
 
 BEGIN {
    use_ok 'MCE';
 }
+
+my $come_then_i_pray = "さあ、私は祈る";
 
 sub callback1 {
    my ($a_ref, $h_ref, $s_ref) = @_;
@@ -25,6 +28,12 @@ sub callback2 {
    return;
 }
 
+sub callback3 {
+   my ($text) = @_;
+   is($text, $come_then_i_pray, 'check utf8 value');
+   return;
+}
+
 my $mce = MCE->new(
    max_workers => 1,
 
@@ -37,6 +46,7 @@ my $mce = MCE->new(
 
       $self->do('callback1', \@a, \%h, \$s);
       $self->do('callback2', $self->wid());
+      $self->do('callback3', $come_then_i_pray);
 
       return;
    }

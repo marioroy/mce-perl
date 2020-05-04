@@ -2,9 +2,10 @@
 
 use strict;
 use warnings;
+use utf8;
 
 use Test::More;
-use Time::HiRes qw(sleep);
+use Time::HiRes 'sleep';
 
 BEGIN {
    use_ok 'MCE::Child';
@@ -12,9 +13,11 @@ BEGIN {
 
 {
    my ( $cnt, @list, %pids, %ret ); local $_;
+   my ( $come_then_i_pray ) = ( "さあ、私は祈る" . "Ǣ" );
+
    ok( 1, "spawning asynchronously" );
 
-   MCE::Child->create( sub { sleep 2; $_ } ) for ( 1 .. 3 );
+   MCE::Child->create( sub { sleep 2; "$come_then_i_pray $_" } ) for ( 1 .. 3 );
 
    %pids = map { $_ => undef } MCE::Child->list_pids;
    is ( scalar( keys %pids ), 3, 'check for unique pids' );
@@ -45,6 +48,11 @@ BEGIN {
    }
 
    is ( scalar keys %ret, 3, 'check for unique values' );
+
+   for ( sort keys %ret ) {
+      my $id = chop; s/ $//;
+      is ( $_, $come_then_i_pray, "check for utf8 string $id" );
+   };
 }
 
 {

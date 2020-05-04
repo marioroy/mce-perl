@@ -11,11 +11,10 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.866';
+our $VERSION = '1.867';
 
 use base 'MCE::Channel';
 use MCE::Mutex ();
-use bytes;
 
 my $LF = "\012"; Internals::SvREADONLY($LF, 1);
 my $freeze     = MCE::Channel::_get_freeze();
@@ -39,6 +38,10 @@ sub new {
    MCE::Mutex::Channel::_save_for_global_cleanup($obj{p_mutex}) if $obj{mp};
 
    return \%obj;
+}
+
+END {
+   MCE::Child->finish('MCE') if $INC{'MCE/Child.pm'};
 }
 
 ###############################################################################
@@ -66,12 +69,7 @@ sub enqueue {
    $p_mutex->lock2 if $p_mutex;
 
    while ( @_ ) {
-      my $data;
-      if ( ref $_[0] || !defined $_[0] ) {
-         $data = $freeze->([ shift ]), $data .= '1';
-      } else {
-         $data = shift, $data .= '0';
-      }
+      my $data = $freeze->([ shift ]);
       print { $self->{p_sock} } pack('i', length $data), $data;
    }
 
@@ -97,9 +95,7 @@ sub dequeue {
       MCE::Channel::_read( $self->{c_sock}, my($data), $len );
       $c_mutex->unlock;
 
-      chop( $data )
-         ? wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1]
-         : wantarray ? ( $data ) : $data;
+      wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
    }
    else {
       my ( $plen, @ret );
@@ -116,7 +112,7 @@ sub dequeue {
          }
 
          MCE::Channel::_read( $self->{c_sock}, my($data), $len );
-         push @ret, chop($data) ? @{ $thaw->($data) } : $data;
+         push @ret, @{ $thaw->($data) };
       }
 
       $c_mutex->unlock;
@@ -144,7 +140,7 @@ sub dequeue_nb {
       }
 
       MCE::Channel::_read( $self->{c_sock}, my($data), $len );
-      push @ret, chop($data) ? @{ $thaw->($data) } : $data;
+      push @ret, @{ $thaw->($data) };
    }
 
    $c_mutex->unlock;
@@ -162,12 +158,7 @@ sub send {
    my $self = shift;
    return MCE::Channel::_ended('send') if $self->{ended};
 
-   my $data;
-   if ( @_ > 1 || ref $_[0] || !defined $_[0] ) {
-      $data = $freeze->([ @_ ]), $data .= '1';
-   } else {
-      $data = $_[0], $data .= '0';
-   }
+   my $data = $freeze->([ @_ ]);
 
    local $\ = undef if (defined $\);
    my $p_mutex = $self->{p_mutex};
@@ -194,9 +185,7 @@ sub recv {
    MCE::Channel::_read( $self->{c_sock}, my($data), $len );
    $c_mutex->unlock;
 
-   chop( $data )
-      ? wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1]
-      : wantarray ? ( $data ) : $data;
+   wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
 }
 
 sub recv_nb {
@@ -217,9 +206,7 @@ sub recv_nb {
    MCE::Channel::_read( $self->{c_sock}, my($data), $len );
    $c_mutex->unlock;
 
-   chop( $data )
-      ? wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1]
-      : wantarray ? ( $data ) : $data;
+   wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
 }
 
 ###############################################################################
@@ -230,13 +217,7 @@ sub recv_nb {
 
 sub send2 {
    my $self = shift;
-
-   my $data;
-   if ( @_ > 1 || ref $_[0] || !defined $_[0] ) {
-      $data = $freeze->([ @_ ]), $data .= '1';
-   } else {
-      $data = $_[0], $data .= '0';
-   }
+   my $data = $freeze->([ @_ ]);
 
    local $\ = undef if (defined $\);
    local $MCE::Signal::SIG;
@@ -274,9 +255,7 @@ sub recv2 {
 
    $p_mutex->unlock if $p_mutex;
 
-   chop( $data )
-      ? wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1]
-      : wantarray ? ( $data ) : $data;
+   wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
 }
 
 sub recv2_nb {
@@ -307,9 +286,7 @@ sub recv2_nb {
 
    $p_mutex->unlock if $p_mutex;
 
-   chop( $data )
-      ? wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1]
-      : wantarray ? ( $data ) : $data;
+   wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
 }
 
 1;
@@ -328,7 +305,7 @@ MCE::Channel::Mutex - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Mutex version 1.866
+This document describes MCE::Channel::Mutex version 1.867
 
 =head1 DESCRIPTION
 

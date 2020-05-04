@@ -14,7 +14,7 @@ package MCE::Core::Input::Request;
 use strict;
 use warnings;
 
-our $VERSION = '1.866';
+our $VERSION = '1.867';
 
 ## Items below are folded into MCE.
 
@@ -22,8 +22,6 @@ package # hide from rpm
    MCE;
 
 no warnings qw( threads recursion uninitialized );
-
-use bytes;
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -47,7 +45,6 @@ sub _worker_request_chunk {
    my $_DAT_W_SOCK  = $self->{_dat_w_sock}->[0];
    my $_DAU_W_SOCK  = $self->{_dat_w_sock}->[$_chn];
    my $_lock_chn    = $self->{_lock_chn};
-   my $_single_dim  = $self->{_single_dim};
    my $_chunk_size  = $self->{chunk_size};
    my $_use_slurpio = $self->{use_slurpio};
    my $_RS          = $self->{RS} || $/;
@@ -135,14 +132,9 @@ sub _worker_request_chunk {
 
       ## Call user function.
       if ($_proc_type == REQUEST_ARRAY) {
-         if ($_single_dim && $_chunk_size == 1) {
-            $_wuf->($self, [ $_ ], $_chunk_id);
-         }
-         else {
-            my $_chunk_ref = $self->{thaw}($_); undef $_;
-            $_ = ($_chunk_size == 1) ? $_chunk_ref->[0] : $_chunk_ref;
-            $_wuf->($self, $_chunk_ref, $_chunk_id);
-         }
+         my $_chunk_ref = $self->{thaw}($_); undef $_;
+         $_ = ($_chunk_size == 1) ? $_chunk_ref->[0] : $_chunk_ref;
+         $_wuf->($self, $_chunk_ref, $_chunk_id);
       }
       elsif ($_proc_type == REQUEST_HASH) {
          my $_chunk_ref = { @{ $self->{thaw}($_) } }; undef $_;
@@ -150,6 +142,7 @@ sub _worker_request_chunk {
          $_wuf->($self, $_chunk_ref, $_chunk_id);
       }
       else {
+         $_ = ${ $self->{thaw}($_) };
          if ($_use_slurpio) {
             if ($_chop_len && substr($_, -$_chop_len) eq $_chop_str) {
                substr($_, -$_chop_len, $_chop_len, '');
@@ -206,7 +199,7 @@ MCE::Core::Input::Request - Array reference and Glob reference input reader
 
 =head1 VERSION
 
-This document describes MCE::Core::Input::Request version 1.866
+This document describes MCE::Core::Input::Request version 1.867
 
 =head1 DESCRIPTION
 

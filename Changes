@@ -1,6 +1,25 @@
 
 Revision history for Perl module MCE.
 
+1.867 Sun May 03 18:00:00 EST 2020
+
+  * Bug fix for UTF-8 issues during inter-process communication.
+    This update required undoing optimizations specific to scalar args.
+    Essentially, IPC involves serialization for everything going forward.
+    Install Sereal::Encoder and Sereal::Decoder for better performance
+    in Perl 5.8.8+.
+
+  * MCE options flush_stdout, flush_stderr, and flush_file now default to
+    enabled for the MCE->print, MCE->printf, and MCE->say output routines.
+
+  * Improved MCE::Child with threads-like detach capability. See POD.
+
+  * Improved IPC in MCE::Queue with permanent fast-like dequeue including
+    dequeue_nb. Going forward, the fast and barrier options are silently
+    ignored if specified (i.e. no-op).
+
+  * Improved IPC performance on Linux.
+    
 1.866 Sat Feb 08 21:00:00 EST 2020
 
   * Bug fix for restart_worker, race condition introduced in 1.863.

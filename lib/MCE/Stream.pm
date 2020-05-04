@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.866';
+our $VERSION = '1.867';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -47,7 +47,6 @@ sub import {
       MAX_WORKERS  => 'auto',
       CHUNK_SIZE   => 'auto',
       DEFAULT_MODE => 'map',
-      FAST         => 0,
    };
 
    ## Import functions.
@@ -67,7 +66,8 @@ sub import {
       $_p->{FREEZE}       = shift, next if ( $_arg eq 'freeze' );
       $_p->{THAW}         = shift, next if ( $_arg eq 'thaw' );
       $_p->{DEFAULT_MODE} = shift, next if ( $_arg eq 'default_mode' );
-      $_p->{FAST}         = shift, next if ( $_arg eq 'fast' );
+
+                            shift, next if ( $_arg eq 'fast' ); # ignored
 
       ## Sereal 3.015+, if available, is used automatically by MCE 1.8+.
       if ( $_arg eq 'sereal' ) {
@@ -447,7 +447,7 @@ sub run (@) {
       my $_Q = $_queue->{$_pid};
       pop(@{ $_Q })->DESTROY for (@_code .. @{ $_Q });
 
-      push @{ $_Q }, MCE::Queue->new(fast => $_def->{$_pkg}{FAST})
+      push @{ $_Q }, MCE::Queue->new()
          for (@{ $_Q } .. @_code - 2);
 
       ## must clear arrays for nested session to work with Perl < v5.14
@@ -671,7 +671,7 @@ MCE::Stream - Parallel stream model for chaining multiple maps and greps
 
 =head1 VERSION
 
-This document describes MCE::Stream version 1.866
+This document describes MCE::Stream version 1.867
 
 =head1 SYNOPSIS
 
@@ -770,6 +770,7 @@ otherwise -1.
 =head1 OVERRIDING DEFAULTS
 
 The following list options which may be overridden when loading the module.
+The fast option is obsolete in 1.867 onwards; ignored if specified.
 
  use Sereal qw( encode_sereal decode_sereal );
  use CBOR::XS qw( encode_cbor decode_cbor );

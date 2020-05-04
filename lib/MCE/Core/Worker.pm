@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.866';
+our $VERSION = '1.867';
 
 my $_tid = $INC{'threads.pm'} ? threads->tid() : 0;
 
@@ -28,8 +28,6 @@ package # hide from rpm
    MCE;
 
 no warnings qw( threads recursion uninitialized );
-
-use bytes;
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -53,10 +51,11 @@ use bytes;
       return unless (defined $_val);
       local $\ = undef if (defined $\);
 
-      if (length ${ $_[0] }) {
+      if (length ${ $_[1] }) {
+         my $_buf = $_[0]->{freeze}([ $_val, ${ $_[1] } ]);
          $_dat_ex->() if $_lock_chn;
          print({$_DAT_W_SOCK} OUTPUT_F_SND.$LF . $_chn.$LF),
-         print({$_DAU_W_SOCK} $_val.$LF . length(${ $_[0] }).$LF, ${ $_[0] });
+         print({$_DAU_W_SOCK} length($_buf).$LF, $_buf);
          $_dat_un->() if $_lock_chn;
       }
 
@@ -68,10 +67,11 @@ use bytes;
       return unless (defined $_val);
       local $\ = undef if (defined $\);
 
-      if (length ${ $_[0] }) {
+      if (length ${ $_[1] }) {
+         my $_buf = $_[0]->{freeze}([ $_val, ${ $_[1] } ]);
          $_dat_ex->() if $_lock_chn;
          print({$_DAT_W_SOCK} OUTPUT_D_SND.$LF . $_chn.$LF),
-         print({$_DAU_W_SOCK} $_val.$LF . length(${ $_[0] }).$LF, ${ $_[0] });
+         print({$_DAU_W_SOCK} length($_buf).$LF, $_buf);
          $_dat_un->() if $_lock_chn;
       }
 
@@ -82,10 +82,11 @@ use bytes;
 
       local $\ = undef if (defined $\);
 
-      if (length ${ $_[0] }) {
+      if (length ${ $_[1] }) {
+         my $_buf = $_[0]->{freeze}($_[1]);
          $_dat_ex->() if $_lock_chn;
          print({$_DAT_W_SOCK} OUTPUT_O_SND.$LF . $_chn.$LF),
-         print({$_DAU_W_SOCK} length(${ $_[0] }).$LF, ${ $_[0] });
+         print({$_DAU_W_SOCK} length($_buf).$LF, $_buf);
          $_dat_un->() if $_lock_chn;
       }
 
@@ -96,10 +97,11 @@ use bytes;
 
       local $\ = undef if (defined $\);
 
-      if (length ${ $_[0] }) {
+      if (length ${ $_[1] }) {
+         my $_buf = $_[0]->{freeze}($_[1]);
          $_dat_ex->() if $_lock_chn;
          print({$_DAT_W_SOCK} OUTPUT_E_SND.$LF . $_chn.$LF),
-         print({$_DAU_W_SOCK} length(${ $_[0] }).$LF, ${ $_[0] });
+         print({$_DAU_W_SOCK} length($_buf).$LF, $_buf);
          $_dat_un->() if $_lock_chn;
       }
 
@@ -131,14 +133,6 @@ use bytes;
          print({$_DAT_W_SOCK} OUTPUT_N_CBK.$LF . $_chn.$LF),
          print({$_DAU_W_SOCK} $_wa.$LF . $_val.$LF);
       }
-      elsif ( @{ $_aref } == 1 && !looks_like_number $_aref->[0] &&
-              !ref $_aref->[0] && defined $_aref->[0] ) {
-         $_len = length $_aref->[0];
-
-         $_dat_ex->() if $_lock_chn;
-         print({$_DAT_W_SOCK} OUTPUT_S_CBK.$LF . $_chn.$LF),
-         print({$_DAU_W_SOCK} $_wa.$LF . $_val.$LF . $_len.$LF, $_aref->[0]);
-      }
       else {
          $_buf = $self->{freeze}($_aref);
          $_len = length $_buf;
@@ -154,12 +148,11 @@ use bytes;
          local $/ = $LF if ($/ ne $LF);
          chomp(my $_len = <$_DAU_W_SOCK>);
 
-         my $_frozen = chop $_len;
          read $_DAU_W_SOCK, my($_buf), $_len;
          $_dat_un->() if $_lock_chn;
 
          return ( $_wa != WANTS_ARRAY )
-            ? $_frozen ? ($self->{thaw}($_buf))->[0] : $_buf
+            ? ($self->{thaw}($_buf))->[0]
             : @{ $self->{thaw}($_buf) };
       }
 
@@ -174,29 +167,9 @@ use bytes;
 
       return unless (scalar @{ $_aref });
 
-      if ( scalar @{ $_aref } > 1 || looks_like_number $_aref->[0] ||
-            ref $_aref->[0] || !defined $_aref->[0] ) {
-         $_tag = OUTPUT_A_GTR;
-         $_buf = $self->{freeze}($_aref);
-         $_len = length $_buf;
-      }
-      else {
-         $_tag = OUTPUT_S_GTR;
-         if (defined $_aref->[0]) {
-            $_len = length $_aref->[0]; local $\ = undef if (defined $\);
-
-            $_dat_ex->() if $_lock_chn;
-            print({$_DAT_W_SOCK} $_tag.$LF . $_chn.$LF),
-            print({$_DAU_W_SOCK} $_task_id.$LF . $_len.$LF, $_aref->[0]);
-            $_dat_un->() if $_lock_chn;
-
-            return;
-         }
-         else {
-            $_buf = '';
-            $_len = -1;
-         }
-      }
+      $_tag = OUTPUT_A_GTR;
+      $_buf = $self->{freeze}($_aref);
+      $_len = length $_buf;
 
       local $\ = undef if (defined $\);
 
@@ -234,10 +207,10 @@ use bytes;
          }
       }
       else {
-         $_data_ref = \$_[0];
+         $_data_ref = \(''.$_[0]);
       }
 
-      $_dest_function[$_dest]($_data_ref);
+      $_dest_function[$_dest]($self, $_data_ref);
 
       return;
    }
@@ -257,13 +230,11 @@ use bytes;
             _do_send($self, SENDTO_FD, $_fd, $_data_ref);
          }
       }
-      elsif ($_glob->can('print')) {
-         $_glob->print(${ $_data_ref });
-      }
       else {
-         require Symbol unless $INC{'Symbol.pm'};
-         my $_fh = Symbol::qualify_to_ref($_glob, caller);
+         use bytes;
+         my $_fh = _sendto_fhs_get($self, $_fd);
          local $\ = undef if (defined $\);
+
          print {$_fh} ${ $_data_ref };
       }
 
@@ -404,7 +375,6 @@ sub _worker_do {
    ## Set options.
    $self->{_abort_msg}  = $_params_ref->{_abort_msg};
    $self->{_run_mode}   = $_params_ref->{_run_mode};
-   $self->{_single_dim} = $_params_ref->{_single_dim};
    $self->{use_slurpio} = $_params_ref->{_use_slurpio};
    $self->{parallel_io} = $_params_ref->{_parallel_io};
    $self->{progress}    = $_params_ref->{_progress};
@@ -744,7 +714,7 @@ MCE::Core::Worker - Core methods for the worker process
 
 =head1 VERSION
 
-This document describes MCE::Core::Worker version 1.866
+This document describes MCE::Core::Worker version 1.867
 
 =head1 DESCRIPTION
 

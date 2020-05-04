@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.866';
+our $VERSION = '1.867';
 
 use base 'MCE::Mutex::Channel';
 use MCE::Util ();
@@ -32,7 +32,7 @@ sub new {
     my ($class, %obj) = (@_, impl => 'Channel2');
     $obj{'_init_pid'} = $tid ? $$ .'.'. $tid : $$;
 
-    MCE::Util::_sock_pair(\%obj, qw(_r_sock _w_sock));
+    MCE::Util::_sock_pair(\%obj, qw(_r_sock _w_sock), undef, 1);
 
     syswrite $obj{_r_sock}, '0';
     syswrite $obj{_w_sock}, '0';
@@ -114,7 +114,7 @@ MCE::Mutex::Channel2 - Provides two mutexes using a single channel
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel2 version 1.866
+This document describes MCE::Mutex::Channel2 version 1.867
 
 =head1 DESCRIPTION
 

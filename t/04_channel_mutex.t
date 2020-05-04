@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use utf8;
 
 use Test::More;
 
@@ -12,6 +13,23 @@ BEGIN {
    use_ok 'MCE::Channel::Mutex';
 }
 
+## https://sacred-texts.com/cla/usappho/sph02.htm (II)
+
+my $sappho_text =
+  "ἀλλά τυίδ᾽ ἔλθ᾽, αἴποτα κἀτέρωτα
+   τᾶσ ἔμασ αύδωσ αἴοισα πήλγι
+   ἔκλυεσ πάτροσ δὲ δόμον λίποισα
+   χρύσιον ἦλθεσ.";
+
+my $translation =
+  "Whenever before thou has hearkened to me--
+   To my voice calling to thee in the distance,
+   And heeding, thou hast come, leaving thy father's
+   Golden dominions.";
+
+my $come_then_i_pray = "さあ、私は祈る" . "Ǣ";
+
+
 my $chnl = MCE::Channel->new( impl => 'Mutex' );
 is $chnl->impl, 'Mutex', 'implementation name';
 
@@ -19,6 +37,12 @@ is $chnl->impl, 'Mutex', 'implementation name';
 {
    $chnl->send('a string');
    is $chnl->recv, 'a string', 'send recv scalar';
+
+   $chnl->send($sappho_text);
+   is $chnl->recv, $sappho_text, 'send recv utf8';
+
+   $chnl->send($come_then_i_pray);
+   is $chnl->recv, $come_then_i_pray, 'send recv utf8_ja';
 
    $chnl->send(qw/ a list of arguments /);
    is scalar( my @args = $chnl->recv ), 4, 'send recv list';
@@ -32,6 +56,12 @@ is $chnl->impl, 'Mutex', 'implementation name';
    $chnl->send('a string');
    is $chnl->recv_nb, 'a string', 'send recv_nb scalar';
 
+   $chnl->send($sappho_text);
+   is $chnl->recv_nb, $sappho_text, 'send recv_nb utf8';
+
+   $chnl->send($come_then_i_pray);
+   is $chnl->recv_nb, $come_then_i_pray, 'send recv_nb utf8_ja';
+
    $chnl->send(qw/ a list of arguments /);
    is scalar( my @args = $chnl->recv_nb ), 4, 'send recv_nb list';
 
@@ -43,6 +73,12 @@ is $chnl->impl, 'Mutex', 'implementation name';
 {
    $chnl->send2('a string');
    is $chnl->recv2, 'a string', 'send2 recv2 scalar';
+
+   $chnl->send2($sappho_text);
+   is $chnl->recv2, $sappho_text, 'send2 recv2 utf8';
+
+   $chnl->send2($come_then_i_pray);
+   is $chnl->recv2, $come_then_i_pray, 'send2 recv2 utf8_ja';
 
    $chnl->send2(qw/ a list of arguments /);
    is scalar( my @args = $chnl->recv2 ), 4, 'send2 recv2 list';
@@ -56,6 +92,12 @@ is $chnl->impl, 'Mutex', 'implementation name';
    $chnl->send2('a string');
    is $chnl->recv2_nb, 'a string', 'send2 recv2_nb scalar';
 
+   $chnl->send2($sappho_text);
+   is $chnl->recv2_nb, $sappho_text, 'send2 recv2_nb utf8';
+
+   $chnl->send2($come_then_i_pray);
+   is $chnl->recv2_nb, $come_then_i_pray, 'send2 recv2_nb utf8_ja';
+
    $chnl->send2(qw/ a list of arguments /);
    is scalar( my @args = $chnl->recv2_nb ), 4, 'send2 recv2_nb list';
 
@@ -67,6 +109,12 @@ is $chnl->impl, 'Mutex', 'implementation name';
 {
    $chnl->enqueue('a string');
    is $chnl->dequeue, 'a string', 'enqueue dequeue scalar';
+
+   $chnl->enqueue($sappho_text);
+   is $chnl->dequeue, $sappho_text, 'enqueue dequeue utf8';
+
+   $chnl->enqueue($come_then_i_pray);
+   is $chnl->dequeue, $come_then_i_pray, 'enqueue dequeue utf8_ja';
 
    $chnl->enqueue(qw/ a list of items /);
    is scalar( my $item1 = $chnl->dequeue ), 'a',     'enqueue dequeue item1';
@@ -85,6 +133,12 @@ is $chnl->impl, 'Mutex', 'implementation name';
 {
    $chnl->enqueue('a string');
    is $chnl->dequeue_nb, 'a string', 'enqueue dequeue_nb scalar';
+
+   $chnl->enqueue($sappho_text);
+   is $chnl->dequeue_nb, $sappho_text, 'enqueue dequeue_nb utf8';
+
+   $chnl->enqueue($come_then_i_pray);
+   is $chnl->dequeue_nb, $come_then_i_pray, 'enqueue dequeue_nb utf8_ja';
 
    $chnl->enqueue(qw/ a list of items /);
    is scalar( my $item1 = $chnl->dequeue_nb ), 'a',     'enqueue dequeue_nb item1';

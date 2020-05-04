@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.866';
+our $VERSION = '1.867';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -22,7 +22,6 @@ use MCE::Signal ();
 use MCE::Mutex ();
 use MCE::Channel ();
 use Time::HiRes 'sleep';
-use bytes;
 
 use overload (
    q(==)    => \&equal,
@@ -158,6 +157,7 @@ sub create {
 
    my $self = bless ref $_[0] eq 'HASH' ? { %{ shift() } } : { }, __PACKAGE__;
 
+   $self->{IGNORE} = 1 if $SIG{CHLD} eq 'IGNORE';
    $self->{MGR_ID} = $mngd->{MGR_ID}, $self->{PKG} = $mngd->{PKG};
    $self->{ident } = shift if ( !ref $_[0] && ref $_[1] eq 'CODE' );
 
@@ -214,7 +214,8 @@ sub create {
          local $\; print {*STDERR} "fork error: $!\n";
       }
       elsif ( $pid ) {                                      # parent
-         $self->{WRK_ID} = $pid, $list->set($pid, $self);
+         $self->{WRK_ID} = $pid;
+         $list->set($pid, $self) unless $self->{IGNORE};
          $mngd->{on_start}->($pid, $self->{ident}) if $mngd->{on_start};
       }
       else {                                                # child
@@ -223,9 +224,10 @@ sub create {
          local $SIG{TERM} = local $SIG{INT} = \&_trap,
          local $SIG{SEGV} = local $SIG{HUP} = \&_trap,
          local $SIG{QUIT} = \&_quit;
+         local $SIG{CHLD};
 
          MCE::Shared::init() if $INC{'MCE/Shared.pm'};
-         $_DATA->{ $_SELF->{PKG} }->set('S'.$$, '');
+         $_DATA->{ $_SELF->{PKG} }->set('S'.$$, '') unless $self->{IGNORE};
          CORE::kill($killed, $$) if $killed;
 
          # Sets the seed of the base generator uniquely between workers.
@@ -390,6 +392,8 @@ sub is_running {
 
 sub join {
    _croak('Usage: $child->join()') unless ref( my $self = $_[0] );
+   _croak('Cannot join a detached/ignored child') if $self->{IGNORE};
+
    my ( $wrk_id, $pkg ) = ( $self->{WRK_ID}, $self->{PKG} );
 
    if ( exists $self->{JOINED} ) {
@@ -635,19 +639,22 @@ sub _dispatch {
       };
    }
 
-   alarm 0; _exit($?) if ( $@ && $@ =~ /^Child exited \(\S+\)$/ );
+   alarm 0;
 
    if ( $@ ) {
+      _exit($?) if ( $@ =~ /^Child exited \(\S+\)$/ );
       my $err = $@; $? = 1;
-      $_DATA->{ $_SELF->{PKG} }->set('S'.$$, $err);
-      $_DATA->{ $_SELF->{PKG} }->set('R'.$$, @res ? $_freeze->(\@res) : '');
 
-      warn "Child $$ terminated abnormally: reason $err\n" if (
-         $err ne "Child timed out" && !$mngd->{on_finish}
-      );
+      $_DATA->{ $_SELF->{PKG} }->set('S'.$$, $err),
+      $_DATA->{ $_SELF->{PKG} }->set('R'.$$, @res ? $_freeze->(\@res) : '')
+         if ( ! $_SELF->{IGNORE} );
+
+      warn "Child $$ terminated abnormally: reason $err\n"
+         if ( $err ne "Child timed out" && !$mngd->{on_finish} );
    }
    else {
-      $_DATA->{ $_SELF->{PKG} }->set('R'.$$, @res ? $_freeze->(\@res) : '');
+      $_DATA->{ $_SELF->{PKG} }->set('R'.$$, @res ? $_freeze->(\@res) : '')
+         if ( ! $_SELF->{IGNORE} );
    }
 
    _exit($?);
@@ -683,7 +690,7 @@ sub _force_reap {
 
    for my $child ( $_LIST->{$pkg}->vals() ) {
       if ( $child->is_running() ) {
-         CORE::kill('KILL', $child->pid())
+         sleep(0.015), CORE::kill('KILL', $child->pid())
             if CORE::kill('ZERO', $child->pid());
          $count++;
       }
@@ -972,7 +979,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.866
+This document describes MCE::Child version 1.867
 
 =head1 SYNOPSIS
 
@@ -1573,6 +1580,49 @@ respectively. Pass 0 if simply wanting to give other workers a chance to run.
  MCE::Child->wait_all();
 
 =back
+
+=head1 THREADS-like DETACH CAPABILITY ON UNIX
+
+Threads-like detach capability was added starting with the 1.867 release.
+
+A threads example is shown first followed by the MCE::Child example. All one
+needs to do is set the CHLD signal handler to IGNORE. Unfortunately, this works
+on UNIX platforms only. Similarly to threads, the process is detached where one
+can no longer join it. The child process restores the CHLD handler to default,
+so is able to deeply spin workers and reap if desired.
+
+ use threads;
+
+ for ( 1 .. 8 ) {
+     async {
+         # do something
+     }->detach;
+ }
+
+ use MCE::Child;
+
+ # Have the OS reap workers automatically.
+ $SIG{CHLD} = 'IGNORE';
+
+ for ( 1 .. 8 ) {
+     mce_child {
+         # do something
+     };
+ }
+
+The following is another way although not detach-like for the same result
+and works on the Windows platform.
+
+ use MCE::Child;
+
+ for ( 1 .. 8 ) {
+     $_->join for MCE::Child->list_joinable;
+     mce_child {
+         # do something
+     };
+ }
+
+ MCE::Child->waitall;
 
 =head1 PARALLEL::FORKMANAGER-like DEMONSTRATION
 

@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.866
+This document describes MCE::Core version 1.867
 
 =head1 SYNOPSIS
 
@@ -263,9 +263,9 @@ Below, a new instance is configured with all available options.
 
        # Or to file; user_error and user_output take precedence.
 
-    flush_file   => 1,                  ## Default 0
-    flush_stderr => 1,                  ## Default 0
-    flush_stdout => 1,                  ## Default 0
+    flush_file   => 0,                  ## Default 1
+    flush_stderr => 0,                  ## Default 1
+    flush_stdout => 0,                  ## Default 1
 
        # Flush sendto file, standard error, or standard output.
 

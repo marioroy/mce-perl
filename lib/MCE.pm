@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.866';
+our $VERSION = '1.867';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -55,14 +55,13 @@ BEGIN {
 }
 
 use IO::Handle ();
-use Scalar::Util qw( looks_like_number refaddr weaken );
+use Scalar::Util qw( looks_like_number refaddr reftype weaken );
 use Socket qw( SOL_SOCKET SO_RCVBUF );
 use Time::HiRes qw( sleep time );
 
 use MCE::Util qw( $LF );
 use MCE::Signal ();
 use MCE::Mutex ();
-use bytes;
 
 our ($MCE, $RLA, $_que_template, $_que_read_size);
 our (%_valid_fields_new);
@@ -224,10 +223,8 @@ use constant {
    OUTPUT_H_REF   => 'H~REF',  # Input << Hash ref
    OUTPUT_I_REF   => 'I~REF',  # Input << Iter ref
    OUTPUT_A_CBK   => 'A~CBK',  # Callback w/ multiple args
-   OUTPUT_S_CBK   => 'S~CBK',  # Callback w/ 1 scalar arg
    OUTPUT_N_CBK   => 'N~CBK',  # Callback w/ no args
-   OUTPUT_A_GTR   => 'A~GTR',  # Gather array/ref
-   OUTPUT_S_GTR   => 'S~GTR',  # Gather scalar
+   OUTPUT_A_GTR   => 'A~GTR',  # Gather data
    OUTPUT_O_SND   => 'O~SND',  # Send >> STDOUT
    OUTPUT_E_SND   => 'E~SND',  # Send >> STDERR
    OUTPUT_F_SND   => 'F~SND',  # Send >> File
@@ -392,6 +389,8 @@ sub new {
       return \%self;
    }
 
+   _sendto_fhs_close();
+
    for my $_p (keys %self) {
       _croak("MCE::new: ($_p) is not a valid constructor argument")
          unless (exists $_valid_fields_new{$_p});
@@ -525,6 +524,8 @@ sub spawn {
    $MCE::_GMUTEX->lock() if ($_tid && $MCE::_GMUTEX);
    sleep 0.015 if $_tid;
 
+   _sendto_fhs_close();
+
    if ($INC{'PDL.pm'}) { local $@;
       eval 'use PDL::IO::Storable' unless $INC{'PDL/IO/Storable.pm'};
       eval 'PDL::no_clone_skip_warning()';
@@ -600,24 +601,26 @@ sub spawn {
          for (1 .. $_data_channels);
    }
 
-   ## Create sockets for IPC.
-   MCE::Util::_sock_pair($self, qw(_bsb_r_sock _bsb_w_sock));       # sync
-   MCE::Util::_sock_pair($self, qw(_com_r_sock _com_w_sock));       # core
-   MCE::Util::_sock_pair($self, qw(_dat_r_sock _dat_w_sock), $_)    # core
-      for (0 .. $_data_channels);
+   ## Create sockets for IPC.                             sync, comm, data
+   MCE::Util::_sock_pair($self, qw(_bsb_r_sock _bsb_w_sock), undef, 1);
+   MCE::Util::_sock_pair($self, qw(_com_r_sock _com_w_sock), undef, 1);
+
+   MCE::Util::_sock_pair($self, qw(_dat_r_sock _dat_w_sock), 0);
+   MCE::Util::_sock_pair($self, qw(_dat_r_sock _dat_w_sock), $_, 1)
+      for (1 .. $_data_channels);
 
    setsockopt($self->{_dat_r_sock}->[0], SOL_SOCKET, SO_RCVBUF, pack('i', 4096))
       if ($^O ne 'aix' && $^O ne 'linux');
 
    ($_is_MSWin32)                                                   # input
       ? MCE::Util::_pipe_pair($self, qw(_que_r_sock _que_w_sock))
-      : MCE::Util::_sock_pair($self, qw(_que_r_sock _que_w_sock));
+      : MCE::Util::_sock_pair($self, qw(_que_r_sock _que_w_sock), undef, 1);
 
    if (defined $self->{init_relay}) {                               # relay
       unless ($INC{'MCE/Relay.pm'}) {
          require MCE::Relay; MCE::Relay->import();
       }
-      MCE::Util::_sock_pair($self, qw(_rla_r_sock _rla_w_sock), $_)
+      MCE::Util::_sock_pair($self, qw(_rla_r_sock _rla_w_sock), $_, 1)
          for (0 .. $_max_workers - 1);
    }
 
@@ -1103,7 +1106,6 @@ sub run {
       my %_params = (
          '_abort_msg'   => $_abort_msg,  '_chunk_size' => $_chunk_size,
          '_input_file'  => $_input_file, '_run_mode'   => $_run_mode,
-         '_single_dim'  => $_single_dim,
          '_bounds_only' => $self->{bounds_only},
          '_max_retries' => $self->{max_retries},
          '_parallel_io' => $self->{parallel_io},
@@ -1667,11 +1669,9 @@ sub gather {
 
 {
    my %_sendto_lkup = (
-      'file'   => SENDTO_FILEV1, 'FILE'   => SENDTO_FILEV1,
-      'file:'  => SENDTO_FILEV2, 'FILE:'  => SENDTO_FILEV2,
-      'stdout' => SENDTO_STDOUT, 'STDOUT' => SENDTO_STDOUT,
-      'stderr' => SENDTO_STDERR, 'STDERR' => SENDTO_STDERR,
-      'fd:'    => SENDTO_FD,     'FD:'    => SENDTO_FD,
+      'file'  => SENDTO_FILEV1, 'stderr' => SENDTO_STDERR,
+      'file:' => SENDTO_FILEV2, 'stdout' => SENDTO_STDOUT,
+      'fd:'   => SENDTO_FD,
    );
 
    my $_v2_regx = qr/^([^:]+:)(.+)/;
@@ -1679,21 +1679,22 @@ sub gather {
    sub sendto {
 
       my $self = shift; $self = $MCE unless ref($self);
-      my $_to = shift;
+      my $_to  = shift;
 
       _croak('MCE::sendto: method is not allowed by the manager process')
          unless ($self->{_wid});
 
       return unless (defined $_[0]);
 
-      my ($_dest, $_value);
-      $_dest = (exists $_sendto_lkup{$_to}) ? $_sendto_lkup{$_to} : undef;
+      my $_dest = exists $_sendto_lkup{ lc($_to) }
+                       ? $_sendto_lkup{ lc($_to) } : undef;
+      my $_value;
 
       if (!defined $_dest) {
          my $_fd;
 
-         if (ref $_to && ( defined ($_fd = fileno($_to)) ||
-                           defined ($_fd = $_to->fileno) )) {
+         if (ref($_to) && ( defined ($_fd = fileno($_to)) ||
+                            defined ($_fd = eval { $_to->fileno }) )) {
 
             if (my $_ob = tied *{ $_to }) {
                if (ref $_ob eq 'IO::TieCombine::Handle') {
@@ -1702,12 +1703,16 @@ sub gather {
                }
             }
 
-            my $_data_ref = (scalar @_ == 1) ? \$_[0] : \join('', @_);
+            my $_data_ref = (scalar @_ == 1) ? \(''.$_[0]) : \join('', @_);
             return _do_send_glob($self, $_to, $_fd, $_data_ref);
+         }
+         elsif (reftype($_to) eq 'GLOB') {
+            return _croak('Cannot write to filehandle');
          }
 
          if (defined $_to && $_to =~ /$_v2_regx/o) {
-            $_dest  = (exists $_sendto_lkup{$1}) ? $_sendto_lkup{$1} : undef;
+            $_dest  = exists $_sendto_lkup{ lc($1) }
+                           ? $_sendto_lkup{ lc($1) } : undef;
             $_value = $2;
          }
 
@@ -1746,10 +1751,10 @@ sub gather {
 
 sub print {
    my $self = shift; $self = $MCE unless ref($self);
-   my ($_fd, $_glob, $_data_ref);
+   my ($_fd, $_glob, $_data);
 
-   if (ref $_[0] && ( defined ($_fd = fileno($_[0])) ||
-                      defined ($_fd = $_[0]->fileno) )) {
+   if (ref($_[0]) && ( defined ($_fd = fileno($_[0])) ||
+                       defined ($_fd = eval { $_[0]->fileno }) )) {
 
       if (my $_ob = tied *{ $_[0] }) {
          if (ref $_ob eq 'IO::TieCombine::Handle') {
@@ -1760,26 +1765,23 @@ sub print {
 
       $_glob = shift;
    }
-
-   if (scalar @_ == 1  ) {
-      $_data_ref = \$_[0];
-   } elsif (scalar @_ > 1) {
-      $_data_ref = \join('', @_);
-   } else {
-      $_data_ref = \$_;
+   elsif (reftype($_[0]) eq 'GLOB') {
+      return _croak('Cannot write to filehandle');
    }
 
-   return _do_send_glob($self, $_glob, $_fd, $_data_ref) if $_fd;
-   return _do_send($self, SENDTO_STDOUT, undef, $_data_ref) if $self->{_wid};
-   return _do_send_glob($self, \*STDOUT, 1, $_data_ref);
+   $_data = join('', scalar @_ ? @_ : $_);
+
+   return _do_send_glob($self, $_glob, $_fd, \$_data) if $_fd;
+   return _do_send($self, SENDTO_STDOUT, undef, \$_data) if $self->{_wid};
+   return _do_send_glob($self, \*STDOUT, 1, \$_data);
 }
 
 sub printf {
    my $self = shift; $self = $MCE unless ref($self);
    my ($_fd, $_glob, $_fmt, $_data);
 
-   if (ref $_[0] && ( defined ($_fd = fileno($_[0])) ||
-                      defined ($_fd = $_[0]->fileno) )) {
+   if (ref($_[0]) && ( defined ($_fd = fileno($_[0])) ||
+                       defined ($_fd = eval { $_[0]->fileno }) )) {
 
       if (my $_ob = tied *{ $_[0] }) {
          if (ref $_ob eq 'IO::TieCombine::Handle') {
@@ -1790,9 +1792,12 @@ sub printf {
 
       $_glob = shift;
    }
+   elsif (reftype($_[0]) eq 'GLOB') {
+      return _croak('Cannot write to filehandle');
+   }
 
    $_fmt  = shift || '%s';
-   $_data = (scalar @_) ? sprintf($_fmt, @_) : sprintf($_fmt, $_);
+   $_data = sprintf($_fmt, scalar @_ ? @_ : $_);
 
    return _do_send_glob($self, $_glob, $_fd, \$_data) if $_fd;
    return _do_send($self, SENDTO_STDOUT, undef, \$_data) if $self->{_wid};
@@ -1803,8 +1808,8 @@ sub say {
    my $self = shift; $self = $MCE unless ref($self);
    my ($_fd, $_glob, $_data);
 
-   if (ref $_[0] && ( defined ($_fd = fileno($_[0])) ||
-                      defined ($_fd = $_[0]->fileno) )) {
+   if (ref($_[0]) && ( defined ($_fd = fileno($_[0])) ||
+                       defined ($_fd = eval { $_[0]->fileno }) )) {
 
       if (my $_ob = tied *{ $_[0] }) {
          if (ref $_ob eq 'IO::TieCombine::Handle') {
@@ -1815,8 +1820,11 @@ sub say {
 
       $_glob = shift;
    }
+   elsif (reftype($_[0]) eq 'GLOB') {
+      return _croak('Cannot write to filehandle');
+   }
 
-   $_data = (scalar @_) ? join('', @_) . "\n" : $_ . "\n";
+   $_data = join('', scalar @_ ? @_ : $_) . "\n";
 
    return _do_send_glob($self, $_glob, $_fd, \$_data) if $_fd;
    return _do_send($self, SENDTO_STDOUT, undef, \$_data) if $self->{_wid};

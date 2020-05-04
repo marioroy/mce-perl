@@ -11,16 +11,15 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.866';
+our $VERSION = '1.867';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
 use IO::Handle ();
-use Socket qw( AF_UNIX SOCK_STREAM SOL_SOCKET SO_SNDBUF SO_RCVBUF );
+use Socket qw( AF_UNIX SOL_SOCKET SO_SNDBUF SO_RCVBUF );
 use Time::HiRes qw( sleep time );
 use Errno ();
 use base qw( Exporter );
-use bytes;
 
 my ($_is_winenv, $_zero_bytes, %_sock_ready);
 
@@ -222,15 +221,24 @@ sub _pipe_pair {
 }
 
 sub _sock_pair {
-   my ($_obj, $_r_sock, $_w_sock, $_i) = @_;
-   my $_size = 16384; local $!;
+   my ($_obj, $_r_sock, $_w_sock, $_i, $_seq) = @_;
+   my $_size = 16384; local ($!, $@);
 
    if (defined $_i) {
       # remove tainted'ness
       ($_i) = $_i =~ /(.*)/;
 
-      socketpair( $_obj->{$_r_sock}[$_i], $_obj->{$_w_sock}[$_i],
-         AF_UNIX, SOCK_STREAM, 0 ) or die "socketpair: $!\n";
+      if ($_seq && $^O eq 'linux' && eval q{ Socket::SOCK_SEQPACKET() }) {
+         socketpair( $_obj->{$_r_sock}[$_i], $_obj->{$_w_sock}[$_i],
+            AF_UNIX, Socket::SOCK_SEQPACKET(), 0 ) or do {
+               socketpair( $_obj->{$_r_sock}[$_i], $_obj->{$_w_sock}[$_i],
+                  AF_UNIX, Socket::SOCK_STREAM(), 0 ) or die "socketpair: $!\n";
+            };
+      }
+      else {
+         socketpair( $_obj->{$_r_sock}[$_i], $_obj->{$_w_sock}[$_i],
+            AF_UNIX, Socket::SOCK_STREAM(), 0 ) or die "socketpair: $!\n";
+      }
 
       if ($^O ne 'aix' && $^O ne 'linux') {
          setsockopt($_obj->{$_r_sock}[$_i], SOL_SOCKET, SO_SNDBUF, int $_size);
@@ -239,12 +247,21 @@ sub _sock_pair {
          setsockopt($_obj->{$_w_sock}[$_i], SOL_SOCKET, SO_RCVBUF, int $_size);
       }
 
-      $_obj->{$_w_sock}[$_i]->autoflush(1);
       $_obj->{$_r_sock}[$_i]->autoflush(1);
+      $_obj->{$_w_sock}[$_i]->autoflush(1);
    }
    else {
-      socketpair( $_obj->{$_r_sock}, $_obj->{$_w_sock},
-         AF_UNIX, SOCK_STREAM, 0 ) or die "socketpair: $!\n";
+      if ($_seq && $^O eq 'linux' && eval q{ Socket::SOCK_SEQPACKET() }) {
+         socketpair( $_obj->{$_r_sock}, $_obj->{$_w_sock},
+            AF_UNIX, Socket::SOCK_SEQPACKET(), 0 ) or do {
+               socketpair( $_obj->{$_r_sock}, $_obj->{$_w_sock},
+                  AF_UNIX, Socket::SOCK_STREAM(), 0 ) or die "socketpair: $!\n";
+            };
+      }
+      else {
+         socketpair( $_obj->{$_r_sock}, $_obj->{$_w_sock},
+            AF_UNIX, Socket::SOCK_STREAM(), 0 ) or die "socketpair: $!\n";
+      }
 
       if ($^O ne 'aix' && $^O ne 'linux') {
          setsockopt($_obj->{$_r_sock}, SOL_SOCKET, SO_SNDBUF, int $_size);
@@ -253,8 +270,8 @@ sub _sock_pair {
          setsockopt($_obj->{$_w_sock}, SOL_SOCKET, SO_RCVBUF, int $_size);
       }
 
-      $_obj->{$_w_sock}->autoflush(1);
       $_obj->{$_r_sock}->autoflush(1);
+      $_obj->{$_w_sock}->autoflush(1);
    }
 
    return;
@@ -410,7 +427,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.866
+This document describes MCE::Util version 1.867
 
 =head1 SYNOPSIS
 

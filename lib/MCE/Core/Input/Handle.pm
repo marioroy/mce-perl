@@ -14,7 +14,7 @@ package MCE::Core::Input::Handle;
 use strict;
 use warnings;
 
-our $VERSION = '1.866';
+our $VERSION = '1.867';
 
 ## Items below are folded into MCE.
 
@@ -22,8 +22,6 @@ package # hide from rpm
    MCE;
 
 no warnings qw( threads recursion uninitialized );
-
-use bytes;
 
 my $_que_read_size = $MCE::_que_read_size;
 my $_que_template  = $MCE::_que_template;
@@ -282,7 +280,7 @@ MCE::Core::Input::Handle - File path and Scalar reference input reader
 
 =head1 VERSION
 
-This document describes MCE::Core::Input::Handle version 1.866
+This document describes MCE::Core::Input::Handle version 1.867
 
 =head1 DESCRIPTION
 

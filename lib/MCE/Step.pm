@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.866';
+our $VERSION = '1.867';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -46,7 +46,6 @@ sub import {
    my $_p = $_def->{$_pkg} = {
       MAX_WORKERS => 'auto',
       CHUNK_SIZE  => 'auto',
-      FAST        => 0,
    };
 
    ## Import functions.
@@ -65,7 +64,8 @@ sub import {
       $_p->{TMP_DIR}     = shift, next if ( $_arg eq 'tmp_dir' );
       $_p->{FREEZE}      = shift, next if ( $_arg eq 'freeze' );
       $_p->{THAW}        = shift, next if ( $_arg eq 'thaw' );
-      $_p->{FAST}        = shift, next if ( $_arg eq 'fast' );
+
+                           shift, next if ( $_arg eq 'fast' ); # ignored
 
       ## Sereal 3.015+, if available, is used automatically by MCE 1.8+.
       if ( $_arg eq 'sereal' ) {
@@ -131,11 +131,7 @@ sub _task_end {
       my $_task_id = $self->{_task_id};
 
       if ($_task_id < $_last_task_id->{$_pid}) {
-         if (scalar @_ > 1 || ref $_[0] || !defined $_[0]) {
-            $_queue->{$_pid}[$_task_id]->enqueue($self->freeze([ @_ ]).'1');
-         } else {
-            $_queue->{$_pid}[$_task_id]->enqueue($_[0].'0');
-         }
+         $_queue->{$_pid}[$_task_id]->enqueue($self->freeze([ @_ ]));
       }
       else {
          _croak('MCE::step: method is not allowed by the last task');
@@ -163,16 +159,11 @@ sub _task_end {
 
       if ($_task_id < $_last_task_id->{$_pid}) {
          if (scalar @_ > 1) {
-            my @_items = map {
-               (ref $_ || !defined $_) ? $self->freeze([ $_ ]).'1' : $_.'0';
-            } @_;
+            my @_items = map { $self->freeze([ $_ ]) } @_;
             $_queue->{$_pid}[$_task_id]->enqueue(@_items);
          }
-         elsif (!defined $_[0] || ref $_[0]) {
-            $_queue->{$_pid}[$_task_id]->enqueue($self->freeze([ @_ ]).'1');
-         }
          else {
-            $_queue->{$_pid}[$_task_id]->enqueue($_[0].'0');
+            $_queue->{$_pid}[$_task_id]->enqueue($self->freeze([ @_ ]));
          }
       }
       else {
@@ -203,16 +194,11 @@ sub _task_end {
 
       if ($_task_id < $_last_task_id->{$_pid}) {
          if (scalar @_ > 1) {
-            my @_items = map {
-               (ref $_ || !defined $_) ? $self->freeze([ $_ ]).'1' : $_.'0';
-            } @_;
+            my @_items = map { $self->freeze([ $_ ]) } @_;
             $_queue->{$_pid}[$_task_id]->enqueuep($_p, @_items);
          }
-         elsif (!defined $_[0] || ref $_[0]) {
-            $_queue->{$_pid}[$_task_id]->enqueuep($_p, $self->freeze([ @_ ]).'1');
-         }
          else {
-            $_queue->{$_pid}[$_task_id]->enqueuep($_p, $_[0].'0');
+            $_queue->{$_pid}[$_task_id]->enqueuep($_p, $self->freeze([ @_ ]));
          }
       }
       else {
@@ -532,7 +518,7 @@ sub run (@) {
       my $_Q = $_queue->{$_pid};
       pop(@{ $_Q })->DESTROY for (@_code .. @{ $_Q });
 
-      push @{ $_Q }, MCE::Queue->new(fast => $_def->{$_pkg}{FAST}, await => 1)
+      push @{ $_Q }, MCE::Queue->new(await => 1)
          for (@{ $_Q } .. @_code - 2);
 
       $_last_task_id->{$_pid} = @_code - 1;
@@ -658,12 +644,8 @@ sub _gen_user_func {
       _MCE_STEP__NEXT:
 
       while (defined (local $_ = $_q_in->dequeue())) {
-         if (chop $_) {
-            my $_args = $_mce->thaw($_);  $_ = $_args->[0];
-            $_code->($_mce, @{ $_args });
-         } else {
-            $_code->($_mce, $_);
-         }
+         my $_args = $_mce->thaw($_);  $_ = $_args->[0];
+         $_code->($_mce, @{ $_args });
       }
 
       _MCE_STEP__LAST:
@@ -715,7 +697,7 @@ MCE::Step - Parallel step model for building creative steps
 
 =head1 VERSION
 
-This document describes MCE::Step version 1.866
+This document describes MCE::Step version 1.867
 
 =head1 DESCRIPTION
 
@@ -965,6 +947,7 @@ choosing 1 for chunk_size is fine.
 =head1 OVERRIDING DEFAULTS
 
 The following list options which may be overridden when loading the module.
+The fast option is obsolete in 1.867 onwards; ignored if specified.
 
  use Sereal qw( encode_sereal decode_sereal );
  use CBOR::XS qw( encode_cbor decode_cbor );

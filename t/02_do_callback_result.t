@@ -2,12 +2,15 @@
 
 use strict;
 use warnings;
+use utf8;
 
 use Test::More;
 
 BEGIN {
    use_ok 'MCE';
 }
+
+my $come_then_i_pray = "さあ、私は祈る";
 
 my (@ans, @rpl, $mce);
 
@@ -84,6 +87,10 @@ sub callback5 {
 }
 
 sub callback6 {
+   return $come_then_i_pray;
+}
+
+sub callback7 {
    my ($h_ref) = @_;
 
    @rpl = ();
@@ -95,14 +102,21 @@ sub callback6 {
    return;
 }
 
+sub callback8 {
+   my ($utf8) = @_;
+   push @ans, $utf8;
+}
+
 $mce = MCE->new(
    max_workers => 1,
 
    user_func => sub {
       my @reply = MCE->do('callback4');
       my %reply = MCE->do('callback5', \@reply);
+      my $utf8  = MCE->do('callback6');
 
-      MCE->do('callback6', \%reply);
+      MCE->do('callback7', \%reply);
+      MCE->do('callback8', $utf8);
 
       return;
    }
@@ -110,8 +124,9 @@ $mce = MCE->new(
 
 $mce->run;
 
-is(join('', sort @ans), '1234', 'test4: check that list is correct');
-is(join('', sort @rpl), '2468', 'test5: check that hash is correct');
+is(pop(@ans), $come_then_i_pray, 'test4: check that utf8 is correct');
+is(join('', sort @ans), '1234',  'test5: check that list is correct');
+is(join('', sort @rpl), '2468',  'test6: check that hash is correct');
 
 done_testing;
 

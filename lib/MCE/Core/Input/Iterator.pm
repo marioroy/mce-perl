@@ -14,7 +14,7 @@ package MCE::Core::Input::Iterator;
 use strict;
 use warnings;
 
-our $VERSION = '1.866';
+our $VERSION = '1.867';
 
 ## Items below are folded into MCE.
 
@@ -22,8 +22,6 @@ package # hide from rpm
    MCE;
 
 no warnings qw( threads recursion uninitialized );
-
-use bytes;
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -66,7 +64,7 @@ sub _worker_user_iterator {
       };
    }
 
-   my ($_chunk_id, $_len, $_is_ref);
+   my ($_chunk_id, $_len);
 
    ## -------------------------------------------------------------------------
 
@@ -97,8 +95,6 @@ sub _worker_user_iterator {
             return;
          }
 
-         $_is_ref = chop $_len;
-
          chomp($_chunk_id = <$_DAU_W_SOCK>);
          read $_DAU_W_SOCK, $_, $_len;
 
@@ -106,14 +102,9 @@ sub _worker_user_iterator {
       }
 
       ## Call user function.
-      if ($_is_ref) {
-         my $_chunk_ref = $self->{thaw}($_); undef $_;
-         $_ = ($_chunk_size == 1) ? $_chunk_ref->[0] : $_chunk_ref;
-         $_wuf->($self, $_chunk_ref, $_chunk_id);
-      }
-      else {
-         $_wuf->($self, [ $_ ], $_chunk_id);
-      }
+      my $_chunk_ref = $self->{thaw}($_); undef $_;
+      $_ = ($_chunk_size == 1) ? $_chunk_ref->[0] : $_chunk_ref;
+      $_wuf->($self, $_chunk_ref, $_chunk_id);
    }
 
    _WORKER_USER_ITERATOR__LAST:
@@ -137,7 +128,7 @@ MCE::Core::Input::Iterator - Iterator reader
 
 =head1 VERSION
 
-This document describes MCE::Core::Input::Iterator version 1.866
+This document describes MCE::Core::Input::Iterator version 1.867
 
 =head1 DESCRIPTION
 

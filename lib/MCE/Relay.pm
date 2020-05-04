@@ -11,11 +11,9 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.866';
+our $VERSION = '1.867';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
-
-use bytes;
 
 use constant {
    OUTPUT_W_RLA => 'W~RLA',  # Worker has relayed
@@ -99,7 +97,7 @@ sub import {
          $_MCE->{_relayed} = 0;
 
          if (ref $_MCE->{init_relay} eq '') {
-            $_init_relay = $_MCE->{init_relay} . '0';
+            $_init_relay = $_MCE->{freeze}(\$_MCE->{init_relay}) . '0';
          }
          elsif (ref $_MCE->{init_relay} eq 'HASH') {
             $_init_relay = $_MCE->{freeze}($_MCE->{init_relay}) . '1';
@@ -134,7 +132,7 @@ sub import {
          if (chop $_ret) {
             $MCE::RLA->{$_caller} = $_MCE->{thaw}($_ret);
          } else {
-            $MCE::RLA->{$_caller} = $_ret;
+            $MCE::RLA->{$_caller} = ${ $_MCE->{thaw}($_ret) };
          }
       }
 
@@ -169,7 +167,6 @@ package # hide from rpm
 no warnings qw( threads recursion uninitialized redefine );
 
 use Scalar::Util qw( weaken );
-use bytes;
 
 sub relay_final {
 
@@ -228,7 +225,7 @@ sub relay_recv {
    $_ref = chop $_;
 
    if ($_ref == 0) {                                 ## scalar value
-      $self->{_rla_data} = $_;
+      $self->{_rla_data} = ${ $self->{thaw}($_) };
       return unless defined wantarray;
       return $self->{_rla_data};
    }
@@ -287,7 +284,7 @@ sub relay (;&) {
       $_code->() if (ref $_code eq 'CODE');
 
       if (ref $_ eq '') {                         ## scalar value
-         $_tmp = $_ . '0';
+         $_tmp = $self->{freeze}(\$_) . '0';
       }
       elsif (ref $_ eq 'HASH') {                  ## hash reference
          $_tmp = $self->{freeze}($_) . '1';
@@ -310,8 +307,9 @@ sub relay (;&) {
       $_ref = chop $_;
 
       if ($_ref == 0) {                              ## scalar value
-         my $_ret = $_;         $_code->() if (ref $_code eq 'CODE');
-         my $_tmp = $_ . '0';
+         my $_ret = ${ $self->{thaw}($_) };
+         local $_ = $_ret;      $_code->() if (ref $_code eq 'CODE');
+         my $_tmp = $self->{freeze}(\$_) . '0';
 
          print {$_wtr} length($_tmp) . $LF . $_tmp;
          print {$self->{_dat_w_sock}->[0]} OUTPUT_R_NFY.$LF . '0'.$LF;
@@ -370,7 +368,7 @@ MCE::Relay - Extends Many-Core Engine with relay capabilities
 
 =head1 VERSION
 
-This document describes MCE::Relay version 1.866
+This document describes MCE::Relay version 1.867
 
 =head1 SYNOPSIS
 
