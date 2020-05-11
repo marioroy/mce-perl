@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.867';
+our $VERSION = '1.868';
 
 my $_tid = $INC{'threads.pm'} ? threads->tid() : 0;
 
@@ -212,7 +212,7 @@ no warnings qw( threads recursion uninitialized );
 
       $_dest_function[$_dest]($self, $_data_ref);
 
-      return;
+      return 1;
    }
 
    sub _do_send_glob {
@@ -238,7 +238,7 @@ no warnings qw( threads recursion uninitialized );
          print {$_fh} ${ $_data_ref };
       }
 
-      return;
+      return 1;
    }
 
    ## -------------------------------------------------------------------------
@@ -714,7 +714,7 @@ MCE::Core::Worker - Core methods for the worker process
 
 =head1 VERSION
 
-This document describes MCE::Core::Worker version 1.867
+This document describes MCE::Core::Worker version 1.868
 
 =head1 DESCRIPTION
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.867';
+our $VERSION = '1.868';
 
 use base 'MCE::Mutex';
 use Fcntl ':flock';
@@ -114,10 +114,10 @@ sub new {
 }
 
 sub lock {
-    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, @_);
+    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, shift);
     $obj->_open() unless exists $obj->{ $pid };
 
-    flock ($obj->{_fh}, LOCK_EX), $obj->{ $pid } = 1
+    CORE::flock ($obj->{_fh}, LOCK_EX), $obj->{ $pid } = 1
         unless $obj->{ $pid };
 
     return;
@@ -126,39 +126,41 @@ sub lock {
 *lock_exclusive = \&lock;
 
 sub lock_shared {
-    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, @_);
+    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, shift);
     $obj->_open() unless exists $obj->{ $pid };
 
-    flock ($obj->{_fh}, LOCK_SH), $obj->{ $pid } = 1
+    CORE::flock ($obj->{_fh}, LOCK_SH), $obj->{ $pid } = 1
         unless $obj->{ $pid };
 
     return;
 }
 
 sub unlock {
-    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, @_);
+    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, shift);
 
-    flock ($obj->{_fh}, LOCK_UN), $obj->{ $pid } = 0
+    CORE::flock ($obj->{_fh}, LOCK_UN), $obj->{ $pid } = 0
         if $obj->{ $pid };
 
     return;
 }
 
 sub synchronize {
-    my ($pid, $obj, $code, @ret) = ($tid ? $$ .'.'. $tid : $$, shift, shift);
+    my ($pid, $obj, $code) = ($tid ? $$ .'.'. $tid : $$, shift, shift);
+    my (@ret);
+
     return unless ref($code) eq 'CODE';
 
     $obj->_open() unless exists $obj->{ $pid };
 
     # lock, run, unlock - inlined for performance
-    flock ($obj->{_fh}, LOCK_EX), $obj->{ $pid } = 1
+    CORE::flock ($obj->{_fh}, LOCK_EX), $obj->{ $pid } = 1
         unless $obj->{ $pid };
 
     (defined wantarray)
       ? @ret = wantarray ? $code->(@_) : scalar $code->(@_)
       : $code->(@_);
 
-    flock ($obj->{_fh}, LOCK_UN), $obj->{ $pid } = 0;
+    CORE::flock ($obj->{_fh}, LOCK_UN), $obj->{ $pid } = 0;
 
     return wantarray ? @ret : $ret[-1];
 }
@@ -181,7 +183,7 @@ MCE::Mutex::Flock - Mutex locking via Fcntl
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Flock version 1.867
+This document describes MCE::Mutex::Flock version 1.868
 
 =head1 DESCRIPTION
 

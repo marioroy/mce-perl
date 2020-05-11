@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.867';
+our $VERSION = '1.868';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -1247,9 +1247,9 @@ sub _mce_m_heap {
          $_dat_un->() if $_lock_chn;
       }
 
-      return                             if ($_len == -2);
       return ($_MCE->{thaw}($_buf))->[0] if ($_len > 0 && $_cnt == 1);
       return @{ $_MCE->{thaw}($_buf) }   if ($_len > 0);
+      return                             if ($_len == -2);
 
       MCE::Util::_sock_ready($_Q->{_qr_sock}) if $_is_MSWin32;
       MCE::Util::_sysread($_Q->{_qr_sock}, my($_next), 1);
@@ -1395,7 +1395,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.867
+This document describes MCE::Queue version 1.868
 
 =head1 SYNOPSIS
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.867';
+our $VERSION = '1.868';
 
 use threads;
 use threads::shared;
@@ -49,7 +49,6 @@ sub new {
 
 sub end {
    my ( $self ) = @_;
-   return if $self->{ended};
 
    local $\ = undef if (defined $\);
    MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
@@ -321,7 +320,7 @@ MCE::Channel::Threads - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Threads version 1.867
+This document describes MCE::Channel::Threads version 1.868
 
 =head1 DESCRIPTION
 

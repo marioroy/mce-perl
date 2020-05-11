@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.867';
+our $VERSION = '1.868';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -44,9 +44,6 @@ use constant {
 };
 
 my ( $_MNGD, $_DATA, $_DELY, $_LIST ) = ( {}, {}, {}, {} );
-
-my $_freeze = MCE::Channel::_get_freeze();
-my $_thaw   = MCE::Channel::_get_thaw();
 
 my $_is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
 my $_tid        = ( $INC{'threads.pm'} ) ? threads->tid() : 0;
@@ -175,7 +172,7 @@ sub create {
 
    $_DATA->{"$pkg:id"} = 10000 if ( ( my $id = ++$_DATA->{"$pkg:id"} ) > 2e9 );
 
-   if ( $max_workers ) {
+   if ( $max_workers || $self->{IGNORE} ) {
       local $!;
 
       # Reap completed child processes.
@@ -188,7 +185,7 @@ sub create {
       }
 
       # Wait for a slot if saturated.
-      if ( keys(%{ $list->[0] }) >= $max_workers ) {
+      if ( $max_workers && keys(%{ $list->[0] }) >= $max_workers ) {
          my $count = keys(%{ $list->[0] }) - $max_workers + 1;
          _wait_one($pkg) for 1 .. $count;
       }
@@ -215,7 +212,7 @@ sub create {
       }
       elsif ( $pid ) {                                      # parent
          $self->{WRK_ID} = $pid;
-         $list->set($pid, $self) unless $self->{IGNORE};
+         $list->set($pid, $self);
          $mngd->{on_start}->($pid, $self->{ident}) if $mngd->{on_start};
       }
       else {                                                # child
@@ -301,7 +298,7 @@ sub exit {
    }
    elsif ( $wrk_id == $$ ) {
       alarm 0; my ( $exit_status, @res ) = @_; $? = $exit_status || 0;
-      $_DATA->{$pkg}->set('R'.$wrk_id, @res ? $_freeze->(\@res) : '');
+      $_DATA->{$pkg}->set('R'.$wrk_id, @res ? \@res : '');
       die "Child exited ($?)\n";
       _exit($?); # not reached
    }
@@ -392,8 +389,6 @@ sub is_running {
 
 sub join {
    _croak('Usage: $child->join()') unless ref( my $self = $_[0] );
-   _croak('Cannot join a detached/ignored child') if $self->{IGNORE};
-
    my ( $wrk_id, $pkg ) = ( $self->{WRK_ID}, $self->{PKG} );
 
    if ( exists $self->{JOINED} ) {
@@ -410,6 +405,7 @@ sub join {
    }
    elsif ( $self->{MGR_ID} eq "$$.$_tid" ) {
       # remove from list after reaping
+      local $SIG{CHLD};
       _reap_child($self, 1);
       $_LIST->{$pkg}->del($wrk_id);
    }
@@ -624,7 +620,7 @@ sub _dispatch {
 
    my @res; local $SIG{'ALRM'} = sub { alarm 0; die "Child timed out\n" };
 
-   if ( $void_context ) {
+   if ( $void_context || $_SELF->{IGNORE} ) {
       no strict 'refs';
       eval {
          alarm( $child_timeout || 0 );
@@ -645,15 +641,17 @@ sub _dispatch {
       _exit($?) if ( $@ =~ /^Child exited \(\S+\)$/ );
       my $err = $@; $? = 1;
 
-      $_DATA->{ $_SELF->{PKG} }->set('S'.$$, $err),
-      $_DATA->{ $_SELF->{PKG} }->set('R'.$$, @res ? $_freeze->(\@res) : '')
-         if ( ! $_SELF->{IGNORE} );
+      if ( ! $_SELF->{IGNORE} ) {
+         $_DATA->{ $_SELF->{PKG} }->set('S'.$$, $err),
+         $_DATA->{ $_SELF->{PKG} }->set('R'.$$, @res ? \@res : '');
+      }
 
-      warn "Child $$ terminated abnormally: reason $err\n"
-         if ( $err ne "Child timed out" && !$mngd->{on_finish} );
+      if ( $err ne "Child timed out" && !$mngd->{on_finish} ) {
+         use bytes; warn "Child $$ terminated abnormally: reason $err\n";
+      }
    }
    else {
-      $_DATA->{ $_SELF->{PKG} }->set('R'.$$, @res ? $_freeze->(\@res) : '')
+      $_DATA->{ $_SELF->{PKG} }->set('R'.$$, @res ? \@res : '')
          if ( ! $_SELF->{IGNORE} );
    }
 
@@ -689,6 +687,8 @@ sub _force_reap {
    return unless ( exists $_LIST->{$pkg} && $_LIST->{$pkg}->len() );
 
    for my $child ( $_LIST->{$pkg}->vals() ) {
+      next if $child->{IGNORE};
+
       if ( $child->is_running() ) {
          sleep(0.015), CORE::kill('KILL', $child->pid())
             if CORE::kill('ZERO', $child->pid());
@@ -723,7 +723,9 @@ sub _reap_child {
    local @_ = $_DATA->{ $child->{PKG} }->get( $child->{WRK_ID}, $wait_flag );
 
    ( $child->{ERROR}, $child->{RESULT}, $child->{JOINED} ) =
-      ( pop || '', length $_[0] ? $_thaw->(pop) : [], 1 );
+      ( pop || '', length $_[0] ? pop : [], 1 );
+
+   return if $child->{IGNORE};
 
    if ( my $on_finish = $_MNGD->{ $child->{PKG} }{on_finish} ) {
       my ( $exit, $err ) = ( $? || 0, $child->{ERROR} );
@@ -979,7 +981,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.867
+This document describes MCE::Child version 1.868
 
 =head1 SYNOPSIS
 
@@ -1581,14 +1583,13 @@ respectively. Pass 0 if simply wanting to give other workers a chance to run.
 
 =back
 
-=head1 THREADS-like DETACH CAPABILITY ON UNIX
+=head1 THREADS-like DETACH CAPABILITY
 
 Threads-like detach capability was added starting with the 1.867 release.
 
 A threads example is shown first followed by the MCE::Child example. All one
 needs to do is set the CHLD signal handler to IGNORE. Unfortunately, this works
-on UNIX platforms only. Similarly to threads, the process is detached where one
-can no longer join it. The child process restores the CHLD handler to default,
+on UNIX platforms only. The child process restores the CHLD handler to default,
 so is able to deeply spin workers and reap if desired.
 
  use threads;
@@ -1601,7 +1602,10 @@ so is able to deeply spin workers and reap if desired.
 
  use MCE::Child;
 
- # Have the OS reap workers automatically.
+ # Have the OS reap workers automatically when exiting.
+ # The on_finish option is ignored if specified (no-op).
+ # Ensure not inside a thread on UNIX platforms.
+
  $SIG{CHLD} = 'IGNORE';
 
  for ( 1 .. 8 ) {
@@ -1610,10 +1614,22 @@ so is able to deeply spin workers and reap if desired.
      };
  }
 
-The following is another way although not detach-like for the same result
-and works on the Windows platform.
+ # Optionally, wait for any remaining workers before leaving.
+ # This is necessary if workers are consuming shared objects,
+ # constructed via MCE::Shared.
+
+ MCE::Child->wait_all;
+
+The following is another way and works on Windows.
+Here, the on_finish handler works as usual.
 
  use MCE::Child;
+
+ MCE::Child->init(
+     on_finish = sub {
+         ...
+     },
+ );
 
  for ( 1 .. 8 ) {
      $_->join for MCE::Child->list_joinable;
@@ -1622,7 +1638,7 @@ and works on the Windows platform.
      };
  }
 
- MCE::Child->waitall;
+ MCE::Child->wait_all;
 
 =head1 PARALLEL::FORKMANAGER-like DEMONSTRATION
 

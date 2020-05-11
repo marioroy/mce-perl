@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.867';
+our $VERSION = '1.868';
 
 use base 'MCE::Channel';
 
@@ -37,7 +37,6 @@ sub new {
 
 sub end {
    my ( $self ) = @_;
-   return if $self->{ended};
 
    local $\ = undef if (defined $\);
    MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
@@ -301,7 +300,7 @@ MCE::Channel::Simple - Channel tuned for one producer and one consumer
 
 =head1 VERSION
 
-This document describes MCE::Channel::Simple version 1.867
+This document describes MCE::Channel::Simple version 1.868
 
 =head1 DESCRIPTION
 

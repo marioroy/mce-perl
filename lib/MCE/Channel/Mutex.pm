@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.867';
+our $VERSION = '1.868';
 
 use base 'MCE::Channel';
 use MCE::Mutex ();
@@ -52,7 +52,6 @@ END {
 
 sub end {
    my ( $self ) = @_;
-   return if $self->{ended};
 
    local $\ = undef if (defined $\);
    print { $self->{p_sock} } pack('i', -1);
@@ -305,7 +304,7 @@ MCE::Channel::Mutex - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Mutex version 1.867
+This document describes MCE::Channel::Mutex version 1.868
 
 =head1 DESCRIPTION
 

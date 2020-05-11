@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.867';
+our $VERSION = '1.868';
 
 use base 'MCE::Mutex::Channel';
 use MCE::Util ();
@@ -47,7 +47,7 @@ sub new {
 }
 
 sub lock2 {
-    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, @_);
+    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, shift);
 
     MCE::Util::_sysread($obj->{_w_sock}, my($b), 1), $obj->{ $pid.'b' } = 1
         unless $obj->{ $pid.'b' };
@@ -59,27 +59,29 @@ sub lock2 {
 *lock_shared2    = \&lock2;
 
 sub unlock2 {
-    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, @_);
+    my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, shift);
 
-    syswrite($obj->{_r_sock}, '0'), $obj->{ $pid.'b' } = 0
+    CORE::syswrite($obj->{_r_sock}, '0'), $obj->{ $pid.'b' } = 0
         if $obj->{ $pid.'b' };
 
     return;
 }
 
 sub synchronize2 {
-    my ($pid, $obj, $code, @ret) = ($tid ? $$ .'.'. $tid : $$, shift, shift);
+    my ($pid, $obj, $code) = ($tid ? $$ .'.'. $tid : $$, shift, shift);
+    my (@ret, $b);
+
     return unless ref($code) eq 'CODE';
 
     # lock, run, unlock - inlined for performance
-    MCE::Util::_sysread($obj->{_w_sock}, my($b), 1), $obj->{ $pid.'b' } = 1
+    MCE::Util::_sysread($obj->{_w_sock}, $b, 1), $obj->{ $pid.'b' } = 1
         unless $obj->{ $pid.'b' };
 
     (defined wantarray)
       ? @ret = wantarray ? $code->(@_) : scalar $code->(@_)
       : $code->(@_);
 
-    syswrite($obj->{_r_sock}, '0'), $obj->{ $pid.'b' } = 0;
+    CORE::syswrite($obj->{_r_sock}, '0'), $obj->{ $pid.'b' } = 0;
 
     return wantarray ? @ret : $ret[-1];
 }
@@ -114,7 +116,7 @@ MCE::Mutex::Channel2 - Provides two mutexes using a single channel
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel2 version 1.867
+This document describes MCE::Mutex::Channel2 version 1.868
 
 =head1 DESCRIPTION
 

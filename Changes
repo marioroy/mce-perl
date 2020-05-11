@@ -1,6 +1,15 @@
 
 Revision history for Perl module MCE.
 
+1.868 Sun May 10 22:00:00 EST 2020
+
+  * Completed threads-like detach capability in MCE::Child.
+
+  * Resolved MCE::Channel failing when calling dequeue multiple times
+    on an ended channel.
+
+  * MCE->say, MCE->print, and MCE->printf now return 1.
+
 1.867 Sun May 03 18:00:00 EST 2020
 
   * Bug fix for UTF-8 issues during inter-process communication.
