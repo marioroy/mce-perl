@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.868';
+our $VERSION = '1.872';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -434,7 +434,7 @@ MCE::Grep - Parallel grep model similar to the native grep function
 
 =head1 VERSION
 
-This document describes MCE::Grep version 1.868
+This document describes MCE::Grep version 1.872
 
 =head1 SYNOPSIS
 
@@ -542,9 +542,9 @@ examples/egrep.pl, included with the distribution.
 
  use MCE::Loop;
 
- MCE::Loop::init {
+ MCE::Loop->init(
     max_workers => 8, use_slurpio => 1
- };
+ );
 
  my $pattern  = 'karl';
  my $hugefile = 'very_huge.file';
@@ -618,7 +618,7 @@ specified, is ignored due to being used internally by the module.
 
  use MCE::Grep;
 
- MCE::Grep::init {
+ MCE::Grep->init(
     chunk_size => 1, max_workers => 4,
 
     user_begin => sub {
@@ -628,7 +628,7 @@ specified, is ignored due to being used internally by the module.
     user_end => sub {
        print "## ", MCE->wid, " completed\n";
     }
- };
+ );
 
  my @a = mce_grep { $_ % 5 == 0 } 1..100;
 
@@ -740,13 +740,13 @@ longer needed.
 
  use MCE::Grep;
 
- MCE::Grep::init {
+ MCE::Grep->init(
     chunk_size => 20, max_workers => 'auto'
- };
+ );
 
  my @a = mce_grep { ... } 1..100;
 
- MCE::Grep::finish;
+ MCE::Grep->finish;
 
 =head1 INDEX
 

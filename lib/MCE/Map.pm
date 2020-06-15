@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.868';
+our $VERSION = '1.872';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -434,7 +434,7 @@ MCE::Map - Parallel map model similar to the native map function
 
 =head1 VERSION
 
-This document describes MCE::Map version 1.868
+This document describes MCE::Map version 1.872
 
 =head1 SYNOPSIS
 
@@ -553,7 +553,7 @@ specified, is ignored due to being used internally by the module.
 
  use MCE::Map;
 
- MCE::Map::init {
+ MCE::Map->init(
     chunk_size => 1, max_workers => 4,
 
     user_begin => sub {
@@ -563,7 +563,7 @@ specified, is ignored due to being used internally by the module.
     user_end => sub {
        print "## ", MCE->wid, " completed\n";
     }
- };
+ );
 
  my @a = mce_map { $_ * $_ } 1..100;
 
@@ -682,13 +682,13 @@ longer needed.
 
  use MCE::Map;
 
- MCE::Map::init {
+ MCE::Map->init(
     chunk_size => 20, max_workers => 'auto'
- };
+ );
 
  my @a = mce_map { ... } 1..100;
 
- MCE::Map::finish;
+ MCE::Map->finish;
 
 =head1 INDEX
 

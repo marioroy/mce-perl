@@ -1,6 +1,6 @@
 ## Many-Core Engine for Perl
 
-This document describes MCE version 1.868.
+This document describes MCE version 1.872.
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
@@ -51,7 +51,7 @@ The following is a demonstration for parsing a huge log file in parallel.
 ```perl
  use MCE::Loop;
 
- MCE::Loop::init { max_workers => 8, use_slurpio => 1 };
+ MCE::Loop->init( max_workers => 8, use_slurpio => 1 );
 
  my $pattern  = 'something';
  my $hugefile = 'very_huge.file';
@@ -111,7 +111,7 @@ The next demonstration loops through a sequence of numbers with MCE::Flow.
 
  # Compute bounds only, workers receive [ begin, end ] values
 
- MCE::Flow::init(
+ MCE::Flow->init(
     chunk_size  => 200_000,
     max_workers => 8,
     bounds_only => 1
@@ -137,7 +137,7 @@ To install this module type the following:
     make test
     make install
 
-This module requires Perl 5.8.0 or later to run. By default, MCE spawns threads
+This module requires Perl 5.8.1 or later to run. By default, MCE spawns threads
 on Windows and child processes otherwise on Cygwin and Unix platforms. The use
 of threads requires that you include threads support prior to loading MCE.
 

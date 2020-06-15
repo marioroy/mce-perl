@@ -5,7 +5,7 @@ MCE - Many-Core Engine for Perl providing parallel processing capabilities
 
 =head1 VERSION
 
-This document describes MCE version 1.868
+This document describes MCE version 1.872
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
@@ -61,7 +61,7 @@ The following is a demonstration for parsing a huge log file in parallel.
 
  use MCE::Loop;
 
- MCE::Loop::init { max_workers => 8, use_slurpio => 1 };
+ MCE::Loop->init( max_workers => 8, use_slurpio => 1 );
 
  my $pattern  = 'something';
  my $hugefile = 'very_huge.file';
@@ -119,7 +119,7 @@ The next demonstration loops through a sequence of numbers with MCE::Flow.
 
  # Compute bounds only, workers receive [ begin, end ] values
 
- MCE::Flow::init(
+ MCE::Flow->init(
     chunk_size  => 200_000,
     max_workers => 8,
     bounds_only => 1

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.868';
+our $VERSION = '1.872';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -479,7 +479,7 @@ MCE::Flow - Parallel flow model for building creative applications
 
 =head1 VERSION
 
-This document describes MCE::Flow version 1.868
+This document describes MCE::Flow version 1.872
 
 =head1 DESCRIPTION
 
@@ -708,9 +708,9 @@ inside the first block. Hence, the block is called once per each item.
  ## Exports mce_flow, mce_flow_f, and mce_flow_s
  use MCE::Flow;
 
- MCE::Flow::init {
+ MCE::Flow->init(
     chunk_size => 1
- };
+ );
 
  ## Array or array_ref
  mce_flow sub { do_work($_) }, 1..10000;
@@ -744,9 +744,9 @@ This means having to loop through the chunk from inside the first block.
 
  use MCE::Flow;
 
- MCE::Flow::init {          ## Chunk_size defaults to 'auto' when
+ MCE::Flow->init(           ## Chunk_size defaults to 'auto' when
     chunk_size => 'auto'    ## not specified. Therefore, the init
- };                         ## function may be omitted.
+ );                         ## function may be omitted.
 
  ## Syntax is shown for mce_flow for demonstration purposes.
  ## Looping inside the block is the same for mce_flow_f and
@@ -811,7 +811,7 @@ both gather and bounds_only options may be specified when calling init
 
  use MCE::Flow;
 
- MCE::Flow::init {
+ MCE::Flow->init(
     chunk_size => 1, max_workers => 4,
 
     user_begin => sub {
@@ -821,7 +821,7 @@ both gather and bounds_only options may be specified when calling init
     user_end => sub {
        print "## ", MCE->wid, " completed\n";
     }
- };
+ );
 
  my %a = mce_flow sub { MCE->gather($_, $_ * $_) }, 1..100;
 
@@ -847,7 +847,7 @@ both gather and bounds_only options may be specified when calling init
  7569 7744 7921 8100 8281 8464 8649 8836 9025 9216 9409 9604 9801
  10000
 
-Like with MCE::Flow::init above, MCE options may be specified using an
+Like with MCE::Flow->init above, MCE options may be specified using an
 anonymous hash for the first argument. Notice how task_name, max_workers,
 and use_threads can take an anonymous array for setting uniquely per
 each code block.
@@ -968,10 +968,10 @@ needed after the block.
 
  # Here, options are specified via init
 
- MCE::Flow::init {
+ MCE::Flow->init(
     max_workers => [  1,   3  ],
     task_name   => [ 'p', 'c' ]
- };
+ );
 
  mce_flow \&producer, \&consumers;
 
@@ -1056,10 +1056,10 @@ Time was measured using 1 worker to emphasize the difference.
 
  use MCE::Flow;
 
- MCE::Flow::init {
+ MCE::Flow->init(
     max_workers => 1, chunk_size => 1_250_000,
     bounds_only => 1
- };
+ );
 
  # Typically, the input scalar $_ contains the sequence number
  # when chunk_size => 1, unless the bounds_only option is set
@@ -1102,14 +1102,14 @@ Time was measured using 1 worker to emphasize the difference.
 =back
 
 An iterator reference may be specified for input_data. The only other way
-is to specify input_data via MCE::Flow::init. This prevents MCE::Flow from
+is to specify input_data via MCE::Flow->init. This prevents MCE::Flow from
 configuring the iterator reference as another user task which will not work.
 
 Iterators are described under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 
- MCE::Flow::init {
+ MCE::Flow->init(
     input_data => iterator
- };
+ );
 
  mce_flow sub { $_ };
 
@@ -1229,9 +1229,9 @@ gathering data such as retaining output order.
  ## the case and depends on Perl. Pass a reference to a subroutine if
  ## workers must persist; e.g. mce_flow { ... }, \&foo, 1..100000.
 
- MCE::Flow::init {
+ MCE::Flow->init(
     chunk_size => 'auto', max_workers => 'auto'
- };
+ );
 
  for (1..2) {
     my @m2;
@@ -1254,7 +1254,7 @@ gathering data such as retaining output order.
     print scalar @m2, "\n";
  }
 
- MCE::Flow::finish;
+ MCE::Flow->finish;
 
 All 6 models support 'auto' for chunk_size unlike the Core API. Think of the
 models as the basis for providing JIT for MCE. They create the instance, tune
@@ -1310,13 +1310,13 @@ longer needed.
 
  use MCE::Flow;
 
- MCE::Flow::init {
+ MCE::Flow->init(
     chunk_size => 20, max_workers => 'auto'
- };
+ );
 
  mce_flow sub { ... }, 1..100;
 
- MCE::Flow::finish;
+ MCE::Flow->finish;
 
 =head1 INDEX
 

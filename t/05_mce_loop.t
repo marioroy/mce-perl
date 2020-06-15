@@ -57,9 +57,9 @@ sub _task {
 my $answers = '6 12 18 24 30 36 42 48 54';
 my @a;
 
-MCE::Loop::init {
+MCE::Loop->init(
    max_workers => 2, gather => output_iterator(\@a)
-};
+);
 
 ##  mce_loop can take a code block, e.g: mce_loop { code } ( 1..9 )
 ##  below, workers will persist between runs
@@ -79,13 +79,13 @@ is( join(' ', @a), $answers, 'check results for glob' );
 mce_loop_s \&_task, 1, 9;
 is( join(' ', @a), $answers, 'check results for sequence' );
 
-MCE::Loop::finish;
+MCE::Loop->finish;
 
 ##  process hash, current API available since 1.828
 
-MCE::Loop::init {
+MCE::Loop->init(
    max_workers => 1
-};
+);
 
 my %hash = map { $_ => $_ } ( 1 .. 9 );
 
@@ -102,7 +102,7 @@ my %res = mce_loop {
 
 is( join(' ', @a), "2 4 6 8 10 12 14 16 18", 'check results for hash ref' );
 
-MCE::Loop::finish;
+MCE::Loop->finish;
 
 ##  cleanup
 

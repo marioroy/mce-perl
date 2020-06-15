@@ -3,6 +3,7 @@
 use strict;
 use warnings;
 use utf8;
+use open qw(:std :utf8);
 
 use Test::More;
 
@@ -11,9 +12,9 @@ BEGIN {
    use_ok 'MCE::Queue';
 }
 
-MCE::Flow::init {
+MCE::Flow->init(
    max_workers => 1
-};
+);
 
 ###############################################################################
 
@@ -151,7 +152,7 @@ mce_flow sub {
    return;
 };
 
-MCE::Flow::finish;
+MCE::Flow->finish;
 
 ###############################################################################
 
@@ -222,7 +223,7 @@ mce_flow sub {
    return;
 };
 
-MCE::Flow::finish;
+MCE::Flow->finish;
 
 ###############################################################################
 
@@ -254,7 +255,7 @@ mce_flow sub {
    return;
 };
 
-MCE::Flow::finish;
+MCE::Flow->finish;
 
 ###############################################################################
 
@@ -286,7 +287,7 @@ mce_flow sub {
    return;
 };
 
-MCE::Flow::finish;
+MCE::Flow->finish;
 
 done_testing;
 

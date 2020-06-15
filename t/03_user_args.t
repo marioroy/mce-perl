@@ -3,6 +3,7 @@
 use strict;
 use warnings;
 use utf8;
+use open qw(:std :utf8);
 
 use Test::More;
 
@@ -12,9 +13,9 @@ BEGIN {
 
 my $come_then_i_pray = "さあ、私は祈る";
 
-MCE::Flow::init {
+MCE::Flow->init(
    max_workers => 1
-};
+);
 
 sub check_hello {
    my ($arg1, $arg2, $arg3) = @_;
@@ -73,7 +74,7 @@ mce_flow { user_args => $come_then_i_pray }, \&task;
 
 ##  Shutdown workers.
 
-MCE::Flow::finish;
+MCE::Flow->finish;
 
 done_testing;
 

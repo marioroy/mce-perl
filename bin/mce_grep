@@ -724,7 +724,9 @@ sub make_user_func_file {
             $wrote += ( syswrite (
                $cmd_fh, $$chunk_ref, length($$chunk_ref) - $wrote, $wrote
             )) or do {
-               redo WRITE if $! == Errno::EINTR();
+               unless ( defined $wrote ) {
+                  redo WRITE if ( $! == Errno::EINTR() );
+               }
             };
          }
 

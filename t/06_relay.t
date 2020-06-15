@@ -3,6 +3,7 @@
 use strict;
 use warnings;
 use utf8;
+use open qw(:std :utf8);
 
 use Test::More;
 
@@ -33,7 +34,7 @@ BEGIN {
       }
    };
 
-   MCE::Flow::finish;
+   MCE::Flow->finish;
 
    my @data = MCE->relay_final;
 
@@ -59,7 +60,7 @@ BEGIN {
       }
    };
 
-   MCE::Flow::finish;
+   MCE::Flow->finish;
 
    my %data = MCE->relay_final;
 
@@ -84,7 +85,7 @@ BEGIN {
       }
    };
 
-   MCE::Flow::finish;
+   MCE::Flow->finish;
 
    my $val = MCE->relay_final;
 
@@ -122,7 +123,7 @@ my $translation =
       });
    };
 
-   MCE::Flow::finish;
+   MCE::Flow->finish;
 
    my $text = MCE->relay_final;
 

@@ -26,10 +26,10 @@ my $answers = '6 12 18 24 30 36 42 48 54';
 my $ans_mix = '18 36 54';
 my @a;
 
-MCE::Stream::init {
+MCE::Stream->init(
    max_workers => [  2  ,  2  ],   # run with 2 workers for both sub-tasks
    task_name   => [ 'b' , 'a' ]
-};
+);
 
 sub _task_a { chomp; $_ * 2 }
 sub _task_b { $_ * 3 }
@@ -72,7 +72,7 @@ is( join(' ', @a), $answers, 'stream \@a: check results for glob' );
 mce_stream_s \@a, \&_task_b, \&_task_a, 1, 9;
 is( join(' ', @a), $answers, 'stream \@a: check results for sequence' );
 
-MCE::Stream::finish;
+MCE::Stream->finish;
 
 @a = mce_stream
    { mode => 'map',  code => sub { $_ * 2 * 3 } },
@@ -81,7 +81,7 @@ MCE::Stream::finish;
 
 is( join(' ', @a), $ans_mix, 'check results for mix_mode' );
 
-MCE::Stream::finish;
+MCE::Stream->finish;
 
 ##  cleanup
 

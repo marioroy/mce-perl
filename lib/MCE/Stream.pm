@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.868';
+our $VERSION = '1.872';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -671,7 +671,7 @@ MCE::Stream - Parallel stream model for chaining multiple maps and greps
 
 =head1 VERSION
 
-This document describes MCE::Stream version 1.868
+This document describes MCE::Stream version 1.872
 
 =head1 SYNOPSIS
 
@@ -807,7 +807,7 @@ module (not shown below).
 
  use MCE::Stream;
 
- MCE::Stream::init {
+ MCE::Stream->init(
     chunk_size => 1, max_workers => 4,
 
     user_begin => sub {
@@ -817,7 +817,7 @@ module (not shown below).
     user_end => sub {
        print "## ", MCE->wid, " completed\n";
     }
- };
+ );
 
  my @a = mce_stream sub { $_ * $_ }, 1..100;
 
@@ -843,7 +843,7 @@ module (not shown below).
  7569 7744 7921 8100 8281 8464 8649 8836 9025 9216 9409 9604 9801
  10000
 
-Like with MCE::Stream::init above, MCE options may be specified using an
+Like with MCE::Stream->init above, MCE options may be specified using an
 anonymous hash for the first argument. Notice how both max_workers and
 task_name can take an anonymous array for setting values uniquely
 per each code block.
@@ -988,15 +988,15 @@ optional. The format is passed to sprintf (% may be omitted below).
 =back
 
 An iterator reference may be specified for input_data. The only other way
-is to specify input_data via MCE::Stream::init. This prevents MCE::Stream
+is to specify input_data via MCE::Stream->init. This prevents MCE::Stream
 from configuring the iterator reference as another user task which will
 not work.
 
 Iterators are described under section "SYNTAX for INPUT_DATA" at L<MCE::Core>.
 
- MCE::Stream::init {
+ MCE::Stream->init(
     input_data => iterator
- };
+ );
 
  my @a = mce_stream sub { $_ * 3 }, sub { $_ * 2 };
 
@@ -1016,13 +1016,13 @@ longer needed.
 
  use MCE::Stream;
 
- MCE::Stream::init {
+ MCE::Stream->init(
     chunk_size => 20, max_workers => 'auto'
- };
+ );
 
  my @a = mce_stream { ... } 1..100;
 
- MCE::Stream::finish;
+ MCE::Stream->finish;
 
 =head1 INDEX
 

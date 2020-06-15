@@ -74,7 +74,7 @@ sub task_b {
 my $answers = '6 12 18 24 30 36 42 48 54';
 my @a;
 
-MCE::Flow::init {
+MCE::Flow->init(
    max_workers => [  2  ,  2  ],   # run with 2 workers for both sub-tasks
    task_name   => [ 'a' , 'b' ],
 
@@ -88,7 +88,7 @@ MCE::Flow::init {
          $q->enqueue((undef) x 2);   # 2 workers
       }
    }
-};
+);
 
 mce_flow { gather => output_iterator(\@a) }, \&task_a, \&task_b, ( 1..9 );
 is( join(' ', @a), $answers, 'check results for array' );
@@ -105,13 +105,13 @@ is( join(' ', @a), $answers, 'check results for glob' );
 mce_flow_s { gather => output_iterator(\@a) }, \&task_a, \&task_b, 1, 9;
 is( join(' ', @a), $answers, 'check results for sequence' );
 
-MCE::Flow::finish;
+MCE::Flow->finish;
 
 ##  process hash, current API available since 1.828
 
-MCE::Flow::init {
+MCE::Flow->init(
    max_workers => 1
-};
+);
 
 my %hash = map { $_ => $_ } ( 1 .. 9 );
 
@@ -128,7 +128,7 @@ my %res = mce_flow sub {
 
 is( join(' ', @a), "2 4 6 8 10 12 14 16 18", 'check results for hash ref' );
 
-MCE::Flow::finish;
+MCE::Flow->finish;
 
 ##  cleanup
 

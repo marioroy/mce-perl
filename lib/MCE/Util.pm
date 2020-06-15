@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.868';
+our $VERSION = '1.872';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -340,17 +340,19 @@ sub _sysread2 {
       : CORE::sysread($_[0], $_[1], $_[2], $_[3])
    )
    or do {
-      goto SYSREAD if ($! == Errno::EINTR());
+      unless ( defined $_bytes ) {
+         goto SYSREAD if ($! == Errno::EINTR());
 
-      # non-blocking operation could not be completed
-      if ( $! == Errno::EWOULDBLOCK() || $! == Errno::EAGAIN() ) {
-         sleep(0.015), goto SYSREAD if $_delay;
+         # non-blocking operation could not be completed
+         if ( $! == Errno::EWOULDBLOCK() || $! == Errno::EAGAIN() ) {
+            sleep(0.015), goto SYSREAD if $_delay;
 
-         # delay after a while to not consume a CPU core
-         $_start = time unless $_start;
-         $_delay = 1 if time - $_start > 0.030;
+            # delay after a while to not consume a CPU core
+            $_start = time unless $_start;
+            $_delay = 1 if time - $_start > 0.030;
 
-         goto SYSREAD;
+            goto SYSREAD;
+         }
       }
    };
 
@@ -427,7 +429,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.868
+This document describes MCE::Util version 1.872
 
 =head1 SYNOPSIS
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.868';
+our $VERSION = '1.872';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 
@@ -368,7 +368,7 @@ MCE::Relay - Extends Many-Core Engine with relay capabilities
 
 =head1 VERSION
 
-This document describes MCE::Relay version 1.868
+This document describes MCE::Relay version 1.872
 
 =head1 SYNOPSIS
 
@@ -1104,10 +1104,10 @@ for the manager process to respond to the gather request.
      }
  }
 
- MCE::Loop::init {
+ MCE::Loop->init(
      chunk_size => 'auto', max_workers => 3,
      gather => preserve_order($fh_out)
- };
+ );
 
  mce_loop_f {
      my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -1128,7 +1128,7 @@ for the manager process to respond to the gather request.
 
  } $infile;
 
- MCE::Loop::finish();
+ MCE::Loop->finish();
  close $fh_out;
 
 =over 3
@@ -1156,11 +1156,11 @@ not call relay more than once per chunk. Doing so will cause IPC to stall.
 
  open my $fh_out, '>', $newfile or die "open error $newfile: $!\n";
 
- MCE::Loop::init {
+ MCE::Loop->init(
      chunk_size => 'auto', max_workers => 8,
      gather => MCE::Candy::out_iter_fh($fh_out),
      init_relay => 1
- };
+ );
 
  mce_loop_f {
      my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -1188,7 +1188,7 @@ not call relay more than once per chunk. Doing so will cause IPC to stall.
 
  } $infile;
 
- MCE::Loop::finish();
+ MCE::Loop->finish();
  close $fh_out;
 
 =head1 INDEX

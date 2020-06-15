@@ -22,9 +22,9 @@ close $fh;
 my $answers = '6 12 18 24 30 36 42 48 54';
 my @a;
 
-MCE::Map::init {
+MCE::Map->init(
    max_workers => 2
-};
+);
 
 sub _task { chomp; $_ * 2 * 3 }
 
@@ -46,7 +46,7 @@ is( join(' ', @a), $answers, 'check results for glob' );
 @a = mce_map_s \&_task, 1, 9;
 is( join(' ', @a), $answers, 'check results for sequence' );
 
-MCE::Map::finish;
+MCE::Map->finish;
 
 ##  cleanup
 

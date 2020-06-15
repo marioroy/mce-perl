@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.868';
+our $VERSION = '1.872';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -127,7 +127,7 @@ MCE::Channel - Queue-like and two-way communication capability
 
 =head1 VERSION
 
-This document describes MCE::Channel version 1.868
+This document describes MCE::Channel version 1.872
 
 =head1 SYNOPSIS
 
@@ -563,7 +563,7 @@ Here, using the MCE facility for gathering the final count.
 
  ## run 2 producers and many consumers
 
- MCE::Flow::init(
+ MCE::Flow->init(
     max_workers => [ 2, $num_consumers ],
     task_name   => [ 'producer', 'consumer' ],
     task_end    => sub {
@@ -579,7 +579,7 @@ Here, using the MCE facility for gathering the final count.
 
  my %results = mce_flow \&producer, \&consumer;
 
- MCE::Flow::finish;
+ MCE::Flow->finish;
 
  my $total = 0;
 

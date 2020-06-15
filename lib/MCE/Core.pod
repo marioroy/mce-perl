@@ -5,7 +5,7 @@ MCE::Core - Documentation describing the core MCE API
 
 =head1 VERSION
 
-This document describes MCE::Core version 1.868
+This document describes MCE::Core version 1.872
 
 =head1 SYNOPSIS
 
@@ -184,19 +184,17 @@ Below, a new instance is configured with all available options.
 
     use_threads => 1,                   ## Auto 0 or 1
 
-       # MCE spawns child processes by default, not threads.
-       #
-       # However, MCE supports threads via 2 threading
-       # libraries if threads is desired.
+       # By default MCE spawns child processes on UNIX platforms and
+       # threads on Windows (i.e. $^O eq 'MSWin32').
 
-       # The use of threads in MCE requires that you include
-       # threads support prior to loading MCE. The use_threads
-       # option defaults to 1 when a thread library is loaded.
-       # Threads is loaded automatically for $^O eq 'MSWin32'.
+       # MCE supports threads via two threading libraries if threads
+       # is preferred over child processes. The use of threads requires
+       # a thread library prior to loading MCE, causing the use_threads
+       # option to default to 1. Specify 0 for child processes.
        #
-       #   use threads;                use forks;
-       #   use threads::shared;  (or)  use forks::shared;
-       #   use MCE                     use MCE;
+       #   use threads;              use forks;
+       #   use threads::shared;      use forks::shared;
+       #   use MCE              (or) use MCE;           (or) use MCE;
 
     spawn_delay  => 0.045,              ## Default undef
     submit_delay => 0.015,              ## Default undef

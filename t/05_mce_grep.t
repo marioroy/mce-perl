@@ -21,9 +21,9 @@ close $fh;
 
 my @a;
 
-MCE::Grep::init {
+MCE::Grep->init(
    max_workers => 2
-};
+);
 
 sub _task { chomp; $_ % 3 == 0 }
 
@@ -45,7 +45,7 @@ is( join('', @a), '369', 'check results for glob' );
 @a = mce_grep_s \&_task, 1, 9;
 is( join('', @a), '369', 'check results for sequence' );
 
-MCE::Grep::finish;
+MCE::Grep->finish;
 
 ##  cleanup
 

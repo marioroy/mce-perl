@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.868';
+our $VERSION = '1.872';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -349,7 +349,7 @@ MCE::Loop - MCE model for building parallel loops
 
 =head1 VERSION
 
-This document describes MCE::Loop version 1.868
+This document describes MCE::Loop version 1.872
 
 =head1 DESCRIPTION
 
@@ -362,9 +362,9 @@ something similar to map, then see L<MCE::Map>.
 
  use MCE::Loop;
 
- MCE::Loop::init {
+ MCE::Loop->init(
     max_workers => 5, chunk_size => 1
- };
+ );
 
  mce_loop {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -387,9 +387,9 @@ something similar to map, then see L<MCE::Map>.
 
  use MCE::Loop;
 
- MCE::Loop::init {
+ MCE::Loop->init(
     max_workers => 5, chunk_size => 'auto'
- };
+ );
 
  mce_loop {
     my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -436,9 +436,9 @@ inside the block. Hence, the block is called once per each item.
  ## Exports mce_loop, mce_loop_f, and mce_loop_s
  use MCE::Loop;
 
- MCE::Loop::init {
+ MCE::Loop->init(
     chunk_size => 1
- };
+ );
 
  ## Array or array_ref
  mce_loop { do_work($_) } 1..10000;
@@ -472,9 +472,9 @@ This means having to loop through the chunk from inside the block.
 
  use MCE::Loop;
 
- MCE::Loop::init {          ## Chunk_size defaults to 'auto' when
+ MCE::Loop->init(           ## Chunk_size defaults to 'auto' when
     chunk_size => 'auto'    ## not specified. Therefore, the init
- };                         ## function may be omitted.
+ );                         ## function may be omitted.
 
  ## Syntax is shown for mce_loop for demonstration purposes.
  ## Looping inside the block is the same for mce_loop_f and
@@ -537,7 +537,7 @@ The init function accepts a hash of MCE options.
 
  use MCE::Loop;
 
- MCE::Loop::init {
+ MCE::Loop->init(
     chunk_size => 1, max_workers => 4,
 
     user_begin => sub {
@@ -547,7 +547,7 @@ The init function accepts a hash of MCE options.
     user_end => sub {
        print "## ", MCE->wid, " completed\n";
     }
- };
+ );
 
  my %a = mce_loop { MCE->gather($_, $_ * $_) } 1..100;
 
@@ -703,10 +703,10 @@ Time was measured using 1 worker to emphasize the difference.
 
  use MCE::Loop;
 
- MCE::Loop::init {
+ MCE::Loop->init(
     max_workers => 1, chunk_size => 1_250_000,
     bounds_only => 1
- };
+ );
 
  # Typically, the input scalar $_ contains the sequence number
  # when chunk_size => 1, unless the bounds_only option is set
@@ -867,10 +867,10 @@ gathering data such as retaining output order.
 
  my @m2;
 
- MCE::Loop::init {
+ MCE::Loop->init(
     chunk_size => 'auto', max_workers => 'auto',
     gather => preserve_order(\@m2)
- };
+ );
 
  mce_loop {
     my @a; my ($mce, $chunk_ref, $chunk_id) = @_;
@@ -884,7 +884,7 @@ gathering data such as retaining output order.
 
  } 1..100000;
 
- MCE::Loop::finish;
+ MCE::Loop->finish;
 
  print scalar @m2, "\n";
 
@@ -938,13 +938,13 @@ longer needed.
 
  use MCE::Loop;
 
- MCE::Loop::init {
+ MCE::Loop->init(
     chunk_size => 20, max_workers => 'auto'
- };
+ );
 
  mce_loop { ... } 1..100;
 
- MCE::Loop::finish;
+ MCE::Loop->finish;
 
 =head1 INDEX
 

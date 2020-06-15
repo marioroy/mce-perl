@@ -9,9 +9,9 @@ BEGIN {
    use_ok 'MCE::Step';
 }
 
-MCE::Step::init {
+MCE::Step->init(
    max_workers => 4
-};
+);
 
 ##  input_data is not required to run mce_step
 
@@ -21,7 +21,7 @@ my @a = mce_step sub {
 
 is( join('', sort @a), '2468', 'check gathered data' );
 
-MCE::Step::finish;
+MCE::Step->finish;
 
 done_testing;
 

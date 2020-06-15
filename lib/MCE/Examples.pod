@@ -5,7 +5,7 @@ MCE::Examples - Various examples and demonstrations
 
 =head1 VERSION
 
-This document describes MCE::Examples version 1.868
+This document describes MCE::Examples version 1.872
 
 =head1 INCLUDED WITH THE DISTRIBUTION
 
@@ -118,10 +118,10 @@ with several models. The L<MCE::Loop> model is used below.
     ...
  }
 
- MCE::Loop::init {
+ MCE::Loop->init(
     chunk_size => 1, max_workers => 3,
     gather => preserve_order
- };
+ );
 
  ## Use $chunk_ref->[0] or $_ to retrieve the element.
  my @input_data = (0 .. 18000 - 1);
@@ -132,7 +132,7 @@ with several models. The L<MCE::Loop> model is used below.
 
  } @input_data;
 
- MCE::Loop::finish;
+ MCE::Loop->finish;
 
 =head2 CHUNKING INPUT DATA
 
@@ -229,10 +229,10 @@ Finally, chunking with the L<MCE::Loop> model.
     ...
  }
 
- MCE::Loop::init {
+ MCE::Loop->init(
     chunk_size => 500, max_workers => 3,
     gather => preserve_order
- };
+ );
 
  ## Chunking requires one to loop inside the code block.
  my @input_data = (0 .. 18000 - 1);
@@ -250,7 +250,7 @@ Finally, chunking with the L<MCE::Loop> model.
 
  } @input_data;
 
- MCE::Loop::finish;
+ MCE::Loop->finish;
 
 =head1 DEMO APPLYING SEQUENCES WITH USER_TASKS
 
@@ -361,13 +361,13 @@ ref for mce_loop on subsequent runs.
 
  my $i = 0;   ## <-- this is the reason, try our instead
 
- MCE::Loop::init {
+ MCE::Loop->init(
     user_begin => sub {
        print "process_id: $$\n" if MCE->wid == 1;
        $i++;
     },
     chunk_size => 1, max_workers => 'auto',
- };
+ );
 
  for (1..2) {
     ## Perl creates another code block ref causing workers
@@ -375,7 +375,7 @@ ref for mce_loop on subsequent runs.
     print "\n"; mce_loop { print "$i: $_\n" } 1..4;
  }
 
- MCE::Loop::finish;
+ MCE::Loop->finish;
 
  -- Output
 
@@ -398,13 +398,13 @@ the script.
 
  our $i = 0;  ## <-- changed my to our
 
- MCE::Loop::init {
+ MCE::Loop->init(
     user_begin => sub {
        print "process_id: $$\n" if MCE->wid == 1;
        $i++;
     },
     chunk_size => 1, max_workers => 'auto',
- };
+ );
 
  for (1..2) {
     ## Workers persist between runs. No re-spawning.
@@ -440,16 +440,16 @@ user_begin and mce_loop. Take notice of the comma after \&_func though.
     print "$i: $_\n";
  }
 
- MCE::Loop::init {
+ MCE::Loop->init(
     user_begin => \&_begin,
     chunk_size => 1, max_workers => 'auto',
- };
+ );
 
  for (1..2) {
     print "\n"; mce_loop \&_func, 1..4;
  }
 
- MCE::Loop::finish;
+ MCE::Loop->finish;
 
  -- Output
 
@@ -638,14 +638,14 @@ for the 2nd run and beyond.
  ## Configure MCE. Move common variables inside the user_begin
  ## block when not needed by the manager process.
 
- MCE::Loop::init {
+ MCE::Loop->init(
     user_begin => sub {
        use vars qw($var $foo $bar);
        our ($var, $foo, $bar) = (1, 2, 3);
     },
     chunk_size => 1, max_workers => 'auto',
     input_data => \&_input, gather => \&_gather
- };
+ );
 
  ## Callback functions.
 
@@ -870,12 +870,12 @@ for C<IO::TieCombine> must be C<stdout> or C<stderr> for MCE->print to work.
  {
     tie local *STDOUT, $hub, 'stdout';
 
-    MCE::Flow::init {
+    MCE::Flow->init(
        max_workers => 4,
        chunk_size  => 500,
        bounds_only => 1,
        gather      => MCE::Candy::out_iter_fh(\*STDOUT),
-    };
+    );
 
     mce_flow_s sub {
        my ($mce, $seq, $chunk_id) = @_;
@@ -893,7 +893,7 @@ for C<IO::TieCombine> must be C<stdout> or C<stderr> for MCE->print to work.
 
     }, 1, 100000;
 
-    MCE::Flow::finish;
+    MCE::Flow->finish;
  }
 
  my $content = $hub->slot_contents('stdout');
@@ -1075,7 +1075,7 @@ The following is one way to do it and does the same thing.
     print "<hr>\n";
 
     if ( $first_time ) {
-       MCE::Map::init( max_workers => 3 );
+       MCE::Map->init( max_workers => 3 );
     }
 
     my @ret = mce_map { "$$: ".( $_ * 2 ) } 1 .. $params{'size'} || 8;

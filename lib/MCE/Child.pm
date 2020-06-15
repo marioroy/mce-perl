@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.868';
+our $VERSION = '1.872';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -951,6 +951,7 @@ sub del {
 
 sub set {
    my ( $key, $data, $keys, $indx ) = ( $_[1], @{ $_[0] } );
+
    $data->{ $key } = $_[2], $indx->{ $key } = @{ $keys };
    push @{ $keys }, "$key";
 
@@ -981,7 +982,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.868
+This document describes MCE::Child version 1.872
 
 =head1 SYNOPSIS
 
