@@ -1,6 +1,13 @@
 
 Revision history for Perl module MCE.
 
+1.873 Sat Aut 01 16:00:00 EST 2020
+
+  * Removed unused variable in MCE::Mutex::Channel.
+
+  * Fixed typo in prior change log.
+    Replaced "completed" with "feature complete".
+
 1.872 Sun Jun 14 22:30:00 EST 2020
 
   * Added open to required dependencies.
@@ -9,7 +16,7 @@ Revision history for Perl module MCE.
   * Bumped minimal Perl version to 5.8.1.
   * Bumped MCE version to 1.872 to align with MCE::Shared.
 
-  * The MCE project is completed.
+  * The MCE project is feature complete.
 
 1.868 Sun May 10 22:00:00 EST 2020
 

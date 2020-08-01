@@ -17,7 +17,7 @@ WriteMakefile(
    ABSTRACT => 'Many-Core Engine for Perl providing parallel processing capabilities',
    AUTHOR   => 'Mario E. Roy <marioeroy AT gmail DOT com>',
    NAME     => 'MCE',
-   VERSION  => '1.872',
+   VERSION  => '1.873',
 
    EXE_FILES => [ @exe_files ],
 
@@ -68,123 +68,123 @@ WriteMakefile(
          'provides' => {
             'MCE' => {
                'file'    => 'lib/MCE.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Candy' => {
                'file'    => 'lib/MCE/Candy.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Channel' => {
                'file'    => 'lib/MCE/Channel.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Channel::Mutex' => {
                'file'    => 'lib/MCE/Channel/Mutex.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Channel::Simple' => {
                'file'    => 'lib/MCE/Channel/Simple.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Channel::Threads' => {
                'file'    => 'lib/MCE/Channel/Threads.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Child' => {
                'file'    => 'lib/MCE/Child.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Core::Input::Generator' => {
                'file'    => 'lib/MCE/Core/Input/Generator.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Core::Input::Handle' => {
                'file'    => 'lib/MCE/Core/Input/Handle.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Core::Input::Iterator' => {
                'file'    => 'lib/MCE/Core/Input/Iterator.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Core::Input::Request' => {
                'file'    => 'lib/MCE/Core/Input/Request.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Core::Input::Sequence' => {
                'file'    => 'lib/MCE/Core/Input/Sequence.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Core::Manager' => {
                'file'    => 'lib/MCE/Core/Manager.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Core::Validation' => {
                'file'    => 'lib/MCE/Core/Validation.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Core::Worker' => {
                'file'    => 'lib/MCE/Core/Worker.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Flow' => {
                'file'    => 'lib/MCE/Flow.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Grep' => {
                'file'    => 'lib/MCE/Grep.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Loop' => {
                'file'    => 'lib/MCE/Loop.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Map' => {
                'file'    => 'lib/MCE/Map.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Mutex' => {
                'file'    => 'lib/MCE/Mutex.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Mutex::Channel' => {
                'file'    => 'lib/MCE/Mutex/Channel.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Mutex::Channel2' => {
                'file'    => 'lib/MCE/Mutex/Channel2.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Mutex::Flock' => {
                'file'    => 'lib/MCE/Mutex/Flock.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Queue' => {
                'file'    => 'lib/MCE/Queue.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Relay' => {
                'file'    => 'lib/MCE/Relay.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Signal' => {
                'file'    => 'lib/MCE/Signal.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Step' => {
                'file'    => 'lib/MCE/Step.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Stream' => {
                'file'    => 'lib/MCE/Stream.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Subs' => {
                'file'    => 'lib/MCE/Subs.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             },
             'MCE::Util' => {
                'file'    => 'lib/MCE/Util.pm',
-               'version' => '1.872'
+               'version' => '1.873'
             }
          },
          'prereqs' => {

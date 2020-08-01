@@ -11,10 +11,10 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.872';
+our $VERSION = '1.873';
 
 use base 'MCE::Mutex';
-use Scalar::Util qw(refaddr weaken);
+use Scalar::Util qw(weaken);
 use MCE::Util ();
 
 my $tid = $INC{'threads.pm'} ? threads->tid() : 0;
@@ -30,8 +30,6 @@ sub DESTROY {
     syswrite($obj->{_r_sock}, '0'), $obj->{$pid.'b'} = 0 if $obj->{$pid.'b'};
 
     if ( $obj->{_init_pid} eq $pid ) {
-        my $addr = refaddr $obj;
-
         ($^O eq 'MSWin32' && $obj->{impl} eq 'Channel')
             ? MCE::Util::_destroy_pipes($obj, qw(_w_sock _r_sock))
             : MCE::Util::_destroy_socks($obj, qw(_w_sock _r_sock));
@@ -141,7 +139,7 @@ MCE::Mutex::Channel - Mutex locking via a pipe or socket
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel version 1.872
+This document describes MCE::Mutex::Channel version 1.873
 
 =head1 DESCRIPTION
 
