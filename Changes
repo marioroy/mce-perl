@@ -1,7 +1,11 @@
 
 Revision history for Perl module MCE.
 
-1.873 Sat Aut 01 16:00:00 EST 2020
+1.874 Tue Aug 18 16:00:00 EST 2020
+
+  * Improved MCE->yield when used together with MCE::Relay.
+
+1.873 Sat Aug 01 16:00:00 EST 2020
 
   * Removed unused variable in MCE::Mutex::Channel.
 

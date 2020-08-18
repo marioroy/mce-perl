@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.873';
+our $VERSION = '1.874';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -670,13 +670,32 @@ sub _output_loop {
             ? $_tasks->[$_task_id]{interval}
             : $self->{interval};
 
-         if ( $_interval ) {
+         if (!$_interval) {
+            print {$_DAU_R_SOCK} '0'.$LF;
+         }
+         elsif ($_interval->{max_nodes} == 1) {
+            my $_delay = $_interval->{delay};
+            my $_lapse = $_interval->{_lapse};
+            my $_time  = MCE::Util::_time();
+
+            if (!$_delay || !defined $_lapse) {
+               $_lapse = $_time;
+            }
+            elsif ($_lapse + $_delay - $_time < 0) {
+               $_lapse += int( abs($_time - $_lapse) / $_delay + 0.5 ) * $_delay;
+            }
+
+            $_interval->{_lapse} = ($_lapse += $_delay);
+            print {$_DAU_R_SOCK} ($_lapse - $_time).$LF
+         }
+         else {
             my $_max_workers = ($_tasks)
                ? $_tasks->[$_task_id]{max_workers}
                : $self->{max_workers};
 
-            $_delay_wid[$_task_id] = 1
-               if (++$_delay_wid[$_task_id] > $_max_workers);
+            if (++$_delay_wid[$_task_id] > $_max_workers) {
+               $_delay_wid[$_task_id] = 1;
+            }
 
             my $_nodes  = $_interval->{max_nodes};
             my $_id     = $_interval->{node_id};
@@ -697,9 +716,6 @@ sub _output_loop {
             ($_delay > 0.0)
                ? print {$_DAU_R_SOCK} $_delay.$LF
                : print {$_DAU_R_SOCK} '0'.$LF;
-         }
-         else {
-            print {$_DAU_R_SOCK} '0'.$LF;
          }
 
          return;
@@ -1025,7 +1041,7 @@ MCE::Core::Manager - Core methods for the manager process
 
 =head1 VERSION
 
-This document describes MCE::Core::Manager version 1.873
+This document describes MCE::Core::Manager version 1.874
 
 =head1 DESCRIPTION
 
