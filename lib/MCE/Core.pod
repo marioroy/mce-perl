@@ -52,17 +52,19 @@ Below, a new instance is configured with all available options.
 
     max_workers => 8,                   ## Default 1
 
-       # Number of workers to spawn. This can be set automatically
-       # with MCE 1.412 and later releases.
+       # Number of workers to spawn.
 
-       # MCE 1.521 sets an upper-limit of 8 for 'auto'.
-       # See MCE::Util::get_ncpu for more info.
-
+       # MCE sets an upper-limit of 8 for 'auto'. MCE 1.521+.
        # max_workers => 'auto',         ## # of lcores, 8 maximum
-       # max_workers => 'auto-1',       ## 7 on HW with 16-lcores
-       # max_workers => 'auto-1',       ## 3 on HW with  4-lcores
+       # max_workers => 'auto-1',       ## 7 on HW with 16 lcores
+       # max_workers => 'auto-1',       ## 3 on HW with  4 lcores
 
-       # max_workers => MCE::Util::get_ncpu, # run on all lcores
+       # Specify a percentage. MCE 1.875+.
+       # max_workers => '25%',          ## 4 on HW with 16 lcores
+       # max_workers => '50%',          ## 8 on HW with 16 lcores
+
+       # Run on all logical cores.
+       # max_workers => MCE::Util::get_ncpu(),
 
     chunk_size => 2000,                 ## Default 1
 

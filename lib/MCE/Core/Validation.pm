@@ -347,7 +347,7 @@ sub _parse_max_workers {
       $_ncpu_ul = $_ncpu = MCE::Util::get_ncpu();
       $_ncpu_ul = 8 if ($_ncpu_ul > 8);
 
-      if ($1 && $2) {
+      if (defined($1) && defined($2)) {
          local $@; $_max_workers = eval "int($_ncpu_ul $1 $2 + 0.5)"; ## no critic
          $_max_workers = 1 if (!$_max_workers || $_max_workers < 1);
          $_max_workers = $_ncpu if ($_max_workers > $_ncpu);
@@ -355,6 +355,14 @@ sub _parse_max_workers {
       else {
          $_max_workers = $_ncpu_ul;
       }
+   }
+   elsif ($_max_workers =~ /^([0-9.]+)%$/) {
+      my $_percent = $1 / 100;
+      my $_ncpu = MCE::Util::get_ncpu();
+
+      $_max_workers = int($_ncpu * $_percent + 0.5);
+      $_max_workers = 1 if ($_max_workers < 1);
+      $_max_workers = $_ncpu if ($_max_workers > $_ncpu);
    }
 
    return $_max_workers;
