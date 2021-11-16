@@ -53,6 +53,7 @@ t/01_mutex_flock.t
 t/02_do_callback_args.t
 t/02_do_callback_result.t
 t/03_chunk_size.t
+t/03_max_workers.t
 t/03_user_args.t
 t/04_norm_que_manager.t
 t/04_norm_que_worker.t
