@@ -14,7 +14,7 @@ package MCE::Core::Validation;
 use strict;
 use warnings;
 
-our $VERSION = '1.875';
+our $VERSION = '1.876';
 
 ## Items below are folded into MCE.
 
@@ -362,7 +362,6 @@ sub _parse_max_workers {
 
       $_max_workers = int($_ncpu * $_percent + 0.5);
       $_max_workers = 1 if ($_max_workers < 1);
-      $_max_workers = $_ncpu if ($_max_workers > $_ncpu);
    }
 
    return $_max_workers;
@@ -399,7 +398,7 @@ MCE::Core::Validation - Core validation methods for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Core::Validation version 1.875
+This document describes MCE::Core::Validation version 1.876
 
 =head1 DESCRIPTION
 

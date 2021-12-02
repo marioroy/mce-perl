@@ -65,6 +65,7 @@ t/04_channel_simple.t
 t/04_channel_threads.t
 t/04_channel_threads_mp.t
 t/05_mce_child.t
+t/05_mce_child_max_workers.t
 t/05_mce_flow.t
 t/05_mce_grep.t
 t/05_mce_loop.t

@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.875';
+our $VERSION = '1.876';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -56,6 +56,19 @@ sub _clear {
    %{ $_LIST } = ();
 }
 
+sub _max_workers {
+   my ( $cpus ) = @_;
+   if ( $cpus eq 'auto' ) {
+      $cpus = MCE::Util::get_ncpu();
+   }
+   elsif ( $cpus =~ /^([0-9.]+)%$/ ) {
+      my ( $percent, $ncpu ) = ( $1 / 100, MCE::Util::get_ncpu() );
+      $cpus = $ncpu * $percent + 0.5;
+   }
+   $cpus = 1 if $cpus !~ /^[\d\.]+$/ || $cpus < 1;
+   return int($cpus);
+}
+
 ###############################################################################
 ## ----------------------------------------------------------------------------
 ## Init routine.
@@ -79,7 +92,7 @@ sub init {
    $mngd->{MGR_ID} = "$$.$_tid", $mngd->{PKG} = $pkg,
    $mngd->{WRK_ID} =  $$;
 
-   &_force_reap($pkg), $_DATA->{$pkg}->clear() if exists $_LIST->{$pkg};
+   &_force_reap($pkg), $_DATA->{$pkg}->clear() if ( exists $_LIST->{$pkg} );
 
    if ( !exists $_LIST->{$pkg} ) {
       $MCE::_GMUTEX->lock() if ( $_tid && $MCE::_GMUTEX );
@@ -108,11 +121,8 @@ sub init {
       );
    }
 
-   if ( $mngd->{max_workers} ) {
-      my $cpus = $mngd->{max_workers};
-      $cpus = MCE::Util::get_ncpu() if $cpus eq 'auto';
-      $cpus = 1 if $cpus !~ /^[\d\.]+$/ || $cpus < 1;
-      $mngd->{max_workers} = int($cpus);
+   if ( defined $mngd->{max_workers} ) {
+      $mngd->{max_workers} = _max_workers($mngd->{max_workers});
    }
 
    if ( $INC{'LWP/UserAgent.pm'} && !$INC{'Net/HTTP.pm'} ) {
@@ -173,20 +183,21 @@ sub create {
    $_DATA->{"$pkg:id"} = 10000 if ( ( my $id = ++$_DATA->{"$pkg:id"} ) > 2e9 );
 
    if ( $max_workers || $self->{IGNORE} ) {
-      local $!;
+      my $wrk_id; local $!;
 
       # Reap completed child processes.
       $_DATA->{$pkg}->reap_data;
 
-      for my $wrk_id ( keys %{ $list->[0] } ) {
-         $list->del($wrk_id), next if ( exists $list->[0]{$wrk_id}{JOINED} );
+      for my $child ( $list->vals() ) {
+         $wrk_id = $child->{WRK_ID};
+         $list->del($wrk_id), next if $child->{REAPED};
          waitpid($wrk_id, _WNOHANG) or next;
          _reap_child($list->del($wrk_id), 0);
       }
 
       # Wait for a slot if saturated.
-      if ( $max_workers && keys(%{ $list->[0] }) >= $max_workers ) {
-         my $count = keys(%{ $list->[0] }) - $max_workers + 1;
+      if ( $max_workers && $list->len() >= $max_workers ) {
+         my $count = $list->len() - $max_workers + 1;
          _wait_one($pkg) for 1 .. $count;
       }
    }
@@ -283,7 +294,7 @@ sub equal {
 
 sub error {
    _croak('Usage: $child->error()') unless ref( my $self = $_[0] );
-   $self->join() unless ( exists $self->{JOINED} );
+   $self->join() unless $self->{REAPED};
    $self->{ERROR} || undef;
 }
 
@@ -303,7 +314,7 @@ sub exit {
       _exit($?); # not reached
    }
 
-   return $self if ( exists $self->{JOINED} );
+   return $self if $self->{REAPED};
 
    if ( exists $_DATA->{$pkg} ) {
       sleep 0.015 until $_DATA->{$pkg}->exists('S'.$wrk_id);
@@ -353,10 +364,10 @@ sub is_joinable {
       '';
    }
    elsif ( $self->{MGR_ID} eq "$$.$_tid" ) {
-      return '' if ( exists $self->{JOINED} );
+      return '' if $self->{REAPED};
       local $!; $_DATA->{$pkg}->reap_data;
       ( waitpid($wrk_id, _WNOHANG) == 0 ) ? '' : do {
-         _reap_child($self, 0) unless ( exists $self->{JOINED} );
+         _reap_child($self, 0) unless $self->{REAPED};
          1;
       };
    }
@@ -374,10 +385,10 @@ sub is_running {
       1;
    }
    elsif ( $self->{MGR_ID} eq "$$.$_tid" ) {
-      return '' if ( exists $self->{JOINED} );
+      return '' if $self->{REAPED};
       local $!; $_DATA->{$pkg}->reap_data;
       ( waitpid($wrk_id, _WNOHANG) == 0 ) ? 1 : do {
-         _reap_child($self, 0) unless ( exists $self->{JOINED} );
+         _reap_child($self, 0) unless $self->{REAPED};
          '';
       };
    }
@@ -391,9 +402,9 @@ sub join {
    _croak('Usage: $child->join()') unless ref( my $self = $_[0] );
    my ( $wrk_id, $pkg ) = ( $self->{WRK_ID}, $self->{PKG} );
 
-   if ( exists $self->{JOINED} ) {
+   if ( $self->{REAPED} ) {
       _croak('Child already joined') unless exists( $self->{RESULT} );
-      $_LIST->{$pkg}->del($wrk_id) if exists( $_LIST->{$pkg} );
+      $_LIST->{$pkg}->del($wrk_id) if ( exists $_LIST->{$pkg} );
 
       return ( defined wantarray )
          ? wantarray ? @{ delete $self->{RESULT} } : delete( $self->{RESULT} )->[-1]
@@ -430,7 +441,7 @@ sub kill {
       return $self;
    }
    if ( $self->{MGR_ID} eq "$$.$_tid" ) {
-      return $self if ( exists $self->{JOINED} );
+      return $self if $self->{REAPED};
       if ( exists $_DATA->{$pkg} ) {
          sleep 0.015 until $_DATA->{$pkg}->exists('S'.$wrk_id);
       } else {
@@ -468,7 +479,7 @@ sub list_joinable {
 
    map {
       ( waitpid($_->{WRK_ID}, _WNOHANG) == 0 ) ? () : do {
-         _reap_child($_, 0) unless ( exists $_->{JOINED} );
+         _reap_child($_, 0) unless $_->{REAPED};
          $_;
       };
    }
@@ -486,7 +497,7 @@ sub list_running {
 
    map {
       ( waitpid($_->{WRK_ID}, _WNOHANG) == 0 ) ? $_ : do {
-         _reap_child($_, 0) unless ( exists $_->{JOINED} );
+         _reap_child($_, 0) unless $_->{REAPED};
          ();
       };
    }
@@ -501,16 +512,7 @@ sub max_workers {
    };
    shift if ( $_[0] eq __PACKAGE__ );
 
-   if ( @_ ) {
-      $mngd->{max_workers} = shift;
-      if ( $mngd->{max_workers} ) {
-         my $cpus = $mngd->{max_workers};
-         $cpus = MCE::Util::get_ncpu() if $cpus eq 'auto';
-         $cpus = 1 if $cpus !~ /^[\d\.]+$/ || $cpus < 1;
-         $mngd->{max_workers} = int($cpus);
-      }
-   }
-
+   $mngd->{max_workers} = _max_workers(shift) if @_;
    $mngd->{max_workers};
 }
 
@@ -527,7 +529,7 @@ sub pid {
 
 sub result {
    _croak('Usage: $child->result()') unless ref( my $self = $_[0] );
-   return $self->join() unless ( exists $self->{JOINED} );
+   return $self->join() unless $self->{REAPED};
 
    _croak('Child already joined') unless exists( $self->{RESULT} );
    wantarray ? @{ delete $self->{RESULT} } : delete( $self->{RESULT} )->[-1];
@@ -722,7 +724,7 @@ sub _reap_child {
 
    local @_ = $_DATA->{ $child->{PKG} }->get( $child->{WRK_ID}, $wait_flag );
 
-   ( $child->{ERROR}, $child->{RESULT}, $child->{JOINED} ) =
+   ( $child->{ERROR}, $child->{RESULT}, $child->{REAPED} ) =
       ( pop || '', length $_[0] ? pop : [], 1 );
 
    return if $child->{IGNORE};
@@ -771,9 +773,9 @@ sub _wait_one {
 
    while () {
       $_DATA->{$pkg}->reap_data;
-      for my $child ( $list->vals ) {
+      for my $child ( $list->vals() ) {
          $wrk_id = $child->{WRK_ID};
-         return  $list->del($wrk_id) if ( exists $child->{JOINED} );
+         return  $list->del($wrk_id) if $child->{REAPED};
          $self = $list->del($wrk_id), last if waitpid($wrk_id, _WNOHANG);
       }
       last if $self;
@@ -919,49 +921,51 @@ sub set {
 package # hide from rpm
    MCE::Child::_ordhash;
 
-sub new    { my $gcnt = 0; bless [ {}, [], {}, \$gcnt ], shift; }
+sub new    { bless [ {}, [], {}, 0 ], shift; }  # data, keys, indx, gcnt
 sub exists { CORE::exists $_[0]->[0]{ $_[1] }; }
 sub get    { $_[0]->[0]{ $_[1] }; }
 sub len    { scalar keys %{ $_[0]->[0] }; }
 
 sub clear {
-   %{ $_[0]->[0] } = @{ $_[0]->[1] } = %{ $_[0]->[2] } = ();
-   ${ $_[0]->[3] } = 0;
+   my ( $self ) = @_;
+   %{ $self->[0] } = @{ $self->[1] } = %{ $self->[2] } = (), $self->[3] = 0;
 
    return;
 }
 
 sub del {
-   my ( $data, $keys, $indx, $gcnt ) = @{ $_[0] };
-   my $pos = delete $indx->{ $_[1] };
-   return undef unless ( defined $pos );
+   my ( $self, $key ) = @_;
+   return undef unless defined( my $off = delete $self->[2]{$key} );
 
-   $keys->[ $pos ] = undef;
+   # tombstone
+   $self->[1][$off] = undef;
 
-   if ( ++${ $gcnt } > @{ $keys } * 0.667 ) {
-      my $i; $i = ${ $gcnt } = 0;
+   # GC keys and refresh index
+   if ( ++$self->[3] > @{ $self->[1] } * 0.667 ) {
+      my ( $keys, $indx ) = ( $self->[1], $self->[2] );
+      my $i; $i = $self->[3] = 0;
       for my $k ( @{ $keys } ) {
-         $keys->[ $i ] = $k, $indx->{ $k } = $i++ if ( defined $k );
+         $keys->[$i] = $k, $indx->{$k} = $i++ if defined($k);
       }
       splice @{ $keys }, $i;
    }
 
-   delete $data->{ $_[1] };
+   delete $self->[0]{$key};
 }
 
 sub set {
-   my ( $key, $data, $keys, $indx ) = ( $_[1], @{ $_[0] } );
+   my ( $self, $key ) = @_;
+   $self->[0]{$key} = $_[2], return 1 if exists($self->[0]{$key});
 
-   $data->{ $key } = $_[2], $indx->{ $key } = @{ $keys };
-   push @{ $keys }, "$key";
+   $self->[2]{$key} = @{ $self->[1] }; push @{ $self->[1] }, $key;
+   $self->[0]{$key} = $_[2];
 
-   return;
+   return 1;
 }
 
 sub vals {
    my ( $self ) = @_;
-
-   ${ $self->[3] }
+   $self->[3]
       ? @{ $self->[0] }{ grep defined($_), @{ $self->[1] } }
       : @{ $self->[0] }{ @{ $self->[1] } };
 }
@@ -982,7 +986,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.875
+This document describes MCE::Child version 1.876
 
 =head1 SYNOPSIS
 
@@ -990,9 +994,15 @@ This document describes MCE::Child version 1.875
 
  MCE::Child->init(
      max_workers => 'auto',   # default undef, unlimited
+
+     # Specify a percentage. MCE::Child 1.876+.
+     max_workers => '25%',    # 4 on HW with 16 lcores
+     max_workers => '50%',    # 8 on HW with 16 lcores
+
      child_timeout => 20,     # default undef, no timeout
      posix_exit => 1,         # default undef, CORE::exit
      void_context => 1,       # default undef
+
      on_start => sub {
          my ( $pid, $ident ) = @_;
          ...
@@ -1264,9 +1274,15 @@ The init function accepts a list of MCE::Child options.
 
  MCE::Child->init(
      max_workers => 'auto',   # default undef, unlimited
+
+     # Specify a percentage. MCE::Child 1.876+.
+     max_workers => '25%',    # 4 on HW with 16 lcores
+     max_workers => '50%',    # 8 on HW with 16 lcores
+
      child_timeout => 20,     # default undef, no timeout
      posix_exit => 1,         # default undef, CORE::exit
      void_context => 1,       # default undef
+
      on_start => sub {
          my ( $pid, $ident ) = @_;
          ...
@@ -1287,8 +1303,8 @@ The init function accepts a list of MCE::Child options.
  MCE::Child->wait_all;
 
 Set C<max_workers> if you want to limit the number of workers by waiting
-automatically for an available slot. Specify C<auto> to obtain the number
-of logical cores via C<MCE::Util::get_ncpu()>.
+automatically for an available slot. Specify a percentage or C<auto> to
+obtain the number of logical cores via C<MCE::Util::get_ncpu()>.
 
 Set C<child_timeout>, in number of seconds, if you want the child process
 to terminate after some time. The default is C<0> for no timeout.

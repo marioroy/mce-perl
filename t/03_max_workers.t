@@ -116,8 +116,8 @@ BEGIN {
    );
 
    $mce = MCE->new(max_workers => '200%');
-   is($mce->max_workers(), 16,
-      "check that max_workers=>'200%' is 16 on HW with 16 logical cores"
+   is($mce->max_workers(), 32,
+      "check that max_workers=>'200%' is 32 on HW with 16 logical cores"
    );
 
    $mce = MCE->new(user_tasks => [
