@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.877';
+our $VERSION = '1.878';
 
 use base 'MCE::Channel';
 
@@ -78,6 +78,7 @@ sub dequeue {
          return wantarray ? () : undef;
       }
 
+      return '' unless $len;
       $is_MSWin32
          ? MCE::Channel::_read( $self->{c_sock}, $data, $len )
          : read( $self->{c_sock}, $data, $len );
@@ -101,6 +102,7 @@ sub dequeue {
             last;
          }
 
+         push(@ret, ''), next unless $len;
          $is_MSWin32
             ? MCE::Channel::_read( $self->{c_sock}, $data, $len )
             : read( $self->{c_sock}, $data, $len );
@@ -182,6 +184,8 @@ sub recv {
       return wantarray ? () : undef;
    }
 
+   return '' unless $len;
+
    $is_MSWin32
       ? MCE::Channel::_read( $self->{c_sock}, $data, $len )
       : read( $self->{c_sock}, $data, $len );
@@ -254,6 +258,8 @@ sub recv2 {
 
    my $len = unpack('i', $plen);
 
+   return '' unless $len;
+
    $is_MSWin32
       ? MCE::Channel::_read( $self->{p_sock}, $data, $len )
       : read( $self->{p_sock}, $data, $len );
@@ -302,7 +308,7 @@ MCE::Channel::SimpleFast - Fast channel tuned for one producer and one consumer
 
 =head1 VERSION
 
-This document describes MCE::Channel::SimpleFast version 1.877
+This document describes MCE::Channel::SimpleFast version 1.878
 
 =head1 DESCRIPTION
 

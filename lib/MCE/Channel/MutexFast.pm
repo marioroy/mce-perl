@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.877';
+our $VERSION = '1.878';
 
 use base 'MCE::Channel';
 use MCE::Mutex ();
@@ -89,10 +89,10 @@ sub dequeue {
          return wantarray ? () : undef;
       }
 
-      MCE::Channel::_read( $self->{c_sock}, my($data), $len );
+      MCE::Channel::_read( $self->{c_sock}, my($data), $len ) if $len;
       $c_mutex->unlock;
 
-      $data;
+      $len ? $data : '';
    }
    else {
       my ( $plen, @ret );
@@ -108,6 +108,7 @@ sub dequeue {
             last;
          }
 
+         push(@ret, ''), next unless $len;
          MCE::Channel::_read( $self->{c_sock}, my($data), $len );
          push @ret, $data;
       }
@@ -180,10 +181,10 @@ sub recv {
       return wantarray ? () : undef;
    }
 
-   MCE::Channel::_read( $self->{c_sock}, my($data), $len );
+   MCE::Channel::_read( $self->{c_sock}, my($data), $len ) if $len;
    $c_mutex->unlock;
 
-   $data;
+   $len ? $data : '';
 }
 
 sub recv_nb {
@@ -248,13 +249,15 @@ sub recv2 {
 
    my $len = unpack('i', $plen);
 
-   ( $p_mutex )
-      ? MCE::Channel::_read( $self->{p_sock}, $data, $len )
-      : read( $self->{p_sock}, $data, $len );
+   if ( $len ) {
+      ( $p_mutex )
+         ? MCE::Channel::_read( $self->{p_sock}, $data, $len )
+         : read( $self->{p_sock}, $data, $len );
+   }
 
    $p_mutex->unlock if $p_mutex;
 
-   $data;
+   $len ? $data : '';
 }
 
 sub recv2_nb {
@@ -305,7 +308,7 @@ MCE::Channel::MutexFast - Fast channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::MutexFast version 1.877
+This document describes MCE::Channel::MutexFast version 1.878
 
 =head1 DESCRIPTION
 

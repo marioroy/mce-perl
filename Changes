@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.878 Sun Feb 20 06:45:00 EST 2022
+
+  * Fix for the fast channel implementations.
+    Thank you, twata for the test report.
+
 1.877 Sun Feb 20 02:30:00 EST 2022
 
   * Improved suppressing the PDL CLONE warning. Piddles should not be

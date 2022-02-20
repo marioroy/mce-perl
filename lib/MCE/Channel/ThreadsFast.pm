@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.877';
+our $VERSION = '1.878';
 
 use threads;
 use threads::shared;
@@ -92,6 +92,7 @@ sub dequeue {
             return wantarray ? () : undef;
          }
 
+         return '' unless $len;
          MCE::Channel::_read( $self->{c_sock}, $data, $len );
       }
 
@@ -113,6 +114,7 @@ sub dequeue {
                last;
             }
 
+            push(@ret, ''), next unless $len;
             MCE::Channel::_read( $self->{c_sock}, my($data), $len );
             push @ret, $data;
          }
@@ -189,6 +191,8 @@ sub recv {
          return wantarray ? () : undef;
       }
 
+      return '' unless $len;
+
       MCE::Channel::_read( $self->{c_sock}, $data, $len );
    }
 
@@ -264,6 +268,7 @@ sub recv2 {
          : read( $p_sock, $plen, 4 );
 
       my $len = unpack('i', $plen);
+      return '' unless $len;
 
       ( $pr_mutex || $is_MSWin32 )
          ? MCE::Channel::_read( $p_sock, $data, $len )
@@ -321,7 +326,7 @@ MCE::Channel::ThreadsFast - Fast channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::ThreadsFast version 1.877
+This document describes MCE::Channel::ThreadsFast version 1.878
 
 =head1 DESCRIPTION
 
