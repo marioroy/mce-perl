@@ -13,8 +13,11 @@ lib/MCE.pod
 lib/MCE/Candy.pm
 lib/MCE/Channel.pm
 lib/MCE/Channel/Mutex.pm
+lib/MCE/Channel/MutexFast.pm
 lib/MCE/Channel/Simple.pm
+lib/MCE/Channel/SimpleFast.pm
 lib/MCE/Channel/Threads.pm
+lib/MCE/Channel/ThreadsFast.pm
 lib/MCE/Child.pm
 lib/MCE/Core.pod
 lib/MCE/Core/Input/Generator.pm
@@ -61,9 +64,14 @@ t/04_prio_que_manager.t
 t/04_prio_que_worker.t
 t/04_channel_mutex.t
 t/04_channel_mutex_mp.t
+t/04_channel_mutexfast.t
+t/04_channel_mutexfast_mp.t
 t/04_channel_simple.t
+t/04_channel_simplefast.t
 t/04_channel_threads.t
 t/04_channel_threads_mp.t
+t/04_channel_threadsfast.t
+t/04_channel_threadsfast_mp.t
 t/05_mce_child.t
 t/05_mce_child_max_workers.t
 t/05_mce_flow.t

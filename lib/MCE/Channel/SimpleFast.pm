@@ -4,7 +4,7 @@
 ##
 ###############################################################################
 
-package MCE::Channel::Simple;
+package MCE::Channel::SimpleFast;
 
 use strict;
 use warnings;
@@ -17,11 +17,9 @@ use base 'MCE::Channel';
 
 my $LF = "\012"; Internals::SvREADONLY($LF, 1);
 my $is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
-my $freeze     = MCE::Channel::_get_freeze();
-my $thaw       = MCE::Channel::_get_thaw();
 
 sub new {
-   my ( $class, %obj ) = ( @_, impl => 'Simple' );
+   my ( $class, %obj ) = ( @_, impl => 'SimpleFast' );
 
    $obj{init_pid} = MCE::Channel::_pid();
    MCE::Util::_sock_pair( \%obj, 'p_sock', 'c_sock' );
@@ -53,7 +51,7 @@ sub enqueue {
    MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
 
    while ( @_ ) {
-      my $data = $freeze->([ shift ]);
+      my $data = ''.shift;
       print { $self->{p_sock} } pack('i', length $data) . $data;
    }
 
@@ -84,7 +82,7 @@ sub dequeue {
          ? MCE::Channel::_read( $self->{c_sock}, $data, $len )
          : read( $self->{c_sock}, $data, $len );
 
-      wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
+      $data;
    }
    else {
       my ( $plen, @ret );
@@ -107,7 +105,7 @@ sub dequeue {
             ? MCE::Channel::_read( $self->{c_sock}, $data, $len )
             : read( $self->{c_sock}, $data, $len );
 
-         push @ret, @{ $thaw->($data) };
+         push @ret, $data;
       }
 
       wantarray ? @ret : $ret[-1];
@@ -133,7 +131,8 @@ sub dequeue_nb {
 
       my $len; $len = unpack('i', $plen) if $plen;
       if ( !$len || $len < 0 ) {
-         $self->end if defined $len && $len < 0;
+         $self->end    if defined $len && $len < 0;
+         push @ret, '' if defined $len && $len == 0;
          last;
       }
 
@@ -141,7 +140,7 @@ sub dequeue_nb {
          ? MCE::Channel::_read( $self->{c_sock}, $data, $len )
          : read( $self->{c_sock}, $data, $len );
 
-      push @ret, @{ $thaw->($data) };
+      push @ret, $data;
    }
 
    wantarray ? @ret : $ret[-1];
@@ -157,7 +156,7 @@ sub send {
    my $self = shift;
    return MCE::Channel::_ended('send') if $self->{ended};
 
-   my $data = $freeze->([ @_ ]);
+   my $data = ''.shift;
 
    local $\ = undef if (defined $\);
    MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
@@ -187,7 +186,7 @@ sub recv {
       ? MCE::Channel::_read( $self->{c_sock}, $data, $len )
       : read( $self->{c_sock}, $data, $len );
 
-   wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
+   $data;
 }
 
 sub recv_nb {
@@ -206,6 +205,7 @@ sub recv_nb {
    my $len; $len = unpack('i', $plen) if $plen;
    if ( !$len || $len < 0 ) {
       $self->end if defined $len && $len < 0;
+      return ''  if defined $len && $len == 0;
       return wantarray ? () : undef;
    }
 
@@ -213,7 +213,7 @@ sub recv_nb {
       ? MCE::Channel::_read( $self->{c_sock}, $data, $len )
       : read( $self->{c_sock}, $data, $len );
 
-   wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
+   $data;
 }
 
 ###############################################################################
@@ -224,7 +224,7 @@ sub recv_nb {
 
 sub send2 {
    my $self = shift;
-   my $data = $freeze->([ @_ ]);
+   my $data = ''.shift;
 
    local $\ = undef if (defined $\);
    local $MCE::Signal::SIG;
@@ -258,7 +258,7 @@ sub recv2 {
       ? MCE::Channel::_read( $self->{p_sock}, $data, $len )
       : read( $self->{p_sock}, $data, $len );
 
-   wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
+   $data;
 }
 
 sub recv2_nb {
@@ -275,13 +275,15 @@ sub recv2_nb {
    MCE::Util::_nonblocking( $self->{p_sock}, 0 );
 
    my $len; $len = unpack('i', $plen) if $plen;
+
+   return '' if defined $len && $len == 0;
    return wantarray ? () : undef unless $len;
 
    $is_MSWin32
       ? MCE::Channel::_read( $self->{p_sock}, $data, $len )
       : read( $self->{p_sock}, $data, $len );
 
-   wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
+   $data;
 }
 
 1;
@@ -296,18 +298,26 @@ __END__
 
 =head1 NAME
 
-MCE::Channel::Simple - Channel tuned for one producer and one consumer
+MCE::Channel::SimpleFast - Fast channel tuned for one producer and one consumer
 
 =head1 VERSION
 
-This document describes MCE::Channel::Simple version 1.877
+This document describes MCE::Channel::SimpleFast version 1.877
 
 =head1 DESCRIPTION
 
 A channel class providing queue-like and two-way communication
 for one process or thread on either end; no locking needed.
 
-The API is described in L<MCE::Channel>.
+This is similar to L<MCE::Channel::Simple> but optimized for
+non-Unicode strings only. The main difference is that this module
+lacks freeze-thaw serialization. Non-string arguments become
+stringified; i.e. numbers and undef.
+
+The API is described in L<MCE::Channel> with the sole difference
+being C<send> and C<send2> handle one argument.
+
+Current module available since MCE 1.877.
 
 =over 3
 

@@ -4,7 +4,7 @@
 ##
 ###############################################################################
 
-package MCE::Channel::Threads;
+package MCE::Channel::ThreadsFast;
 
 use strict;
 use warnings;
@@ -20,11 +20,9 @@ use base 'MCE::Channel';
 
 my $LF = "\012"; Internals::SvREADONLY($LF, 1);
 my $is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
-my $freeze     = MCE::Channel::_get_freeze();
-my $thaw       = MCE::Channel::_get_thaw();
 
 sub new {
-   my ( $class, %obj ) = ( @_, impl => 'Threads' );
+   my ( $class, %obj ) = ( @_, impl => 'ThreadsFast' );
 
    $obj{init_pid} = MCE::Channel::_pid();
    MCE::Util::_sock_pair( \%obj, 'p_sock', 'c_sock' );
@@ -68,7 +66,7 @@ sub enqueue {
       MCE::Util::_sock_ready_w( $self->{p_sock} ) if $is_MSWin32;
 
       while ( @_ ) {
-         my $data = $freeze->([ shift ]);
+         my $data = ''.shift;
          print { $self->{p_sock} } pack('i', length $data), $data;
       }
    }
@@ -97,7 +95,7 @@ sub dequeue {
          MCE::Channel::_read( $self->{c_sock}, $data, $len );
       }
 
-      wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
+      $data;
    }
    else {
       my ( $plen, @ret );
@@ -116,7 +114,7 @@ sub dequeue {
             }
 
             MCE::Channel::_read( $self->{c_sock}, my($data), $len );
-            push @ret, @{ $thaw->($data) };
+            push @ret, $data;
          }
       }
 
@@ -140,12 +138,13 @@ sub dequeue_nb {
 
          my $len; $len = unpack('i', $plen) if $plen;
          if ( !$len || $len < 0 ) {
-            $self->end if defined $len && $len < 0;
+            $self->end    if defined $len && $len < 0;
+            push @ret, '' if defined $len && $len == 0;
             last;
          }
 
          MCE::Channel::_read( $self->{c_sock}, my($data), $len );
-         push @ret, @{ $thaw->($data) };
+         push @ret, $data;
       }
    }
 
@@ -162,7 +161,7 @@ sub send {
    my $self = shift;
    return MCE::Channel::_ended('send') if $self->{ended};
 
-   my $data = $freeze->([ @_ ]);
+   my $data = ''.shift;
 
    local $\ = undef if (defined $\);
 
@@ -193,7 +192,7 @@ sub recv {
       MCE::Channel::_read( $self->{c_sock}, $data, $len );
    }
 
-   wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
+   $data;
 }
 
 sub recv_nb {
@@ -209,13 +208,14 @@ sub recv_nb {
       my $len; $len = unpack('i', $plen) if $plen;
       if ( !$len || $len < 0 ) {
          $self->end if defined $len && $len < 0;
+         return ''  if defined $len && $len == 0;
          return wantarray ? () : undef;
       }
 
       MCE::Channel::_read( $self->{c_sock}, $data, $len );
    }
 
-   wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
+   $data;
 }
 
 ###############################################################################
@@ -226,7 +226,7 @@ sub recv_nb {
 
 sub send2 {
    my $self = shift;
-   my $data = $freeze->([ @_ ]);
+   my $data = ''.shift;
 
    local $\ = undef if (defined $\);
    local $MCE::Signal::SIG;
@@ -270,7 +270,7 @@ sub recv2 {
          : read( $p_sock, $data, $len );
    }
 
-   wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
+   $data;
 }
 
 sub recv2_nb {
@@ -294,6 +294,7 @@ sub recv2_nb {
 
       my $len; $len = unpack('i', $plen) if $plen;
 
+      return '' if defined $len && $len == 0;
       return wantarray ? () : undef unless $len;
 
       ( $pr_mutex || $is_MSWin32 )
@@ -301,7 +302,7 @@ sub recv2_nb {
          : read( $p_sock, $data, $len );
    }
 
-   wantarray ? @{ $thaw->($data) } : ( $thaw->($data) )->[-1];
+   $data;
 }
 
 1;
@@ -316,18 +317,26 @@ __END__
 
 =head1 NAME
 
-MCE::Channel::Threads - Channel for producer(s) and many consumers
+MCE::Channel::ThreadsFast - Fast channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Threads version 1.877
+This document describes MCE::Channel::ThreadsFast version 1.877
 
 =head1 DESCRIPTION
 
 A channel class providing queue-like and two-way communication
 for threads only. Locking is handled using threads::shared.
 
-The API is described in L<MCE::Channel>.
+This is similar to L<MCE::Channel::Threads> but optimized for
+non-Unicode strings only. The main difference is that this module
+lacks freeze-thaw serialization. Non-string arguments become
+stringified; i.e. numbers and undef.
+
+The API is described in L<MCE::Channel> with the sole difference
+being C<send> and C<send2> handle one argument.
+
+Current module available since MCE 1.877.
 
 =over 3
 
@@ -336,13 +345,13 @@ The API is described in L<MCE::Channel>.
  use MCE::Channel;
 
  # The default is tuned for one producer and many consumers.
- my $chnl_a = MCE::Channel->new( impl => 'Threads' );
+ my $chnl_a = MCE::Channel->new( impl => 'ThreadsFast' );
 
  # Specify the 'mp' option for safe use by two or more producers
  # sending or recieving on the left side of the channel (i.e.
  # ->enqueue/->send or ->recv2/->recv2_nb).
 
- my $chnl_b = MCE::Channel->new( impl => 'Threads', mp => 1 );
+ my $chnl_b = MCE::Channel->new( impl => 'ThreadsFast', mp => 1 );
 
 =back
 
@@ -387,7 +396,7 @@ The API is described in L<MCE::Channel>.
 =head1 LIMITATIONS
 
 The t/04_channel_threads tests are disabled on Unix platforms for Perl
-less than 5.10.1. Basically, the MCE::Channel::Threads implementation
+less than 5.10.1. Basically, the MCE::Channel::ThreadsFast implementation
 is not supported on older Perls unless the OS vendor applied upstream
 patches (i.e. works on RedHat/CentOS 5.x running Perl 5.8.x).
 

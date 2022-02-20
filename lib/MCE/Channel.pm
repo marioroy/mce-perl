@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.876';
+our $VERSION = '1.877';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -55,8 +55,13 @@ sub new {
    my ( $class, %argv ) = @_;
    my $impl = defined( $argv{impl} ) ? ucfirst( lc $argv{impl} ) : 'Mutex';
 
-   $impl = 'Threads' if ( $impl eq 'Mutex'   && $^O eq 'MSWin32' );
-   $impl = 'Mutex'   if ( $impl eq 'Threads' && $^O eq 'cygwin' );
+   # Replace 'fast' with 'Fast' in the implementation value.
+   $impl =~ s/fast$/Fast/;
+
+   $impl = 'Threads'     if ( $impl eq 'Mutex' && $^O eq 'MSWin32' );
+   $impl = 'ThreadsFast' if ( $impl eq 'MutexFast' && $^O eq 'MSWin32' );
+   $impl = 'Mutex'       if ( $impl eq 'Threads' && $^O eq 'cygwin' );
+   $impl = 'MutexFast'   if ( $impl eq 'ThreadsFast' && $^O eq 'cygwin' );
 
    eval "require MCE::Channel::$impl; 1;" ||
       Carp::croak("Could not load Channel implementation '$impl': $@");
@@ -127,7 +132,7 @@ MCE::Channel - Queue-like and two-way communication capability
 
 =head1 VERSION
 
-This document describes MCE::Channel version 1.876
+This document describes MCE::Channel version 1.877
 
 =head1 SYNOPSIS
 
@@ -309,6 +314,15 @@ Object (de)serialization is handled automatically.
  $chnl->send($id, [ list_ref ]);
  $chnl->send($id, { hash_ref });
 
+The fast channel implementations, introduced in MCE 1.877, support one item
+for C<send>. If you want to pass multiple arguments, simply join the arguments
+into a string. That means the receiver will need to split the string.
+
+ $chnl = MCE::Channel->new(impl => "SimpleFast");
+
+ $chnl->send(join(" ", qw/item1 item2 item3/);
+ my ($item1, $item2, $item3) = split " ", $chnl->recv();
+
 =head2 recv
 
 =head2 recv_nb
@@ -341,6 +355,15 @@ Object (de)serialization is handled automatically.
  $chnl->send2($id, [ list_ref ]);
  $chnl->send2($id, { hash_ref });
 
+The fast channel implementations, introduced in MCE 1.877, support one item
+for C<send2>. If you want to pass multiple arguments, simply join the arguments
+into a string. Not to forget, the receiver must split the string as well.
+
+ $chnl = MCE::Channel->new(impl => "MutexFast");
+
+ $chnl->send2(join(" ", qw/item1 item2 item3/);
+ my ($item1, $item2, $item3) = split " ", $chnl->recv();
+
 =head2 recv2
 
 =head2 recv2_nb
@@ -361,8 +384,8 @@ list context or C<undef> in scalar context.
 
 =head2 Example 1 - threads
 
-C<MCE::Channel> was made to work efficiently with L<threads>. The reason is from
-using L<threads::shared> for locking versus L<MCE::Mutex>.
+C<MCE::Channel> was made to work efficiently with L<threads>. The reason
+comes from using L<threads::shared> for locking versus L<MCE::Mutex>.
 
  use strict;
  use warnings;
@@ -713,7 +736,7 @@ Mario E. Roy, S<E<lt>marioeroy AT gmail DOT comE<gt>>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2019-2021 by Mario E. Roy
+Copyright (C) 2019-2022 by Mario E. Roy
 
 MCE::Channel is released under the same license as Perl.
 
