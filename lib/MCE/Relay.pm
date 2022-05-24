@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.878';
+our $VERSION = '1.879';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 
@@ -368,7 +368,7 @@ MCE::Relay - Extends Many-Core Engine with relay capabilities
 
 =head1 VERSION
 
-This document describes MCE::Relay version 1.878
+This document describes MCE::Relay version 1.879
 
 =head1 SYNOPSIS
 
@@ -600,7 +600,7 @@ demonstration for the fasta-benchmark on the web.
  # perl fasta.pl 25000000
 
  # The Computer Language Benchmarks game
- # http://benchmarksgame.alioth.debian.org/
+ # https://benchmarksgame-team.pages.debian.net/benchmarksgame/
  #
  # contributed by Barry Walsh
  # port of fasta.rb #6
@@ -880,7 +880,7 @@ Here, workers write exclusively and orderly to C<STDOUT>.
  # perl fasta.pl 25000000
 
  # The Computer Language Benchmarks game
- # http://benchmarksgame.alioth.debian.org/
+ # https://benchmarksgame-team.pages.debian.net/benchmarksgame/
  #
  # contributed by Barry Walsh
  # port of fasta.rb #6

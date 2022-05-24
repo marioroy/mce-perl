@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.878';
+our $VERSION = '1.879';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -527,10 +527,12 @@ sub spawn {
    _sendto_fhs_close();
 
    if ($INC{'PDL.pm'}) { local $@;
-      ## PDL::IO::Storable is required for serializing piddles.
+      # PDL::IO::Storable is required for serializing piddles.
       eval 'use PDL::IO::Storable' unless $INC{'PDL/IO/Storable.pm'};
-      ## PDL data should not be naively copied in new threads.
+      # PDL data should not be naively copied in new threads.
       eval 'no warnings; sub PDL::CLONE_SKIP { 1 }';
+      # Disable PDL auto-threading.
+      eval q{ PDL::set_autopthread_targ(1) };
    }
    if ( $INC{'LWP/UserAgent.pm'} && !$INC{'Net/HTTP.pm'} ) {
       local $@; eval 'require Net::HTTP; require Net::HTTPS';

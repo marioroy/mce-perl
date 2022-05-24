@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.878';
+our $VERSION = '1.879';
 
 use threads;
 use threads::shared;
@@ -326,7 +326,7 @@ MCE::Channel::ThreadsFast - Fast channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::ThreadsFast version 1.878
+This document describes MCE::Channel::ThreadsFast version 1.879
 
 =head1 DESCRIPTION
 

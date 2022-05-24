@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.879 Tue May 24 05:00:00 EST 2022
+
+  * Replace http with https in documentation and meta files.
+  * Call PDL::set_autopthread_targ(1); disables PDL auto-threading.
+
 1.878 Sun Feb 20 06:45:00 EST 2022
 
   * Fix for the fast channel implementations.
@@ -294,8 +299,8 @@ Revision history for Perl module MCE.
   * Load IO::Handle for extra stability, preventing workers loading uniquely.
 
   * Load Net::HTTP and Net::HTTPS before spawning if present LWP::UserAgent.
-    See http://www.perlmonks.org/?node_id=1199760
-    and http://www.perlmonks.org/?node_id=1199891.
+    See https://www.perlmonks.org/?node_id=1199760
+    and https://www.perlmonks.org/?node_id=1199891.
 
 1.834 Tue Jan 23 08:00:00 EST 2018
 
@@ -318,17 +323,17 @@ Revision history for Perl module MCE.
 1.831 Sun Oct 08 20:30:00 EST 2017
 
   * Added STFL (Terminal UI) to list for enabling posix_exit.
-    See http://www.perlmonks.org/?node_id=1200923.
+    See https://www.perlmonks.org/?node_id=1200923.
 
   * Math::Prime::Util random numbers now unique between MCE workers.
-    See http://www.perlmonks.org/?node_id=1200960.
+    See https://www.perlmonks.org/?node_id=1200960.
 
 1.830 Tue Sep 12 17:00:00 EST 2017
 
   [BUG FIXES]
 
   * Fixed MCE and MCE::Relay stalling when setting the input record separator.
-    See http://www.perlmonks.org/?node_id=1196701. Thank you, JediWombat.
+    See https://www.perlmonks.org/?node_id=1196701. Thank you, JediWombat.
 
   * Fixed bug with dequeue_nb in MCE::Queue (#8). Thank you, @bokutin.
   * Fixed signal handler (#9). Thank you, @chrisdenley.
@@ -1903,7 +1908,7 @@ Revision history for Perl module MCE.
 
   * Updates to __DIE__ and __WARN__ handling in MCE. These address the 
     unreferenced scalars seen in packaging logs at activestate.com for
-    Perl under Windows: http://code.activestate.com/ppm/MCE/
+    Perl under Windows: https://code.activestate.com/ppm/MCE/
   * Update t/01_load_signal_arg.t -- added check for $ENV{TEMP}
     This fixes issue seen under Cygwin
 
@@ -1952,7 +1957,7 @@ Revision history for Perl module MCE.
 1.001 Wed Nov 07 23:58:20 EST 2012
 
   * Added perl-MCE.spec to trunk
-    http://code.google.com/p/many-core-engine-perl/source/browse/trunk/
+    https://code.google.com/p/many-core-engine-perl/source/browse/trunk/
   * Added CREDITS
   * Added 3 new methods to MCE.pm: continue, last, and exit
   * Both foreach & forchunk now call run(1, {...}) to auto-shutdown workers

@@ -5,7 +5,7 @@ MCE - Many-Core Engine for Perl providing parallel processing capabilities
 
 =head1 VERSION
 
-This document describes MCE version 1.878
+This document describes MCE version 1.879
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
@@ -267,13 +267,11 @@ Perl 5.8.0 or later.
 
 =head1 SOURCE AND FURTHER READING
 
-The source, cookbook, and examples are hosted at GitHub.
+The source and examples are hosted at GitHub.
 
 =over 3
 
 =item * L<https://github.com/marioroy/mce-perl>
-
-=item * L<https://github.com/marioroy/mce-cookbook>
 
 =item * L<https://github.com/marioroy/mce-examples>
 
@@ -305,7 +303,7 @@ Copyright (C) 2012-2022 by Mario E. Roy
 
 MCE is released under the same license as Perl.
 
-See L<http://dev.perl.org/licenses/> for more information.
+See L<https://dev.perl.org/licenses/> for more information.
 
 =cut
 

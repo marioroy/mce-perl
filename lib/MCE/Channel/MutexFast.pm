@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.878';
+our $VERSION = '1.879';
 
 use base 'MCE::Channel';
 use MCE::Mutex ();
@@ -308,7 +308,7 @@ MCE::Channel::MutexFast - Fast channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::MutexFast version 1.878
+This document describes MCE::Channel::MutexFast version 1.879
 
 =head1 DESCRIPTION
 

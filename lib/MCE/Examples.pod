@@ -5,7 +5,7 @@ MCE::Examples - Various examples and demonstrations
 
 =head1 VERSION
 
-This document describes MCE::Examples version 1.878
+This document describes MCE::Examples version 1.879
 
 =head1 INCLUDED WITH THE DISTRIBUTION
 
@@ -475,7 +475,7 @@ the C<init_relay> option, which loads MCE::Relay.
  # outputs a pbm binary to STDOUT
 
  # The Computer Language Benchmarks Game
- # http://benchmarksgame.alioth.debian.org/
+ # https://benchmarksgame-team.pages.debian.net/benchmarksgame/
  #
  # Started with:
  # C#  : Adapted by Antti Lankila from Isaac Gouy's implementation

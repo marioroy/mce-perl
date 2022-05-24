@@ -48,7 +48,7 @@ Berger, Joel
   The inspiration for the sixth model (MCE::Step) came from reading a blog
   by Joel, "Writing Non-Blocking Applications with Mojolicious: Part 3":
 
-  http://blogs.perl.org/users/joel_berger/2014/01/
+  https://blogs.perl.org/users/joel_berger/2014/01/
          writing-non-blocking-applications-with-mojolicious-part-3.html
 
 Bouras, George
@@ -102,8 +102,8 @@ Farrell, David
   The blog "Make your code run faster with Perl's secret turbo module" is
   located at:
 
-  http://perltricks.com/article/61/2014/1/21/
-         Make-your-code-run-faster-with-Perl-s-secret-turbo-module
+  https://www.perl.com/article/61/2014/1/21/
+         Make-your-code-run-faster-with-Perl-s-secret-turbo-module/
 
 Gasper, Felipe
 
@@ -250,7 +250,7 @@ Sasser, Tom
 
 Schlichting, Florian
 
-  For making a Debian package for MCE: http://pkgs.org/search/libmce-perl.
+  For making a Debian package for MCE: libmce-perl
 
 Shen, Wei
 
