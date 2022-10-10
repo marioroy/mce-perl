@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.879';
+our $VERSION = '1.880';
 
 use threads;
 use threads::shared;
@@ -320,7 +320,7 @@ MCE::Channel::Threads - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Threads version 1.879
+This document describes MCE::Channel::Threads version 1.880
 
 =head1 DESCRIPTION
 

@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.879';
+our $VERSION = '1.880';
 
 my $_tid = $INC{'threads.pm'} ? threads->tid() : 0;
 
@@ -42,6 +42,8 @@ no warnings qw( threads recursion uninitialized );
       $_DAT_LOCK, $_DAT_W_SOCK, $_DAU_W_SOCK, $_chn, $_lock_chn,
       $_dat_ex, $_dat_un
    );
+
+   my $_is_MSWin32 = ($^O eq 'MSWin32') ? 1 : 0;
 
    ## Create array structure containing various send functions.
    my @_dest_function = ();
@@ -258,6 +260,7 @@ no warnings qw( threads recursion uninitialized );
          # inlined for performance
          $_dat_ex = sub {
             my $_pid = $_tid ? $$ .'.'. $_tid : $$;
+            MCE::Util::_sock_ready($_DAT_LOCK->{_r_sock}) if $_is_MSWin32;
             MCE::Util::_sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
                unless $_DAT_LOCK->{ $_pid };
          };
@@ -325,8 +328,7 @@ no warnings qw( threads recursion uninitialized );
       }
 
       if ($self->{loop_timeout} && $self->{_task_id} == 0 &&
-          defined $self->{init_relay} && !$self->{_is_thread} &&
-          $^O ne 'MSWin32') {
+          defined $self->{init_relay} && !$self->{_is_thread} && !$_is_MSWin32) {
 
          local $\ = undef if (defined $\);
 
@@ -714,7 +716,7 @@ MCE::Core::Worker - Core methods for the worker process
 
 =head1 VERSION
 
-This document describes MCE::Core::Worker version 1.879
+This document describes MCE::Core::Worker version 1.880
 
 =head1 DESCRIPTION
 

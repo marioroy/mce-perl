@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.879';
+our $VERSION = '1.880';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -1111,6 +1111,7 @@ sub _mce_m_heap {
          # inlined for performance
          $_dat_ex = sub {
             my $_pid = $_tid ? $$ .'.'. $_tid : $$;
+            MCE::Util::_sock_ready($_DAT_LOCK->{_r_sock}) if $_is_MSWin32;
             MCE::Util::_sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
                unless $_DAT_LOCK->{ $_pid };
          };
@@ -1395,7 +1396,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.879
+This document describes MCE::Queue version 1.880
 
 =head1 SYNOPSIS
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.879';
+our $VERSION = '1.880';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -605,20 +605,17 @@ sub spawn {
          for (1 .. $_data_channels);
    }
 
-   ## Create sockets for IPC.                             sync, comm, data
+   ## Create sockets for IPC.                      sync, comm, input, data
    MCE::Util::_sock_pair($self, qw(_bsb_r_sock _bsb_w_sock), undef, 1);
    MCE::Util::_sock_pair($self, qw(_com_r_sock _com_w_sock), undef, 1);
-
+   MCE::Util::_sock_pair($self, qw(_que_r_sock _que_w_sock), undef, 1);
    MCE::Util::_sock_pair($self, qw(_dat_r_sock _dat_w_sock), 0);
+
    MCE::Util::_sock_pair($self, qw(_dat_r_sock _dat_w_sock), $_, 1)
       for (1 .. $_data_channels);
 
    setsockopt($self->{_dat_r_sock}->[0], SOL_SOCKET, SO_RCVBUF, pack('i', 4096))
       if ($^O ne 'aix' && $^O ne 'linux');
-
-   ($_is_MSWin32)                                                   # input
-      ? MCE::Util::_pipe_pair($self, qw(_que_r_sock _que_w_sock))
-      : MCE::Util::_sock_pair($self, qw(_que_r_sock _que_w_sock), undef, 1);
 
    if (defined $self->{init_relay}) {                               # relay
       unless ($INC{'MCE/Relay.pm'}) {
@@ -1360,13 +1357,9 @@ sub shutdown {
    $_COM_R_SOCK = undef;
 
    MCE::Util::_destroy_socks($self, qw(
-      _bsb_w_sock _bsb_r_sock _com_w_sock _com_r_sock
+      _bsb_w_sock _bsb_r_sock _com_w_sock _com_r_sock _que_w_sock _que_r_sock
       _dat_w_sock _dat_r_sock _rla_w_sock _rla_r_sock
    ));
-
-   ($_is_MSWin32)
-      ? MCE::Util::_destroy_pipes($self, qw( _que_w_sock _que_r_sock ))
-      : MCE::Util::_destroy_socks($self, qw( _que_w_sock _que_r_sock ));
 
    ## -------------------------------------------------------------------------
 

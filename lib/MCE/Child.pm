@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.879';
+our $VERSION = '1.880';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -180,14 +180,13 @@ sub create {
       $_LIST->{ $mngd->{PKG} }, $mngd->{max_workers}, $mngd->{PKG}
    );
 
-   $_DATA->{"$pkg:id"} = 10000 if ( ( my $id = ++$_DATA->{"$pkg:id"} ) > 2e9 );
+   $_DATA->{"$pkg:id"} = 10000 if ( ( my $id = ++$_DATA->{"$pkg:id"} ) >= 2e9 );
+   $_DATA->{$pkg}->reap_data;
 
    if ( $max_workers || $self->{IGNORE} ) {
       my $wrk_id; local $!;
 
       # Reap completed child processes.
-      $_DATA->{$pkg}->reap_data;
-
       for my $child ( $list->vals() ) {
          $wrk_id = $child->{WRK_ID};
          $list->del($wrk_id), next if $child->{REAPED};
@@ -882,7 +881,7 @@ sub get {
             my $data = $self->[1]->recv2_nb();
             if ( !defined $data ) {
                last if waitpid($wrk_id, _WNOHANG);
-               sleep(0.030), next;
+               sleep(0.0009), next;
             }
             $self->[0]{ $data->[0] } = $data->[1];
             waitpid($wrk_id, 0), last if $data->[0] eq 'R'.$wrk_id;
@@ -986,7 +985,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.879
+This document describes MCE::Child version 1.880
 
 =head1 SYNOPSIS
 

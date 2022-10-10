@@ -1,6 +1,13 @@
 
 Revision history for Perl module MCE.
 
+1.880 Mon Oct 10 04:00:00 EST 2022
+
+  * Improved reliability on the Windows platform.
+  * Improved MCE::Mutex::Channel::timedwait on the Windows platform.
+  * Improved MCE::Mutex::Channel performance on UNIX platforms.
+  * Resolved edge case in MCE::Child reaching deadlock.
+
 1.879 Tue May 24 05:00:00 EST 2022
 
   * Replace http with https in documentation and meta files.

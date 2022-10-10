@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.879';
+our $VERSION = '1.880';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -48,7 +48,6 @@ BEGIN {
 
 use MCE::Util ();
 
-my $is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
 my $tid = $INC{'threads.pm'} ? threads->tid() : 0;
 
 sub new {
@@ -132,7 +131,7 @@ MCE::Channel - Queue-like and two-way communication capability
 
 =head1 VERSION
 
-This document describes MCE::Channel version 1.879
+This document describes MCE::Channel version 1.880
 
 =head1 SYNOPSIS
 

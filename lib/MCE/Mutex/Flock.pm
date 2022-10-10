@@ -11,11 +11,12 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.879';
+our $VERSION = '1.880';
 
 use base 'MCE::Mutex';
 use Fcntl ':flock';
-use Carp ();
+use Scalar::Util 'looks_like_number';
+use Time::HiRes 'alarm';
 
 my $tid = $INC{'threads.pm'} ? threads->tid() : 0;
 
@@ -27,7 +28,6 @@ sub DESTROY {
     my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, @_);
 
     $obj->unlock(), close(delete $obj->{_fh}) if $obj->{ $pid };
-
     unlink $obj->{path} if ($obj->{_init} && $obj->{_init} eq $pid);
 
     return;
@@ -167,6 +167,24 @@ sub synchronize {
 
 *enter = \&synchronize;
 
+sub timedwait {
+    my ($obj, $timeout) = @_;
+    die 'MCE::Mutex::Flock::timedwait() unimplemented in this platform'
+        if ($^O eq 'MSWin32');
+
+    $timeout = 1 unless defined $timeout;
+    Carp::croak('MCE::Mutex: timedwait (timeout) is not valid')
+        if (!looks_like_number($timeout) || $timeout < 0);
+
+    $timeout = 0.0003 if $timeout < 0.0003;
+
+    local $@; local $SIG{ALRM} = sub { alarm 0; die "timed out\n" };
+    eval { alarm $timeout; $obj->lock_exclusive };
+    alarm 0;
+
+    ( $@ && $@ eq "timed out\n" ) ? '' : 1;
+}
+
 1;
 
 __END__
@@ -183,7 +201,7 @@ MCE::Mutex::Flock - Mutex locking via Fcntl
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Flock version 1.879
+This document describes MCE::Mutex::Flock version 1.880
 
 =head1 DESCRIPTION
 

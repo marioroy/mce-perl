@@ -84,5 +84,7 @@ t/06_nodata_flow.t
 t/06_nodata_step.t
 t/06_relay.t
 xt/channel_lock.t
+xt/channel_timedwait.t
 xt/channel2_lock.t
+xt/channel2_timedwait.t
 xt/flock_lock.t

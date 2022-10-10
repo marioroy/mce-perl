@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.879';
+our $VERSION = '1.880';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -28,8 +28,8 @@ if ( $INC{'threads.pm'} && $^O !~ /mswin|mingw|msys|cygwin/i ) {
 
 sub new {
     my ($class, %argv) = @_;
-    my $impl = defined($argv{'impl'})
-        ? $argv{'impl'} : defined($argv{'path'}) ? 'Flock' : 'Channel';
+    my $impl = defined($argv{impl})
+        ? $argv{impl} : defined($argv{path}) ? 'Flock' : 'Channel';
 
     $impl = ucfirst( lc $impl );
 
@@ -42,22 +42,10 @@ sub new {
     return $pkg->new( %argv );
 }
 
-## base class methods
+## base class method
 
 sub impl {
-    return $_[0]->{'impl'} || 'Not defined';
-}
-
-sub timedwait {
-    my ($obj, $timeout) = @_;
-
-    local $@; local $SIG{'ALRM'} = sub { alarm 0; die "timed out\n" };
-
-    eval { alarm $timeout || 1; $obj->lock_exclusive; };
-
-    alarm 0;
-
-    ( $@ && $@ eq "timed out\n" ) ? '' : 1;
+    return $_[0]->{impl} || 'Not defined';
 }
 
 1;
@@ -76,7 +64,7 @@ MCE::Mutex - Locking for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Mutex version 1.879
+This document describes MCE::Mutex version 1.880
 
 =head1 SYNOPSIS
 
@@ -211,11 +199,11 @@ completes. Optionally, the method is C<wantarray> aware.
 
 The method C<enter> is an alias for C<synchronize>, available since 1.822.
 
-=head2 $mutex->timedwait ( timeout )
+=head2 $mutex->timedwait ( floating_seconds )
 
 Blocks until obtaining an exclusive lock. A false value is returned
 if the timeout is reached, and a true value otherwise. The default is
-1 second when omitting timeout.
+1 second.
 
  my $mutex = MCE::Mutex->new( path => $0 );
 

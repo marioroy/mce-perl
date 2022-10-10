@@ -14,7 +14,7 @@ package MCE::Core::Input::Handle;
 use strict;
 use warnings;
 
-our $VERSION = '1.879';
+our $VERSION = '1.880';
 
 ## Items below are folded into MCE.
 
@@ -48,6 +48,7 @@ sub _worker_read_handle {
    _croak('MCE::_worker_read_handle: (user_func) is not specified')
       unless (defined $self->{user_func});
 
+   my $_is_MSWin32  = ($^O eq 'MSWin32') ? 1 : 0;
    my $_DAT_LOCK    = $self->{_dat_lock};
    my $_QUE_R_SOCK  = $self->{_que_r_sock};
    my $_QUE_W_SOCK  = $self->{_que_w_sock};
@@ -69,6 +70,7 @@ sub _worker_read_handle {
          $_DAT_LOCK = $self->{'_mutex_'.( $self->{_wid} % 5 + 1 )};
       }
       $_dat_ex = sub {
+         MCE::Util::_sock_ready($_DAT_LOCK->{_r_sock}) if $_is_MSWin32;
          MCE::Util::_sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
             unless $_DAT_LOCK->{ $_pid };
       };
@@ -110,6 +112,7 @@ sub _worker_read_handle {
 
       ## Obtain the next chunk_id and offset position.
       $_dat_ex->() if $_lock_chn;
+      MCE::Util::_sock_ready($_QUE_R_SOCK) if $_is_MSWin32;
       MCE::Util::_sysread($_QUE_R_SOCK, $_next, $_que_read_size);
 
       ($_chunk_id, $_offset_pos) = unpack($_que_template, $_next);
@@ -280,7 +283,7 @@ MCE::Core::Input::Handle - File path and Scalar reference input reader
 
 =head1 VERSION
 
-This document describes MCE::Core::Input::Handle version 1.879
+This document describes MCE::Core::Input::Handle version 1.880
 
 =head1 DESCRIPTION
 

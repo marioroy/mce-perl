@@ -11,11 +11,14 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.879';
+our $VERSION = '1.880';
 
 use base 'MCE::Mutex::Channel';
 use MCE::Util ();
+use Scalar::Util 'looks_like_number';
+use Time::HiRes 'alarm';
 
+my $is_MSWin32 = ($^O eq 'MSWin32') ? 1 : 0;
 my $tid = $INC{'threads.pm'} ? threads->tid() : 0;
 
 sub CLONE {
@@ -30,12 +33,12 @@ sub CLONE {
 
 sub new {
     my ($class, %obj) = (@_, impl => 'Channel2');
-    $obj{'_init_pid'} = $tid ? $$ .'.'. $tid : $$;
+    $obj{_init_pid} = $tid ? $$ .'.'. $tid : $$;
 
     MCE::Util::_sock_pair(\%obj, qw(_r_sock _w_sock), undef, 1);
 
-    syswrite $obj{_r_sock}, '0';
-    syswrite $obj{_w_sock}, '0';
+    CORE::syswrite($obj{_r_sock}, '0');
+    CORE::syswrite($obj{_w_sock}, '0');
 
     bless \%obj, $class;
 
@@ -49,6 +52,7 @@ sub new {
 sub lock2 {
     my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, shift);
 
+    MCE::Util::_sock_ready($obj->{_w_sock}) if $is_MSWin32;
     MCE::Util::_sysread($obj->{_w_sock}, my($b), 1), $obj->{ $pid.'b' } = 1
         unless $obj->{ $pid.'b' };
 
@@ -74,6 +78,7 @@ sub synchronize2 {
     return unless ref($code) eq 'CODE';
 
     # lock, run, unlock - inlined for performance
+    MCE::Util::_sock_ready($obj->{_w_sock}) if $is_MSWin32;
     MCE::Util::_sysread($obj->{_w_sock}, $b, 1), $obj->{ $pid.'b' } = 1
         unless $obj->{ $pid.'b' };
 
@@ -91,13 +96,27 @@ sub synchronize2 {
 sub timedwait2 {
     my ($obj, $timeout) = @_;
 
-    local $@; local $SIG{'ALRM'} = sub { alarm 0; die "timed out\n" };
+    $timeout = 1 unless defined $timeout;
+    Carp::croak('MCE::Mutex::Channel2: timedwait2 (timeout) is not valid')
+        if (!looks_like_number($timeout) || $timeout < 0);
 
-    eval { alarm $timeout || 1; $obj->lock_exclusive2 };
+    $timeout = 0.0003 if $timeout < 0.0003;
+    local $@; my $ret = '';
 
-    alarm 0;
+    eval {
+        local $SIG{ALRM} = sub { die "alarm clock restart\n" };
+        alarm $timeout unless $is_MSWin32;
 
-    ( $@ && $@ eq "timed out\n" ) ? '' : 1;
+        die "alarm clock restart\n"
+            if $is_MSWin32 && MCE::Util::_sock_ready($obj->{_w_sock}, $timeout);
+
+        $obj->lock_exclusive2, $ret = 1;
+        alarm 0 unless $is_MSWin32;
+    };
+
+    alarm 0 unless $is_MSWin32;
+
+    $ret;
 }
 
 1;
@@ -116,7 +135,7 @@ MCE::Mutex::Channel2 - Provides two mutexes using a single channel
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel2 version 1.879
+This document describes MCE::Mutex::Channel2 version 1.880
 
 =head1 DESCRIPTION
 

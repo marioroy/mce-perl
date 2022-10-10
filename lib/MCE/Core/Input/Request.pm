@@ -14,7 +14,7 @@ package MCE::Core::Input::Request;
 use strict;
 use warnings;
 
-our $VERSION = '1.879';
+our $VERSION = '1.880';
 
 ## Items below are folded into MCE.
 
@@ -29,8 +29,6 @@ no warnings qw( threads recursion uninitialized );
 ##
 ###############################################################################
 
-my $_is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
-
 sub _worker_request_chunk {
 
    my ($self, $_proc_type) = @_;
@@ -40,6 +38,7 @@ sub _worker_request_chunk {
    _croak('MCE::_worker_request_chunk: (user_func) is not specified')
       unless (defined $self->{user_func});
 
+   my $_is_MSWin32  = ($^O eq 'MSWin32') ? 1 : 0;
    my $_chn         = $self->{_chn};
    my $_DAT_LOCK    = $self->{_dat_lock};
    my $_DAT_W_SOCK  = $self->{_dat_w_sock}->[0];
@@ -57,6 +56,7 @@ sub _worker_request_chunk {
 
       # inlined for performance
       $_dat_ex = sub {
+         MCE::Util::_sock_ready($_DAT_LOCK->{_r_sock}) if $_is_MSWin32;
          MCE::Util::_sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
             unless $_DAT_LOCK->{ $_pid };
       };
@@ -199,7 +199,7 @@ MCE::Core::Input::Request - Array reference and Glob reference input reader
 
 =head1 VERSION
 
-This document describes MCE::Core::Input::Request version 1.879
+This document describes MCE::Core::Input::Request version 1.880
 
 =head1 DESCRIPTION
 
