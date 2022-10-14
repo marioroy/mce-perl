@@ -14,7 +14,7 @@ package MCE::Core::Validation;
 use strict;
 use warnings;
 
-our $VERSION = '1.880';
+our $VERSION = '1.881';
 
 ## Items below are folded into MCE.
 
@@ -320,13 +320,17 @@ sub _parse_chunk_size {
          if ($_size) {
             $_chunk_size = int($_size / $_max_workers / 24 + 0.5);
             $_chunk_size = 5_242_880 if $_chunk_size > 5_242_880;  # 5M
-            $_chunk_size = 2 if $_chunk_size <= 8192;
+            if ($_chunk_size <= 8192) {
+               $_chunk_size = (caller() =~ /^MCE::(?:Grep|Map|Stream)/) ? 1 : 2;
+            }
          }
       }
       else {
          $_chunk_size = int($_size / $_max_workers / 24 + 0.5);
          $_chunk_size = 8000 if $_chunk_size > 8000;
-         $_chunk_size = 2 if $_chunk_size < 2;
+         if ($_chunk_size < 2) {
+            $_chunk_size = (caller() =~ /^MCE::(?:Grep|Map|Stream)/) ? 1 : 2;
+         }
       }
    }
 
@@ -398,7 +402,7 @@ MCE::Core::Validation - Core validation methods for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Core::Validation version 1.880
+This document describes MCE::Core::Validation version 1.881
 
 =head1 DESCRIPTION
 

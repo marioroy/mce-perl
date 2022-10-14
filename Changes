@@ -1,6 +1,15 @@
 
 Revision history for Perl module MCE.
 
+1.881 Thu Oct 13 23:45:00 EST 2022
+
+  * Improved the private _parse_chunk_size function. For better
+    utilization of CPU cores in MCE::Grep, MCE::Map, and MCE::Stream,
+    processing small input sizes.
+
+    Previously, chunk_size => 'auto' equals 2 minimally.
+    Starting with MCE v1.881, 'auto' equals 1 minimally.
+
 1.880 Mon Oct 10 04:00:00 EST 2022
 
   * Improved reliability on the Windows platform.
