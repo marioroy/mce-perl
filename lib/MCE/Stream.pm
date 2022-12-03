@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.881';
+our $VERSION = '1.882';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -50,11 +50,12 @@ sub import {
    };
 
    ## Import functions.
-   no strict 'refs'; no warnings 'redefine';
-
-   *{ $_pkg.'::mce_stream_f' } = \&run_file;
-   *{ $_pkg.'::mce_stream_s' } = \&run_seq;
-   *{ $_pkg.'::mce_stream'   } = \&run;
+   if ($_pkg !~ /^MCE::/) {
+      no strict 'refs'; no warnings 'redefine';
+      *{ $_pkg.'::mce_stream_f' } = \&run_file;
+      *{ $_pkg.'::mce_stream_s' } = \&run_seq;
+      *{ $_pkg.'::mce_stream'   } = \&run;
+   }
 
    ## Process module arguments.
    while ( my $_argument = shift ) {
@@ -65,6 +66,8 @@ sub import {
       $_p->{TMP_DIR}      = shift, next if ( $_arg eq 'tmp_dir' );
       $_p->{FREEZE}       = shift, next if ( $_arg eq 'freeze' );
       $_p->{THAW}         = shift, next if ( $_arg eq 'thaw' );
+      $_p->{INIT_RELAY}   = shift, next if ( $_arg eq 'init_relay' );
+      $_p->{USE_THREADS}  = shift, next if ( $_arg eq 'use_threads' );
       $_p->{DEFAULT_MODE} = shift, next if ( $_arg eq 'default_mode' );
 
                             shift, next if ( $_arg eq 'fast' ); # ignored
@@ -268,17 +271,17 @@ sub run_seq (@) {
          $_pos = $_i;
 
          if ($_r eq '' || $_r =~ /^Math::/) {
-            $_begin = $_[$_pos]; $_end = $_[$_pos + 1];
+            $_begin = $_[$_pos], $_end = $_[$_pos + 1];
             $_params->{$_pid}{sequence} = [
                $_[$_pos], $_[$_pos + 1], $_[$_pos + 2], $_[$_pos + 3]
             ];
          }
          elsif ($_r eq 'HASH') {
-            $_begin = $_[$_pos]->{begin}; $_end = $_[$_pos]->{end};
+            $_begin = $_[$_pos]->{begin}, $_end = $_[$_pos]->{end};
             $_params->{$_pid}{sequence} = $_[$_pos];
          }
          elsif ($_r eq 'ARRAY') {
-            $_begin = $_[$_pos]->[0]; $_end = $_[$_pos]->[1];
+            $_begin = $_[$_pos]->[0], $_end = $_[$_pos]->[1];
             $_params->{$_pid}{sequence} = $_[$_pos];
          }
 
@@ -423,10 +426,14 @@ sub run (@) {
       $_max_workers = int($_max_workers / @_code + 0.5) + 1;
    }
 
-   my $_chunk_size = MCE::_parse_chunk_size(
-      $_def->{$_pkg}{CHUNK_SIZE}, $_max_workers, $_params->{$_pid},
-      $_input_data, scalar @_
-   );
+   my $_chunk_size = do {
+      my $_p = $_params->{$_pid} || {};
+      (defined $_p->{init_relay} || defined $_def->{$_pkg}{INIT_RELAY}) ? 1 :
+      MCE::_parse_chunk_size(
+         $_def->{$_pkg}{CHUNK_SIZE}, $_max_workers, $_params->{$_pid},
+         $_input_data, scalar @_
+      );
+   };
 
    if (defined (my $_p = $_params->{$_pid})) {
       if (exists $_p->{_file}) {
@@ -479,7 +486,7 @@ sub run (@) {
          }
       }
 
-      for my $_k (qw/ tmp_dir freeze thaw /) {
+      for my $_k (qw/ tmp_dir freeze thaw init_relay use_threads /) {
          $_opts{$_k} = $_def->{$_pkg}{uc($_k)}
             if (exists $_def->{$_pkg}{uc($_k)} && !exists $_opts{$_k});
       }
@@ -671,7 +678,7 @@ MCE::Stream - Parallel stream model for chaining multiple maps and greps
 
 =head1 VERSION
 
-This document describes MCE::Stream version 1.881
+This document describes MCE::Stream version 1.882
 
 =head1 SYNOPSIS
 
@@ -782,8 +789,9 @@ The fast option is obsolete in 1.867 onwards; ignored if specified.
      tmp_dir => "/path/to/app/tmp",   # $MCE::Signal::tmp_dir
      freeze => \&encode_sereal,       # \&Storable::freeze
      thaw => \&decode_sereal,         # \&Storable::thaw
+     init_relay => 0,                 # Default undef; MCE 1.882+
+     use_threads => 0,                # Default undef; MCE 1.882+
      default_mode => 'grep',          # Default 'map'
-     fast => 1                        # Default 0 (fast dequeue)
  ;
 
 From MCE 1.8 onwards, Sereal 3.015+ is loaded automatically if available.

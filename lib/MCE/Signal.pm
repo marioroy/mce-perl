@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.881';
+our $VERSION = '1.882';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -102,6 +102,7 @@ sub import {
 
 ## Set traps to catch signals.
 if ( !$_is_MSWin32 ) {
+   $SIG{ABRT} = \&stop_and_exit;  # UNIX SIG  6
    $SIG{HUP}  = \&stop_and_exit;  # UNIX SIG  1
    $SIG{INT}  = \&stop_and_exit;  # UNIX SIG  2
    $SIG{PIPE} = \&stop_and_exit;  # UNIX SIG 13
@@ -189,7 +190,7 @@ sub defer {
 }
 
 my %_sig_name_lkup = map { $_ => 1 } qw(
-   __DIE__ HUP INT PIPE QUIT TERM __WARN__
+   __DIE__ ABRT HUP INT PIPE QUIT TERM __WARN__
 );
 
 my $_count = 0;
@@ -340,12 +341,13 @@ sub _die_handler {
    ## when wanting the output to contain the localtime.
 
    if (defined $_[0]) {
+      my $mesg = $_[0]; $mesg =~ s/, <__ANONIO__> line \d+//;
       if ($MCE::Signal::display_die_with_localtime) {
          my $_time_stamp = localtime;
-         print {*STDERR} "## $_time_stamp: $prog_name: ERROR:\n", $_[0];
+         print {*STDERR} "## $_time_stamp: $prog_name: ERROR:\n", $mesg;
       }
       else {
-         print {*STDERR} $_[0];
+         print {*STDERR} $mesg;
       }
    }
 
@@ -358,6 +360,7 @@ sub _warn_handler {
    ## Ignore thread warnings during exiting.
 
    return if (
+      $_[0] =~ /^Finished with active (?:child|hobo) processes/  ||
       $_[0] =~ /^A thread exited while \d+ threads were running/ ||
       $_[0] =~ /^Attempt to free unreferenced scalar/            ||
       $_[0] =~ /^Perl exited with active threads/                ||
@@ -370,12 +373,13 @@ sub _warn_handler {
    ## when wanting the output to contain the localtime.
 
    if (defined $_[0]) {
+      my $mesg = $_[0]; $mesg =~ s/, <__ANONIO__> line \d+//;
       if ($MCE::Signal::display_warn_with_localtime) {
          my $_time_stamp = localtime;
-         print {*STDERR} "## $_time_stamp: $prog_name: WARNING:\n", $_[0];
+         print {*STDERR} "## $_time_stamp: $prog_name: WARNING:\n", $mesg;
       }
       else {
-         print {*STDERR} $_[0];
+         print {*STDERR} $mesg;
       }
    }
 
@@ -438,7 +442,7 @@ MCE::Signal - Temporary directory creation/cleanup and signal handling
 
 =head1 VERSION
 
-This document describes MCE::Signal version 1.881
+This document describes MCE::Signal version 1.882
 
 =head1 SYNOPSIS
 
@@ -463,11 +467,11 @@ This document describes MCE::Signal version 1.881
 
 =head1 DESCRIPTION
 
-This package configures $SIG{ HUP, INT, PIPE, QUIT, and TERM } to point to
-stop_and_exit and creates a temporary directory. The main process and workers
-receiving said signals call stop_and_exit, which signals all workers to
-terminate, removes the temporary directory unless -keep_tmp_dir is specified,
-and terminates itself.
+This package configures $SIG{ ABRT, HUP, INT, PIPE, QUIT, and TERM } to
+point to stop_and_exit and creates a temporary directory. The main process
+and workers receiving said signals call stop_and_exit, which signals all
+workers to terminate, removes the temporary directory unless -keep_tmp_dir
+is specified, and terminates itself.
 
 The location of the temp directory resides under $ENV{TEMP} if defined,
 otherwise /dev/shm if writeable and -use_dev_shm is specified, or /tmp.

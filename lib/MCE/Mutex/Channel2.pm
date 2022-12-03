@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.881';
+our $VERSION = '1.882';
 
 use base 'MCE::Mutex::Channel';
 use MCE::Util ();
@@ -104,14 +104,15 @@ sub timedwait2 {
     local $@; my $ret = '';
 
     eval {
-        local $SIG{ALRM} = sub { die "alarm clock restart\n" };
+        local $SIG{ALRM} = sub { alarm 0; die "alarm clock restart\n" };
         alarm $timeout unless $is_MSWin32;
 
         die "alarm clock restart\n"
             if $is_MSWin32 && MCE::Util::_sock_ready($obj->{_w_sock}, $timeout);
 
-        $obj->lock_exclusive2, $ret = 1;
-        alarm 0 unless $is_MSWin32;
+        (!$is_MSWin32)
+            ? ($obj->lock_exclusive2, $ret = 1, alarm(0))
+            : ($obj->lock_exclusive2, $ret = 1);
     };
 
     alarm 0 unless $is_MSWin32;
@@ -135,7 +136,7 @@ MCE::Mutex::Channel2 - Provides two mutexes using a single channel
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel2 version 1.881
+This document describes MCE::Mutex::Channel2 version 1.882
 
 =head1 DESCRIPTION
 

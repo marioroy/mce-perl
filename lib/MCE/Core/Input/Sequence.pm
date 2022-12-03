@@ -14,7 +14,7 @@ package MCE::Core::Input::Sequence;
 use strict;
 use warnings;
 
-our $VERSION = '1.881';
+our $VERSION = '1.882';
 
 ## Items below are folded into MCE.
 
@@ -42,34 +42,28 @@ sub _worker_sequence_queue {
       unless (defined $self->{user_func});
 
    my $_is_MSWin32  = ($^O eq 'MSWin32') ? 1 : 0;
-   my $_DAT_LOCK    = $self->{_dat_lock};
    my $_QUE_R_SOCK  = $self->{_que_r_sock};
    my $_QUE_W_SOCK  = $self->{_que_w_sock};
-   my $_lock_chn    = $self->{_lock_chn};
    my $_bounds_only = $self->{bounds_only} || 0;
    my $_chunk_size  = $self->{chunk_size};
    my $_wuf         = $self->{_wuf};
 
    my ($_next, $_chunk_id, $_seq_n, $_begin, $_end, $_step, $_fmt);
-   my ($_dat_ex, $_dat_un, $_pid, $_abort, $_offset);
+   my ($_DAT_LOCK, $_dat_ex, $_dat_un, $_pid, $_abort, $_offset);
 
-   if ($_lock_chn) {
-      $_pid = $INC{'threads.pm'} ? $$ .'.'. threads->tid() : $$;
+   $_pid = $INC{'threads.pm'} ? $$ .'.'. threads->tid() : $$;
 
-      # inlined for performance
-      if ($self->{_data_channels} > 5) {
-         $_DAT_LOCK = $self->{'_mutex_'.( $self->{_wid} % 5 + 1 )};
-      }
-      $_dat_ex = sub {
-         MCE::Util::_sock_ready($_DAT_LOCK->{_r_sock}) if $_is_MSWin32;
-         MCE::Util::_sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
-            unless $_DAT_LOCK->{ $_pid };
-      };
-      $_dat_un = sub {
-         syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
-            if $_DAT_LOCK->{ $_pid };
-      };
-   }
+   # inlined for performance
+   $_DAT_LOCK = $self->{'_mutex_'.( $self->{_wid} % 2 + 10 )};
+   $_dat_ex = sub {
+      MCE::Util::_sock_ready($_DAT_LOCK->{_r_sock}) if $_is_MSWin32;
+      MCE::Util::_sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
+         unless $_DAT_LOCK->{ $_pid };
+   };
+   $_dat_un = sub {
+      syswrite($_DAT_LOCK->{_w_sock}, '0'), $_DAT_LOCK->{ $_pid } = 0
+         if $_DAT_LOCK->{ $_pid };
+   };
 
    if (ref $self->{sequence} eq 'ARRAY') {
       ($_begin, $_end, $_step, $_fmt) = @{ $self->{sequence} };
@@ -98,7 +92,7 @@ sub _worker_sequence_queue {
    while (1) {
 
       ## Obtain the next chunk_id and sequence number.
-      $_dat_ex->() if $_lock_chn;
+      $_dat_ex->();
       MCE::Util::_sock_ready($_QUE_R_SOCK) if $_is_MSWin32;
       MCE::Util::_sysread($_QUE_R_SOCK, $_next, $_que_read_size);
 
@@ -106,7 +100,7 @@ sub _worker_sequence_queue {
 
       if ($_offset >= $_abort) {
          syswrite($_QUE_W_SOCK, pack($_que_template, 0, $_offset));
-         $_dat_un->() if $_lock_chn;
+         $_dat_un->();
          return;
       }
 
@@ -114,7 +108,7 @@ sub _worker_sequence_queue {
          $_QUE_W_SOCK, pack($_que_template, $_chunk_id + 1, $_offset + 1)
       );
 
-      $_dat_un->() if $_lock_chn;
+      $_dat_un->();
       $_chunk_id++;
 
       ## Call user function.
@@ -234,7 +228,7 @@ MCE::Core::Input::Sequence - Sequence of numbers (for task_id == 0)
 
 =head1 VERSION
 
-This document describes MCE::Core::Input::Sequence version 1.881
+This document describes MCE::Core::Input::Sequence version 1.882
 
 =head1 DESCRIPTION
 

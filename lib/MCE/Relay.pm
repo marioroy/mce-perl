@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.881';
+our $VERSION = '1.882';
 
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
 
@@ -199,7 +199,7 @@ sub relay_recv {
 
    my $x = shift; my $self = ref($x) ? $x : $MCE::MCE;
 
-   _croak('MCE::relay_recv: (init_relay) is not specified')
+   _croak('MCE::relay_recv: (init_relay) is not defined')
       unless (defined $self->{init_relay});
    _croak('MCE::relay_recv: method is not allowed by the manager process')
       unless ($self->{_wid});
@@ -254,7 +254,7 @@ sub relay (;&) {
       $_code = shift;
    }
 
-   _croak('MCE::relay: (init_relay) is not specified')
+   _croak('MCE::relay: (init_relay) is not defined')
       unless (defined $self->{init_relay});
    _croak('MCE::relay: method is not allowed by the manager process')
       unless ($self->{_wid});
@@ -368,7 +368,7 @@ MCE::Relay - Extends Many-Core Engine with relay capabilities
 
 =head1 VERSION
 
-This document describes MCE::Relay version 1.881
+This document describes MCE::Relay version 1.882
 
 =head1 SYNOPSIS
 
@@ -435,13 +435,15 @@ across all platforms.
 
 =item MCE::relay { code }
 
+=item mce_relay { code } since 1.882
+
 =item MCE->relay ( sub { code } )
 
 =item $mce->relay ( sub { code } )
 
 =back
 
-Relay is enabled by specifying the init_relay option which takes a hash or array
+Relay is enabled by defining the init_relay option which takes a hash or array
 reference, or a scalar value. Relaying is orderly and driven by chunk_id when
 processing data, otherwise task_wid. Omitting the code block (e.g. MCE::relay)
 relays forward.
@@ -455,12 +457,11 @@ Below, relaying multiple values via a HASH reference.
  },
  sub {
     my $wid = MCE->wid;
-
-    ## do work
-    my $pass = $wid % 3;
+    my $pass = $wid % 3;  # simulate work
     my $errs = $wid % 2;
 
-    ## relay
+    ## relay (include the trailing semicolon)
+
     my %last_rpt = MCE::relay { $_->{p} += $pass; $_->{e} += $errs };
 
     MCE->print("$wid: passed $pass, errors $errs\n");

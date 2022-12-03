@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.881';
+our $VERSION = '1.882';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -45,11 +45,12 @@ sub import {
    };
 
    ## Import functions.
-   no strict 'refs'; no warnings 'redefine';
-
-   *{ $_pkg.'::mce_map_f' } = \&run_file;
-   *{ $_pkg.'::mce_map_s' } = \&run_seq;
-   *{ $_pkg.'::mce_map'   } = \&run;
+   if ($_pkg !~ /^MCE::/) {
+      no strict 'refs'; no warnings 'redefine';
+      *{ $_pkg.'::mce_map_f' } = \&run_file;
+      *{ $_pkg.'::mce_map_s' } = \&run_seq;
+      *{ $_pkg.'::mce_map'   } = \&run;
+   }
 
    ## Process module arguments.
    while ( my $_argument = shift ) {
@@ -60,6 +61,8 @@ sub import {
       $_p->{TMP_DIR}     = shift, next if ( $_arg eq 'tmp_dir' );
       $_p->{FREEZE}      = shift, next if ( $_arg eq 'freeze' );
       $_p->{THAW}        = shift, next if ( $_arg eq 'thaw' );
+      $_p->{INIT_RELAY}  = shift, next if ( $_arg eq 'init_relay' );
+      $_p->{USE_THREADS} = shift, next if ( $_arg eq 'use_threads' );
 
       ## Sereal 3.015+, if available, is used automatically by MCE 1.8+.
       if ( $_arg eq 'sereal' ) {
@@ -206,16 +209,28 @@ sub run_seq (&@) {
    my ($_begin, $_end);
 
    if (ref $_[0] eq 'HASH') {
-      $_begin = $_[0]->{begin}; $_end = $_[0]->{end};
+      $_begin = $_[0]->{begin}, $_end = $_[0]->{end};
       $_params->{$_pid}{sequence} = $_[0];
    }
    elsif (ref $_[0] eq 'ARRAY') {
-      $_begin = $_[0]->[0]; $_end = $_[0]->[1];
-      $_params->{$_pid}{sequence} = $_[0];
+      if (@{ $_[0] } > 3 && $_[0]->[3] =~ /\d$/) {
+         $_begin = $_[0]->[0], $_end = $_[0]->[-1];
+         $_params->{$_pid}{sequence} = [ $_[0]->[0], $_[0]->[-1] ];
+      }
+      else {
+         $_begin = $_[0]->[0], $_end = $_[0]->[1];
+         $_params->{$_pid}{sequence} = $_[0];
+      }
    }
    elsif (ref $_[0] eq '' || ref($_[0]) =~ /^Math::/) {
-      $_begin = $_[0]; $_end = $_[1];
-      $_params->{$_pid}{sequence} = [ @_ ];
+      if (@_ > 3 && $_[3] =~ /\d$/) {
+         $_begin = $_[0], $_end = $_[-1];
+         $_params->{$_pid}{sequence} = [ $_[0], $_[-1] ];
+      }
+      else {
+         $_begin = $_[0], $_end = $_[1];
+         $_params->{$_pid}{sequence} = [ @_ ];
+      }
    }
    else {
       _croak("$_tag: (sequence) is not specified or valid");
@@ -268,10 +283,14 @@ sub run (&@) {
       delete $_p->{gather}      if (exists $_p->{gather});
    }
 
-   my $_chunk_size = MCE::_parse_chunk_size(
-      $_def->{$_pkg}{CHUNK_SIZE}, $_max_workers, $_params->{$_pid},
-      $_input_data, scalar @_
-   );
+   my $_chunk_size = do {
+      my $_p = $_params->{$_pid} || {};
+      (defined $_p->{init_relay} || defined $_def->{$_pkg}{INIT_RELAY}) ? 1 :
+      MCE::_parse_chunk_size(
+         $_def->{$_pkg}{CHUNK_SIZE}, $_max_workers, $_params->{$_pid},
+         $_input_data, scalar @_
+      );
+   };
 
    if (defined (my $_p = $_params->{$_pid})) {
       if (exists $_p->{_file}) {
@@ -354,7 +373,7 @@ sub run (&@) {
          }
       }
 
-      for my $_k (qw/ tmp_dir freeze thaw /) {
+      for my $_k (qw/ tmp_dir freeze thaw init_relay use_threads /) {
          $_opts{$_k} = $_def->{$_pkg}{uc($_k)}
             if (exists $_def->{$_pkg}{uc($_k)} && !exists $_opts{$_k});
       }
@@ -434,7 +453,7 @@ MCE::Map - Parallel map model similar to the native map function
 
 =head1 VERSION
 
-This document describes MCE::Map version 1.881
+This document describes MCE::Map version 1.882
 
 =head1 SYNOPSIS
 
@@ -530,7 +549,9 @@ The following list options which may be overridden when loading the module.
      chunk_size => 100,               # Default 'auto'
      tmp_dir => "/path/to/app/tmp",   # $MCE::Signal::tmp_dir
      freeze => \&encode_sereal,       # \&Storable::freeze
-     thaw => \&decode_sereal          # \&Storable::thaw
+     thaw => \&decode_sereal,         # \&Storable::thaw
+     init_relay => 0,                 # Default undef; MCE 1.882+
+     use_threads => 0,                # Default undef; MCE 1.882+
  ;
 
 From MCE 1.8 onwards, Sereal 3.015+ is loaded automatically if available.

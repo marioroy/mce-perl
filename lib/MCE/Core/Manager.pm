@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.881';
+our $VERSION = '1.882';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -955,7 +955,7 @@ sub _output_loop {
       };
 
       while ( $self->{_total_running} ) {
-         alarm $_timeout; $_func = <$_DAT_R_SOCK>; alarm 0;
+         alarm($_timeout); $_func = <$_DAT_R_SOCK>, alarm(0);
          $_DAU_R_SOCK = $_channels->[ <$_DAT_R_SOCK> ];
 
          if (exists $_core_output_function{$_func}) {
@@ -1041,7 +1041,7 @@ MCE::Core::Manager - Core methods for the manager process
 
 =head1 VERSION
 
-This document describes MCE::Core::Manager version 1.881
+This document describes MCE::Core::Manager version 1.882
 
 =head1 DESCRIPTION
 

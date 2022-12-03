@@ -14,7 +14,7 @@ package MCE::Core::Validation;
 use strict;
 use warnings;
 
-our $VERSION = '1.881';
+our $VERSION = '1.882';
 
 ## Items below are folded into MCE.
 
@@ -402,7 +402,7 @@ MCE::Core::Validation - Core validation methods for Many-Core Engine
 
 =head1 VERSION
 
-This document describes MCE::Core::Validation version 1.881
+This document describes MCE::Core::Validation version 1.882
 
 =head1 DESCRIPTION
 

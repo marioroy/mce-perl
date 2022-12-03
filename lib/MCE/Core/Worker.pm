@@ -14,7 +14,7 @@ package MCE::Core::Worker;
 use strict;
 use warnings;
 
-our $VERSION = '1.881';
+our $VERSION = '1.882';
 
 my $_tid = $INC{'threads.pm'} ? threads->tid() : 0;
 
@@ -27,7 +27,7 @@ sub CLONE {
 package # hide from rpm
    MCE;
 
-no warnings qw( threads recursion uninitialized );
+no warnings qw( bareword threads recursion uninitialized );
 
 ###############################################################################
 ## ----------------------------------------------------------------------------
@@ -368,6 +368,19 @@ no warnings qw( threads recursion uninitialized );
 ##
 ###############################################################################
 
+sub MCE::Core::Worker::_guard::DESTROY {
+
+   my ($mce, $id) = @{ $_[0] };
+
+   if (defined $mce && $id eq "$$.$_tid") {
+      @{ $_[0] } = ();
+      warn "MCE worker $id exited prematurely.\n";
+      $mce->exit(2);
+   }
+
+   return;
+};
+
 sub _worker_do {
 
    my ($self, $_params_ref) = @_;
@@ -403,86 +416,93 @@ sub _worker_do {
       }
    }
 
-   ## Assign user function.
-   $self->{_wuf} = \&_do_user_func;
+   {
+      my $_guard = bless([ $self, "$$.$_tid" ], MCE::Core::Worker::_guard::);
+      weaken( $self->{_guard} = $_guard );
 
-   ## Call user_begin if defined.
-   if (defined $self->{user_begin}) {
-      $self->{_chunk_id} = 0;
-      $self->{user_begin}($self, $_task_id, $_task_name);
-      if ($_task_id == 0 && defined $self->{init_relay} && !$self->{_retry}) {
-         $self->sync();
+      ## Assign user function.
+      $self->{_wuf} = \&_do_user_func;
+
+      ## Call user_begin if defined.
+      if (defined $self->{user_begin}) {
+         $self->{_chunk_id} = 0;
+         $self->{user_begin}($self, $_task_id, $_task_name);
+         if ($_task_id == 0 && defined $self->{init_relay} && !$self->{_retry}) {
+            $self->sync();
+         }
       }
-   }
 
-   ## Retry chunk if previous attempt died.
-   if ($self->{_retry}) {
-      $self->{_chunk_id} = $self->{_retry}->[1];
-      $self->{user_func}->($self, $self->{_retry}->[0], $self->{_retry}->[1]);
-      delete $self->{_retry};
-   }
-
-   ## Call worker function.
-   if ($_run_mode eq 'sequence') {
-      require MCE::Core::Input::Sequence
-         unless $INC{'MCE/Core/Input/Sequence.pm'};
-      _worker_sequence_queue($self);
-   }
-   elsif (defined $self->{_task}->{sequence}) {
-      require MCE::Core::Input::Generator
-         unless $INC{'MCE/Core/Input/Generator.pm'};
-      _worker_sequence_generator($self);
-   }
-   elsif ($_run_mode eq 'array') {
-      require MCE::Core::Input::Request
-         unless $INC{'MCE/Core/Input/Request.pm'};
-      _worker_request_chunk($self, REQUEST_ARRAY);
-   }
-   elsif ($_run_mode eq 'glob') {
-      require MCE::Core::Input::Request
-         unless $INC{'MCE/Core/Input/Request.pm'};
-      _worker_request_chunk($self, REQUEST_GLOB);
-   }
-   elsif ($_run_mode eq 'hash') {
-      require MCE::Core::Input::Request
-         unless $INC{'MCE/Core/Input/Request.pm'};
-      _worker_request_chunk($self, REQUEST_HASH);
-   }
-   elsif ($_run_mode eq 'iterator') {
-      require MCE::Core::Input::Iterator
-         unless $INC{'MCE/Core/Input/Iterator.pm'};
-      _worker_user_iterator($self);
-   }
-   elsif ($_run_mode eq 'file') {
-      require MCE::Core::Input::Handle
-         unless $INC{'MCE/Core/Input/Handle.pm'};
-      _worker_read_handle($self, READ_FILE, $_params_ref->{_input_file});
-   }
-   elsif ($_run_mode eq 'memory') {
-      require MCE::Core::Input::Handle
-         unless $INC{'MCE/Core/Input/Handle.pm'};
-      _worker_read_handle($self, READ_MEMORY, $self->{input_data});
-   }
-   elsif (defined $self->{user_func}) {
-      if ($self->{max_retries}) {
-         $self->{_retry} = [ undef, 0, $self->{max_retries} ];
+      ## Retry chunk if previous attempt died.
+      if ($self->{_retry}) {
+         $self->{_chunk_id} = $self->{_retry}->[1];
+         $self->{user_func}->($self, $self->{_retry}->[0], $self->{_retry}->[1]);
+         delete $self->{_retry};
       }
-      $self->{_chunk_id} = 0;
-      $self->{user_func}->($self);
+
+      ## Call worker function.
+      if ($_run_mode eq 'sequence') {
+         require MCE::Core::Input::Sequence
+            unless $INC{'MCE/Core/Input/Sequence.pm'};
+         _worker_sequence_queue($self);
+      }
+      elsif (defined $self->{_task}->{sequence}) {
+         require MCE::Core::Input::Generator
+            unless $INC{'MCE/Core/Input/Generator.pm'};
+         _worker_sequence_generator($self);
+      }
+      elsif ($_run_mode eq 'array') {
+         require MCE::Core::Input::Request
+            unless $INC{'MCE/Core/Input/Request.pm'};
+         _worker_request_chunk($self, REQUEST_ARRAY);
+      }
+      elsif ($_run_mode eq 'glob') {
+         require MCE::Core::Input::Request
+            unless $INC{'MCE/Core/Input/Request.pm'};
+         _worker_request_chunk($self, REQUEST_GLOB);
+      }
+      elsif ($_run_mode eq 'hash') {
+         require MCE::Core::Input::Request
+            unless $INC{'MCE/Core/Input/Request.pm'};
+         _worker_request_chunk($self, REQUEST_HASH);
+      }
+      elsif ($_run_mode eq 'iterator') {
+         require MCE::Core::Input::Iterator
+            unless $INC{'MCE/Core/Input/Iterator.pm'};
+         _worker_user_iterator($self);
+      }
+      elsif ($_run_mode eq 'file') {
+         require MCE::Core::Input::Handle
+            unless $INC{'MCE/Core/Input/Handle.pm'};
+         _worker_read_handle($self, READ_FILE, $_params_ref->{_input_file});
+      }
+      elsif ($_run_mode eq 'memory') {
+         require MCE::Core::Input::Handle
+            unless $INC{'MCE/Core/Input/Handle.pm'};
+         _worker_read_handle($self, READ_MEMORY, $self->{input_data});
+      }
+      elsif (defined $self->{user_func}) {
+         if ($self->{max_retries}) {
+            $self->{_retry} = [ undef, 0, $self->{max_retries} ];
+         }
+         $self->{_chunk_id} = 0;
+         $self->{user_func}->($self);
+      }
+
+      undef $self->{_next_jmp} if (defined $self->{_next_jmp});
+      undef $self->{_last_jmp} if (defined $self->{_last_jmp});
+      undef $self->{user_data} if (defined $self->{user_data});
+
+      ## Call user_end if defined.
+      if (defined $self->{user_end}) {
+         $self->{_chunk_id} = 0;
+         $self->sync() if ($_task_id == 0 && defined $self->{init_relay});
+         $self->{user_end}($self, $_task_id, $_task_name);
+      }
+
+      @{ $_guard } = ();
+      delete $self->{_guard};
+      delete $self->{_wuf};
    }
-
-   undef $self->{_next_jmp} if (defined $self->{_next_jmp});
-   undef $self->{_last_jmp} if (defined $self->{_last_jmp});
-   undef $self->{user_data} if (defined $self->{user_data});
-
-   ## Call user_end if defined.
-   if (defined $self->{user_end}) {
-      $self->{_chunk_id} = 0;
-      $self->sync() if ($_task_id == 0 && defined $self->{init_relay});
-      $self->{user_end}($self, $_task_id, $_task_name);
-   }
-
-   delete $self->{_wuf};
 
    ## Check for nested workers not yet joined.
    MCE::Child->finish('MCE') if $INC{'MCE/Child.pm'};
@@ -639,6 +659,7 @@ sub _worker_main {
 
       $SIG{__DIE__} = $SIG{__WARN__} = sub {};
       my $_die_msg = (defined $_[0]) ? $_[0] : '';
+      $_die_msg =~ s/, <__ANONIO__> line \d+//;
       local $\ = undef; print {*STDERR} $_die_msg;
 
       $self->exit(255, $_die_msg, $self->{_chunk_id});
@@ -660,9 +681,9 @@ sub _worker_main {
    my $_chn;
 
    if (defined $_params && exists $_params->{_chn}) {
-      $_chn = $self->{_chn} = delete $_params->{_chn};
+      $_chn = $self->{_chn} = delete $_params->{_chn}; # worker restarted
    } else {
-      $_chn = $self->{_chn} = $_wid % $self->{_data_channels} + 1;
+      $_chn = $self->{_chn} = $_wid % $self->{_data_channels} + 1; # default
    }
 
    ## Choose locks for DATA channels.
@@ -716,7 +737,7 @@ MCE::Core::Worker - Core methods for the worker process
 
 =head1 VERSION
 
-This document describes MCE::Core::Worker version 1.881
+This document describes MCE::Core::Worker version 1.882
 
 =head1 DESCRIPTION
 

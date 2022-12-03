@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.881';
+our $VERSION = '1.882';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -49,11 +49,12 @@ sub import {
    };
 
    ## Import functions.
-   no strict 'refs'; no warnings 'redefine';
-
-   *{ $_pkg.'::mce_step_f' } = \&run_file;
-   *{ $_pkg.'::mce_step_s' } = \&run_seq;
-   *{ $_pkg.'::mce_step'   } = \&run;
+   if ($_pkg !~ /^MCE::/) {
+      no strict 'refs'; no warnings 'redefine';
+      *{ $_pkg.'::mce_step_f' } = \&run_file;
+      *{ $_pkg.'::mce_step_s' } = \&run_seq;
+      *{ $_pkg.'::mce_step'   } = \&run;
+   }
 
    ## Process module arguments.
    while ( my $_argument = shift ) {
@@ -64,6 +65,8 @@ sub import {
       $_p->{TMP_DIR}     = shift, next if ( $_arg eq 'tmp_dir' );
       $_p->{FREEZE}      = shift, next if ( $_arg eq 'freeze' );
       $_p->{THAW}        = shift, next if ( $_arg eq 'thaw' );
+      $_p->{INIT_RELAY}  = shift, next if ( $_arg eq 'init_relay' );
+      $_p->{USE_THREADS} = shift, next if ( $_arg eq 'use_threads' );
 
                            shift, next if ( $_arg eq 'fast' ); # ignored
 
@@ -368,17 +371,17 @@ sub run_seq (@) {
          $_pos = $_i;
 
          if ($_r eq '' || $_r =~ /^Math::/) {
-            $_begin = $_[$_pos]; $_end = $_[$_pos + 1];
+            $_begin = $_[$_pos], $_end = $_[$_pos + 1];
             $_params->{$_pid}{sequence} = [
                $_[$_pos], $_[$_pos + 1], $_[$_pos + 2], $_[$_pos + 3]
             ];
          }
          elsif ($_r eq 'HASH') {
-            $_begin = $_[$_pos]->{begin}; $_end = $_[$_pos]->{end};
+            $_begin = $_[$_pos]->{begin}, $_end = $_[$_pos]->{end};
             $_params->{$_pid}{sequence} = $_[$_pos];
          }
          elsif ($_r eq 'ARRAY') {
-            $_begin = $_[$_pos]->[0]; $_end = $_[$_pos]->[1];
+            $_begin = $_[$_pos]->[0], $_end = $_[$_pos]->[1];
             $_params->{$_pid}{sequence} = $_[$_pos];
          }
 
@@ -553,7 +556,7 @@ sub run (@) {
          }
       }
 
-      for my $_k (qw/ tmp_dir freeze thaw /) {
+      for my $_k (qw/ tmp_dir freeze thaw init_relay use_threads /) {
          $_opts{$_k} = $_def->{$_pkg}{uc($_k)}
             if (exists $_def->{$_pkg}{uc($_k)} && !exists $_opts{$_k});
       }
@@ -697,7 +700,7 @@ MCE::Step - Parallel step model for building creative steps
 
 =head1 VERSION
 
-This document describes MCE::Step version 1.881
+This document describes MCE::Step version 1.882
 
 =head1 DESCRIPTION
 
@@ -959,7 +962,8 @@ The fast option is obsolete in 1.867 onwards; ignored if specified.
      tmp_dir => "/path/to/app/tmp",   # $MCE::Signal::tmp_dir
      freeze => \&encode_sereal,       # \&Storable::freeze
      thaw => \&decode_sereal,         # \&Storable::thaw
-     fast => 1                        # Default 0 (fast dequeue)
+     init_relay => 0,                 # Default undef; MCE 1.882+
+     use_threads => 0,                # Default undef; MCE 1.882+
  ;
 
 From MCE 1.8 onwards, Sereal 3.015+ is loaded automatically if available.

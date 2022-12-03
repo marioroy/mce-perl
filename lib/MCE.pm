@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.881';
+our $VERSION = '1.882';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -165,6 +165,8 @@ sub import {
       $_p->{TMP_DIR}     = shift, next if ( $_arg eq 'tmp_dir' );
       $_p->{FREEZE}      = shift, next if ( $_arg eq 'freeze' );
       $_p->{THAW}        = shift, next if ( $_arg eq 'thaw' );
+      $_p->{INIT_RELAY}  = shift, next if ( $_arg eq 'init_relay' );
+      $_p->{USE_THREADS} = shift, next if ( $_arg eq 'use_threads' );
 
       if ( $_arg eq 'export_const' || $_arg eq 'const' ) {
          if ( shift eq '1' ) {
@@ -206,7 +208,7 @@ sub import {
 use constant {
 
    # Max data channels. This cannot be greater than 8 on MSWin32.
-   DATA_CHANNELS  => ($^O eq 'MSWin32') ? 8 : 10,
+   DATA_CHANNELS  => 8,
 
    # Max GC size. Undef variable when exceeding size.
    MAX_GC_SIZE    => 1024 * 1024 * 64,
@@ -361,6 +363,10 @@ sub _croak {
    $\ = undef; goto &Carp::croak;
 }
 
+sub _relay (;&) {
+   goto &MCE::relay;
+}
+
 use MCE::Core::Validation ();
 use MCE::Core::Manager ();
 use MCE::Core::Worker ();
@@ -379,6 +385,12 @@ sub new {
    $self{tmp_dir}     ||= $_def->{$_pkg}{TMP_DIR}     || $MCE::Signal::tmp_dir;
    $self{freeze}      ||= $_def->{$_pkg}{FREEZE}      || $_freeze;
    $self{thaw}        ||= $_def->{$_pkg}{THAW}        || $_thaw;
+
+   $self{init_relay} = $_def->{$_pkg}{INIT_RELAY}
+      if (exists $_def->{$_pkg}{INIT_RELAY});
+
+   $self{use_threads} = $_def->{$_pkg}{USE_THREADS}
+      if (exists $_def->{$_pkg}{USE_THREADS});
 
    if (exists $self{_module_instance}) {
       $self{_init_total_workers} = $self{max_workers};
@@ -477,7 +489,7 @@ sub new {
       ? refaddr($self{input_data}) : 0;
 
    my $_data_channels = ("$$.$_tid" eq $_oid)
-      ? ( $INC{'MCE/Channel.pm'} ? 6 : DATA_CHANNELS )
+      ? ( $INC{'MCE/Channel.pm'} ? 4 : DATA_CHANNELS )
       : 2;
 
    my $_total_workers = 0;
@@ -493,7 +505,7 @@ sub new {
    $self{_data_channels} = ($_total_workers < $_data_channels)
       ? $_total_workers : $_data_channels;
 
-   $self{_lock_chn} = ($_total_workers > $_data_channels) ? 1 : 0;
+   $self{_lock_chn} = ($_total_workers > $self{_data_channels}) ? 1 : 0;
    $self{_lock_chn} = 1 if $INC{'MCE/Child.pm'} || $INC{'MCE/Hobo.pm'};
 
    $MCE = \%self if ($MCE->{_wid} == 0);
@@ -597,13 +609,16 @@ sub spawn {
    my $_max_workers   = _get_max_workers($self);
    my $_use_threads   = $self->{use_threads};
 
-   ## Create locks for data channels.
+   ## Create [ 0 including 1 up to 8 ] locks for data channels (max 9).
    $self->{'_mutex_0'} = MCE::Mutex->new( impl => 'Channel' );
 
    if ($self->{_lock_chn}) {
       $self->{'_mutex_'.$_} = MCE::Mutex->new( impl => 'Channel' )
          for (1 .. $_data_channels);
    }
+
+   ## Create two locks for use by MCE::Core::Input::{ Handle or Sequence }.
+   $self->{'_mutex_'.$_} = MCE::Mutex->new( impl => 'Channel' ) for (10 .. 11);
 
    ## Create sockets for IPC.                      sync, comm, input, data
    MCE::Util::_sock_pair($self, qw(_bsb_r_sock _bsb_w_sock), undef, 1);
@@ -767,7 +782,7 @@ sub process {
 }
 
 sub relay (;&) {
-   _croak('MCE::relay: (init_relay) is not specified')
+   _croak('MCE::relay: (init_relay) is not defined')
       unless (defined $MCE->{init_relay});
 }
 
@@ -800,7 +815,7 @@ sub AUTOLOAD {
    # relay stubs for MCE::Relay
 
    if ($_fcn eq 'relay_lock' || $_fcn eq 'relay_recv') {
-      _croak('MCE::relay: (init_relay) is not specified')
+      _croak('MCE::relay: (init_relay) is not defined')
          unless (defined $MCE->{init_relay});
    }
    elsif ($_fcn eq 'relay_final') {
@@ -1203,6 +1218,9 @@ sub run {
    if ($_auto_shutdown || $self->{_total_exited}) {
       $self->shutdown();
    }
+   elsif ($INC{'MCE/Simple.pm'}) {
+      $self->shutdown();
+   }
    elsif ($^S || $ENV{'PERL_IPERL_RUNNING'}) {
       if (
          !$INC{'Mojo/IOLoop.pm'} && !$INC{'Win32/GUI.pm'} &&
@@ -1365,6 +1383,7 @@ sub shutdown {
 
    ## Destroy mutexes.
    for my $_i (0 .. $_data_channels) { delete $self->{'_mutex_'.$_i}; }
+   for my $_j (10 .. 11) { delete $self->{'_mutex_'.$_j}; } # input mutexes
 
    ## Remove session directory.
    rmdir $_sess_dir if (defined $_sess_dir && -d $_sess_dir);
@@ -1836,7 +1855,9 @@ sub say {
 
 sub _exit {
    my $self = shift;
+   my $_has_guard = (exists $self->{_guard} && $self->{_guard}->[0]) ? 1 : 0;
 
+   @{ $self->{_guard} } = () if $_has_guard;
    delete $self->{_wuf}; _end();
 
    ## Exit thread/child process.
@@ -1856,7 +1877,7 @@ sub _exit {
       };
    }
 
-   if ($self->{posix_exit} && !$_is_MSWin32) {
+   if ($self->{posix_exit} && !$_has_guard && !$_is_MSWin32) {
       eval { MCE::Mutex::Channel::_destroy() };
       POSIX::_exit(0) if $INC{'POSIX.pm'};
       CORE::kill('KILL', $$);

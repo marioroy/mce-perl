@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.881';
+our $VERSION = '1.882';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -30,8 +30,10 @@ use overload (
 );
 
 sub import {
-   no strict 'refs'; no warnings 'redefine';
-   *{ caller().'::mce_child' } = \&mce_child;
+   if (caller !~ /^MCE::/) {
+      no strict 'refs'; no warnings 'redefine';
+      *{ caller().'::mce_child' } = \&mce_child;
+   }
    return;
 }
 
@@ -181,19 +183,16 @@ sub create {
    );
 
    $_DATA->{"$pkg:id"} = 10000 if ( ( my $id = ++$_DATA->{"$pkg:id"} ) >= 2e9 );
-   $_DATA->{$pkg}->reap_data;
+
+   {
+      # Reap completed child processes.
+      local ($SIG{CHLD}, $!, $?, $_); map {
+         waitpid($_, 0); _reap_child($list->del($_), 0); ();
+      }
+      $_DATA->{$pkg}->reap_data;
+   }
 
    if ( $max_workers || $self->{IGNORE} ) {
-      my $wrk_id; local $!;
-
-      # Reap completed child processes.
-      for my $child ( $list->vals() ) {
-         $wrk_id = $child->{WRK_ID};
-         $list->del($wrk_id), next if $child->{REAPED};
-         waitpid($wrk_id, _WNOHANG) or next;
-         _reap_child($list->del($wrk_id), 0);
-      }
-
       # Wait for a slot if saturated.
       if ( $max_workers && $list->len() >= $max_workers ) {
          my $count = $list->len() - $max_workers + 1;
@@ -228,7 +227,7 @@ sub create {
       else {                                                # child
          %{ $_LIST } = (), $_SELF = $self;
 
-         local $SIG{TERM} = local $SIG{INT} = \&_trap,
+         local $SIG{TERM} = local $SIG{INT} = local $SIG{ABRT} = \&_trap,
          local $SIG{SEGV} = local $SIG{HUP} = \&_trap,
          local $SIG{QUIT} = \&_quit;
          local $SIG{CHLD};
@@ -619,39 +618,40 @@ sub _dispatch {
    my $void_context = ( exists $_SELF->{void_context} )
       ? $_SELF->{void_context} : $mngd->{void_context};
 
-   my @res; local $SIG{'ALRM'} = sub { alarm 0; die "Child timed out\n" };
+   my @res; my $timed_out = 0;
+
+   local $SIG{'ALRM'} = sub {
+      alarm 0; $timed_out = 1; $SIG{__WARN__} = sub {};
+      die "Child timed out\n";
+   };
 
    if ( $void_context || $_SELF->{IGNORE} ) {
       no strict 'refs';
-      eval {
-         alarm( $child_timeout || 0 );
-         $func->( @{ $args } );
-      };
+      eval { alarm($child_timeout || 0); $func->(@{ $args }) };
    }
    else {
       no strict 'refs';
-      @res = eval {
-         alarm( $child_timeout || 0 );
-         $func->( @{ $args } );
-      };
+      @res = eval { alarm($child_timeout || 0); $func->(@{ $args }) };
    }
 
    alarm 0;
+   $@ = "Child timed out" if $timed_out;
 
    if ( $@ ) {
       _exit($?) if ( $@ =~ /^Child exited \(\S+\)$/ );
-      my $err = $@; $? = 1;
+      my $err = $@; $? = 1; $err =~ s/, <__ANONIO__> line \d+//;
 
       if ( ! $_SELF->{IGNORE} ) {
          $_DATA->{ $_SELF->{PKG} }->set('S'.$$, $err),
-         $_DATA->{ $_SELF->{PKG} }->set('R'.$$, @res ? \@res : '');
+         $_DATA->{ $_SELF->{PKG} }->set('R'.$$, '');
       }
 
-      if ( $err ne "Child timed out" && !$mngd->{on_finish} ) {
+      if ( !$timed_out && !$mngd->{on_finish} && !$INC{'MCE/Simple.pm'} ) {
          use bytes; warn "Child $$ terminated abnormally: reason $err\n";
       }
    }
    else {
+      shift(@res) if ref($res[0]) =~ /^MCE::(?:Barrier|Semaphore)::_guard/s;
       $_DATA->{ $_SELF->{PKG} }->set('R'.$$, @res ? \@res : '')
          if ( ! $_SELF->{IGNORE} );
    }
@@ -674,7 +674,7 @@ sub _exit {
    my $posix_exit = ( exists $_SELF->{posix_exit} )
       ? $_SELF->{posix_exit} : $_MNGD->{ $_SELF->{PKG} }{posix_exit};
 
-   if ( ( $posix_exit || $_SELF->{SIGNALED} ) && !$_is_MSWin32 ) {
+   if ( $posix_exit && !$_SELF->{SIGNALED} && !$_is_MSWin32 ) {
       eval { MCE::Mutex::Channel::_destroy() };
       POSIX::_exit($exit_status) if $INC{'POSIX.pm'};
       CORE::kill('KILL', $$);
@@ -708,11 +708,16 @@ sub _force_reap {
 sub _quit {
    return MCE::Signal::defer($_[0]) if $MCE::Signal::IPC;
 
-   my ( $name ) = @_;
+   alarm 0; my ( $name ) = @_;
    $_SELF->{SIGNALED} = 1, $name =~ s/^SIG//;
 
    $SIG{$name} = sub {}, CORE::kill($name, -$$)
       if ( exists $SIG{$name} );
+
+   if ( ! $_SELF->{IGNORE} ) {
+      my ( $pkg, $wrk_id ) = ( $_SELF->{PKG}, $_SELF->{WRK_ID} );
+      $_DATA->{$pkg}->set('R'.$wrk_id, '');
+   }
 
    _exit(0);
 }
@@ -728,18 +733,20 @@ sub _reap_child {
 
    return if $child->{IGNORE};
 
+   my ( $exit, $err ) = ( $? || 0, $child->{ERROR} );
+   my ( $code, $sig ) = ( $exit >> 8, $exit & 0x7f );
+
+   if ( $code > 100 && !$err ) {
+      $code = 2, $sig = 1,  $err = 'Child received SIGHUP'  if $code == 101;
+      $code = 2, $sig = 2,  $err = 'Child received SIGINT'  if $code == 102;
+      $code = 2, $sig = 6,  $err = 'Child received SIGABRT' if $code == 106;
+      $code = 2, $sig = 11, $err = 'Child received SIGSEGV' if $code == 111;
+      $code = 2, $sig = 15, $err = 'Child received SIGTERM' if $code == 115;
+
+      $child->{ERROR} = $err;
+   }
+
    if ( my $on_finish = $_MNGD->{ $child->{PKG} }{on_finish} ) {
-      my ( $exit, $err ) = ( $? || 0, $child->{ERROR} );
-      my ( $code, $sig ) = ( $exit >> 8, $exit & 0x7f );
-
-      if ( ( $code > 100 || $sig == 9 ) && !$err ) {
-         $code = 2, $sig = 1,  $err = 'received SIGHUP'  if $code == 101;
-         $code = 2, $sig = 2,  $err = 'received SIGINT'  if $code == 102;
-         $code = 2, $sig = 11, $err = 'received SIGSEGV' if $code == 111;
-         $code = 2, $sig = 15, $err = 'received SIGTERM' if $code == 115;
-         $code = 2, $sig = 9,  $err = 'received SIGKILL' if $sig  == 9;
-      }
-
       $on_finish->(
          $child->{WRK_ID}, $code, $child->{ident}, $sig, $err,
          @{ $child->{RESULT} }
@@ -752,7 +759,7 @@ sub _reap_child {
 sub _trap {
    return MCE::Signal::defer($_[0]) if $MCE::Signal::IPC;
 
-   my ( $exit_status, $name ) = ( 2, @_ );
+   alarm 0; my ( $exit_status, $name ) = ( 2, @_ );
    $_SELF->{SIGNALED} = 1, $name =~ s/^SIG//;
 
    $SIG{$name} = sub {}, CORE::kill($name, -$$)
@@ -760,8 +767,14 @@ sub _trap {
 
    if    ( $name eq 'HUP'  ) { $exit_status = 101 }
    elsif ( $name eq 'INT'  ) { $exit_status = 102 }
+   elsif ( $name eq 'ABRT' ) { $exit_status = 106 }
    elsif ( $name eq 'SEGV' ) { $exit_status = 111 }
    elsif ( $name eq 'TERM' ) { $exit_status = 115 }
+
+   if ( ! $_SELF->{IGNORE} ) {
+      my ( $pkg, $wrk_id ) = ( $_SELF->{PKG}, $_SELF->{WRK_ID} );
+      $_DATA->{$pkg}->set('R'.$wrk_id, '');
+   }
 
    _exit($exit_status);
 }
@@ -906,6 +919,15 @@ sub get {
 sub reap_data {
    my ( $self ) = @_;
 
+   if (wantarray) {
+      my @ret;
+      while ( my $data = $self->[1]->recv2_nb() ) {
+         push @ret, substr($data->[0], 1) if substr($data->[0], 0, 1) eq 'R';
+         $self->[0]{ $data->[0] } = $data->[1];
+      }
+      return @ret;
+   }
+
    while ( my $data = $self->[1]->recv2_nb() ) {
       $self->[0]{ $data->[0] } = $data->[1];
    }
@@ -985,7 +1007,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.881
+This document describes MCE::Child version 1.882
 
 =head1 SYNOPSIS
 
