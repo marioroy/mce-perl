@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.883 Tue Jan 03 20:00:00 EST 2023
+
+  * Fix typo in MCE::Channel::SimpleFast documentation.
+  * Improve 05_mce_child.t test.
+
 1.882 Fri Dec 02 21:00:00 EST 2022
 
   * Added ABRT to the list of signals to trap in MCE::Signal.

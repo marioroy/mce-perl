@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.882';
+our $VERSION = '1.883';
 
 use base 'MCE::Channel';
 
@@ -308,7 +308,7 @@ MCE::Channel::SimpleFast - Fast channel tuned for one producer and one consumer
 
 =head1 VERSION
 
-This document describes MCE::Channel::SimpleFast version 1.882
+This document describes MCE::Channel::SimpleFast version 1.883
 
 =head1 DESCRIPTION
 
@@ -331,7 +331,7 @@ Current module available since MCE 1.877.
 
  use MCE::Channel;
 
- my $chnl = MCE::Channel->new( impl => 'Simple' );
+ my $chnl = MCE::Channel->new( impl => 'SimpleFast' );
 
 =back
 

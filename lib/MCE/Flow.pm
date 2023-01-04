@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.882';
+our $VERSION = '1.883';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -482,7 +482,7 @@ MCE::Flow - Parallel flow model for building creative applications
 
 =head1 VERSION
 
-This document describes MCE::Flow version 1.882
+This document describes MCE::Flow version 1.883
 
 =head1 DESCRIPTION
 
