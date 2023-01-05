@@ -145,9 +145,11 @@ mce_flow sub {
    MCE->do('check_unicode_in',  'fifo, check unicode enqueuep');
    MCE->do('check_unicode_out', 'fifo, check unicode dequeue', $q->dequeue);
 
-   $q->insertp(5, 0, $sappho_text);
-   MCE->do('check_unicode_out', 'fifo, check unicode peekp', $q->peekp(5, 0));
-   MCE->do('check_unicode_out', 'fifo, check unicode insertp', $q->dequeue_nb);
+   if ($^O ne 'MSWin32') {
+      $q->insertp(5, 0, $sappho_text);
+      MCE->do('check_unicode_out', 'fifo, check unicode peekp', $q->peekp(5, 0));
+      MCE->do('check_unicode_out', 'fifo, check unicode insertp', $q->dequeue_nb);
+   }
 
    return;
 };
@@ -216,9 +218,11 @@ mce_flow sub {
    MCE->do('check_unicode_in',  'lifo, check unicode enqueuep');
    MCE->do('check_unicode_out', 'lifo, check unicode dequeue', $q->dequeue);
 
-   $q->insertp(5, 0, $sappho_text);
-   MCE->do('check_unicode_out', 'lifo, check unicode peekp', $q->peekp(5, 0));
-   MCE->do('check_unicode_out', 'lifo, check unicode insertp', $q->dequeue_nb);
+   if ($^O ne 'MSWin32') {
+      $q->insertp(5, 0, $sappho_text);
+      MCE->do('check_unicode_out', 'lifo, check unicode peekp', $q->peekp(5, 0));
+      MCE->do('check_unicode_out', 'lifo, check unicode insertp', $q->dequeue_nb);
+   }
 
    return;
 };

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.883';
+our $VERSION = '1.884';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -367,7 +367,7 @@ sub _nonblocking {
    if ($^O eq 'MSWin32') {
       # MSWin32 FIONBIO - from winsock2.h macro
       my $nonblocking = $_[1] ? "\x00\x00\x00\x01" : "\x00\x00\x00\x00";
-      ioctl($_[0], 0x8004667e, unpack("I", pack('P', $nonblocking)));
+      ioctl($_[0], 0x8004667e, unpack('I', pack('P', $nonblocking)));
    }
    else {
       $_[0]->blocking( $_[1] ? 0 : 1 );
@@ -432,7 +432,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.883
+This document describes MCE::Util version 1.884
 
 =head1 SYNOPSIS
 

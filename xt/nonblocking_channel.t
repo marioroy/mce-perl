@@ -7,12 +7,26 @@ use open qw(:std :utf8);
 
 use Test::More;
 
+# Non-blocking tests (dequeue_nb and recv_nb) were disabled
+# in MCE 1.884 for the Windows platform; copied here in xt.
+# The following tests pass on Windows, typically.
+
 BEGIN {
+   if ( $^O eq 'cygwin' ) {
+      plan skip_all => "MCE::Channel::Threads not used on Cygwin";
+   }
+
+   eval 'use threads'; ## no critic
+   plan skip_all => "threads not available" if $@;
+
    use_ok 'MCE::Channel';
    use_ok 'MCE::Channel::Simple';
+   use_ok 'MCE::Channel::SimpleFast';
+   use_ok 'MCE::Channel::Threads';
+   use_ok 'MCE::Channel::ThreadsFast';
 }
 
-## https://sacred-texts.com/cla/usappho/sph02.htm (III)
+# https://sacred-texts.com/cla/usappho/sph02.htm (III)
 
 my $sappho_text =
   "ἄρμ᾽ ὐποζεύξαια, κάλοι δέ σ᾽ ἆγον
@@ -28,30 +42,21 @@ my $translation =
 
 my $come_then_i_pray = "さあ、私は祈る" . "Ǣ";
 
+my $chnl1 = MCE::Channel->new( impl => 'Simple' );
+is $chnl1->impl(), 'Simple', 'implementation name';
 
-my $chnl = MCE::Channel->new( impl => 'Simple' );
-is $chnl->impl(), 'Simple', 'implementation name';
+my $chnl2 = MCE::Channel->new( impl => 'Threads' );
+is $chnl2->impl(), 'Threads', 'implementation name';
 
-# send recv
-{
-   $chnl->send('a string');
-   is $chnl->recv, 'a string', 'send recv scalar';
+my $chnl3 = MCE::Channel->new( impl => 'SimpleFast' );
+is $chnl3->impl(), 'SimpleFast', 'implementation name';
 
-   $chnl->send($sappho_text);
-   is $chnl->recv, $sappho_text, 'send recv utf8';
-
-   $chnl->send($come_then_i_pray);
-   is $chnl->recv, $come_then_i_pray, 'send recv utf8_ja';
-
-   $chnl->send(qw/ a list of arguments /);
-   is scalar( my @args = $chnl->recv ), 4, 'send recv list';
-
-   $chnl->send({ complex => 'structure' });
-   is ref( $chnl->recv ), 'HASH', 'send recv complex';
-}
+my $chnl4 = MCE::Channel->new( impl => 'ThreadsFast' );
+is $chnl4->impl(), 'ThreadsFast', 'implementation name';
 
 # send recv_nb
-if ($^O ne 'MSWin32')
+
+for my $chnl ($chnl1, $chnl2)
 {
    $chnl->send('a string');
    is $chnl->recv_nb, 'a string', 'send recv_nb scalar';
@@ -69,26 +74,21 @@ if ($^O ne 'MSWin32')
    is ref( $chnl->recv_nb ), 'HASH', 'send recv_nb complex';
 }
 
-# send2 recv2
+for my $chnl ($chnl3, $chnl4)
 {
-   $chnl->send2('a string');
-   is $chnl->recv2, 'a string', 'send2 recv2 scalar';
+   $chnl->send('a string');
+   is $chnl->recv_nb, 'a string', 'send recv_nb scalar';
 
-   $chnl->send2($sappho_text);
-   is $chnl->recv2, $sappho_text, 'send2 recv2 utf8';
+   $chnl->send('');
+   is $chnl->recv_nb, '', 'send recv_nb blank string';
 
-   $chnl->send2($come_then_i_pray);
-   is $chnl->recv2, $come_then_i_pray, 'send2 recv2 utf8_ja';
-
-   $chnl->send2(qw/ a list of arguments /);
-   is scalar( my @args = $chnl->recv2 ), 4, 'send2 recv2 list';
-
-   $chnl->send2({ complex => 'structure' });
-   is ref( $chnl->recv2 ), 'HASH', 'send2 recv2 complex';
+   $chnl->send(undef);
+   is $chnl->recv_nb, '', 'send recv_nb undef stringified';
 }
 
 # send2 recv2_nb
-if ($^O ne 'MSWin32')
+
+for my $chnl ($chnl1, $chnl2)
 {
    $chnl->send2('a string');
    is $chnl->recv2_nb, 'a string', 'send2 recv2_nb scalar';
@@ -106,32 +106,21 @@ if ($^O ne 'MSWin32')
    is ref( $chnl->recv2_nb ), 'HASH', 'send2 recv2_nb complex';
 }
 
-# enqueue dequeue
+for my $chnl ($chnl3, $chnl4)
 {
-   $chnl->enqueue('a string');
-   is $chnl->dequeue, 'a string', 'enqueue dequeue scalar';
+   $chnl->send2('a string');
+   is $chnl->recv2_nb, 'a string', 'send2 recv2_nb scalar';
 
-   $chnl->enqueue($sappho_text);
-   is $chnl->dequeue, $sappho_text, 'enqueue dequeue utf8';
+   $chnl->send2('');
+   is $chnl->recv2_nb, '', 'send2 recv2_nb blank string';
 
-   $chnl->enqueue($come_then_i_pray);
-   is $chnl->dequeue, $come_then_i_pray, 'enqueue dequeue utf8_ja';
-
-   $chnl->enqueue(qw/ a list of items /);
-   is scalar( my $item1 = $chnl->dequeue ), 'a',     'enqueue dequeue item1';
-   is scalar( my $item2 = $chnl->dequeue ), 'list',  'enqueue dequeue item2';
-   is scalar( my $item3 = $chnl->dequeue ), 'of',    'enqueue dequeue item3';
-   is scalar( my $item4 = $chnl->dequeue ), 'items', 'enqueue dequeue item4';
-
-   $chnl->enqueue({ complex => 'structure' });
-   is ref( $chnl->dequeue ), 'HASH', 'enqueue dequeue complex';
-
-   $chnl->enqueue(qw/ a b c /);
-   is join( '', $chnl->dequeue(3) ), 'abc', 'enqueue dequeue count';
+   $chnl->send2(undef);
+   is $chnl->recv2_nb, '', 'send2 recv2_nb undef stringified';
 }
 
 # enqueue dequeue_nb
-if ($^O ne 'MSWin32')
+
+for my $chnl ($chnl1, $chnl2)
 {
    $chnl->enqueue('a string');
    is $chnl->dequeue_nb, 'a string', 'enqueue dequeue_nb scalar';
@@ -155,22 +144,25 @@ if ($^O ne 'MSWin32')
    is join( '', $chnl->dequeue_nb(3) ), 'abc', 'enqueue dequeue_nb count';
 }
 
-# end
+for my $chnl ($chnl3, $chnl4)
 {
-   $chnl->enqueue("item $_") for 1 .. 2;
-   $chnl->end;
+   $chnl->enqueue('a string');
+   is $chnl->dequeue_nb, 'a string', 'enqueue dequeue_nb scalar';
 
-   for my $method (qw/ send enqueue /) {
-      local $SIG{__WARN__} = sub {
-         is $_[0],
-         "WARNING: ($method) called on a channel that has been 'end'ed\n",
-         "channel ended, $method";
-      };
-      $chnl->$method("item");
-   }
+   $chnl->enqueue(qw/ a list of items /);
+   is scalar( my $item1 = $chnl->dequeue_nb ), 'a',     'enqueue dequeue_nb item1';
+   is scalar( my $item2 = $chnl->dequeue_nb ), 'list',  'enqueue dequeue_nb item2';
+   is scalar( my $item3 = $chnl->dequeue_nb ), 'of',    'enqueue dequeue_nb item3';
+   is scalar( my $item4 = $chnl->dequeue_nb ), 'items', 'enqueue dequeue_nb item4';
 
-   is $chnl->dequeue_nb, 'item 1', 'channel ended, dequeue_nb item 1';
-   is $chnl->dequeue_nb, 'item 2', 'channel ended, dequeue_nb item 2';
+   $chnl->enqueue('');
+   is $chnl->dequeue_nb, '', 'enqueue dequeue_nb blank string';
+
+   $chnl->enqueue(undef);
+   is $chnl->dequeue_nb, '', 'enqueue dequeue_nb undef stringified';
+
+   $chnl->enqueue(qw/ a b c /);
+   is join( '', $chnl->dequeue_nb(3) ), 'abc', 'enqueue dequeue_nb count';
 }
 
 done_testing;

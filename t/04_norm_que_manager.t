@@ -94,9 +94,11 @@ $q->enqueue($sappho_text);
 is( join('', @{ $q->_get_aref() }), $sappho_text, 'fifo, check unicode enqueue' );
 is( $q->dequeue, $sappho_text,    'fifo, check unicode dequeue' );
 
-$q->insert(0, $sappho_text);
-is( $q->peek(0), $sappho_text,    'fifo, check unicode peek' );
-is( $q->dequeue_nb, $sappho_text, 'fifo, check unicode insert' );
+if ($^O ne 'MSWin32') {
+   $q->insert(0, $sappho_text);
+   is( $q->peek(0), $sappho_text,    'fifo, check unicode peek' );
+   is( $q->dequeue_nb, $sappho_text, 'fifo, check unicode insert' );
+}
 
 ###############################################################################
 
@@ -158,9 +160,11 @@ $q->enqueue($sappho_text);
 is( join('', @{ $q->_get_aref() }), $sappho_text, 'lifo, check unicode enqueue' );
 is( $q->dequeue, $sappho_text,    'lifo, check unicode dequeue' );
 
-$q->insert(0, $sappho_text);
-is( $q->peek(0), $sappho_text,    'lifo, check unicode peek' );
-is( $q->dequeue_nb, $sappho_text, 'lifo, check unicode insert' );
+if ($^O ne 'MSWin32') {
+   $q->insert(0, $sappho_text);
+   is( $q->peek(0), $sappho_text,    'lifo, check unicode peek' );
+   is( $q->dequeue_nb, $sappho_text, 'lifo, check unicode insert' );
+}
 
 done_testing;
 

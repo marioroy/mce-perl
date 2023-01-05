@@ -1,6 +1,12 @@
 
 Revision history for Perl module MCE.
 
+1.884 Thu Jan 05 10:00:00 EST 2023
+
+  * Disabled non-blocking dequeue_nb and recv_nb tests on the Windows platform.
+    Reason: Author cannot reproduce failing tests reported by CPAN Tester aero.
+    Copied nb tests to xt folder: nonblocking_channel.t and nonblocking_queue.t
+
 1.883 Tue Jan 03 20:00:00 EST 2023
 
   * Fix typo in MCE::Channel::SimpleFast documentation.
