@@ -107,6 +107,7 @@ if ($^O ne 'MSWin32')
 }
 
 # end
+if ($^O ne 'MSWin32')
 {
    $chnl->enqueue("item $_") for 1 .. 2;
    $chnl->end;

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.884';
+our $VERSION = '1.885';
 
 use base 'MCE::Mutex';
 use MCE::Util ();
@@ -170,7 +170,7 @@ MCE::Mutex::Channel - Mutex locking via a pipe or socket
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel version 1.884
+This document describes MCE::Mutex::Channel version 1.885
 
 =head1 DESCRIPTION
 

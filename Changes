@@ -1,6 +1,10 @@
 
 Revision history for Perl module MCE.
 
+1.885 Tue May 30 20:00:00 EST 2023
+    
+  * Improved reliability on the Windows platform.
+
 1.884 Thu Jan 05 10:00:00 EST 2023
 
   * Disabled non-blocking dequeue_nb and recv_nb tests on the Windows platform.

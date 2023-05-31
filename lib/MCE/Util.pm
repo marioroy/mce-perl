@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.884';
+our $VERSION = '1.885';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -25,7 +25,7 @@ my ($_is_winenv, $_zero_bytes, %_sock_ready);
 
 BEGIN {
    $_is_winenv  = ( $^O =~ /mswin|mingw|msys|cygwin/i ) ? 1 : 0;
-   $_zero_bytes = "\x00\x00\x00\x00";
+   $_zero_bytes = pack('L', 0);
 }
 
 sub CLONE {
@@ -285,8 +285,7 @@ sub _sock_ready {
    my ($_socket, $_timeout) = @_;
    return '' if !defined $_timeout && $_sock_ready{"$_socket"} > 1;
 
-   my ($_delay, $_val_bytes, $_start) = (0, "\x00\x00\x00\x00", time);
-   my $_ptr_bytes = unpack('I', pack('P', $_val_bytes));
+   my ($_val_bytes, $_delay, $_start) = (pack('L', 0), 0, time);
 
    if (!defined $_timeout) {
       $_sock_ready{"$_socket"}++;
@@ -298,7 +297,7 @@ sub _sock_ready {
 
    while (1) {
       # MSWin32 FIONREAD - from winsock2.h macro
-      ioctl($_socket, 0x4004667f, $_ptr_bytes);
+      ioctl($_socket, 0x4004667f, $_val_bytes);
 
       return '' if $_val_bytes ne $_zero_bytes;
       return  1 if $_timeout && time > $_timeout;
@@ -366,8 +365,8 @@ sub _sysread2 {
 sub _nonblocking {
    if ($^O eq 'MSWin32') {
       # MSWin32 FIONBIO - from winsock2.h macro
-      my $nonblocking = $_[1] ? "\x00\x00\x00\x01" : "\x00\x00\x00\x00";
-      ioctl($_[0], 0x8004667e, unpack('I', pack('P', $nonblocking)));
+      my $nonblocking = $_[1] ? pack('L', 1) : pack('L', 0);
+      ioctl($_[0], 0x8004667e, $nonblocking);
    }
    else {
       $_[0]->blocking( $_[1] ? 0 : 1 );
@@ -432,7 +431,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.884
+This document describes MCE::Util version 1.885
 
 =head1 SYNOPSIS
 
