@@ -13,7 +13,7 @@ is($mutex->impl(), 'Channel', 'implementation name');
 
 sub task {
     $mutex->lock_exclusive;
-    sleep 5;
+    sleep(1) for 1..5;
     $mutex->unlock;
 }
 sub spawn {

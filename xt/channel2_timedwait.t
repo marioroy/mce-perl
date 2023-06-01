@@ -13,12 +13,12 @@ is($mutex->impl(), 'Channel2', 'implementation name');
 
 sub task {
     $mutex->lock_exclusive;
-    sleep 5;
+    sleep(1) for 1..5;
     $mutex->unlock;
 }
 sub task2 {
     $mutex->lock_exclusive2;
-    sleep 5;
+    sleep(1) for 1..5;
     $mutex->unlock2;
 }
 
