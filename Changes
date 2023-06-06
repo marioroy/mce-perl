@@ -1,6 +1,12 @@
 
 Revision history for Perl module MCE.
 
+1.886 Tue Jun 06 12:00:00 EST 2023
+    
+  * Added dequeue_timed method to MCE::Queue.
+  * Fixed taint mode in MCE->printf and _sprintf.
+  * Improved reliability on the Windows platform.
+
 1.885 Tue May 30 20:00:00 EST 2023
     
   * Improved reliability on the Windows platform.

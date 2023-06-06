@@ -85,7 +85,8 @@ sub check {
 
 ##  FIFO tests
 
-@a = (); $q = MCE::Queue->new( queue => \@a, type => $MCE::Queue::FIFO );
+@a = ();
+$q = MCE::Queue->new( queue => \@a, type => $MCE::Queue::FIFO );
 
 sub check_dequeue_fifo {
    my (@r) = @_;
@@ -144,11 +145,12 @@ mce_flow sub {
    MCE->do('check_unicode_in',  'fifo, check unicode enqueue');
    MCE->do('check_unicode_out', 'fifo, check unicode dequeue', $q->dequeue);
 
-   if ($^O ne 'MSWin32') {
-      $q->insert(0, $sappho_text);
-      MCE->do('check_unicode_out', 'fifo, check unicode peek', $q->peek(0));
-      MCE->do('check_unicode_out', 'fifo, check unicode insert', $q->dequeue_nb);
-   }
+   $q->insert(0, $sappho_text);
+   MCE->do('check_unicode_out', 'fifo, check unicode peek', $q->peek(0));
+   MCE->do('check_unicode_out', 'fifo, check unicode insert', $q->dequeue_nb);
+
+   $q->enqueue($sappho_text);
+   MCE->do('check_unicode_out', 'fifo, check unicode dequeue_timed', $q->dequeue_timed);
 
    return;
 };
@@ -159,7 +161,8 @@ MCE::Flow->finish;
 
 ##  LIFO tests
 
-@a = (); $q = MCE::Queue->new( queue => \@a, type => $MCE::Queue::LIFO );
+@a = ();
+$q = MCE::Queue->new( queue => \@a, type => $MCE::Queue::LIFO );
 
 sub check_dequeue_lifo {
    my (@r) = @_;
@@ -218,11 +221,12 @@ mce_flow sub {
    MCE->do('check_unicode_in',  'lifo, check unicode enqueue');
    MCE->do('check_unicode_out', 'lifo, check unicode dequeue', $q->dequeue);
 
-   if ($^O ne 'MSWin32') {
-      $q->insert(0, $sappho_text);
-      MCE->do('check_unicode_out', 'lifo, check unicode peek', $q->peek(0));
-      MCE->do('check_unicode_out', 'lifo, check unicode insert', $q->dequeue_nb);
-   }
+   $q->insert(0, $sappho_text);
+   MCE->do('check_unicode_out', 'lifo, check unicode peek', $q->peek(0));
+   MCE->do('check_unicode_out', 'lifo, check unicode insert', $q->dequeue_nb);
+
+   $q->enqueue($sappho_text);
+   MCE->do('check_unicode_out', 'lifo, check unicode dequeue_timed', $q->dequeue_timed);
 
    return;
 };

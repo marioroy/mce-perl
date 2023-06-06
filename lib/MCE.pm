@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.885';
+our $VERSION = '1.886';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -1813,7 +1813,7 @@ sub printf {
    }
 
    $_fmt  = shift || '%s';
-   $_data = sprintf($_fmt, scalar @_ ? @_ : $_);
+   $_data = _sprintf($_fmt, scalar @_ ? @_ : $_);
 
    return _do_send_glob($self, $_glob, $_fd, \$_data) if $_fd;
    return _do_send($self, SENDTO_STDOUT, undef, \$_data) if $self->{_wid};
@@ -1932,7 +1932,7 @@ sub _make_sessdir {
 sub _sprintf {
    my ($_fmt, $_arg) = @_;
    # remove tainted'ness
-   ($_fmt) = $_fmt =~ /(.*)/;
+   ($_fmt) = $_fmt =~ /(.*)/s;
 
    return sprintf("$_fmt", $_arg);
 }

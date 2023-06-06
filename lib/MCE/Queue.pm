@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.885';
+our $VERSION = '1.886';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -28,6 +28,7 @@ use MCE::Mutex ();
 
 our ($HIGHEST,$LOWEST, $FIFO,$LIFO, $LILO,$FILO) = (1,0, 1,0, 1,0);
 
+my $_is_MSWin32 = ($^O eq 'MSWin32') ? 1 : 0;
 my ($_def, $_imported) = ({});
 
 sub import {
@@ -57,20 +58,21 @@ sub import {
       _mce_m_init();
    }
 
-   *{ 'MCE::Queue::await'      } = \&_mce_m_await;
-   *{ 'MCE::Queue::clear'      } = \&_mce_m_clear;
-   *{ 'MCE::Queue::end'        } = \&_mce_m_end;
-   *{ 'MCE::Queue::enqueue'    } = \&_mce_m_enqueue;
-   *{ 'MCE::Queue::enqueuep'   } = \&_mce_m_enqueuep;
-   *{ 'MCE::Queue::dequeue'    } = \&_mce_m_dequeue;
-   *{ 'MCE::Queue::dequeue_nb' } = \&_mce_m_dequeue_nb;
-   *{ 'MCE::Queue::pending'    } = \&_mce_m_pending;
-   *{ 'MCE::Queue::insert'     } = \&_mce_m_insert;
-   *{ 'MCE::Queue::insertp'    } = \&_mce_m_insertp;
-   *{ 'MCE::Queue::peek'       } = \&_mce_m_peek;
-   *{ 'MCE::Queue::peekp'      } = \&_mce_m_peekp;
-   *{ 'MCE::Queue::peekh'      } = \&_mce_m_peekh;
-   *{ 'MCE::Queue::heap'       } = \&_mce_m_heap;
+   *{ 'MCE::Queue::await'         } = \&_mce_m_await;
+   *{ 'MCE::Queue::clear'         } = \&_mce_m_clear;
+   *{ 'MCE::Queue::end'           } = \&_mce_m_end;
+   *{ 'MCE::Queue::enqueue'       } = \&_mce_m_enqueue;
+   *{ 'MCE::Queue::enqueuep'      } = \&_mce_m_enqueuep;
+   *{ 'MCE::Queue::dequeue'       } = \&_mce_m_dequeue;
+   *{ 'MCE::Queue::dequeue_nb'    } = \&_mce_m_dequeue_nb;
+   *{ 'MCE::Queue::dequeue_timed' } = \&_mce_m_dequeue_timed;
+   *{ 'MCE::Queue::pending'       } = \&_mce_m_pending;
+   *{ 'MCE::Queue::insert'        } = \&_mce_m_insert;
+   *{ 'MCE::Queue::insertp'       } = \&_mce_m_insertp;
+   *{ 'MCE::Queue::peek'          } = \&_mce_m_peek;
+   *{ 'MCE::Queue::peekp'         } = \&_mce_m_peekp;
+   *{ 'MCE::Queue::peekh'         } = \&_mce_m_peekh;
+   *{ 'MCE::Queue::heap'          } = \&_mce_m_heap;
 
    return;
 }
@@ -90,6 +92,7 @@ use constant {
    OUTPUT_A_QUP => 'A~QUP',  # Enqueue into queue (array (p))
    OUTPUT_D_QUE => 'D~QUE',  # Dequeue from queue (blocking)
    OUTPUT_D_QUN => 'D~QUN',  # Dequeue from queue (non-blocking)
+   OUTPUT_D_QUT => 'D~QUT',  # Dequeue from queue (timed)
 
    OUTPUT_N_QUE => 'N~QUE',  # Return the number of items
    OUTPUT_I_QUE => 'I~QUE',  # Insert into queue
@@ -186,6 +189,7 @@ sub new {
 
    ## -------------------------------------------------------------------------
 
+   $_Q->{_qr_mutex} = MCE::Mutex->new();
    $_Q->{_init_pid} = $_tid ? $$ .'.'. $_tid : $$;
    $_Q->{_id} = ++$_qid; $_all->{$_qid} = $_Q;
    $_Q->{_dsem} = 0;
@@ -545,6 +549,19 @@ sub _heap_insert_high {
          return;
       },
 
+      OUTPUT_D_QUT.$LF => sub {                   # Dequeue from queue (Timed)
+         $_DAU_R_SOCK = ${ $_DAU_R_SOCK_REF };
+
+         chomp($_id = <$_DAU_R_SOCK>);
+
+         $_Q = $_all->{$_id};
+         $_Q->{_dsem} -= 1 if $_Q->{_dsem};
+
+         print {$_DAU_R_SOCK} $LF;
+
+         return;
+      },
+
       ## ----------------------------------------------------------------------
 
       OUTPUT_N_QUE.$LF => sub {                   # Return number of items
@@ -779,8 +796,8 @@ sub _mce_m_enqueuep {
    return;
 }
 
-## dequeue ( count )
 ## dequeue ( )
+## dequeue ( count )
 
 sub _mce_m_dequeue {
    my ($_Q, $_cnt) = @_;
@@ -815,14 +832,47 @@ sub _mce_m_dequeue {
    goto \&_mce_m_dequeue;
 }
 
-## dequeue_nb ( count )
 ## dequeue_nb ( )
+## dequeue_nb ( count )
 
 sub _mce_m_dequeue_nb {
    my ($_Q, $_cnt) = @_;
 
    if (defined $_cnt && $_cnt ne '1') {
-      _croak('Queue: (dequeue count argument) is not valid')
+      _croak('Queue: (dequeue_nb count argument) is not valid')
+         if (!looks_like_number($_cnt) || int($_cnt) != $_cnt || $_cnt < 1);
+
+      my $_pending = @{ $_Q->{_datq} };
+
+      if ($_pending < $_cnt && scalar @{ $_Q->{_heap} }) {
+         for my $_h (@{ $_Q->{_heap} }) {
+            $_pending += @{ $_Q->{_datp}->{$_h} };
+         }
+      }
+
+      $_cnt = $_pending if $_pending < $_cnt;
+
+      return map { $_Q->_dequeue() } 1 .. $_cnt;
+   }
+
+   my $_buf = $_Q->_dequeue();
+
+   return defined($_buf) ? $_buf : ();
+}
+
+## dequeue_timed ( timeout )
+## dequeue_timed ( timeout, count )
+
+sub _mce_m_dequeue_timed {
+   my ($_Q, $_timeout, $_cnt) = @_;
+
+   if (defined $_timeout) {
+      _croak('Queue: (dequeue_timed timeout argument) is not valid')
+         if (!looks_like_number($_timeout));
+   }
+
+   if (defined $_cnt && $_cnt ne '1') {
+      _croak('Queue: (dequeue_timed count argument) is not valid')
          if (!looks_like_number($_cnt) || int($_cnt) != $_cnt || $_cnt < 1);
 
       my $_pending = @{ $_Q->{_datq} };
@@ -1052,8 +1102,6 @@ sub _mce_m_heap {
       $_dat_ex, $_dat_un, $_len, $_pending
    );
 
-   my $_is_MSWin32 = ($^O eq 'MSWin32') ? 1 : 0;
-
    my $_req1 = sub {
       local $\ = undef if (defined $\);
 
@@ -1111,7 +1159,8 @@ sub _mce_m_heap {
          # inlined for performance
          $_dat_ex = sub {
             my $_pid = $_tid ? $$ .'.'. $_tid : $$;
-            MCE::Util::_sock_ready($_DAT_LOCK->{_r_sock}) if $_is_MSWin32;
+            CORE::lock($_DAT_LOCK->{_t_lock}), MCE::Util::_sock_ready($_DAT_LOCK->{_r_sock})
+               if $_is_MSWin32;
             MCE::Util::_sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
                unless $_DAT_LOCK->{ $_pid };
          };
@@ -1126,20 +1175,21 @@ sub _mce_m_heap {
 
       no strict 'refs'; no warnings 'redefine';
 
-      *{ 'MCE::Queue::await'      } = \&_mce_w_await;
-      *{ 'MCE::Queue::clear'      } = \&_mce_w_clear;
-      *{ 'MCE::Queue::end'        } = \&_mce_w_end;
-      *{ 'MCE::Queue::enqueue'    } = \&_mce_w_enqueue;
-      *{ 'MCE::Queue::enqueuep'   } = \&_mce_w_enqueuep;
-      *{ 'MCE::Queue::dequeue'    } = \&_mce_w_dequeue;
-      *{ 'MCE::Queue::dequeue_nb' } = \&_mce_w_dequeue_nb;
-      *{ 'MCE::Queue::pending'    } = \&_mce_w_pending;
-      *{ 'MCE::Queue::insert'     } = \&_mce_w_insert;
-      *{ 'MCE::Queue::insertp'    } = \&_mce_w_insertp;
-      *{ 'MCE::Queue::peek'       } = \&_mce_w_peek;
-      *{ 'MCE::Queue::peekp'      } = \&_mce_w_peekp;
-      *{ 'MCE::Queue::peekh'      } = \&_mce_w_peekh;
-      *{ 'MCE::Queue::heap'       } = \&_mce_w_heap;
+      *{ 'MCE::Queue::await'         } = \&_mce_w_await;
+      *{ 'MCE::Queue::clear'         } = \&_mce_w_clear;
+      *{ 'MCE::Queue::end'           } = \&_mce_w_end;
+      *{ 'MCE::Queue::enqueue'       } = \&_mce_w_enqueue;
+      *{ 'MCE::Queue::enqueuep'      } = \&_mce_w_enqueuep;
+      *{ 'MCE::Queue::dequeue'       } = \&_mce_w_dequeue;
+      *{ 'MCE::Queue::dequeue_nb'    } = \&_mce_w_dequeue_nb;
+      *{ 'MCE::Queue::dequeue_timed' } = \&_mce_w_dequeue_timed;
+      *{ 'MCE::Queue::pending'       } = \&_mce_w_pending;
+      *{ 'MCE::Queue::insert'        } = \&_mce_w_insert;
+      *{ 'MCE::Queue::insertp'       } = \&_mce_w_insertp;
+      *{ 'MCE::Queue::peek'          } = \&_mce_w_peek;
+      *{ 'MCE::Queue::peekp'         } = \&_mce_w_peekp;
+      *{ 'MCE::Queue::peekh'         } = \&_mce_w_peekh;
+      *{ 'MCE::Queue::heap'          } = \&_mce_w_heap;
 
       return;
    }
@@ -1228,8 +1278,7 @@ sub _mce_m_heap {
       if (defined $_cnt && $_cnt ne '1') {
          _croak('Queue: (dequeue count argument) is not valid')
             if (!looks_like_number($_cnt) || int($_cnt) != $_cnt || $_cnt < 1);
-      }
-      else {
+      } else {
          $_cnt = 1;
       }
 
@@ -1264,13 +1313,74 @@ sub _mce_m_heap {
       return $_Q->_mce_m_dequeue_nb($_cnt) if (exists $_all->{ $_Q->{_id} });
 
       if (defined $_cnt && $_cnt ne '1') {
-         _croak('Queue: (dequeue count argument) is not valid')
+         _croak('Queue: (dequeue_nb count argument) is not valid')
             if (!looks_like_number($_cnt) || int($_cnt) != $_cnt || $_cnt < 1);
       } else {
          $_cnt = 1;
       }
 
       $_req3->(OUTPUT_D_QUN, $_Q->{_id}.$LF . $_cnt.$LF, $_cnt, 1);
+   }
+
+   sub _mce_w_dequeue_timed {
+      my ($_Q, $_timeout, $_cnt) = @_;
+      my ($_buf, $_start);
+
+      return $_Q->_mce_m_dequeue_timed($_timeout, $_cnt)
+         if (exists $_all->{ $_Q->{_id} });
+
+      if (defined $_timeout) {
+         _croak('Queue: (dequeue_timed count argument) is not valid')
+            if (!looks_like_number($_timeout));
+         $_start = MCE::Util::_time();
+      }
+
+      if (defined $_cnt && $_cnt ne '1') {
+         _croak('Queue: (dequeue_timed count argument) is not valid')
+            if (!looks_like_number($_cnt) || int($_cnt) != $_cnt || $_cnt < 1);
+      } else {
+         $_cnt = 1;
+      }
+
+      if (! $_timeout || $_timeout < 0.0) {
+         return $_req3->(OUTPUT_D_QUN, $_Q->{_id}.$LF . $_cnt.$LF, $_cnt, 1);
+      }
+
+      {
+         local $\ = undef if (defined $\);
+         local $/ = $LF if ($/ ne $LF);
+
+         $_dat_ex->() if $_lock_chn;
+
+         print({$_DAT_W_SOCK} OUTPUT_D_QUE.$LF . $_chn.$LF),
+         print({$_DAU_W_SOCK} $_Q->{_id}.$LF . $_cnt.$LF);
+         chomp($_len = <$_DAU_W_SOCK>);
+
+         read($_DAU_W_SOCK, $_buf, $_len) if ($_len >= 0);
+
+         $_dat_un->() if $_lock_chn;
+      }
+
+      return ($_MCE->{thaw}($_buf))->[0] if ($_len > 0 && $_cnt == 1);
+      return @{ $_MCE->{thaw}($_buf) }   if ($_len > 0);
+      return                             if ($_len == -2);
+
+      $_Q->{_qr_mutex}->lock();
+      $_timeout = $_timeout - (MCE::Util::_time() - $_start) - 0.045;
+      $_timeout = 0.0 if $_timeout < 0.045;
+
+      CORE::vec(my $_r, CORE::fileno($_Q->{_qr_sock}), 1) = 1;
+      if (CORE::select($_r, undef, undef, $_timeout) > 0) {
+         MCE::Util::_sysread($_Q->{_qr_sock}, my($_next), 1);
+         $_Q->{_qr_mutex}->unlock();
+         return $_req3->(OUTPUT_D_QUN, $_Q->{_id}.$LF . $_cnt.$LF, $_cnt, 1);
+      }
+
+      $_Q->{_qr_mutex}->unlock();
+      $_req2->(OUTPUT_D_QUT, $_Q->{_id}.$LF);
+      MCE::Util::_sleep(0.045); # yield
+
+      return ();
    }
 
    ## -------------------------------------------------------------------------
@@ -1396,7 +1506,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.885
+This document describes MCE::Queue version 1.886
 
 =head1 SYNOPSIS
 
@@ -1690,8 +1800,8 @@ Appends a list of items onto the end of the priority queue with priority.
 Returns the requested number of items (default 1) from the queue. Priority
 data will always dequeue first before any data from the normal queue.
 
+ $q->dequeue;
  $q->dequeue( 2 );
- $q->dequeue; # default 1
 
 The method will block if the queue contains zero items. If the queue contains
 fewer than the requested number of items, the method will not block, but
@@ -1719,8 +1829,22 @@ Returns the requested number of items (default 1) from the queue. Like with
 dequeue, priority data will always dequeue first. This method is non-blocking
 and returns C<undef> in the absence of data.
 
+ $q->dequeue_nb;
  $q->dequeue_nb( 2 );
- $q->dequeue_nb; # default 1
+
+=head2 $q->dequeue_timed ( timeout [, $count ] )
+
+Returns the requested number of items (default 1) from the queue. Like with
+dequeue, priority data will always dequeue first. This method is non-blocking
+until the timeout is reached and returns C<undef> in the absence of data.
+Current API available since MCE 1.886.
+
+ $q->dequeue_timed( 300 );    # timeout after 5 minutes
+ $q->dequeue_timed( 300, 2 );
+
+The timeout may be specified as fractional seconds. If timeout is missing,
+undef, less than or equal to 0, or called by the manager process, then this
+call behaves like dequeue_nb.
 
 =head2 $q->insert ( $index, $item [, $item, ... ] )
 

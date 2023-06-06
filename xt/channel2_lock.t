@@ -13,12 +13,12 @@ is($mutex->impl(), 'Channel2', 'implementation name');
 
 sub task {
     $mutex->lock_exclusive;
-    sleep 1;
+    sleep(1) for 1..2;
     $mutex->unlock;
 }
 sub task2 {
     $mutex->lock_exclusive2;
-    sleep 1;
+    sleep(1) for 1..2;
     $mutex->unlock2;
 }
 
@@ -34,11 +34,11 @@ sub spawn2 {
 }
 
 my $start = time;
-my @pids  = map { spawn(), spawn2() } 1..4;
+my @pids  = map { spawn(), spawn2() } 1..3;
 
 waitpid($_, 0) for @pids;
 
-my $success = (time - $start > 2) ? 1 : 0;
+my $success = (time - $start > 3) ? 1 : 0;
 is($success, 1, 'mutex lock_exclusive2');
 
 done_testing;

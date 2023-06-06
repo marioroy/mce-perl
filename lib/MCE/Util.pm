@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized numeric );
 
-our $VERSION = '1.885';
+our $VERSION = '1.886';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
@@ -304,7 +304,7 @@ sub _sock_ready {
 
       # delay after a while to not consume a CPU core
       sleep(0.015), next if $_delay;
-      $_delay = 1 if time - $_start > 0.015;
+      $_delay = 1 if time - $_start > 0.030;
    }
 }
 
@@ -431,7 +431,7 @@ MCE::Util - Utility functions
 
 =head1 VERSION
 
-This document describes MCE::Util version 1.885
+This document describes MCE::Util version 1.886
 
 =head1 SYNOPSIS
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.885';
+our $VERSION = '1.886';
 
 use base 'MCE::Mutex';
 use Fcntl ':flock';
@@ -201,7 +201,7 @@ MCE::Mutex::Flock - Mutex locking via Fcntl
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Flock version 1.885
+This document describes MCE::Mutex::Flock version 1.886
 
 =head1 DESCRIPTION
 

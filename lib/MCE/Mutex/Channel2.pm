@@ -11,7 +11,10 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.885';
+our $VERSION = '1.886';
+
+use if $^O eq 'MSWin32', 'threads';
+use if $^O eq 'MSWin32', 'threads::shared';
 
 use base 'MCE::Mutex::Channel';
 use MCE::Util ();
@@ -34,12 +37,13 @@ sub CLONE {
 sub new {
     my ($class, %obj) = (@_, impl => 'Channel2');
     $obj{_init_pid} = $tid ? $$ .'.'. $tid : $$;
+    $obj{_t_lock}  = threads::shared::share( my $t_lock  ) if $is_MSWin32;
+    $obj{_t_lock2} = threads::shared::share( my $t_lock2 ) if $is_MSWin32;
 
     MCE::Util::_sock_pair(\%obj, qw(_r_sock _w_sock), undef, 1);
 
-    CORE::syswrite($obj{_r_sock}, '0');
     CORE::syswrite($obj{_w_sock}, '0');
-
+    CORE::syswrite($obj{_r_sock}, '0');
     bless \%obj, $class;
 
     if ( caller !~ /^MCE:?/ || caller(1) !~ /^MCE:?/ ) {
@@ -52,7 +56,8 @@ sub new {
 sub lock2 {
     my ($pid, $obj) = ($tid ? $$ .'.'. $tid : $$, shift);
 
-    MCE::Util::_sock_ready($obj->{_w_sock}) if $is_MSWin32;
+    CORE::lock($obj->{_t_lock2}), MCE::Util::_sock_ready($obj->{_w_sock})
+        if $is_MSWin32;
     MCE::Util::_sysread($obj->{_w_sock}, my($b), 1), $obj->{ $pid.'b' } = 1
         unless $obj->{ $pid.'b' };
 
@@ -78,7 +83,8 @@ sub synchronize2 {
     return unless ref($code) eq 'CODE';
 
     # lock, run, unlock - inlined for performance
-    MCE::Util::_sock_ready($obj->{_w_sock}) if $is_MSWin32;
+    CORE::lock($obj->{_t_lock2}), MCE::Util::_sock_ready($obj->{_w_sock})
+        if $is_MSWin32;
     MCE::Util::_sysread($obj->{_w_sock}, $b, 1), $obj->{ $pid.'b' } = 1
         unless $obj->{ $pid.'b' };
 
@@ -136,7 +142,7 @@ MCE::Mutex::Channel2 - Provides two mutexes using a single channel
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel2 version 1.885
+This document describes MCE::Mutex::Channel2 version 1.886
 
 =head1 DESCRIPTION
 

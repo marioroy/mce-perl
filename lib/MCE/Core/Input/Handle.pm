@@ -14,7 +14,7 @@ package MCE::Core::Input::Handle;
 use strict;
 use warnings;
 
-our $VERSION = '1.885';
+our $VERSION = '1.886';
 
 ## Items below are folded into MCE.
 
@@ -65,7 +65,8 @@ sub _worker_read_handle {
    # inlined for performance
    $_DAT_LOCK = $self->{'_mutex_'.( $self->{_wid} % 2 + 10 )};
    $_dat_ex = sub {
-      MCE::Util::_sock_ready($_DAT_LOCK->{_r_sock}) if $_is_MSWin32;
+      CORE::lock($_DAT_LOCK->{_t_lock}), MCE::Util::_sock_ready($_DAT_LOCK->{_r_sock})
+         if $_is_MSWin32;
       MCE::Util::_sysread($_DAT_LOCK->{_r_sock}, my($b), 1), $_DAT_LOCK->{ $_pid } = 1
          unless $_DAT_LOCK->{ $_pid };
    };
@@ -277,7 +278,7 @@ MCE::Core::Input::Handle - File path and Scalar reference input reader
 
 =head1 VERSION
 
-This document describes MCE::Core::Input::Handle version 1.885
+This document describes MCE::Core::Input::Handle version 1.886
 
 =head1 DESCRIPTION
 
