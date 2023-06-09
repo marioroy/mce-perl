@@ -14,7 +14,7 @@ package MCE::Core::Input::Request;
 use strict;
 use warnings;
 
-our $VERSION = '1.886';
+our $VERSION = '1.887';
 
 ## Items below are folded into MCE.
 
@@ -200,7 +200,7 @@ MCE::Core::Input::Request - Array reference and Glob reference input reader
 
 =head1 VERSION
 
-This document describes MCE::Core::Input::Request version 1.886
+This document describes MCE::Core::Input::Request version 1.887
 
 =head1 DESCRIPTION
 

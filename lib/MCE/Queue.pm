@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.886';
+our $VERSION = '1.887';
 
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -1506,7 +1506,7 @@ MCE::Queue - Hybrid (normal and priority) queues
 
 =head1 VERSION
 
-This document describes MCE::Queue version 1.886
+This document describes MCE::Queue version 1.887
 
 =head1 SYNOPSIS
 
@@ -1835,7 +1835,7 @@ and returns C<undef> in the absence of data.
 =head2 $q->dequeue_timed ( timeout [, $count ] )
 
 Returns the requested number of items (default 1) from the queue. Like with
-dequeue, priority data will always dequeue first. This method is non-blocking
+dequeue, priority data will always dequeue first. This method is blocking
 until the timeout is reached and returns C<undef> in the absence of data.
 Current API available since MCE 1.886.
 

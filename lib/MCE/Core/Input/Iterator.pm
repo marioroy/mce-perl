@@ -14,7 +14,7 @@ package MCE::Core::Input::Iterator;
 use strict;
 use warnings;
 
-our $VERSION = '1.886';
+our $VERSION = '1.887';
 
 ## Items below are folded into MCE.
 
@@ -129,7 +129,7 @@ MCE::Core::Input::Iterator - Iterator reader
 
 =head1 VERSION
 
-This document describes MCE::Core::Input::Iterator version 1.886
+This document describes MCE::Core::Input::Iterator version 1.887
 
 =head1 DESCRIPTION
 
