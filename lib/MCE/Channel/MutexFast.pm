@@ -335,7 +335,7 @@ Current module available since MCE 1.877.
  my $chnl_a = MCE::Channel->new( impl => 'MutexFast' );
 
  # Specify the 'mp' option for safe use by two or more producers
- # sending or recieving on the left side of the channel (i.e.
+ # sending or receiving on the left side of the channel (i.e.
  # ->enqueue/->send or ->recv2/->recv2_nb).
 
  my $chnl_b = MCE::Channel->new( impl => 'MutexFast', mp => 1 );
