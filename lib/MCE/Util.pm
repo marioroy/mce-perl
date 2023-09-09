@@ -61,7 +61,7 @@ sub get_ncpu {
    OS_CHECK: {
       local $_ = lc $^O;
 
-      /linux|android/ && do {
+      /linux/ && do {
          my ( $count, $fh );
          if ( open $fh, '<', '/proc/stat' ) {
             $count = grep { /^cpu\d/ } <$fh>;
@@ -135,6 +135,16 @@ sub get_ncpu {
          if (exists $ENV{NUMBER_OF_PROCESSORS}) {
             $ncpu = $ENV{NUMBER_OF_PROCESSORS};
          }
+         last OS_CHECK;
+      };
+
+      /android/ && do {
+         my ( $count, $fh );
+         if ( open $fh, '<', '/proc/cpuinfo' ) {
+            $count = grep { /^processor/ } <$fh>;
+            close $fh;
+         }
+         $ncpu = $count if $count;
          last OS_CHECK;
       };
 
