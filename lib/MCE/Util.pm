@@ -138,6 +138,16 @@ sub get_ncpu {
          last OS_CHECK;
       };
 
+      /android/ && do {
+         my ( $count, $fh );
+         if ( open $fh, '<', '/proc/cpuinfo' ) {
+            $count = grep { /^processor/ } <$fh>;
+            close $fh;
+         }
+         $ncpu = $count if $count;
+         last OS_CHECK;
+      };
+
       warn "MCE::Util::get_ncpu: command failed or unknown operating system\n";
    }
 
