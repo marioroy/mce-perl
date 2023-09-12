@@ -128,6 +128,9 @@ sub _make_tmpdir {
          $_tmp_base_dir = $ENV{TEMP};
       }
    }
+   elsif (! -w '/tmp' && -e $ENV{TMPDIR} && -d $ENV{TMPDIR} && -w _) {
+      $_tmp_base_dir = $ENV{TMPDIR};
+   }
    else {
       $_tmp_base_dir = ($_use_dev_shm && -d '/dev/shm' && -w _)
          ? '/dev/shm' : '/tmp';

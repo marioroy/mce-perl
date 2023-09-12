@@ -61,10 +61,14 @@ sub get_ncpu {
    OS_CHECK: {
       local $_ = lc $^O;
 
-      /linux/ && do {
+      /linux|android/ && do {
          my ( $count, $fh );
          if ( open $fh, '<', '/proc/stat' ) {
             $count = grep { /^cpu\d/ } <$fh>;
+            close $fh;
+         }
+         elsif ( open $fh, '<', '/proc/cpuinfo' ) {
+            $count = grep { /^processor/ } <$fh>;
             close $fh;
          }
          $ncpu = $count if $count;
@@ -135,16 +139,6 @@ sub get_ncpu {
          if (exists $ENV{NUMBER_OF_PROCESSORS}) {
             $ncpu = $ENV{NUMBER_OF_PROCESSORS};
          }
-         last OS_CHECK;
-      };
-
-      /android/ && do {
-         my ( $count, $fh );
-         if ( open $fh, '<', '/proc/cpuinfo' ) {
-            $count = grep { /^processor/ } <$fh>;
-            close $fh;
-         }
-         $ncpu = $count if $count;
          last OS_CHECK;
       };
 
@@ -254,7 +248,7 @@ sub _sock_pair {
             AF_UNIX, Socket::SOCK_STREAM(), 0 ) or die "socketpair: $!\n";
       }
 
-      if ($^O ne 'aix' && $^O ne 'linux') {
+      if ($^O !~ /aix|linux|android/) {
          setsockopt($_obj->{$_r_sock}[$_i], SOL_SOCKET, SO_SNDBUF, int $_size);
          setsockopt($_obj->{$_r_sock}[$_i], SOL_SOCKET, SO_RCVBUF, int $_size);
          setsockopt($_obj->{$_w_sock}[$_i], SOL_SOCKET, SO_SNDBUF, int $_size);
@@ -277,7 +271,7 @@ sub _sock_pair {
             AF_UNIX, Socket::SOCK_STREAM(), 0 ) or die "socketpair: $!\n";
       }
 
-      if ($^O ne 'aix' && $^O ne 'linux') {
+      if ($^O !~ /aix|linux|android/) {
          setsockopt($_obj->{$_r_sock}, SOL_SOCKET, SO_SNDBUF, int $_size);
          setsockopt($_obj->{$_r_sock}, SOL_SOCKET, SO_RCVBUF, int $_size);
          setsockopt($_obj->{$_w_sock}, SOL_SOCKET, SO_SNDBUF, int $_size);

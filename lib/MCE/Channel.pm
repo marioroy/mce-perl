@@ -55,7 +55,7 @@ sub new {
    my $impl = defined( $argv{impl} ) ? ucfirst( lc $argv{impl} ) : 'Mutex';
 
    # Replace 'fast' with 'Fast' in the implementation value.
-   $impl =~ s/fast$/Fast/;
+   $impl =~ s/fast/Fast/;
 
    $impl = 'Threads'     if ( $impl eq 'Mutex' && $^O eq 'MSWin32' );
    $impl = 'ThreadsFast' if ( $impl eq 'MutexFast' && $^O eq 'MSWin32' );
