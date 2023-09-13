@@ -220,17 +220,9 @@ sub send2 {
    my $data = ''.shift;
 
    local $\ = undef if (defined $\);
-   local $MCE::Signal::SIG;
-
-   {
-      local $MCE::Signal::IPC = 1;
-      ( my $c_mutex = $self->{c_mutex} )->lock2;
-
+   $self->{c_mutex}->synchronize2( sub {
       print { $self->{c_sock} } pack('i', length $data), $data;
-      $c_mutex->unlock2;
-   }
-
-   CORE::kill($MCE::Signal::SIG, $$) if $MCE::Signal::SIG;
+   });
 
    return 1;
 }

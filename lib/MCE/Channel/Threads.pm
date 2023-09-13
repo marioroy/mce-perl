@@ -229,19 +229,14 @@ sub send2 {
    my $data = $freeze->([ @_ ]);
 
    local $\ = undef if (defined $\);
-   local $MCE::Signal::SIG;
 
    {
       my $c_sock = $self->{c2_sock} || $self->{c_sock};
 
-      local $MCE::Signal::IPC = 1;
       CORE::lock $self->{cw_mutex};
-
       MCE::Util::_sock_ready_w( $c_sock ) if $is_MSWin32;
       print { $c_sock } pack('i', length $data), $data;
    }
-
-   CORE::kill($MCE::Signal::SIG, $$) if $MCE::Signal::SIG;
 
    return 1;
 }

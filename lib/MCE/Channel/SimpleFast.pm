@@ -231,16 +231,8 @@ sub send2 {
    my $data = ''.shift;
 
    local $\ = undef if (defined $\);
-   local $MCE::Signal::SIG;
-
-   {
-      local $MCE::Signal::IPC = 1;
-
-      MCE::Util::_sock_ready_w( $self->{c_sock} ) if $is_MSWin32;
-      print { $self->{c_sock} } pack('i', length $data) . $data;
-   }
-
-   CORE::kill($MCE::Signal::SIG, $$) if $MCE::Signal::SIG;
+   MCE::Util::_sock_ready_w( $self->{c_sock} ) if $is_MSWin32;
+   print { $self->{c_sock} } pack('i', length $data) . $data;
 
    return 1;
 }
