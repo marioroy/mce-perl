@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized once );
 
-our $VERSION = '1.888';
+our $VERSION = '1.889';
 
 use if $^O eq 'MSWin32', 'threads';
 use if $^O eq 'MSWin32', 'threads::shared';
@@ -154,7 +154,7 @@ MCE::Mutex::Channel2 - Provides two mutexes using a single channel
 
 =head1 VERSION
 
-This document describes MCE::Mutex::Channel2 version 1.888
+This document describes MCE::Mutex::Channel2 version 1.889
 
 =head1 DESCRIPTION
 
