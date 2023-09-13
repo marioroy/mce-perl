@@ -11,19 +11,29 @@ my $mutex = MCE::Mutex->new( impl => 'Channel' );
 
 is($mutex->impl(), 'Channel', 'implementation name');
 
-sub task {
+sub task1 {
     $mutex->lock_exclusive;
     sleep(1) for 1..2;
     $mutex->unlock;
 }
+sub task2 {
+    my $guard = $mutex->guard_lock;
+    sleep(1) for 1..2;
+}
+
 sub spawn {
+    my ($i) = @_;
     my $pid = fork;
-    task(), exit() if $pid == 0;
+    if ($pid == 0) {
+        task1() if ($i % 2 != 0);
+        task2() if ($i % 2 == 0);
+        exit();
+    }
     return $pid;
 }
 
 my $start = time;
-my @pids  = map { spawn() } 1..3;
+my @pids  = map { spawn($_) } 1..3;
 
 waitpid($_, 0) for @pids;
 

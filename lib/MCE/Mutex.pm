@@ -175,6 +175,13 @@ implementations.
 
 Current API available since 1.822.
 
+=head2 $guard = $mutex->guard_lock ( void )
+
+This method calls C<lock> and returns a guard object. When the guard object is
+destroyed, it automatically calls C<unlock>.
+
+Current API available since 1.889.
+
 =head2 $mutex->unlock ( void )
 
 Releases the lock. A held lock by an exiting process or thread is released

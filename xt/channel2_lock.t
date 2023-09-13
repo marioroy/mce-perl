@@ -11,30 +11,50 @@ my $mutex = MCE::Mutex->new( impl => 'Channel2' );
 
 is($mutex->impl(), 'Channel2', 'implementation name');
 
-sub task {
+sub task1a {
     $mutex->lock_exclusive;
     sleep(1) for 1..2;
     $mutex->unlock;
 }
-sub task2 {
+sub task1b {
+    my $guard = $mutex->guard_lock;
+    sleep(1) for 1..2;
+}
+
+sub spawn1 {
+    my ($i) = @_;
+    my $pid = fork;
+    if ($pid == 0) {
+        task1a() if ($i % 2 != 0);
+        task1b() if ($i % 2 == 0);
+        exit();
+    }
+    return $pid;
+}
+
+sub task2a {
     $mutex->lock_exclusive2;
     sleep(1) for 1..2;
     $mutex->unlock2;
 }
-
-sub spawn {
-    my $pid = fork;
-    task(), exit() if $pid == 0;
-    return $pid;
+sub task2b {
+    my $guard = $mutex->guard_lock2;
+    sleep(1) for 1..2;
 }
+
 sub spawn2 {
+    my ($i) = @_;
     my $pid = fork;
-    task2(), exit() if $pid == 0;
+    if ($pid == 0) {
+        task2a() if ($i % 2 != 0);
+        task2b() if ($i % 2 == 0);
+        exit();
+    }
     return $pid;
 }
 
 my $start = time;
-my @pids  = map { spawn(), spawn2() } 1..3;
+my @pids  = map { spawn1($_), spawn2($_) } 1..3;
 
 waitpid($_, 0) for @pids;
 
