@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.890 Fri May 24 19:00:00 EST 2024
+
+  * Improve reaping completed workers in MCE::Child.
+  * Fix the _sprintf function, failing multiple arguments.
+
 1.889 Wed Sep 13 18:00:00 EST 2023
 
   * Add Android support. Thank you, Dimitrios Kechagias.

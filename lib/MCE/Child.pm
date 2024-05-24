@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.889';
+our $VERSION = '1.890';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -49,6 +49,7 @@ my ( $_MNGD, $_DATA, $_DELY, $_LIST ) = ( {}, {}, {}, {} );
 
 my $_is_MSWin32 = ( $^O eq 'MSWin32' ) ? 1 : 0;
 my $_tid        = ( $INC{'threads.pm'} ) ? threads->tid() : 0;
+my $_yield_secs = ( $^O =~ /mswin|mingw|msys|cygwin/i ) ? 0.015 : 0.008;
 
 sub CLONE {
    $_tid = threads->tid(), &_clear() if $INC{'threads.pm'};
@@ -86,8 +87,9 @@ sub init {
    # max_workers child_timeout posix_exit on_start on_finish void_context
    # ---------------------------------------------------------------------
 
-   my $pkg = "$$.$_tid.".( caller eq __PACKAGE__ ? caller(1) : caller );
-   my $mngd = $_MNGD->{$pkg} = ( ref $_[0] eq 'HASH' ) ? shift : { @_ };
+   my $opt = ( ref $_[0] eq 'HASH' ) ? shift : { @_ };
+   my $pkg = "$$.$_tid.".( delete $opt->{caller} || caller() );
+   my $mngd = $_MNGD->{$pkg} = $opt;
 
    @_ = ();
 
@@ -155,9 +157,11 @@ sub mce_child (&;@) {
 }
 
 sub create {
-   my $mngd = $_MNGD->{ "$$.$_tid.".caller() } || do {
+   my $caller = caller();
+
+   my $mngd = $_MNGD->{ "$$.$_tid.$caller" } || do {
       # construct mngd internally on first use unless defined
-      init(); $_MNGD->{ "$$.$_tid.".caller() };
+      init( caller => $caller ); $_MNGD->{ "$$.$_tid.$caller" };
    };
 
    shift if ( $_[0] eq __PACKAGE__ );
@@ -170,7 +174,7 @@ sub create {
    $self->{MGR_ID} = $mngd->{MGR_ID}, $self->{PKG} = $mngd->{PKG};
    $self->{ident } = shift if ( !ref $_[0] && ref $_[1] eq 'CODE' );
 
-   my $func = shift; $func = caller().'::'.$func
+   my $func = shift; $func = $caller.'::'.$func
       if ( !ref $func && length $func && index($func,':') < 0 );
 
    if ( !defined $func ) {
@@ -184,21 +188,23 @@ sub create {
 
    $_DATA->{"$pkg:id"} = 10000 if ( ( my $id = ++$_DATA->{"$pkg:id"} ) >= 2e9 );
 
-   {
-      # Reap completed child processes.
-      local ($SIG{CHLD}, $!, $?, $_); map {
-         waitpid($_, 0); _reap_child($list->del($_), 0); ();
+   # Reap completed child processes.
+   if ( $self->{IGNORE} || ($max_workers && $list->len() >= $max_workers) ) {
+      local ($SIG{CHLD}, $!, $?, $_);
+      map {
+         $_ = substr($_, 1); # strip leading 'R'
+         my $child = $list->del($_);
+         if ( ! $child->{REAPED} ) {
+             waitpid($child->{WRK_ID}, 0);
+             _reap_child($child, 0);
+         }
+         ();
       }
-      $_DATA->{$pkg}->reap_data;
+      $_DATA->{$pkg}->get_done();
    }
 
-   if ( $max_workers || $self->{IGNORE} ) {
-      # Wait for a slot if saturated.
-      if ( $max_workers && $list->len() >= $max_workers ) {
-         my $count = $list->len() - $max_workers + 1;
-         _wait_one($pkg) for 1 .. $count;
-      }
-   }
+   # Wait for a slot if saturated.
+   _wait_one($pkg) if ( $max_workers && $list->len() >= $max_workers );
 
    # ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~ ~~~
 
@@ -307,7 +313,8 @@ sub exit {
    }
    elsif ( $wrk_id == $$ ) {
       alarm 0; my ( $exit_status, @res ) = @_; $? = $exit_status || 0;
-      $_DATA->{$pkg}->set('R'.$wrk_id, @res ? \@res : '');
+      $_DATA->{$pkg}->set('R'.$wrk_id, @res ? \@res : '')
+         unless $self->{IGNORE};
       die "Child exited ($?)\n";
       _exit($?); # not reached
    }
@@ -315,7 +322,7 @@ sub exit {
    return $self if $self->{REAPED};
 
    if ( exists $_DATA->{$pkg} ) {
-      sleep 0.015 until $_DATA->{$pkg}->exists('S'.$wrk_id);
+      sleep $_yield_secs until $_DATA->{$pkg}->exists('S'.$wrk_id);
    } else {
       sleep 0.030;
    }
@@ -441,7 +448,7 @@ sub kill {
    if ( $self->{MGR_ID} eq "$$.$_tid" ) {
       return $self if $self->{REAPED};
       if ( exists $_DATA->{$pkg} ) {
-         sleep 0.015 until $_DATA->{$pkg}->exists('S'.$wrk_id);
+         sleep $_yield_secs until $_DATA->{$pkg}->exists('S'.$wrk_id);
       } else {
          sleep 0.030;
       }
@@ -471,9 +478,7 @@ sub list_joinable {
    my $pkg = "$$.$_tid.".caller();
 
    return () unless ( my $list = $_LIST->{$pkg} );
-   local ($!, $?, $_);
-
-   $_DATA->{$pkg}->reap_data;
+   local ($!, $?, $_); $_DATA->{$pkg}->reap_data;
 
    map {
       ( waitpid($_->{WRK_ID}, _WNOHANG) == 0 ) ? () : do {
@@ -489,9 +494,7 @@ sub list_running {
    my $pkg = "$$.$_tid.".caller();
 
    return () unless ( my $list = $_LIST->{$pkg} );
-   local ($!, $?, $_);
-
-   $_DATA->{$pkg}->reap_data;
+   local ($!, $?, $_); $_DATA->{$pkg}->reap_data;
 
    map {
       ( waitpid($_->{WRK_ID}, _WNOHANG) == 0 ) ? $_ : do {
@@ -691,7 +694,7 @@ sub _force_reap {
       next if $child->{IGNORE};
 
       if ( $child->is_running() ) {
-         sleep(0.015), CORE::kill('KILL', $child->pid())
+         sleep($_yield_secs), CORE::kill('KILL', $child->pid())
             if CORE::kill('ZERO', $child->pid());
          $count++;
       }
@@ -726,7 +729,7 @@ sub _reap_child {
    my ( $child, $wait_flag ) = @_;
    return unless $child;
 
-   local @_ = $_DATA->{ $child->{PKG} }->get( $child->{WRK_ID}, $wait_flag );
+   local @_ = $_DATA->{ $child->{PKG} }->get($child->{WRK_ID}, $wait_flag);
 
    ( $child->{ERROR}, $child->{RESULT}, $child->{REAPED} ) =
       ( pop || '', length $_[0] ? pop : [], 1 );
@@ -791,7 +794,7 @@ sub _wait_one {
          $self = $list->del($wrk_id), last if waitpid($wrk_id, _WNOHANG);
       }
       last if $self;
-      sleep 0.030;
+      sleep $_yield_secs;
    }
 
    _reap_child($self, 0);
@@ -856,36 +859,36 @@ use constant {
 
 sub new {
    my ( $class, $chnl ) = @_;
-
    bless [ {}, $chnl ], shift;
 }
 
 sub clear {
    my ( $self ) = @_;
-
    1 while ( $self->[1]->recv2_nb() );
-
    %{ $self->[0] } = ();
 }
 
 sub exists {
    my ( $self, $key ) = @_;
+   $self->reap_data;
+   CORE::exists $self->[0]{ $key };
+}
 
-   while ( my $data = $self->[1]->recv2_nb() ) {
-      $self->[0]{ $data->[0] } = $data->[1];
+sub get_done {
+   my ( $self ) = @_;
+   my @ret;
+
+   $self->reap_data;
+   for my $key (keys %{ $self->[0] }) {
+      push @ret, $key if ( substr($key, 0, 1) eq 'R' );
    }
 
-   CORE::exists $self->[0]{ $key };
+   return @ret;
 }
 
 sub get {
    my ( $self, $wrk_id, $wait_flag ) = @_;
-
-   if ( !CORE::exists $self->[0]{ 'R'.$wrk_id } ) {
-      while ( my $data = $self->[1]->recv2_nb() ) {
-         $self->[0]{ $data->[0] } = $data->[1];
-      }
-   }
+   $self->reap_data if ( !CORE::exists $self->[0]{ 'R'.$wrk_id } );
 
    if ( $wait_flag ) {
       local $!;
@@ -899,11 +902,7 @@ sub get {
             $self->[0]{ $data->[0] } = $data->[1];
             waitpid($wrk_id, 0), last if $data->[0] eq 'R'.$wrk_id;
          }
-         if ( !CORE::exists $self->[0]{ 'R'.$wrk_id } ) {
-            while ( my $data = $self->[1]->recv2_nb() ) {
-               $self->[0]{ $data->[0] } = $data->[1];
-            }
-         }
+         $self->reap_data if ( !CORE::exists $self->[0]{ 'R'.$wrk_id } );
       };
    }
 
@@ -918,15 +917,6 @@ sub get {
 
 sub reap_data {
    my ( $self ) = @_;
-
-   if (wantarray) {
-      my @ret;
-      while ( my $data = $self->[1]->recv2_nb() ) {
-         push @ret, substr($data->[0], 1) if substr($data->[0], 0, 1) eq 'R';
-         $self->[0]{ $data->[0] } = $data->[1];
-      }
-      return @ret;
-   }
 
    while ( my $data = $self->[1]->recv2_nb() ) {
       $self->[0]{ $data->[0] } = $data->[1];
@@ -1007,7 +997,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.889
+This document describes MCE::Child version 1.890
 
 =head1 SYNOPSIS
 

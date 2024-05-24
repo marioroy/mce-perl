@@ -1,6 +1,6 @@
 ## Many-Core Engine for Perl
 
-This document describes MCE version 1.889.
+This document describes MCE version 1.890.
 
 Many-Core Engine (MCE) for Perl helps enable a new level of performance by
 maximizing all available cores.
@@ -175,7 +175,7 @@ See also, [MCE::Examples](https://metacpan.org/pod/MCE::Examples).
 
 ### Copyright and Licensing
 
-Copyright (C) 2012-2023 by Mario E. Roy <marioeroy AT gmail DOT com>
+Copyright (C) 2012-2024 by Mario E. Roy <marioeroy AT gmail DOT com>
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself:
