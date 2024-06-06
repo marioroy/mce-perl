@@ -641,7 +641,25 @@ sub spawn {
          for (0 .. $_max_workers - 1);
    }
 
-   $self->{_seed} = int(rand() * 1e9);
+   # The PDL module 2.062 ~ 2.089 exports its own srand() function, that
+   # silently clobbers Perl's srand function, and does not seed Perl's
+   # pseudo-random generator. https://perlmonks.org/?node_id=11159773
+
+   if ( $INC{'PDL/Primitive.pm'} && PDL::Primitive->can('srand') ) {
+      # Call PDL's random() function if exported i.e. use PDL.
+
+      my $caller = caller(); local $@;
+      $caller = caller(1) if ( $caller =~ /^MCE/ );
+      $caller = caller(2) if ( $caller =~ /^MCE/ );
+      $caller = caller(3) if ( $caller =~ /^MCE/ );
+
+      $self->{_seed} = eval "$caller->can('random')"
+         ? int(PDL::Primitive::random() * 1e9)
+         : int(CORE::rand() * 1e9);
+   }
+   else {
+      $self->{_seed} = int(CORE::rand() * 1e9);
+   }
 
    ## -------------------------------------------------------------------------
 
@@ -2010,24 +2028,27 @@ sub _dispatch {
    $self->{_is_thread} = $_is_thread;
    $self->{_pid}       = $_is_thread ? $$ .'.'. threads->tid() : $$;
 
+   if (!$self->{use_threads}) {
+      MCE::Child->_clear() if $INC{'MCE/Child.pm'};
+      MCE::Hobo->_clear() if $INC{'MCE/Hobo.pm'};
+   }
+
    ## Sets the seed of the base generator uniquely between workers.
    ## The new seed is computed using the current seed and $_wid value.
    ## One may set the seed at the application level for predictable
-   ## results (non-thread workers only). Ditto for Math::Prime::Util,
+   ## results (non-thread workers only). Ditto for PDL, Math::Prime::Util,
    ## Math::Random, and Math::Random::MT::Auto.
 
    {
-      my ($_wid, $_seed) = ($_args[1], $self->{_seed});
-      srand(abs($_seed - ($_wid * 100000)) % 2147483560);
+      my $_wid  = $_args[1];
+      my $_seed = abs($self->{_seed} - ($_wid * 100000)) % 2147483560;
+
+      CORE::srand($_seed);
 
       if (!$self->{use_threads}) {
-         Math::Prime::Util::srand(abs($_seed - ($_wid * 100000)) % 2147483560)
-            if ( $INC{'Math/Prime/Util.pm'} );
-
-         MCE::Hobo->_clear()
-            if ( $INC{'MCE/Hobo.pm'} && MCE::Hobo->can('_clear') );
-
-         MCE::Child->_clear() if $INC{'MCE/Child.pm'};
+         PDL::srand($_seed) if $INC{'PDL.pm'} && PDL->can('srand'); # PDL 2.062 ~ 2.089
+         PDL::srandom($_seed) if $INC{'PDL.pm'} && PDL->can('srandom'); # PDL 2.089_01+
+         Math::Prime::Util::srand($_seed) if $INC{'Math/Prime/Util.pm'};
       }
    }
 
