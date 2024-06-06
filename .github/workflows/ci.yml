@@ -23,7 +23,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up perl v${{ matrix.perl }}
       uses: shogo82148/actions-setup-perl@v1
@@ -42,7 +42,5 @@ jobs:
 
     - name: Run tests
       run: |
-        perl Makefile.PL
-        make
-        make test
+        prove -lv t
 
