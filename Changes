@@ -1,6 +1,13 @@
 
 Revision history for Perl module MCE.
 
+1.891 Fri Jun 06 04:00:00 EST 2024
+
+  * Apply workaround for PDL::srand in MCE and MCE::Child. Thank you, PerlMonks.
+    https://www.perlmonks.org/?node_id=11159773
+  * Add PDL::srand (v2.062 ~ v2.089) and PDL::srandom (v2.089_01+).
+  * Call CORE::srand inside child processes, only.
+
 1.890 Fri May 24 19:00:00 EST 2024
 
   * Improve reaping completed workers in MCE::Child.
