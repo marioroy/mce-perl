@@ -2039,17 +2039,14 @@ sub _dispatch {
    ## results (non-thread workers only). Ditto for PDL, Math::Prime::Util,
    ## Math::Random, and Math::Random::MT::Auto.
 
-   {
+   if (!$self->{use_threads}) {
       my $_wid  = $_args[1];
       my $_seed = abs($self->{_seed} - ($_wid * 100000)) % 2147483560;
 
       CORE::srand($_seed);
-
-      if (!$self->{use_threads}) {
-         PDL::srand($_seed) if $INC{'PDL.pm'} && PDL->can('srand'); # PDL 2.062 ~ 2.089
-         PDL::srandom($_seed) if $INC{'PDL.pm'} && PDL->can('srandom'); # PDL 2.089_01+
-         Math::Prime::Util::srand($_seed) if $INC{'Math/Prime/Util.pm'};
-      }
+      PDL::srand($_seed) if $INC{'PDL.pm'} && PDL->can('srand'); # PDL 2.062 ~ 2.089
+      PDL::srandom($_seed) if $INC{'PDL.pm'} && PDL->can('srandom'); # PDL 2.089_01+
+      Math::Prime::Util::srand($_seed) if $INC{'Math/Prime/Util.pm'};
    }
 
    if (!$self->{use_threads} && $INC{'Math/Random.pm'}) {
