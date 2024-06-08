@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.893 Sat Jun 08 08:30:00 EST 2024
+
+  * Update last release. Preserve functionality.
+    Let's not forget older Perl, non-threads.
+
 1.892 Sat Jun 08 08:00:00 EST 2024
 
   * Remove check if spinning threads i.e. use_threads.
