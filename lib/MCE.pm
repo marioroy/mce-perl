@@ -2033,20 +2033,29 @@ sub _dispatch {
       MCE::Hobo->_clear() if $INC{'MCE/Hobo.pm'};
    }
 
-   ## Sets the seed of the base generator uniquely between workers.
-   ## The new seed is computed using the current seed and $_wid value.
-   ## One may set the seed at the application level for predictable
-   ## results (non-thread workers only). Ditto for PDL, Math::Prime::Util,
-   ## Math::Random, and Math::Random::MT::Auto.
+   # Sets the seed of the base generator uniquely between workers.
+   # The new seed is computed using the current seed and ID value.
+   # One may set the seed at the application level for predictable
+   # results (non-thread workers only). Ditto for Math::Prime::Util,
+   # Math::Random, Math::Random::MT::Auto, and PDL.
+   #
+   # MCE 1.892, 2024-06-08
+   #     Removed check if spawning threads i.e. use_threads.
+   #     Predictable output matches non-threads for CORE,
+   #     Math::Prime::Util, and Math::Random::MT::Auto.
+   #     https://perlmonks.org/?node_id=11159834
 
-   if (!$self->{use_threads}) {
+   {
       my $_wid  = $_args[1];
       my $_seed = abs($self->{_seed} - ($_wid * 100000)) % 2147483560;
 
-      CORE::srand($_seed);
-      PDL::srand($_seed) if $INC{'PDL.pm'} && PDL->can('srand'); # PDL 2.062 ~ 2.089
-      PDL::srandom($_seed) if $INC{'PDL.pm'} && PDL->can('srandom'); # PDL 2.089_01+
+      CORE::srand($_seed) if ($] ge '5.020000'); # drand48
       Math::Prime::Util::srand($_seed) if $INC{'Math/Prime/Util.pm'};
+
+      if (!$self->{use_threads}) {
+         PDL::srand($_seed) if $INC{'PDL.pm'} && PDL->can('srand'); # PDL 2.062 ~ 2.089
+         PDL::srandom($_seed) if $INC{'PDL.pm'} && PDL->can('srandom'); # PDL 2.089_01+
+      }
    }
 
    if (!$self->{use_threads} && $INC{'Math/Random.pm'}) {
@@ -2059,7 +2068,7 @@ sub _dispatch {
       Math::Random::random_set_seed($_new_seed, $_new_seed);
    }
 
-   if (!$self->{use_threads} && $INC{'Math/Random/MT/Auto.pm'}) {
+   if ($INC{'Math/Random/MT/Auto.pm'}) {
       my ($_wid, $_cur_seed) = (
          $_args[1], Math::Random::MT::Auto::get_seed()->[0]
       );
