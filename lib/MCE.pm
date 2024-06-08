@@ -2049,7 +2049,7 @@ sub _dispatch {
       my $_wid  = $_args[1];
       my $_seed = abs($self->{_seed} - ($_wid * 100000)) % 2147483560;
 
-      CORE::srand($_seed) if ($] ge '5.020000'); # drand48
+      CORE::srand($_seed) if (!$self->{use_threads} || $] ge '5.020000'); # drand48
       Math::Prime::Util::srand($_seed) if $INC{'Math/Prime/Util.pm'};
 
       if (!$self->{use_threads}) {
