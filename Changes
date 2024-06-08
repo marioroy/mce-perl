@@ -1,6 +1,13 @@
 
 Revision history for Perl module MCE.
 
+1.892 Sat Jun 08 08:00:00 EST 2024
+
+  * Remove check if spinning threads i.e. use_threads.
+    Predictable output matches non-threads for CORE,
+    Math::Prime::Util, and Math::Random::MT::Auto.
+    https://perlmonks.org/?node_id=11159834
+
 1.891 Fri Jun 06 04:00:00 EST 2024
 
   * Apply workaround for PDL::srand in MCE and MCE::Child. Thank you, PerlMonks.
