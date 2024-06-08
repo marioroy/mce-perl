@@ -15,7 +15,7 @@ package MCE::Core::Input::Generator;
 use strict;
 use warnings;
 
-our $VERSION = '1.892';
+our $VERSION = '1.893';
 
 ## Items below are folded into MCE.
 
@@ -220,7 +220,7 @@ MCE::Core::Input::Generator - Sequence of numbers (for task_id > 0)
 
 =head1 VERSION
 
-This document describes MCE::Core::Input::Generator version 1.892
+This document describes MCE::Core::Input::Generator version 1.893
 
 =head1 DESCRIPTION
 
