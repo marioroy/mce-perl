@@ -111,25 +111,7 @@ sub init {
       $_DATA->{ $pkg } = MCE::Child::_hash->new( $chnl );
       $_DATA->{"$pkg:id"} = 0;
 
-      # The PDL module 2.062 ~ 2.089 exports its own srand() function, that
-      # silently clobbers Perl's srand function, and does not seed Perl's
-      # pseudo-random generator. https://perlmonks.org/?node_id=11159773
-
-      if ( $INC{'PDL/Primitive.pm'} ) {
-         # Call PDL's random() function if exported i.e. use PDL.
-
-         my $caller = caller(); local $@;
-         $caller = caller(1) if ( $caller =~ /^MCE/ );
-         $caller = caller(2) if ( $caller =~ /^MCE/ );
-         $caller = caller(3) if ( $caller =~ /^MCE/ );
-
-         $_DATA->{"$pkg:seed"} = eval "$caller->can('random')"
-            ? int(PDL::Primitive::random() * 1e9)
-            : int(CORE::rand() * 1e9);
-      }
-      else {
-         $_DATA->{"$pkg:seed"} = int(CORE::rand() * 1e9);
-      }
+      $_DATA->{"$pkg:seed"} = int(CORE::rand() * 1e9);
 
       $MCE::_GMUTEX->unlock() if ( $_tid && $MCE::_GMUTEX );
    }
@@ -264,7 +246,7 @@ sub create {
          MCE::Child->_clear() if $INC{'MCE/Child.pm'};
          MCE::Hobo->_clear() if $INC{'MCE/Hobo.pm'};
 
-         # Sets the seed of the base generator uniquely between workers.
+         # Set the seed of the base generator uniquely between workers.
          # The new seed is computed using the current seed and ID value.
          # One may set the seed at the application level for predictable
          # results. Ditto for PDL, Math::Prime::Util, Math::Random, and
@@ -557,6 +539,13 @@ sub result {
 
    _croak('Child already joined') unless exists( $self->{RESULT} );
    wantarray ? @{ delete $self->{RESULT} } : delete( $self->{RESULT} )->[-1];
+}
+
+sub seed {
+   _croak('Usage: MCE::Child->seed()') if ref($_[0]);
+   my $pkg = exists $_SELF->{PKG} ? $_SELF->{PKG} : "$$.$_tid.".caller();
+
+   return $_DATA->{"$pkg:seed"};
 }
 
 sub self {
@@ -1542,6 +1531,13 @@ C<wantarray> aware.
 
  my @res2 = $child2->result();  # ( foo )
  my $res2 = $child2->result();  #   foo
+
+=item MCE::Child->seed()
+
+Class method that returns the internal random generated seed or undefined.
+The seed is generated once during init or initial create.
+
+Current API available since 1.895.
 
 =item MCE::Child->self()
 

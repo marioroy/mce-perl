@@ -121,7 +121,7 @@ BEGIN {
          return $self->{$_p};
       };
    }
-   for my $_p (qw( chunk_id task_id task_wid wid )) {
+   for my $_p (qw( chunk_id seed task_id task_wid wid )) {
       *{ $_p } = sub () {
          my $self = shift; $self = $MCE unless ref($self);
          return $self->{"_${_p}"};
@@ -641,25 +641,7 @@ sub spawn {
          for (0 .. $_max_workers - 1);
    }
 
-   # The PDL module 2.062 ~ 2.089 exports its own srand() function, that
-   # silently clobbers Perl's srand function, and does not seed Perl's
-   # pseudo-random generator. https://perlmonks.org/?node_id=11159773
-
-   if ( $INC{'PDL/Primitive.pm'} ) {
-      # Call PDL's random() function if exported i.e. use PDL.
-
-      my $caller = caller(); local $@;
-      $caller = caller(1) if ( $caller =~ /^MCE/ );
-      $caller = caller(2) if ( $caller =~ /^MCE/ );
-      $caller = caller(3) if ( $caller =~ /^MCE/ );
-
-      $self->{_seed} = eval "$caller->can('random')"
-         ? int(PDL::Primitive::random() * 1e9)
-         : int(CORE::rand() * 1e9);
-   }
-   else {
-      $self->{_seed} = int(CORE::rand() * 1e9);
-   }
+   $self->{_seed} = int(CORE::rand() * 1e9);
 
    ## -------------------------------------------------------------------------
 
@@ -1609,8 +1591,7 @@ sub sess_dir {
    return $self->{_sess_dir} if defined $self->{_sess_dir};
 
    if ($self->{_wid} == 0) {
-      $self->{_sess_dir} = $self->{_spawned}
-         ? _make_sessdir($self) : undef;
+      $self->{_sess_dir} = $self->{_spawned} ? _make_sessdir($self) : undef;
    }
    else {
       my $_chn        = $self->{_chn};
@@ -2033,17 +2014,15 @@ sub _dispatch {
       MCE::Hobo->_clear() if $INC{'MCE/Hobo.pm'};
    }
 
-   # Sets the seed of the base generator uniquely between workers.
+   # Set the seed of the base generator uniquely between workers.
    # The new seed is computed using the current seed and ID value.
    # One may set the seed at the application level for predictable
    # results (non-thread workers only). Ditto for Math::Prime::Util,
    # Math::Random, Math::Random::MT::Auto, and PDL.
    #
-   # MCE 1.892, 2024-06-08
-   #     Removed check if spawning threads i.e. use_threads.
-   #     Predictable output matches non-threads for CORE,
-   #     Math::Prime::Util, and Math::Random::MT::Auto.
-   #     https://perlmonks.org/?node_id=11159834
+   # MCE 1.892, 2024-06-08: Enable predictability running threads.
+   # Output matches non-threads for CORE, Math::Prime::Util, and
+   # Math::Random::MT::Auto. https://perlmonks.org/?node_id=11159834
 
    {
       my $_wid  = $_args[1];

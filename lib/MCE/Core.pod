@@ -1474,6 +1474,15 @@ Sending to C<IO::All> { File, Pipe, STDIO } is supported since MCE 1.845.
  MCE->say($out, "sent to stdout");
  MCE->say($err, "sent to stderr");
 
+=head2 MCE->seed ( void )
+
+=head2 $mce->seed ( void )
+
+Returns the internal random generated seed or undefined.
+The seed is generated each time, prior to spawning a MCE session.
+
+Current API available since 1.895.
+
 =head2 MCE->sess_dir ( void )
 
 =head2 $mce->sess_dir ( void )

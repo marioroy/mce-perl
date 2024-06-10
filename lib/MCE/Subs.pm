@@ -102,6 +102,7 @@ sub mce_chunk_size  ( ) { return $MCE::MCE->chunk_size(); }
 sub mce_max_retries ( ) { return $MCE::MCE->max_retries(); }
 sub mce_max_workers ( ) { return $MCE::MCE->max_workers(); }
 sub mce_pid         ( ) { return $MCE::MCE->pid(); }
+sub mce_seed        ( ) { return $MCE::MCE->seed(); }
 sub mce_sess_dir    ( ) { return $MCE::MCE->sess_dir(); }
 sub mce_task_id     ( ) { return $MCE::MCE->task_id(); }
 sub mce_task_name   ( ) { return $MCE::MCE->task_name(); }
@@ -176,6 +177,7 @@ sub _export_subs {
       *{ $_package . '::mce_max_retries' } = \&mce_max_retries;
       *{ $_package . '::mce_max_workers' } = \&mce_max_workers;
       *{ $_package . '::mce_pid'         } = \&mce_pid;
+      *{ $_package . '::mce_seed'        } = \&mce_seed;
       *{ $_package . '::mce_sess_dir'    } = \&mce_sess_dir;
       *{ $_package . '::mce_task_id'     } = \&mce_task_id;
       *{ $_package . '::mce_task_name'   } = \&mce_task_name;
@@ -370,6 +372,8 @@ MCE methods are described in L<MCE::Core>.
 =item * mce_max_workers
 
 =item * mce_pid
+
+=item * mce_seed
 
 =item * mce_sess_dir
 
