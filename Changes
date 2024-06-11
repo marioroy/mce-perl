@@ -1,7 +1,18 @@
 
 Revision history for Perl module MCE.
 
-1.895 Sun Jun 10 01:00:00 EST 2024
+1.896 Tue Jun 11 16:00:00 EST 2024
+
+  * Weaken internal core MCE reference to reap workers automatically
+    upon leaving the { scope i.e. omitting shutdown }. Note: No change
+    to MCE models Flow, Grep, Loop, Map, Step, and Stream. Call finish
+    explicitly to reap workers.
+
+    This resolves the case where the author omitted calling $mce->run(),
+    $mce->run(1), or $mce->shutdown() inside a scope, causing workers
+    to linger around until completion of the script.
+
+1.895 Sun Jun 09 01:00:00 EST 2024
 
   * Revert back to calling CORE::rand() to set the internal seed.
     MCE and MCE::Child cannot assume the srand or setter function used
