@@ -508,7 +508,10 @@ sub new {
    $self{_lock_chn} = ($_total_workers > $self{_data_channels}) ? 1 : 0;
    $self{_lock_chn} = 1 if $INC{'MCE/Child.pm'} || $INC{'MCE/Hobo.pm'};
 
-   $MCE = \%self if ($MCE->{_wid} == 0);
+   if ($MCE->{_wid} == 0) {
+      $MCE = \%self;
+      weaken $MCE if (defined wantarray);
+   }
 
    return \%self;
 }
@@ -585,7 +588,7 @@ sub spawn {
       if ($_is_MSWin32 && defined $TOP_HDLR && $TOP_HDLR->{_spawned}) {
          $TOP_HDLR->shutdown(1);
       }
-      $TOP_HDLR = $self;
+      weaken($TOP_HDLR = $self);
    }
    elsif (refaddr($self) != refaddr($TOP_HDLR)) {
       ## Reduce the maximum number of channels for nested sessions.
@@ -737,7 +740,7 @@ sub spawn {
    $SIG{__DIE__}  = $_die_handler;
    $SIG{__WARN__} = $_warn_handler;
 
-   $MCE = $self if ($MCE->{_wid} == 0);
+   $MCE = $self if ($MCE->{_wid} == 0 && refaddr($MCE) != refaddr($self));
 
    $MCE::_GMUTEX->unlock() if ($_tid && $MCE::_GMUTEX);
 
@@ -994,7 +997,7 @@ sub run {
    local $SIG{__DIE__}  = \&MCE::Signal::_die_handler;
    local $SIG{__WARN__} = \&MCE::Signal::_warn_handler;
 
-   $MCE = $self if ($MCE->{_wid} == 0);
+   $MCE = $self if ($MCE->{_wid} == 0 && refaddr($MCE) != refaddr($self));
 
    my ($_input_data, $_input_file, $_input_glob, $_seq);
    my ($_abort_msg, $_first_msg, $_run_mode, $_single_dim);
@@ -2031,6 +2034,8 @@ sub _dispatch {
       CORE::srand($_seed) if (!$self->{use_threads} || $] ge '5.020000'); # drand48
       Math::Prime::Util::srand($_seed) if $INC{'Math/Prime/Util.pm'};
 
+      # [etj] identified a race condition in PDL running threads
+      # https://perlmonks.org/?node_id=11159841
       if (!$self->{use_threads}) {
          PDL::srand($_seed) if $INC{'PDL.pm'} && PDL->can('srand'); # PDL 2.062 ~ 2.089
          PDL::srandom($_seed) if $INC{'PDL.pm'} && PDL->can('srandom'); # PDL 2.089_01+
