@@ -8,9 +8,9 @@ Revision history for Perl module MCE.
     to MCE models Flow, Grep, Loop, Map, Step, and Stream. Call finish
     explicitly to reap workers.
 
-    This resolves the case where the author omitted calling $mce->run(),
-    $mce->run(1), or $mce->shutdown() inside a scope, causing workers
-    to linger around until completion of the script.
+    This resolves the case when omitting calling either one of $mce->run(),
+    $mce->run(1), or $mce->shutdown() inside a scope, causing workers to
+    linger around until completion of the script.
 
 1.895 Sun Jun 09 01:00:00 EST 2024
 
