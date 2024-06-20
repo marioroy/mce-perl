@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.896';
+our $VERSION = '1.897';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -110,6 +110,17 @@ sub _gather {
 ##
 ###############################################################################
 
+sub MCE::Map::_guard::DESTROY {
+   my ($_pkg, $_id) = @{ $_[0] };
+
+   if (defined $_pkg && $_id eq "$$.$_tid") {
+      @{ $_[0] } = ();
+      MCE::Map->finish($_pkg);
+   }
+
+   return;
+}
+
 sub init (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Map');
@@ -122,7 +133,9 @@ sub init (@) {
 
    @_ = ();
 
-   return;
+   defined wantarray
+      ? bless([$_pkg, "$$.$_tid"], MCE::Map::_guard::)
+      : ();
 }
 
 sub finish (@) {
@@ -453,7 +466,7 @@ MCE::Map - Parallel map model similar to the native map function
 
 =head1 VERSION
 
-This document describes MCE::Map version 1.896
+This document describes MCE::Map version 1.897
 
 =head1 SYNOPSIS
 
@@ -572,9 +585,12 @@ Specify C<< Sereal => 0 >> to use Storable instead.
 The init function accepts a hash of MCE options. The gather option, if
 specified, is ignored due to being used internally by the module.
 
+In scalar context (API available since 1.897), call C<MCE::Map->finish>
+automatically upon leaving the scope or program.
+
  use MCE::Map;
 
- MCE::Map->init(
+ my $guard = MCE::Map->init(
     chunk_size => 1, max_workers => 4,
 
     user_begin => sub {

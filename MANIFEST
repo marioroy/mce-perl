@@ -80,6 +80,7 @@ t/05_mce_loop.t
 t/05_mce_map.t
 t/05_mce_step.t
 t/05_mce_stream.t
+t/06_candy.t
 t/06_nodata_flow.t
 t/06_nodata_step.t
 t/06_relay.t

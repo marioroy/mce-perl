@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.896';
+our $VERSION = '1.897';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -92,6 +92,17 @@ sub import {
 ##
 ###############################################################################
 
+sub MCE::Loop::_guard::DESTROY {
+   my ($_pkg, $_id) = @{ $_[0] };
+
+   if (defined $_pkg && $_id eq "$$.$_tid") {
+      @{ $_[0] } = ();
+      MCE::Loop->finish($_pkg);
+   }
+
+   return;
+}
+
 sub init (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Loop');
@@ -101,7 +112,9 @@ sub init (@) {
 
    @_ = ();
 
-   return;
+   defined wantarray
+      ? bless([$_pkg, "$$.$_tid"], MCE::Loop::_guard::)
+      : ();
 }
 
 sub finish (@) {
@@ -364,7 +377,7 @@ MCE::Loop - MCE model for building parallel loops
 
 =head1 VERSION
 
-This document describes MCE::Loop version 1.896
+This document describes MCE::Loop version 1.897
 
 =head1 DESCRIPTION
 
@@ -552,9 +565,12 @@ Specify C<< Sereal => 0 >> to use Storable instead.
 
 The init function accepts a hash of MCE options.
 
+In scalar context (API available since 1.897), call C<MCE::Loop->finish>
+automatically upon leaving the scope or program.
+
  use MCE::Loop;
 
- MCE::Loop->init(
+ my $guard = MCE::Loop->init(
     chunk_size => 1, max_workers => 4,
 
     user_begin => sub {

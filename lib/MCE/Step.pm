@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.896';
+our $VERSION = '1.897';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -248,6 +248,17 @@ sub _task_end {
 ##
 ###############################################################################
 
+sub MCE::Step::_guard::DESTROY {
+   my ($_pkg, $_id) = @{ $_[0] };
+
+   if (defined $_pkg && $_id eq "$$.$_tid") {
+      @{ $_[0] } = ();
+      MCE::Step->finish($_pkg);
+   }
+
+   return;
+}
+
 sub init (@) {
 
    shift if (defined $_[0] && $_[0] eq 'MCE::Step');
@@ -257,7 +268,9 @@ sub init (@) {
 
    @_ = ();
 
-   return;
+   defined wantarray
+      ? bless([$_pkg, "$$.$_tid"], MCE::Step::_guard::)
+      : ();
 }
 
 sub finish (@) {
@@ -700,7 +713,7 @@ MCE::Step - Parallel step model for building creative steps
 
 =head1 VERSION
 
-This document describes MCE::Step version 1.896
+This document describes MCE::Step version 1.897
 
 =head1 DESCRIPTION
 
@@ -982,12 +995,14 @@ Specify C<< Sereal => 0 >> to use Storable instead.
 =back
 
 The init function accepts a hash of MCE options. Unlike with MCE::Stream,
-both gather and bounds_only options may be specified when calling init
-(not shown below).
+both gather and bounds_only options may be specified (not shown below).
+
+In scalar context (API available since 1.897), call C<MCE::Step->finish>
+automatically upon leaving the scope or program.
 
  use MCE::Step;
 
- MCE::Step->init(
+ my $guard = MCE::Step->init(
     chunk_size => 1, max_workers => 4,
 
     user_begin => sub {

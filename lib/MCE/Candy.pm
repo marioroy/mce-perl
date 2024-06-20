@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.896';
+our $VERSION = '1.897';
 
 our @CARP_NOT = qw( MCE );
 
@@ -176,6 +176,32 @@ sub out_iter_array {
    };
 }
 
+sub out_iter_callback {
+
+   my $_cref = shift; my %_tmp; my $_order_id = 1;
+
+   MCE::_croak('The argument to (out_iter_callback) is not a CODE ref.')
+      unless (ref $_cref eq 'CODE');
+
+   return sub {
+      my $_chunk_id = shift;
+
+      if ($_chunk_id == $_order_id && keys %_tmp == 0) {
+         ## already orderly
+         $_order_id++, $_cref->(@_);
+      }
+      else {
+         ## hold temporarily otherwise until orderly
+         @{ $_tmp{ $_chunk_id } } = @_;
+
+         while (1) {
+            last unless exists $_tmp{ $_order_id };
+            $_cref->(@{ delete $_tmp{ $_order_id++ } });
+         }
+      }
+   };
+}
+
 sub out_iter_fh {
 
    my $_fh =  $_[0]; my %_tmp; my $_order_id = 1;
@@ -240,7 +266,7 @@ MCE::Candy - Sugar methods and output iterators
 
 =head1 VERSION
 
-This document describes MCE::Candy version 1.896
+This document describes MCE::Candy version 1.897
 
 =head1 DESCRIPTION
 
@@ -340,10 +366,9 @@ to 1 when not specified.
 
 =head1 OUTPUT ITERATORS WITH INPUT
 
-This module includes 2 output iterators which are useful for preserving output
-order while gathering data. These cover the 2 general use cases. The chunk_id
-value must be the first argument to gather. Gather must also not be called
-more than once inside the block.
+This module provides three output iterators useful for preserving output order
+while gathering data. The chunk_id value must be the first argument to gather.
+Gather must be called once and not more inside the block.
 
 =head2 gather => MCE::Candy::out_iter_array( \@array )
 
@@ -365,6 +390,7 @@ chunk_size to 1.
  );
 
  $mce->process([ 100 .. 109 ]);
+ $mce->shutdown();
 
  print "@results", "\n";
 
@@ -394,12 +420,56 @@ to reduce the overhead placed on IPC.
  );
 
  $mce->process([ 100_000 .. 200_000 - 1 ]);
+ $mce->shutdown();
 
  print scalar @results, "\n";
 
  -- Output
 
  100000
+
+=head2 gather => MCE::Candy::out_iter_callback( \&cb_func )
+
+MCE workers pass arguments for the callback function. The chunk_id argument
+to gather is used internally for calling the callback function orderly.
+
+Current API available since 1.897.
+
+ use MCE;
+ use MCE::Candy;
+
+ my @results;
+ my $max_status = 0;
+
+ sub upd_vars {
+    push @results, @{ $_[0] };
+    $max_status = $_[1] if ($_[1] > $max_status);
+ }
+
+ my $mce = MCE->new(
+    chunk_size => 100, max_workers => 4,
+    gather => MCE::Candy::out_iter_callback(\&upd_vars),
+    user_func => sub {
+       my ($mce, $chunk_ref, $chunk_id) = @_;
+       my @output;
+       foreach my $item (@{ $chunk_ref }) {
+          push @output, $item * 2;
+       }
+       my $status = $mce->chunk_id == 3 ? 2 : 0;
+       $mce->gather($chunk_id, [ @output ], $status);
+    }
+ );
+
+ $mce->process([ 100_000 .. 200_000 - 1 ]);
+ $mce->shutdown();
+
+ print scalar @results, "\n";
+ print $max_status, "\n";
+
+ -- Output
+
+ 100000
+ 2
 
 =head2 gather => MCE::Candy::out_iter_fh( $fh )
 
@@ -502,20 +572,27 @@ Chunking is desired for the next example due to processing many thousands.
 
 =head1 OUTPUT ITERATORS WITHOUT INPUT
 
-Input data is not a requirement for using the output iterators included in this
-module. The 'chunk_id' value is set uniquely and the same as 'wid' when not
+Input data is not a requirement for using the output iterators. The 'chunk_id'
+argument to gather is still needed and set uniquely, same as 'wid' when not
 processing input data.
 
 =head2 gather => MCE::Candy::out_iter_array( \@array )
+
+=head2 gather => MCE::Candy::out_iter_callback( \&cb_func )
 
  use MCE::Flow;
  use MCE::Candy;
 
  my @results;
 
+ sub append_results {
+    push @results, $_[0];
+ }
+
  mce_flow {
     max_workers => 'auto', ## Note that 'auto' is never greater than 8
-    gather => MCE::Candy::out_iter_array(\@results)
+    gather => MCE::Candy::out_iter_array(\@results),
+  # gather => MCE::Candy::out_iter_callback(\&append_results),
  },
  sub {
     my ($mce) = @_;        ## This line is not necessary
@@ -524,7 +601,7 @@ processing input data.
     ## Sending a complex data structure is allowed
 
     ## Output will become orderly by iterator
-    $mce->gather( $mce->chunk_id, {
+    $mce->gather( $mce->wid, {
        wid => $mce->wid, result => $mce->wid * 2
     });
  };

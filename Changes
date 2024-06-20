@@ -1,6 +1,14 @@
 
 Revision history for Perl module MCE.
 
+1.897 Wed Jun 19 22:00:00 EST 2024
+
+  * In scalar context, the init function in MCE Child and models Flow, Grep,
+    Loop, Map, Step, and Stream returns a guard to call finish automatically
+    upon leaving the { scope i.e. omitting finish }.
+
+  * Add out_iter_callback to MCE::Candy.
+
 1.896 Tue Jun 11 16:00:00 EST 2024
 
   * Weaken internal core MCE reference to reap workers automatically

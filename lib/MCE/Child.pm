@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.896';
+our $VERSION = '1.897';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -80,6 +80,17 @@ sub _max_workers {
 
 bless my $_SELF = { MGR_ID => "$$.$_tid", WRK_ID => $$ }, __PACKAGE__;
 
+sub MCE::Child::_guard::DESTROY {
+   my ($pkg, $id) = @{ $_[0] };
+
+   if (defined $pkg && $id eq "$$.$_tid") {
+      @{ $_[0] } = ();
+      MCE::Child->finish($pkg);
+   }
+
+   return;
+}
+
 sub init {
    shift if ( defined $_[0] && $_[0] eq __PACKAGE__ );
 
@@ -137,7 +148,9 @@ sub init {
    require POSIX
       if ( $mngd->{on_finish} && !$INC{'POSIX.pm'} && !$_is_MSWin32 );
 
-   return;
+   defined wantarray
+      ? bless([$pkg, "$$.$_tid"], MCE::Child::_guard::)
+      : ();
 }
 
 ###############################################################################
@@ -345,7 +358,7 @@ sub finish {
    _croak('Usage: MCE::Child->finish()') if ref($_[0]);
    shift if ( defined $_[0] && $_[0] eq __PACKAGE__ );
 
-   my $pkg = defined($_[0]) ? $_[0] : caller();
+   my $pkg = defined($_[0]) ? shift : "$$.$_tid.".caller();
 
    if ( $pkg eq 'MCE' ) {
       for my $key ( keys %{ $_LIST } ) { MCE::Child->finish($key); }
@@ -1009,7 +1022,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.896
+This document describes MCE::Child version 1.897
 
 =head1 SYNOPSIS
 
@@ -1295,7 +1308,10 @@ processes not yet joined.
 
 The init function accepts a list of MCE::Child options.
 
- MCE::Child->init(
+In scalar context (API available since 1.897), call C<MCE::Child->finish>
+automatically upon leaving the scope or program.
+
+ my $guard = MCE::Child->init(
      max_workers => 'auto',   # default undef, unlimited
 
      # Specify a percentage. MCE::Child 1.876+.
