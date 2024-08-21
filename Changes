@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.898 Wed Aug 21 15:30:00 EST 2024
+
+  * Fix for MCE::Child #22, Can't call method "len" on an undefined value
+    during global destruction. Thanks, @exodist.
+
 1.897 Wed Jun 19 22:00:00 EST 2024
 
   * In scalar context, the init function in MCE Child and models Flow, Grep,
