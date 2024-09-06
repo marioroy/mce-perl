@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.899 Fri Sep 06 00:15:00 EST 2024
+
+  * Fix for MCE::Child and MCE::Channel signal anomaly #24.
+    Thank you, @exodist.
+
 1.898 Wed Aug 21 15:30:00 EST 2024
 
   * Fix for MCE::Child #22, Can't call method "len" on an undefined value

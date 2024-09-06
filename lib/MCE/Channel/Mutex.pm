@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( uninitialized once );
 
-our $VERSION = '1.898';
+our $VERSION = '1.899';
 
 use base 'MCE::Channel';
 use MCE::Mutex ();
@@ -217,11 +217,22 @@ sub recv_nb {
 sub send2 {
    my $self = shift;
    my $data = $freeze->([ @_ ]);
+   my $sig;
 
-   local $\ = undef if (defined $\);
-   $self->{c_mutex}->synchronize2( sub {
-      print { $self->{c_sock} } pack('i', length $data), $data;
-   });
+   {
+      local $SIG{ABRT} = local $SIG{HUP} =
+      local $SIG{QUIT} = local $SIG{INT} =
+      local $SIG{TERM} = sub {
+         $sig = $_[0];
+      };
+
+      local $\ = undef if (defined $\);
+      $self->{c_mutex}->synchronize2( sub {
+         print { $self->{c_sock} } pack('i', length $data), $data;
+      });
+   }
+
+   CORE::kill($sig, $$) if $sig;
 
    return 1;
 }
@@ -296,7 +307,7 @@ MCE::Channel::Mutex - Channel for producer(s) and many consumers
 
 =head1 VERSION
 
-This document describes MCE::Channel::Mutex version 1.898
+This document describes MCE::Channel::Mutex version 1.899
 
 =head1 DESCRIPTION
 
