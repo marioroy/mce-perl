@@ -1,6 +1,10 @@
 
 Revision history for Perl module MCE.
 
+1.900 Mon Sep 09 20:30:00 EST 2024
+
+  * Improve MCE::Child exiting when signaled.
+
 1.899 Fri Sep 06 00:15:00 EST 2024
 
   * Fix for MCE::Child and MCE::Channel signal anomaly #24.

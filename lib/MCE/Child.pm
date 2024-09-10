@@ -11,7 +11,7 @@ no warnings qw( threads recursion uninitialized once redefine );
 
 package MCE::Child;
 
-our $VERSION = '1.899';
+our $VERSION = '1.900';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitExplicitReturnUndef)
@@ -339,7 +339,7 @@ sub exit {
 
    return $self if $self->{REAPED};
 
-   if ( exists $_DATA->{$pkg} ) {
+   if ( defined $_DATA->{$pkg} ) {
       sleep $_yield_secs until $_DATA->{$pkg}->exists('S'.$wrk_id);
    } else {
       sleep 0.030;
@@ -465,7 +465,7 @@ sub kill {
    }
    if ( $self->{MGR_ID} eq "$$.$_tid" ) {
       return $self if $self->{REAPED};
-      if ( exists $_DATA->{$pkg} ) {
+      if ( defined $_DATA->{$pkg} ) {
          sleep $_yield_secs until $_DATA->{$pkg}->exists('S'.$wrk_id);
       } else {
          sleep 0.030;
@@ -698,11 +698,12 @@ sub _exit {
    $SIG{__WARN__} = sub {};
 
    threads->exit($exit_status) if ( $INC{'threads.pm'} && $_is_MSWin32 );
+   CORE::kill('KILL', $$) if ( $_SELF->{SIGNALED} && !$_is_MSWin32 );
 
    my $posix_exit = ( exists $_SELF->{posix_exit} )
       ? $_SELF->{posix_exit} : $_MNGD->{ $_SELF->{PKG} }{posix_exit};
 
-   if ( $posix_exit && !$_SELF->{SIGNALED} && !$_is_MSWin32 ) {
+   if ( $posix_exit && !$_is_MSWin32 ) {
       eval { MCE::Mutex::Channel::_destroy() };
       POSIX::_exit($exit_status) if $INC{'POSIX.pm'};
       CORE::kill('KILL', $$);
@@ -752,7 +753,7 @@ sub _quit {
 
 sub _reap_child {
    my ( $child, $wait_flag ) = @_;
-   return unless $child;
+   return if ( !$child || !defined $child->{PKG} );
 
    local @_ = $_DATA->{ $child->{PKG} }->get($child->{WRK_ID}, $wait_flag);
 
@@ -1022,7 +1023,7 @@ MCE::Child - A threads-like parallelization module compatible with Perl 5.8
 
 =head1 VERSION
 
-This document describes MCE::Child version 1.899
+This document describes MCE::Child version 1.900
 
 =head1 SYNOPSIS
 
