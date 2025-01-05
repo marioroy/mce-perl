@@ -19,6 +19,7 @@ lib/MCE/Channel/SimpleFast.pm
 lib/MCE/Channel/Threads.pm
 lib/MCE/Channel/ThreadsFast.pm
 lib/MCE/Child.pm
+lib/MCE/Core.pm
 lib/MCE/Core.pod
 lib/MCE/Core/Input/Generator.pm
 lib/MCE/Core/Input/Handle.pm

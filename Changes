@@ -1,6 +1,10 @@
 
 Revision history for Perl module MCE.
 
+1.901 Thu Jan 02 17:30:00 EST 2024
+
+  * Add MCE::Core package for future development.
+
 1.900 Mon Sep 09 20:30:00 EST 2024
 
   * Improve MCE::Child exiting when signaled.
