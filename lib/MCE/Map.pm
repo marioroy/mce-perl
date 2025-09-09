@@ -278,7 +278,7 @@ sub run (&@) {
    my $_input_data; my $_max_workers = $_def->{$_pkg}{MAX_WORKERS};
    my $_r = ref $_[0];
 
-   if (@_ == 1 && $_r =~ /^(?:ARRAY|HASH|SCALAR|CODE|GLOB|FileHandle|IO::)/) {
+   if (@_ == 1 && $_r =~ /^(?:ARRAY|HASH|SCALAR|CODE|GLOB|FileHandle|IO::|Iterator::)/) {
       _croak("$_tag: (HASH) not allowed as input by this MCE model")
          if $_r eq 'HASH';
       $_input_data = shift;

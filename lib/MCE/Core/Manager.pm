@@ -439,7 +439,9 @@ sub _output_loop {
             return;
          }
 
-         my @_ret_a = $_input_data->($_chunk_size);
+         my @_ret_a = (ref $_input_data eq 'CODE')
+            ? $_input_data->($_chunk_size)
+            : $_input_data->();
 
          if (@_ret_a > 1 || defined $_ret_a[0]) {
             $_buf = $self->{freeze}([ @_ret_a ]);

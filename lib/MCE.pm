@@ -567,7 +567,7 @@ sub spawn {
          require MCE::Core::Input::Request
             unless $INC{'MCE/Core/Input/Request.pm'};
       }
-      elsif ($_ref eq 'CODE') {
+      elsif ($_ref =~ /^(?:CODE|Iterator::)/) {
          require MCE::Core::Input::Iterator
             unless $INC{'MCE/Core/Input/Iterator.pm'};
       }
@@ -1082,7 +1082,7 @@ sub run {
          $_abort_msg  = 0; ## Flag: Has Data: No
          $_first_msg  = 1; ## Flag: Has Data: Yes
       }
-      elsif ($_ref eq 'CODE') {                       # Iterator mode
+      elsif ($_ref =~ /^(?:CODE|Iterator::)/) {       # Iterator mode
          $_run_mode   = 'iterator';
          $_input_data = $self->{input_data};
          $_input_file = $_input_glob = undef;

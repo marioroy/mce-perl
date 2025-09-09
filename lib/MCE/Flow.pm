@@ -326,7 +326,7 @@ sub run (@) {
    my $_input_data; my $_max_workers = $_def->{$_pkg}{MAX_WORKERS};
    my $_r = ref $_[0];
 
-   if (@_ == 1 && $_r =~ /^(?:ARRAY|HASH|SCALAR|GLOB|FileHandle|IO::)/) {
+   if (@_ == 1 && $_r =~ /^(?:ARRAY|HASH|SCALAR|GLOB|FileHandle|IO::|Iterator::)/) {
       $_input_data = shift;
    }
 
