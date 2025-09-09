@@ -1,7 +1,11 @@
 
 Revision history for Perl module MCE.
 
-1.901 Thu Jan 02 17:30:00 EST 2024
+1.902 Tue Sep 09 15:00:00 EST 2025
+
+  * Add support for Iterator:: classes.
+
+1.901 Thu Jan 02 17:30:00 EST 2025
 
   * Add MCE::Core package for future development.
 
