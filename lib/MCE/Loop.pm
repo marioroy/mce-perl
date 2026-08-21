@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.902';
+our $VERSION = '1.903';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -247,10 +247,16 @@ sub run_seq (&@) {
 
 sub run (&@) {
 
+   my $_caller = caller();
+   if ($_caller ne 'MCE::Loop' && !exists $_def->{$_caller}) {
+      warn "MCE::Loop is not imported into the \"$_caller\" namespace. Aborting...\n";
+      return;
+   }
+
    shift if (defined $_[0] && $_[0] eq 'MCE::Loop');
 
    my $_code = shift;
-   my $_pkg  = caller() eq 'MCE::Loop' ? caller(1) : caller();
+   my $_pkg  = $_caller eq 'MCE::Loop' ? caller(1) : $_caller;
    my $_pid  = "$$.$_tid.$_pkg";
 
    my $_input_data; my $_max_workers = $_def->{$_pkg}{MAX_WORKERS};
@@ -377,7 +383,7 @@ MCE::Loop - MCE model for building parallel loops
 
 =head1 VERSION
 
-This document describes MCE::Loop version 1.902
+This document describes MCE::Loop version 1.903
 
 =head1 DESCRIPTION
 

@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.902';
+our $VERSION = '1.903';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -269,10 +269,16 @@ sub run_seq (&@) {
 
 sub run (&@) {
 
+   my $_caller = caller();
+   if ($_caller ne 'MCE::Map' && !exists $_def->{$_caller}) {
+      warn "MCE::Map is not imported into the \"$_caller\" namespace. Aborting...\n";
+      return;
+   }
+
    shift if (defined $_[0] && $_[0] eq 'MCE::Map');
 
    my $_code = shift;  $_total_chunks = 0; undef %_tmp;
-   my $_pkg  = caller() eq 'MCE::Map' ? caller(1) : caller();
+   my $_pkg  = $_caller eq 'MCE::Map' ? caller(1) : $_caller;
    my $_pid  = "$$.$_tid.$_pkg";
 
    my $_input_data; my $_max_workers = $_def->{$_pkg}{MAX_WORKERS};
@@ -466,7 +472,7 @@ MCE::Map - Parallel map model similar to the native map function
 
 =head1 VERSION
 
-This document describes MCE::Map version 1.902
+This document describes MCE::Map version 1.903
 
 =head1 SYNOPSIS
 

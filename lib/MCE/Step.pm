@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.902';
+our $VERSION = '1.903';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -426,9 +426,15 @@ sub run_seq (@) {
 
 sub run (@) {
 
+   my $_caller = caller();
+   if ($_caller ne 'MCE::Step' && !exists $_def->{$_caller}) {
+      warn "MCE::Step is not imported into the \"$_caller\" namespace. Aborting...\n";
+      return;
+   }
+
    shift if (defined $_[0] && $_[0] eq 'MCE::Step');
 
-   my $_pkg = caller() eq 'MCE::Step' ? caller(1) : caller();
+   my $_pkg = $_caller eq 'MCE::Step' ? caller(1) : $_caller;
    my $_pid = "$$.$_tid.$_pkg";
 
    if (ref $_[0] eq 'HASH') {
@@ -713,7 +719,7 @@ MCE::Step - Parallel step model for building creative steps
 
 =head1 VERSION
 
-This document describes MCE::Step version 1.902
+This document describes MCE::Step version 1.903
 
 =head1 DESCRIPTION
 

@@ -14,7 +14,7 @@ package MCE::Core::Manager;
 use strict;
 use warnings;
 
-our $VERSION = '1.902';
+our $VERSION = '1.903';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (TestingAndDebugging::ProhibitNoStrict)
@@ -1043,7 +1043,7 @@ MCE::Core::Manager - Core methods for the manager process
 
 =head1 VERSION
 
-This document describes MCE::Core::Manager version 1.902
+This document describes MCE::Core::Manager version 1.903
 
 =head1 DESCRIPTION
 

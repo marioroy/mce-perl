@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.902';
+our $VERSION = '1.903';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -326,9 +326,15 @@ sub run_seq (@) {
 
 sub run (@) {
 
+   my $_caller = caller();
+   if ($_caller ne 'MCE::Stream' && !exists $_def->{$_caller}) {
+      warn "MCE::Stream is not imported into the \"$_caller\" namespace. Aborting...\n";
+      return;
+   }
+
    shift if (defined $_[0] && $_[0] eq 'MCE::Stream');
 
-   my $_pkg = caller() eq 'MCE::Stream' ? caller(1) : caller();
+   my $_pkg = $_caller eq 'MCE::Stream' ? caller(1) : $_caller;
    my $_pid = "$$.$_tid.$_pkg";
 
    if (ref $_[0] eq 'HASH' && !exists $_[0]->{code}) {
@@ -691,7 +697,7 @@ MCE::Stream - Parallel stream model for chaining multiple maps and greps
 
 =head1 VERSION
 
-This document describes MCE::Stream version 1.902
+This document describes MCE::Stream version 1.903
 
 =head1 SYNOPSIS
 

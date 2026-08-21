@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.902';
+our $VERSION = '1.903';
 
 our @CARP_NOT = qw( MCE );
 
@@ -266,7 +266,7 @@ MCE::Candy - Sugar methods and output iterators
 
 =head1 VERSION
 
-This document describes MCE::Candy version 1.902
+This document describes MCE::Candy version 1.903
 
 =head1 DESCRIPTION
 

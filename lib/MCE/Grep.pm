@@ -11,7 +11,7 @@ use warnings;
 
 no warnings qw( threads recursion uninitialized );
 
-our $VERSION = '1.902';
+our $VERSION = '1.903';
 
 ## no critic (BuiltinFunctions::ProhibitStringyEval)
 ## no critic (Subroutines::ProhibitSubroutinePrototypes)
@@ -269,10 +269,16 @@ sub run_seq (&@) {
 
 sub run (&@) {
 
+   my $_caller = caller();
+   if ($_caller ne 'MCE::Grep' && !exists $_def->{$_caller}) {
+      warn "MCE::Grep is not imported into the \"$_caller\" namespace. Aborting...\n";
+      return;
+   }
+
    shift if (defined $_[0] && $_[0] eq 'MCE::Grep');
 
    my $_code = shift;  $_total_chunks = 0; undef %_tmp;
-   my $_pkg  = caller() eq 'MCE::Grep' ? caller(1) : caller();
+   my $_pkg  = $_caller eq 'MCE::Grep' ? caller(1) : $_caller;
    my $_pid  = "$$.$_tid.$_pkg";
 
    my $_input_data; my $_max_workers = $_def->{$_pkg}{MAX_WORKERS};
@@ -466,7 +472,7 @@ MCE::Grep - Parallel grep model similar to the native grep function
 
 =head1 VERSION
 
-This document describes MCE::Grep version 1.902
+This document describes MCE::Grep version 1.903
 
 =head1 SYNOPSIS
 

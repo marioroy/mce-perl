@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.903 Thu Aug 20 21:00:00 EST 2026
+
+  * Check that the MCE Model is imported in the namespace before use.
+    Thank you, @djerius.
+
 1.902 Tue Sep 09 15:00:00 EST 2025
 
   * Add support for Iterator:: classes.
