@@ -9,7 +9,7 @@ package MCE::Core;
 use strict;
 use warnings;
 
-our $VERSION = '1.903';
+our $VERSION = '1.904';
 
 1;
 

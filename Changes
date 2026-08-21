@@ -1,6 +1,11 @@
 
 Revision history for Perl module MCE.
 
+1.904 Fri Aug 21 16:00:00 EST 2026
+
+  * Update License.
+    Thank you, Paul Howarth.
+
 1.903 Thu Aug 20 21:00:00 EST 2026
 
   * Check that the MCE Model is imported in the namespace before use.
